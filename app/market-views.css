@@ -50,6 +50,7 @@
   .view-large .hover-card {
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
+    box-shadow: none !important;
   }
 
   @media (hover:hover) and (pointer:fine) {
