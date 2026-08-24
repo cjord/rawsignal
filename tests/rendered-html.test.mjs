@@ -25,19 +25,23 @@ test("renders the branded dark-first application shell", async () => {
 });
 
 test("keeps core controls and chart interactions accessible", async () => {
-  const [page, sealed, marketUi, priceChart] = await Promise.all([
+  const [page, sealed, sealedFilters, marketUi, priceChart] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/SealedView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/SealedFilters.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/MarketUI.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/PriceChart.tsx", import.meta.url), "utf8"),
   ]);
   for (const label of ["Singles market", "Card rarity", "Cards per page"])
     assert.match(page, new RegExp(`aria-label=\\"${label}\\"`));
   for (const label of ["Sealed market", "Sealed set", "Sealed products per page"])
-    assert.match(sealed, new RegExp(`aria-label=\\"${label}\\"`));
+    assert.match(sealedFilters, new RegExp(`aria-label=\\"${label}\\"`));
   assert.match(page, /label="Card view"/);
   assert.match(page, /label="Leaderboard pages"/);
   assert.match(sealed, /label="Sealed product view"/);
+  assert.match(sealed, /className="sealed-toolbar"/);
+  assert.match(sealedFilters, /Keep after fees/);
+  assert.match(sealedFilters, /document\.addEventListener\("pointerdown",close\)/);
   assert.match(sealed, /label="Sealed product pages"/);
   assert.match(priceChart, /onPointerMove=\{move\}/);
   assert.match(priceChart, /className="chart-cursor"/);
