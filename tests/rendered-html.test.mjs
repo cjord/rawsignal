@@ -41,6 +41,7 @@ test("keeps core controls and chart interactions accessible", async () => {
   assert.match(sealed, /label="Sealed product pages"/);
   assert.match(priceChart, /onPointerMove=\{move\}/);
   assert.match(priceChart, /className="chart-cursor"/);
+  assert.match(priceChart, /preserveAspectRatio="none"/);
   assert.match(priceChart, /Math\.abs\(times\[i\]-target\)/);
   assert.match(marketUi, /aria-sort=/);
   assert.match(marketUi, /aria-current=/);
@@ -57,6 +58,9 @@ test("keeps core controls and chart interactions accessible", async () => {
   assert.match(page, /view!=="large"&&window\.matchMedia/);
   assert.match(page, /change90:nearestChange\(points,90\)/);
   assert.match(page, /movement\("90 day",history\?\.change90\)/);
+  assert.match(page, /view==="large"\|\|view==="full"\?<SortToolbar/);
+  assert.match(sealed, /view==="full"\?<SortToolbar/);
+  assert.match(page, /metrics=\{cardHistoryMetrics\(card,history\)\}/);
   const hover = page.slice(page.indexOf("function HoverCard"), page.indexOf("export default function Home"));
   assert.doesNotMatch(hover, /Listing low|Listing high/);
 });
