@@ -1,74 +1,32 @@
 "use client";
-import { useMemo, useState } from "react";
-import data from "../tcg-data.json";
-
-type Game = "pokemon" | "riftbound";
-type Card = (typeof data.sections)[keyof typeof data.sections][number];
-const gameSections = {
-  pokemon: [
-    ["vintage", "Vintage"], ["illustration-rares", "Illustration Rares"], ["special-illustration-rares", "Special Illustration Rares"],
-  ],
-  riftbound: [
-    ["rares", "Rares"], ["epics", "Epics"], ["alt-arts", "Alt Arts"], ["overnumbered", "Overnumbered"], ["signatures", "Signatures"],
-  ],
-} as const;
-const usd = (value: number | null) => value == null ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: value >= 100 ? 0 : 2 }).format(value);
-const date = new Date(data.sourceUpdatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-
-export default function Home() {
-  const [game, setGame] = useState<Game>("pokemon");
-  const [section, setSection] = useState("vintage");
-  const [query, setQuery] = useState("");
-  const [sort, setSort] = useState("market");
-  const sections = gameSections[game];
-  const label = sections.find(([key]) => key === section)?.[1] ?? sections[0][1];
-  const cards = useMemo(() => {
-    const source = (data.sections[section as keyof typeof data.sections] ?? []) as Card[];
-    const q = query.trim().toLowerCase();
-    return source.filter((card) => !q || `${card.name} ${card.set} ${card.number}`.toLowerCase().includes(q)).sort((a, b) => sort === "low" ? (a.lowPrice ?? Infinity) - (b.lowPrice ?? Infinity) : sort === "name" ? a.name.localeCompare(b.name) : b.marketPrice - a.marketPrice);
-  }, [section, query, sort]);
-  const switchGame = (next: Game) => { setGame(next); setSection(gameSections[next][0][0]); setQuery(""); };
-
-  return <main>
-    <nav className="topbar"><a className="brand" href="#top"><span>R</span> Raw Signal</a><div className="toplinks"><a href="#leaderboard">Rankings</a><a href="#method">Method</a></div></nav>
-    <header className="masthead" id="top">
-      <p className="kicker">Daily TCG market intelligence</p>
-      <h1>The card market,<br/><span>without the noise.</span></h1>
-      <p className="dek">Price leaderboards for Pokémon and Riftbound, built from TCGCSV’s daily TCGplayer product and market-price snapshot.</p>
-      <div className="game-switch" role="tablist" aria-label="Trading card game">
-        <button className={game === "pokemon" ? "active pokemon" : ""} onClick={() => switchGame("pokemon")} role="tab">Pokémon</button>
-        <button className={game === "riftbound" ? "active riftbound" : ""} onClick={() => switchGame("riftbound")} role="tab">Riftbound</button>
-      </div>
-    </header>
-
-    <section className={`market-strip ${game}`}>
-      <div><span>Market</span><strong>{game === "pokemon" ? "Pokémon" : "Riftbound"}</strong></div>
-      <div><span>Category</span><strong>{label}</strong></div>
-      <div><span>Cards ranked</span><strong>{cards.length}</strong></div>
-      <div><span>Source updated</span><strong>{date}</strong></div>
-    </section>
-
-    <section className="category-rail" aria-label={`${game} categories`}>
-      {sections.map(([key, name]) => <button key={key} className={section === key ? "active" : ""} onClick={() => setSection(key)}>{name}</button>)}
-    </section>
-
-    <section className="leaderboard" id="leaderboard">
-      <div className="section-heading"><div><p>{game} market ranking</p><h2>{label} Leaderboard</h2></div><span>Top cards by TCGplayer market price</span></div>
-      <div className="controls"><label><span>⌕</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search card, set, or number" aria-label="Search cards"/></label><select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort leaderboard"><option value="market">Market price: high to low</option><option value="low">Lowest listing first</option><option value="name">Card name: A–Z</option></select></div>
-      <div className="table-head"><span>Rank</span><span>Card</span><span>Set</span><span>Printing</span><span>Low</span><span>Market</span></div>
-      <div className="rows">{cards.map((card, index) => <a className="leader-row" href={card.url} target="_blank" rel="noreferrer" key={`${card.productId}-${card.section}`}>
-        <span className="position">{String(index + 1).padStart(2, "0")}</span>
-        <span className="identity"><img src={card.image} alt="" loading="lazy"/><span><b>{card.name}</b><small>{card.number} · {card.rarity}</small></span></span>
-        <span className="set-name">{card.set}<small>{card.year}</small></span>
-        <span className="printing">{card.printing}</span>
-        <span className="low">{usd(card.lowPrice)}</span>
-        <span className="market-price">{usd(card.marketPrice)}<small>TCG market</small></span>
-        <span className="arrow">↗</span>
-      </a>)}</div>
-      {!cards.length && <div className="empty">No cards match that search.</div>}
-    </section>
-
-    <section className="method" id="method"><p className="kicker">The methodology</p><h2>A clean daily snapshot.</h2><div className="method-grid"><p><b>Source</b> TCGCSV publishes a cached export of TCGplayer categories, sets, products, and market prices once per day. This site ingests that snapshot server-side.</p><p><b>Pokémon</b> Vintage includes sets published through 2010. Illustration Rare and Special Illustration Rare use TCGplayer’s exact rarity field.</p><p><b>Riftbound</b> Rare and Epic use exact rarity fields. Alt Art, Overnumbered, and Signature use the card-name and numbering conventions in TCGCSV.</p></div></section>
-    <footer><a className="brand" href="#top"><span>R</span> Raw Signal</a><p>Market data from <a href="https://tcgcsv.com/" target="_blank" rel="noreferrer">TCGCSV</a>. Prices are informational, may lag, and do not include shipping or condition-level detail.</p></footer>
-  </main>;
+import { useEffect, useMemo, useState } from "react";
+import index from "../tcg-index.json";
+type Game="pokemon"|"riftbound"|"magic";
+type Card={game:Game;section:string;productId:number;name:string;set:string;year:number;rarity:string;number:string;image:string;url:string;marketPrice:number;lowPrice:number|null;midPrice:number|null;printing:string;priceChange:number|null};
+const magicNames:Record<string,string>={C:"Common",U:"Uncommon",R:"Rare",M:"Mythic Rare",S:"Special",T:"Token",L:"Land",P:"Promo"};
+const gameNames:Record<Game,string>={pokemon:"Pokémon",riftbound:"Riftbound",magic:"Magic: The Gathering"};
+const displayLabel=(label:string)=>magicNames[label]??label;
+const usd=(n:number|null)=>n==null?"—":new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:n>=100?0:2}).format(n);
+const updated=new Date(index.sourceUpdatedAt).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+export default function Home(){
+ const [game,setGame]=useState<Game>("pokemon"),[section,setSection]=useState(index.rarities.pokemon[0].key),[cards,setCards]=useState<Card[]>([]),[loading,setLoading]=useState(true),[query,setQuery]=useState(""),[sort,setSort]=useState("market"),[perPage,setPerPage]=useState(20),[page,setPage]=useState(1);
+ const rarityOptions=index.rarities[game]; const rarityLabel=displayLabel(rarityOptions.find(x=>x.key===section)?.label??rarityOptions[0].label);
+ useEffect(()=>{let live=true;setLoading(true);fetch(`/data/${section}.json`).then(r=>r.json()).then(d=>{if(live){setCards(d);setLoading(false);setPage(1)}});return()=>{live=false}},[section]);
+ const filtered=useMemo(()=>{const q=query.trim().toLowerCase();return cards.filter(c=>!q||`${c.name} ${c.set} ${c.number}`.toLowerCase().includes(q)).sort((a,b)=>sort==="low"?(a.lowPrice??Infinity)-(b.lowPrice??Infinity):sort==="drop"?(a.priceChange??0)-(b.priceChange??0):sort==="increase"?(b.priceChange??0)-(a.priceChange??0):sort==="name"?a.name.localeCompare(b.name):b.marketPrice-a.marketPrice)},[cards,query,sort]);
+ const pages=Math.max(1,Math.ceil(filtered.length/perPage)),visible=filtered.slice((page-1)*perPage,page*perPage);
+ const switchGame=(next:Game)=>{setGame(next);setSection(index.rarities[next][0].key);setQuery("");setSort("market")};
+ return <main><nav className="topbar"><a className="brand" href="#top"><span>R</span> Raw Signal</a><div className="toplinks"><a href="#leaderboard">Rankings</a><a href="#method">Method</a></div></nav>
+ <header className="masthead" id="top"><p className="kicker">Daily TCG market intelligence</p><h1>The card market,<br/><span>without the noise.</span></h1><p className="dek">Complete price leaderboards for Pokémon, Riftbound, and Magic: The Gathering—built from TCGCSV’s daily TCGplayer snapshot.</p></header>
+ <section className="market-strip">
+  <label><span>Market</span><select value={game} onChange={e=>switchGame(e.target.value as Game)}><option value="pokemon">Pokémon</option><option value="riftbound">Riftbound</option><option value="magic">Magic: The Gathering</option></select></label>
+  <label><span>Rarity</span><select value={section} onChange={e=>setSection(e.target.value)}>{rarityOptions.map(x=><option key={x.key} value={x.key}>{displayLabel(x.label)}</option>)}</select></label>
+  <div><span>Cards ranked</span><strong>{index.totals[game].toLocaleString()}</strong><small>total in {gameNames[game]}</small></div>
+  <label><span>Cards per page</span><select value={perPage} onChange={e=>{setPerPage(Number(e.target.value));setPage(1)}}><option>20</option><option>30</option><option>40</option><option>50</option></select></label>
+ </section>
+ <section className="leaderboard" id="leaderboard"><div className="section-heading"><div><p>{gameNames[game]} market ranking</p><h2>{rarityLabel} Leaderboard</h2></div><span>{filtered.length.toLocaleString()} cards · updated {updated}</span></div>
+ <div className="controls"><label><span>⌕</span><input value={query} onChange={e=>{setQuery(e.target.value);setPage(1)}} placeholder="Search card, set, or number"/></label><select value={sort} onChange={e=>{setSort(e.target.value);setPage(1)}}><option value="market">Market price: high to low</option><option value="low">Lowest listing first</option><option value="drop">Largest price drops</option><option value="increase">Largest price increases</option><option value="name">Card name: A–Z</option><option value="traded" disabled>Most traded — not provided by TCGCSV</option></select></div>
+ <div className="table-head"><span>Rank</span><span>Card</span><span>Set</span><span>Printing</span><span>Low</span><span>Market</span></div>
+ <div className="rows">{loading?<div className="empty">Loading {rarityLabel} data…</div>:visible.map((c,i)=><a className="leader-row" href={c.url} target="_blank" rel="noreferrer" key={c.productId}><span className="position">{String((page-1)*perPage+i+1).padStart(2,"0")}</span><span className="identity"><img src={c.image} alt="" loading="lazy"/><span><b>{c.name}</b><small>{c.number} · {displayLabel(c.rarity)}</small></span></span><span className="set-name">{c.set}<small>{c.year}</small></span><span className="printing">{c.printing}</span><span className="low">{usd(c.lowPrice)}</span><span className="market-price">{usd(c.marketPrice)}<small className={c.priceChange&&c.priceChange<0?"down":"up"}>{c.priceChange==null?"new":`${c.priceChange>=0?"+":""}${usd(c.priceChange)}`}</small></span><span className="arrow">↗</span><span className="hover-card"><img src={c.image} alt={`${c.name} card`}/><span><small>Low listing</small><b>{usd(c.lowPrice)}</b><small>Market price</small><b>{usd(c.marketPrice)}</b><small>Mid price</small><b>{usd(c.midPrice)}</b><small>Daily move</small><b className={c.priceChange&&c.priceChange<0?"down":"up"}>{c.priceChange==null?"New":`${c.priceChange>=0?"+":""}${usd(c.priceChange)}`}</b></span></span></a>)}</div>
+ {!loading&&<div className="pagination"><button disabled={page===1} onClick={()=>setPage(p=>p-1)}>← Previous</button><span>Page <b>{page}</b> of {pages}</span><button disabled={page===pages} onClick={()=>setPage(p=>p+1)}>Next →</button></div>}</section>
+ <section className="method" id="method"><p className="kicker">The methodology</p><h2>Every priced card. One daily snapshot.</h2><div className="method-grid"><p><b>Coverage</b> Every qualifying card with a market price in the selected TCGCSV rarity is included; pagination controls how many rows render at once.</p><p><b>Movement</b> Price increases and drops compare consecutive cached daily snapshots. New cards have no prior-day comparison.</p><p><b>Trading volume</b> TCGCSV does not publish transaction counts, so “Most traded” is shown as unavailable rather than estimated from unrelated fields.</p></div></section><footer><a className="brand" href="#top"><span>R</span> Raw Signal</a><p>Market data from <a href="https://tcgcsv.com/" target="_blank" rel="noreferrer">TCGCSV</a>. Prices may lag and do not include shipping or condition-level detail.</p></footer></main>
 }

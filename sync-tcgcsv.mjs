@@ -1,80 +1,19 @@
 import fs from "node:fs/promises";
-
-const BASE = "https://tcgcsv.com/tcgplayer";
-const headers = { "User-Agent": "RawSignal/2.0 (+daily market leaderboard)" };
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-async function readJson(url) {
-  const response = await fetch(url, { headers });
-  if (!response.ok) throw new Error(`${response.status} ${url}`);
-  const data = await response.json();
-  await sleep(120);
-  return data.results ?? [];
-}
-
-const ext = (product, key) => product.extendedData?.find((item) => item.name === key)?.value ?? "";
-const today = new Date();
-
-async function collectCategory(categoryId, game) {
-  const groups = await readJson(`${BASE}/${categoryId}/groups`);
-  const eligibleGroups = groups.filter((group) => {
-    const published = new Date(group.publishedOn);
-    if (published > today) return false;
-    if (game === "riftbound") return true;
-    return published.getFullYear() <= 2010 || published.getFullYear() >= 2023;
-  });
-
-  const cards = [];
-  for (const group of eligibleGroups) {
-    const [products, prices] = await Promise.all([
-      readJson(`${BASE}/${categoryId}/${group.groupId}/products`),
-      readJson(`${BASE}/${categoryId}/${group.groupId}/prices`),
-    ]);
-    const pricesByProduct = new Map();
-    for (const price of prices) {
-      if (!price.marketPrice || price.marketPrice <= 0) continue;
-      const current = pricesByProduct.get(price.productId);
-      if (!current || price.marketPrice > current.marketPrice) pricesByProduct.set(price.productId, price);
-    }
-    for (const product of products) {
-      const price = pricesByProduct.get(product.productId);
-      const rarity = ext(product, "Rarity");
-      const number = ext(product, "Number");
-      if (!price || !rarity || !number) continue;
-      const year = new Date(group.publishedOn).getFullYear();
-      let section = null;
-      if (game === "pokemon") {
-        if (year <= 2010) section = "vintage";
-        if (/^Illustration Rare$/i.test(rarity)) section = "illustration-rares";
-        if (/^Special Illustration Rare$/i.test(rarity)) section = "special-illustration-rares";
-      } else {
-        if (/\(Signature\)/i.test(product.name)) section = "signatures";
-        else if (/\(Overnumbered\)/i.test(product.name)) section = "overnumbered";
-        else if (/\(Alternate Art\)/i.test(product.name)) section = "alt-arts";
-        else if (/^Epic$/i.test(rarity)) section = "epics";
-        else if (/^Rare$/i.test(rarity)) section = "rares";
-      }
-      if (!section) continue;
-      cards.push({
-        game, section, productId: product.productId, name: product.name, set: group.name,
-        year, rarity, number, image: product.imageUrl?.replace("_200w", "_in_1000x1000"), url: product.url,
-        marketPrice: price.marketPrice, lowPrice: price.lowPrice, midPrice: price.midPrice,
-        printing: price.subTypeName,
-      });
-    }
-  }
-  return cards;
-}
-
-const [pokemon, riftbound] = await Promise.all([collectCategory(3, "pokemon"), collectCategory(89, "riftbound")]);
-const limits = { vintage: 40, "illustration-rares": 40, "special-illustration-rares": 40, rares: 40, epics: 40, "alt-arts": 40, overnumbered: 40, signatures: 40 };
-const all = [...pokemon, ...riftbound];
-const sections = {};
-for (const card of all) (sections[card.section] ??= []).push(card);
-for (const [key, cards] of Object.entries(sections)) {
-  cards.sort((a, b) => b.marketPrice - a.marketPrice);
-  sections[key] = cards.slice(0, limits[key]);
-}
-const lastUpdated = await fetch("https://tcgcsv.com/last-updated.txt", { headers }).then((r) => r.text()).catch(() => today.toISOString());
-await fs.writeFile("tcg-data.json", JSON.stringify({ source: "TCGCSV / TCGplayer", syncedAt: new Date().toISOString(), sourceUpdatedAt: lastUpdated.trim(), sections }, null, 2));
-console.log(Object.fromEntries(Object.entries(sections).map(([key, cards]) => [key, cards.length])));
+const BASE="https://tcgcsv.com/tcgplayer", headers={"User-Agent":"RawSignal/3.0 (+daily market leaderboard)"};
+const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
+async function readJson(url){for(let n=0;n<3;n++){const r=await fetch(url,{headers});if(r.ok){const d=await r.json();await sleep(110);return d.results??[]}await sleep(500*(n+1))}throw new Error(`Failed ${url}`)}
+const ext=(p,key)=>p.extendedData?.find(x=>x.name===key)?.value??"";
+const slug=(s)=>s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+let previous={};try{const old=JSON.parse(await fs.readFile("tcg-data.json","utf8"));for(const cards of Object.values(old.sections??{}))for(const c of cards)previous[`${c.game}:${c.productId}`]=c.marketPrice}catch{}
+const today=new Date(), sections={}, rarities={pokemon:[],riftbound:[],magic:[]};
+async function collect(categoryId,game){const groups=(await readJson(`${BASE}/${categoryId}/groups`)).filter(g=>new Date(g.publishedOn)<=today);let done=0;for(const group of groups){const [products,prices]=await Promise.all([readJson(`${BASE}/${categoryId}/${group.groupId}/products`),readJson(`${BASE}/${categoryId}/${group.groupId}/prices`)]);const byId=new Map();for(const p of prices){if(!p.marketPrice||p.marketPrice<=0)continue;const old=byId.get(p.productId);if(!old||p.marketPrice>old.marketPrice)byId.set(p.productId,p)}for(const product of products){const price=byId.get(product.productId),rarity=ext(product,"Rarity"),number=ext(product,"Number");if(!price||!rarity||!number)continue;const year=new Date(group.publishedOn).getFullYear();let section=null,label=null;if(game==="pokemon"){if(year<=2010){section="vintage";label="Vintage"}if(/^Illustration Rare$/i.test(rarity)){section="illustration-rares";label="Illustration Rares"}if(/^Special Illustration Rare$/i.test(rarity)){section="special-illustration-rares";label="Special Illustration Rares"}}else if(game==="riftbound"){if(/\(Signature\)/i.test(product.name)){section="signatures";label="Signatures"}else if(/\(Overnumbered\)/i.test(product.name)){section="overnumbered";label="Overnumbered"}else if(/\(Alternate Art\)/i.test(product.name)){section="alt-arts";label="Alt Arts"}else if(/^Epic$/i.test(rarity)){section="epics";label="Epics"}else if(/^Rare$/i.test(rarity)){section="rares";label="Rares"}}else{section=`magic-${slug(rarity)}`;label=rarity}if(!section)continue;const prior=previous[`${game}:${product.productId}`];const card={game,section,productId:product.productId,name:product.name,set:group.name,year,rarity,number,image:product.imageUrl?.replace("_200w","_in_1000x1000"),url:product.url,marketPrice:price.marketPrice,lowPrice:price.lowPrice,midPrice:price.midPrice,printing:price.subTypeName,priceChange:typeof prior==="number"?Number((price.marketPrice-prior).toFixed(2)):null};(sections[section]??=[]).push(card);if(!rarities[game].some(x=>x.key===section))rarities[game].push({key:section,label})}done++;if(done%25===0)console.error(`${game}: ${done}/${groups.length}`)}}
+await collect(3,"pokemon");await collect(89,"riftbound");await collect(1,"magic");
+for(const cards of Object.values(sections))cards.sort((a,b)=>b.marketPrice-a.marketPrice);
+rarities.magic.sort((a,b)=>a.label.localeCompare(b.label));
+const lastUpdated=await fetch("https://tcgcsv.com/last-updated.txt",{headers}).then(r=>r.text()).catch(()=>today.toISOString());
+const totals={};for(const game of Object.keys(rarities))totals[game]=Object.values(sections).flat().filter(c=>c.game===game).length;
+await fs.mkdir("public/data",{recursive:true});let bytes=0;
+for(const [key,cards] of Object.entries(sections)){const body=JSON.stringify(cards);bytes+=Buffer.byteLength(body);await fs.writeFile(`public/data/${key}.json`,body)}
+await fs.writeFile("tcg-index.json",JSON.stringify({source:"TCGCSV / TCGplayer",syncedAt:new Date().toISOString(),sourceUpdatedAt:lastUpdated.trim(),rarities,totals}));
+await fs.rm("tcg-data.json",{force:true});
+console.log({totals,sections:Object.keys(sections).length,bytes});
