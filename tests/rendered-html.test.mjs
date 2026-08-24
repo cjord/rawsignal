@@ -29,13 +29,16 @@ test("keeps core controls and chart interactions accessible", async () => {
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/SealedView.tsx", import.meta.url), "utf8"),
   ]);
-  for (const label of ["Singles market", "Card rarity", "Cards per page", "Sort cards", "Card view"])
+  for (const label of ["Singles market", "Card rarity", "Cards per page", "Card view", "Leaderboard pages"])
     assert.match(page, new RegExp(`aria-label=\\"${label}\\"`));
   for (const label of ["Sealed market", "Sealed set", "Sort sealed products", "Sealed products per page"])
     assert.match(sealed, new RegExp(`aria-label=\\"${label}\\"`));
   assert.match(page, /onPointerMove=\{move\}/);
   assert.match(page, /className="chart-cursor"/);
   assert.match(page, /Math\.abs\(times\[i\]-target\)/);
+  assert.match(page, /aria-sort=/);
+  assert.match(page, /aria-current=/);
+  assert.match(page, /label:"Full"/);
 });
 
 test("validates rarity order, high prices, and regional N/A records", async () => {
