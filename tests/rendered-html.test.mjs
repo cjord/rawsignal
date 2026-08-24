@@ -39,6 +39,21 @@ test("keeps core controls and chart interactions accessible", async () => {
   assert.match(page, /aria-sort=/);
   assert.match(page, /aria-current=/);
   assert.match(page, /label:"Full"/);
+  assert.match(page, /window\.history\.replaceState/);
+  assert.match(page, /30D Low/);
+  assert.match(page, /touch-open/);
+});
+
+test("includes server pagination and resilient image fallbacks", async () => {
+  const [route, image] = await Promise.all([
+    readFile(new URL("../app/api/cards/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/DeferredImage.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(route, /perPage/);
+  assert.match(route, /cards\.slice\(start,start\+perPage\)/);
+  assert.match(route, /Cache-Control/);
+  assert.match(image, /onError=\{\(\)=>setFailed\(true\)\}/);
+  assert.match(image, /Image<br\/>unavailable/);
 });
 
 test("validates rarity order, high prices, and regional N/A records", async () => {
