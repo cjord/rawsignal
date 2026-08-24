@@ -53,6 +53,10 @@ test("keeps core controls and chart interactions accessible", async () => {
   assert.match(page, /window\.history\.replaceState/);
   assert.match(page, /30D Low/);
   assert.match(page, /touch-open/);
+  assert.match(page, /change90:nearestChange\(points,90\)/);
+  assert.match(page, /<Movement label="90 day"/);
+  const hover = page.slice(page.indexOf("function HoverCard"), page.indexOf("export default function Home"));
+  assert.doesNotMatch(hover, /Listing low|Listing high/);
 });
 
 test("includes server pagination and resilient image fallbacks", async () => {
@@ -69,11 +73,16 @@ test("includes server pagination and resilient image fallbacks", async () => {
 
 test("validates rarity order, high prices, and regional N/A records", async () => {
   const index = JSON.parse(await readFile(new URL("../tcg-index.json", import.meta.url), "utf8"));
-  assert.deepEqual(index.rarities.pokemon.map(x => x.key), ["illustration-rares", "special-illustration-rares", "vintage", "all"]);
+  assert.deepEqual(index.rarities.pokemon.map(x => x.key), ["illustration-and-special-rares", "illustration-rares", "special-illustration-rares", "promos", "ultra-rares", "double-rares", "secret-hyper-rares", "shiny-radiant-rares", "vintage", "all"]);
   assert.deepEqual(index.rarities.riftbound.map(x => x.key), ["rares", "epics", "alt-arts", "overnumbered", "signatures", "all"]);
   assert.equal(index.rarities.magic.at(-1).key, "all");
   const cards = JSON.parse(await readFile(new URL("../public/data/illustration-rares.json", import.meta.url), "utf8"));
   assert.ok(cards.length > 0 && cards.every(card => Object.hasOwn(card, "highPrice")));
+  const combined = JSON.parse(await readFile(new URL("../public/data/illustration-and-special-rares.json", import.meta.url), "utf8"));
+  const special = JSON.parse(await readFile(new URL("../public/data/special-illustration-rares.json", import.meta.url), "utf8"));
+  assert.equal(combined.length, cards.length + special.length);
+  for (const key of ["promos", "ultra-rares", "double-rares", "secret-hyper-rares", "shiny-radiant-rares"])
+    assert.ok(JSON.parse(await readFile(new URL(`../public/data/${key}.json`, import.meta.url), "utf8")).length >= 50);
   const sealed = JSON.parse(await readFile(new URL("../public/data/sealed-riftbound.json", import.meta.url), "utf8"));
   const regional = sealed.filter(product => product.productId < 0);
   assert.equal(regional.length, 6);
