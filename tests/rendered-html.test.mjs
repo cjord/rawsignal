@@ -53,6 +53,8 @@ test("keeps core controls and chart interactions accessible", async () => {
   assert.match(page, /window\.history\.replaceState/);
   assert.match(page, /30D Low/);
   assert.match(page, /touch-open/);
+  assert.match(page, /dataset\.expand=rect\.right\+430>window\.innerWidth\?"left":"right"/);
+  assert.match(page, /view!=="large"&&window\.matchMedia/);
   assert.match(page, /change90:nearestChange\(points,90\)/);
   assert.match(page, /<Movement label="90 day"/);
   const hover = page.slice(page.indexOf("function HoverCard"), page.indexOf("export default function Home"));
