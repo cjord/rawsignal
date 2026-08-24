@@ -25,20 +25,31 @@ test("renders the branded dark-first application shell", async () => {
 });
 
 test("keeps core controls and chart interactions accessible", async () => {
-  const [page, sealed] = await Promise.all([
+  const [page, sealed, marketUi, priceChart] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/SealedView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/MarketUI.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/PriceChart.tsx", import.meta.url), "utf8"),
   ]);
-  for (const label of ["Singles market", "Card rarity", "Cards per page", "Card view", "Leaderboard pages"])
+  for (const label of ["Singles market", "Card rarity", "Cards per page"])
     assert.match(page, new RegExp(`aria-label=\\"${label}\\"`));
-  for (const label of ["Sealed market", "Sealed set", "Sort sealed products", "Sealed products per page"])
+  for (const label of ["Sealed market", "Sealed set", "Sealed products per page"])
     assert.match(sealed, new RegExp(`aria-label=\\"${label}\\"`));
-  assert.match(page, /onPointerMove=\{move\}/);
-  assert.match(page, /className="chart-cursor"/);
-  assert.match(page, /Math\.abs\(times\[i\]-target\)/);
-  assert.match(page, /aria-sort=/);
-  assert.match(page, /aria-current=/);
+  assert.match(page, /label="Card view"/);
+  assert.match(page, /label="Leaderboard pages"/);
+  assert.match(sealed, /label="Sealed product view"/);
+  assert.match(sealed, /label="Sealed product pages"/);
+  assert.match(priceChart, /onPointerMove=\{move\}/);
+  assert.match(priceChart, /className="chart-cursor"/);
+  assert.match(priceChart, /Math\.abs\(times\[i\]-target\)/);
+  assert.match(marketUi, /aria-sort=/);
+  assert.match(marketUi, /aria-current=/);
   assert.match(page, /label:"Full"/);
+  assert.match(sealed, /label:"Medium"/);
+  assert.match(sealed, /label:"Text"/);
+  assert.match(sealed, /label:"Full"/);
+  assert.match(sealed, /sealed=1/);
+  assert.match(sealed, /<PriceChart/);
   assert.match(page, /window\.history\.replaceState/);
   assert.match(page, /30D Low/);
   assert.match(page, /touch-open/);
