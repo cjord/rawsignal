@@ -1,0 +1,37 @@
+  .full-card .full-data,
+  .full-card .full-history,
+  .full-card .history-panel,
+  .full-card .chart-wrap,
+  .full-card .chart-large,
+  .sealed-full-card .sealed-full-data,
+  .sealed-full-card .history-panel,
+  .sealed-full-card .chart-wrap,
+  .sealed-full-card .chart-large {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .view-full .full-card { grid-template-areas: "rank art data arrow" "chart chart chart chart" !important; }
+  .view-full .full-card > .position{grid-area:rank}.view-full .full-card > .full-art{grid-area:art}.view-full .full-card > .full-data{grid-area:data}.view-full .full-card > .arrow{grid-area:arrow}
+  .view-full .full-history { grid-area:chart; }
+
+  .full-card .sparkline,
+  .sealed-full-card .sparkline {
+    display: block;
+    width: 100%;
+  }
+
+  .view-large .leader-row,
+  .view-large .hover-card {
+    background: var(--surface) !important;
+  }
+
+  @media (hover:hover) and (pointer:fine) {
+    .view-large .leader-row:hover,
+    .view-large .leader-row:hover .hover-card {
+      border-color: color-mix(in srgb,var(--blue) 55%,var(--line)) !important;
+    }
+    .view-large .leader-row[data-expand="right"]:hover .hover-card { border-left-color: transparent !important; }
+    .view-large .leader-row[data-expand="left"]:hover .hover-card { border-right-color: transparent !important; }
+  }

@@ -66,16 +66,18 @@ test("keeps core controls and chart interactions accessible", async () => {
 });
 
 test("includes server pagination and resilient image fallbacks", async () => {
-  const [route, historyRoute, image] = await Promise.all([
+  const [route, historyRoute, historyUtils, image] = await Promise.all([
     readFile(new URL("../app/api/cards/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/history/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/history-utils.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/DeferredImage.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(route, /perPage/);
   assert.match(route, /cards\.slice\(start,start\+perPage\)/);
   assert.match(route, /Cache-Control/);
   assert.match(historyRoute, /history\(productId,"annual"\)/);
-  assert.match(historyRoute, /new Map<string,number>/);
+  assert.match(historyRoute, /mergeHistoryBuckets/);
+  assert.match(historyUtils, /new Map<string,number>/);
   assert.match(image, /onError=\{\(\)=>setFailed\(true\)\}/);
   assert.match(image, /Image<br\/>unavailable/);
 });

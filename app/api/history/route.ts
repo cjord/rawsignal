@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
+import {mergeHistoryBuckets} from "../../history-utils";
 
 type Bucket = { marketPrice: string; bucketStartDate: string };
 type Series = { variant: string; language: string; condition: string; buckets: Bucket[] };
 const headers = { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; RawSignal/3.0)" };
+const cache=new Map<string,{expires:number;request:Promise<Series[]>}>();
 async function history(productId:string,range:"quarter"|"annual"){
- const response=await fetch(`https://infinite-api.tcgplayer.com/price/history/${productId}/detailed?range=${range}`,{headers});
- if(!response.ok)throw new Error(`History ${range} unavailable`);
- return (await response.json() as {result?:Series[]}).result??[];
+ const key=`${productId}:${range}`,now=Date.now(),hit=cache.get(key);if(hit&&hit.expires>now)return hit.request;
+ const request=fetch(`https://infinite-api.tcgplayer.com/price/history/${productId}/detailed?range=${range}`,{headers}).then(async response=>{if(!response.ok)throw new Error(`History ${range} unavailable`);return (await response.json() as {result?:Series[]}).result??[]});
+ cache.set(key,{expires:now+15*60_000,request});if(cache.size>500)cache.delete(cache.keys().next().value!);try{return await request}catch(error){cache.delete(key);throw error}
 }
 
 export async function GET(request: Request) {
@@ -24,9 +26,7 @@ export async function GET(request: Request) {
   const selected = exact ?? (sealed ? candidates.find(row => /sealed|unopened/i.test(row.condition)) : undefined) ?? candidates[0];
   if (!selected) return NextResponse.json({ points: [], coverage: "none" }, { headers: { "Cache-Control": "public, max-age=3600" } });
   const annualMatch=annual.find(row=>row.language==="English"&&row.variant===selected.variant&&row.condition===selected.condition);
-  const merged=new Map<string,number>();
-  for(const bucket of [...(annualMatch?.buckets??[]),...selected.buckets]){const price=Number(bucket.marketPrice);if(Number.isFinite(price)&&price>0)merged.set(bucket.bucketStartDate,price)}
-  const points=[...merged].map(([date,price])=>({date,price})).sort((a,b)=>a.date.localeCompare(b.date));
+  const points=mergeHistoryBuckets(annualMatch?.buckets,selected.buckets);
   return NextResponse.json({ points, variant: selected.variant, condition: selected.condition, coverage: exact ? "exact" : "fallback" }, {
     headers: { "Cache-Control": "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400" },
   });
