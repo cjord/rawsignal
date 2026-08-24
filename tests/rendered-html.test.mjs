@@ -82,6 +82,8 @@ test("includes server pagination and resilient image fallbacks", async () => {
   assert.match(image, /Image<br\/>unavailable/);
 });
 
+test("keeps full charts unconstrained and large hover surfaces identical",async()=>{const css=await readFile(new URL("../app/market-views.css",import.meta.url),"utf8");assert.match(css,/grid-template-columns: none !important/);assert.match(css,/\.full-history \.chart-canvas/);assert.match(css,/backdrop-filter: none !important/);assert.match(css,/background-color: var\(--surface\) !important/)});
+
 test("validates rarity order, high prices, and regional N/A records", async () => {
   const index = JSON.parse(await readFile(new URL("../tcg-index.json", import.meta.url), "utf8"));
   assert.deepEqual(index.rarities.pokemon.map(x => x.key), ["illustration-and-special-rares", "illustration-rares", "special-illustration-rares", "promos", "ultra-rares", "double-rares", "secret-hyper-rares", "shiny-radiant-rares", "vintage", "all"]);

@@ -14,7 +14,26 @@
 
   .view-full .full-card { grid-template-areas: "rank art data arrow" "chart chart chart chart" !important; }
   .view-full .full-card > .position{grid-area:rank}.view-full .full-card > .full-art{grid-area:art}.view-full .full-card > .full-data{grid-area:data}.view-full .full-card > .arrow{grid-area:arrow}
-  .view-full .full-history { grid-area:chart; }
+  .view-full .full-history {
+    grid-area: chart;
+    display: block !important;
+    grid-template-columns: none !important;
+    justify-self: stretch;
+    align-self: stretch;
+  }
+
+  .view-full .full-history > .history-panel,
+  .view-full .full-history .chart-wrap,
+  .view-full .full-history .chart-canvas,
+  .view-full .full-history .history-stats,
+  .sealed-view-full .history-panel,
+  .sealed-view-full .chart-wrap,
+  .sealed-view-full .chart-canvas,
+  .sealed-view-full .history-stats {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0;
+  }
 
   .full-card .sparkline,
   .sealed-full-card .sparkline {
@@ -24,7 +43,13 @@
 
   .view-large .leader-row,
   .view-large .hover-card {
-    background: var(--surface) !important;
+    background-color: var(--surface) !important;
+    background-image: none !important;
+  }
+
+  .view-large .hover-card {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
   }
 
   @media (hover:hover) and (pointer:fine) {
