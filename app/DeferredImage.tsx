@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- external TCGplayer CDN images use a custom data-first loader */
 import { useEffect, useRef, useState } from "react";
 
 type Props={src?:string|null;alt:string;className?:string};

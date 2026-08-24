@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps -- remote-data loading is intentionally keyed to market changes */
 import { useEffect, useMemo, useState } from "react";
 import DeferredImage from "./DeferredImage";
 
@@ -21,11 +22,11 @@ export default function SealedView(){
   <div className="sealed-summary"><div><p className="kicker">Sealed product intelligence</p><h2>{games[game]} Sealed</h2><p>Verified MSRP compared with current TCGplayer pricing.</p></div><div className="price-basis" aria-label="Price basis"><button className={basis==="market"?"active":""} onClick={()=>setBasis("market")}>Market</button><button className={basis==="median"?"active":""} onClick={()=>setBasis("median")}>Median</button></div></div>
   <div className="sealed-kpis"><div><span>Products</span><strong>{metrics.count}</strong><small>verified MSRP</small></div><div><span>Median return</span><strong className={metrics.median>=0?"profit-positive":"profit-negative"}>{metrics.median>=0?"+":""}{metrics.median.toFixed(1)}%</strong><small>across selection</small></div><div><span>Profitable</span><strong>{metrics.profitable.toFixed(0)}%</strong><small>above adjusted cost</small></div><div><span>Market value</span><strong>{usd(metrics.market)}</strong><small>one of each product</small></div></div>
   <div className="sealed-controls">
-   <label><span>Market</span><select value={game} onChange={event=>setGame(event.target.value as Game)}><option value="pokemon">Pokémon</option><option value="onepiece">One Piece</option><option value="riftbound">Riftbound</option><option value="magic">Magic: The Gathering</option></select></label>
-   <label><span>Set</span><select value={setFilter} onChange={event=>{setSetFilter(event.target.value);setPage(1)}}><option value="all">All sets</option>{sets.map(value=><option key={value}>{value}</option>)}</select></label>
+   <label><span>Market</span><select aria-label="Sealed market" value={game} onChange={event=>setGame(event.target.value as Game)}><option value="pokemon">Pokémon</option><option value="onepiece">One Piece</option><option value="riftbound">Riftbound</option><option value="magic">Magic: The Gathering</option></select></label>
+   <label><span>Set</span><select aria-label="Sealed set" value={setFilter} onChange={event=>{setSetFilter(event.target.value);setPage(1)}}><option value="all">All sets</option>{sets.map(value=><option key={value}>{value}</option>)}</select></label>
    <label className="sealed-search"><span>Search</span><input value={query} onChange={event=>{setQuery(event.target.value);setPage(1)}} placeholder="Search product or set"/></label>
-   <label><span>Sort</span><select value={sort} onChange={event=>setSort(event.target.value)}><option value="profitPct">Profit %</option><option value="profit">Profit $</option><option value="market">Selected value</option><option value="msrp">MSRP</option><option value="name">Product name</option></select></label>
-   <label><span>Per page</span><select value={perPage} onChange={event=>{setPerPage(Number(event.target.value));setPage(1)}}><option>20</option><option>30</option><option>40</option><option>50</option></select></label>
+   <label><span>Sort</span><select aria-label="Sort sealed products" value={sort} onChange={event=>setSort(event.target.value)}><option value="profitPct">Profit %</option><option value="profit">Profit $</option><option value="market">Selected value</option><option value="msrp">MSRP</option><option value="name">Product name</option></select></label>
+   <label><span>Per page</span><select aria-label="Sealed products per page" value={perPage} onChange={event=>{setPerPage(Number(event.target.value));setPage(1)}}><option>20</option><option>30</option><option>40</option><option>50</option></select></label>
   </div>
   <div className="profit-tools" aria-label="Profit assumptions">
    <label><span>Keep after fees</span><span className="input-suffix"><input type="number" min="1" max="100" value={keepPct} onChange={event=>setKeepPct(Math.min(100,Math.max(1,Number(event.target.value))))}/><b>%</b></span></label>
