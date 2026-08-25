@@ -52,13 +52,15 @@ test("characterizes Sealed defaults before refactoring", async () => {
 });
 
 test("keeps core controls and chart interactions accessible", async () => {
-  const [page, sealed, sealedFilters, marketUi, priceChart, urlState] = await Promise.all([
+  const [page, sealed, sealedFilters, marketUi, priceChart, urlState, leaderboard, summary] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/SealedView.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/SealedFilters.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/MarketUI.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/PriceChart.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/state/useMarketQueryState.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/leaderboard/MarketLeaderboard.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/leaderboard/ActiveFilterSummary.tsx", import.meta.url), "utf8"),
   ]);
   for (const label of ["Singles market", "Cards per page"])
     assert.match(page, new RegExp(`aria-label=\\"${label}\\"`));
@@ -66,16 +68,17 @@ test("keeps core controls and chart interactions accessible", async () => {
     assert.match(sealed, new RegExp(`aria-label=\\"${label}\\"`));
   assert.match(page, /<MultiSelectField label="Rarity"/);
   assert.match(sealed, /<MultiSelectField label="Product type"/);
-  assert.match(page, /label="Card view"/);
-  assert.match(page, /label="Leaderboard pages"/);
-  assert.match(sealed, /label="Sealed product view"/);
+  assert.match(page, /viewLabel:"Card view"/);
+  assert.match(page, /paginationLabel:"Leaderboard pages"/);
+  assert.match(sealed, /viewLabel:"Sealed product view"/);
   assert.match(sealed, /className=\{`sealed-toolbar/);
   assert.match(sealed, /<SaleScenario/);
   assert.doesNotMatch(sealedFilters, /StrictnessControl|strictness/);
   assert.match(page, /<StrictnessControl value=\{strictness\}/);
   assert.match(sealed, /<StrictnessControl value=\{strictness\}/);
-  assert.match(page, /leader-filter-summary.*has-content/);
-  assert.match(sealed, /label="Sealed product pages"/);
+  assert.match(summary, /leader-filter-summary.*has-content/);
+  assert.match(sealed, /paginationLabel:"Sealed product pages"/);
+  assert.match(leaderboard, /<NumberedPagination/);
   assert.match(priceChart, /onPointerMove=\{move\}/);
   assert.match(priceChart, /className="chart-cursor"/);
   assert.match(priceChart, /preserveAspectRatio="none"/);
@@ -124,7 +127,9 @@ test("includes cached history and resilient image fallbacks", async () => {
 
 test("keeps full charts unconstrained and large hover surfaces identical",async()=>{const css=await readFile(new URL("../app/market-views.css",import.meta.url),"utf8");assert.match(css,/grid-template-columns: none !important/);assert.match(css,/\.full-history \.chart-canvas/);assert.match(css,/backdrop-filter: none !important/);assert.match(css,/background-color: var\(--surface\) !important/);assert.match(css,/\.view-large \.hover-card[\s\S]*box-shadow: none !important/)});
 
-test("provides animated view selection and accessible card filters",async()=>{const [page,sealed,filters,ui,css]=await Promise.all([readFile(new URL("../app/page.tsx",import.meta.url),"utf8"),readFile(new URL("../app/SealedView.tsx",import.meta.url),"utf8"),readFile(new URL("../app/CardFilters.tsx",import.meta.url),"utf8"),readFile(new URL("../app/MarketUI.tsx",import.meta.url),"utf8"),readFile(new URL("../app/market-views.css",import.meta.url),"utf8")]);assert.match(ui,/className="view-slider"/);assert.match(css,/--selected-index/);assert.match(css,/\.sealed-toolbar \.view-toggle\{grid-template-columns:repeat\(3,96px\)\}/);assert.match(css,/var\(--view-count\) - 1\) \* 3px/);assert.match(css,/var\(--selected-index\) \* \(100% \+ 3px\)/);assert.match(css,/drop-shadow\(/);assert.match(css,/drop-shadow\(0 0 10px/);assert.match(css,/\.controls > label,\.card-filters summary \{ height:56px!important/);assert.match(css,/\.movement-filters input::before/);assert.match(css,/\.card-filters\.has-filters summary/);assert.match(filters,/document\.addEventListener\("pointerdown",close\)/);assert.match(filters,/Minimum market price/);assert.match(filters,/Available sets/);for(const label of ["7D increases","7D decreases","30D increases","30D decreases"])assert.match(filters,new RegExp(label));assert.match(page,/setSelectedSets/);assert.match(page,/leader-filter-summary/);assert.match(page,/placeholder="Search card, set, or number"/);assert.doesNotMatch(page,/Fuzzy search/);assert.match(page,/History high/);assert.match(page,/Hist low/);assert.match(sealed,/Hist low/);assert.doesNotMatch(page,/History low/);assert.doesNotMatch(sealed,/History low/);assert.match(page,/metrics=\{\[\]\}/)});
+test("provides animated view selection and accessible card filters",async()=>{const [page,sealed,filters,ui,css,summary]=await Promise.all([readFile(new URL("../app/page.tsx",import.meta.url),"utf8"),readFile(new URL("../app/SealedView.tsx",import.meta.url),"utf8"),readFile(new URL("../app/CardFilters.tsx",import.meta.url),"utf8"),readFile(new URL("../app/MarketUI.tsx",import.meta.url),"utf8"),readFile(new URL("../app/market-views.css",import.meta.url),"utf8"),readFile(new URL("../app/leaderboard/ActiveFilterSummary.tsx",import.meta.url),"utf8")]);assert.match(ui,/className="view-slider"/);assert.match(css,/--selected-index/);assert.match(css,/\.sealed-toolbar \.view-toggle\{grid-template-columns:repeat\(3,96px\)\}/);assert.match(css,/var\(--view-count\) - 1\) \* 3px/);assert.match(css,/var\(--selected-index\) \* \(100% \+ 3px\)/);assert.match(css,/drop-shadow\(/);assert.match(css,/drop-shadow\(0 0 10px/);assert.match(css,/\.controls > label,\.card-filters summary \{ height:56px!important/);assert.match(css,/\.movement-filters input::before/);assert.match(css,/\.card-filters\.has-filters summary/);assert.match(filters,/document\.addEventListener\("pointerdown",close\)/);assert.match(filters,/Minimum market price/);assert.match(filters,/Available sets/);for(const label of ["7D increases","7D decreases","30D increases","30D decreases"])assert.match(filters,new RegExp(label));assert.match(page,/setSelectedSets/);assert.match(summary,/leader-filter-summary/);assert.match(page,/placeholder="Search card, set, or number"/);assert.doesNotMatch(page,/Fuzzy search/);assert.match(page,/History high/);assert.match(page,/Hist low/);assert.match(sealed,/Hist low/);assert.doesNotMatch(page,/History low/);assert.doesNotMatch(sealed,/History low/);assert.match(page,/metrics=\{\[\]\}/)});
+
+test("composes Singles and Sealed through the shared leaderboard shell",async()=>{const [page,sealed,shell,summary]=await Promise.all([readFile(new URL("../app/page.tsx",import.meta.url),"utf8"),readFile(new URL("../app/SealedView.tsx",import.meta.url),"utf8"),readFile(new URL("../app/leaderboard/MarketLeaderboard.tsx",import.meta.url),"utf8"),readFile(new URL("../app/leaderboard/ActiveFilterSummary.tsx",import.meta.url),"utf8")]);for(const source of [page,sealed]){assert.match(source,/<MarketLeaderboard/);assert.match(source,/<LeaderboardHeader/);assert.match(source,/<LeaderboardControls/);assert.match(source,/<ActiveFilterSummary/)}assert.match(page,/views:\[\{key:"large"[\s\S]*\{key:"medium"[\s\S]*\{key:"text"[\s\S]*\{key:"full"/);assert.match(sealed,/views:\[\{key:"medium"[\s\S]*\{key:"text"[\s\S]*\{key:"full"/);assert.doesNotMatch(sealed,/views:\[[^\]]*key:"large"/);for(const state of ["loading","error","empty","ready"])assert.match(shell,new RegExp(`displayState===\\"${state}\\"|state===\\"${state}\\"`));assert.match(shell,/<NumberedPagination/);assert.match(summary,/matches\.toLocaleString\(\).*Matches/);assert.match(summary,/Remove \$\{item\.label\} filter/)});
 
 test("uses shared sliding navigation and responsive signal evidence",async()=>{const [page,sealed,signals,filters,ui,css]=await Promise.all([readFile(new URL("../app/page.tsx",import.meta.url),"utf8"),readFile(new URL("../app/SealedView.tsx",import.meta.url),"utf8"),readFile(new URL("../app/SignalControls.tsx",import.meta.url),"utf8"),readFile(new URL("../app/CardFilters.tsx",import.meta.url),"utf8"),readFile(new URL("../app/MarketUI.tsx",import.meta.url),"utf8"),readFile(new URL("../app/market-views.css",import.meta.url),"utf8")]);assert.match(page,/className="product-toggle"/);assert.match(page,/setSort\(value==="leaderboard"\?"market":"signal"\)/);assert.match(page,/className="signal-cell"/);assert.match(sealed,/className="sealed-signal-cell"/);assert.match(page,/signalSort/);assert.match(sealed,/sealedSignalSort/);assert.match(ui,/className=\{`view-toggle \$\{className\}`/);assert.match(signals,/className="signal-slider"/);assert.match(signals,/tone-\$\{value\}/);assert.doesNotMatch(filters,/filter-strictness|StrictnessControl/);assert.match(css,/\.signal-tabs\.tone-buy/);assert.match(css,/\.signal-tabs\.tone-sell/);assert.match(css,/\.product-toggle button,\.signal-tabs button\{height:46px/);assert.match(css,/\.signal-navigation\{flex-direction:column/);assert.match(css,/\.view-large \.identity \.signal-badge\{width:100%/);assert.match(css,/\.table-head\.has-signal/);assert.match(css,/\.sealed-head\.has-signal/);assert.match(sealed,/price-basis[\s\S]*<i aria-hidden="true"/)});
 

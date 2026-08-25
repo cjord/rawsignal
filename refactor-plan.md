@@ -25,8 +25,9 @@ The target architecture should provide:
 - Milestone 1 completed locally on 2026-08-25: removed active Magic UI, sync, index, data files, and its market-specific cards API; legacy Magic URLs now normalize to Pokémon.
 - Milestone 2 foundation completed locally on 2026-08-25: selected OpenAI Sites with a logical Cloudflare D1 binding, documented the future direct-Cloudflare path, added authoritative domain contracts/formatters, generated the initial schema migration, and proved idempotent fixture ingestion with preserved nullability and a 90-day history series.
 - Milestone 3 completed and production-validated on 2026-08-25: added one typed parser/serializer for Singles and Sealed, made the application shell the URL owner, added complete Sealed URL restoration, and corrected browser Back/Forward history semantics after manual validation.
-- Milestone 4 completed locally on 2026-08-25: Singles and Sealed now share abortable catalog loading, bounded/cached history batching, retry/status state, and one pure derived-metric implementation. The history API emits the same normalized metrics. JSON remains the live catalog path and the bounded history endpoint remains the documented fallback until database backfill/cutover.
-- Validation gate: the production build, 32-test suite, lint, and standalone TypeScript check pass. Milestone 4 awaits production validation before Milestone 5 begins.
+- Milestone 4 completed and production-validated on 2026-08-25: Singles and Sealed now share abortable catalog loading, bounded/cached history batching, retry/status state, and one pure derived-metric implementation. The history API emits the same normalized metrics. JSON remains the live catalog path and the bounded history endpoint remains the documented fallback until database backfill/cutover.
+- Milestone 5 completed locally on 2026-08-25: Singles and Sealed now compose their mode-specific market strip, header, filter summary, controls, sort surface, rows, and footer through one shared leaderboard shell with common loading, retry, empty, and pagination behavior. Distinct mode models preserve each page's supported views and sort columns.
+- Validation gate: Milestone 4 passed manual production switching across modes and views. Milestone 5 awaits automated and production validation before Milestone 6 begins.
 
 ## Current technical debt
 
@@ -314,6 +315,10 @@ Create mode-specific view models rather than forcing Cards and Sealed Products i
 ### Smallest stability proof
 
 Render one Singles and one Sealed fixture through the shared shell and assert heading, active match count, column labels, active sort/ARIA direction, supported view labels, and pagination labels. Then run `npm test`.
+
+### Implementation note
+
+Implemented a slot-based `MarketLeaderboard` instead of forcing cards and sealed products into one record shape. Shared components now own page ordering, heading composition, active-filter summaries, control-row framing, request states, retry behavior, and numbered pagination. `singlesModel` and `sealedModel` retain their distinct views, sort labels, rows, calculations, filters, and disclosure behavior. Source-contract coverage verifies that both adapters use the shell, expose the expected view sets, retain shared pagination/status behavior, and keep removable filter summaries.
 
 ---
 
