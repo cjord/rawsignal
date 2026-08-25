@@ -28,8 +28,9 @@ The target architecture should provide:
 - Milestone 4 completed and production-validated on 2026-08-25: Singles and Sealed now share abortable catalog loading, bounded/cached history batching, retry/status state, and one pure derived-metric implementation. The history API emits the same normalized metrics. JSON remains the live catalog path and the bounded history endpoint remains the documented fallback until database backfill/cutover.
 - Milestone 5 completed and production-validated on 2026-08-25: Singles and Sealed now compose their mode-specific market strip, header, filter summary, controls, sort surface, rows, and footer through one shared leaderboard shell with common loading, retry, empty, and pagination behavior. Distinct mode models preserve each page's supported views and sort columns.
 - Milestone 6 completed and production-validated on 2026-08-25: Singles and Sealed now share semantic row disclosures, identity, history-popover, full-card, viewport-placement, focus, pointer, touch, and Escape behavior. Direct TCGplayer navigation and misleading external-link arrows were removed from rows, artwork, and full cards. Final large-card review corrections make the tile and lateral history expansion share one continuous blue perimeter, combined shadow, and wrapper-level hover lift without an internal seam; reduced-motion users receive no translation.
-- Milestone 7 completed locally on 2026-08-25: Singles, Sealed, and top-level multi-selects now share dismissible-details behavior, filter-button presentation, numeric ranges, searchable checkbox selection, normalized All semantics, and reset actions. Mode-specific filter fields remain configured in their adapters.
-- Validation gate: Milestone 6 passed manual production validation after the joined-outline correction. Milestone 7 passes the production build and expanded automated suite; it awaits production validation before Milestone 8 begins.
+- Milestone 7 completed and production-validated on 2026-08-25: Singles, Sealed, and top-level multi-selects now share dismissible-details behavior, filter-button presentation, numeric ranges, searchable checkbox selection, normalized All semantics, and reset actions. Mode-specific filter fields remain configured in their adapters.
+- Milestone 8 completed locally on 2026-08-25: introduced shared dimensions, motion, focus, radius, and stacking tokens; moved the current shared controls/filter presentation and leaderboard disclosure/popover presentation out of the append-only stylesheet into component-family stylesheets; and removed the large-popover 1 px vertical overhang at its legacy source. CSS regression coverage now protects import order, ownership, flush geometry, and reduced motion.
+- Validation gate: Milestone 7 passed manual production validation. Milestone 8 passes the production build, lint, and 44-test automated suite; it awaits final production validation after publication before Milestone 9 begins.
 
 ## Current technical debt
 
@@ -442,6 +443,10 @@ Consolidate repeated colors, shadows, borders, heights, radii, typography sizes,
 ### Smallest stability proof
 
 For each migrated component family, capture or compare four representative states: desktop dark, desktop light, mobile dark, mobile light. At minimum assert computed control height, selected state, focus visibility, no horizontal overflow, and popover z-index/placement. Run `npm test` after every component-family migration, not only at the end.
+
+### Implementation note
+
+The first safe migration slice establishes `app/styles/tokens.css`, `app/styles/market-controls.css`, and `app/styles/market-content.css`, imported in explicit base-to-component order from `app/layout.tsx`. Current strictness, signal, medium-art, navigation, loading-state, row-disclosure, full-card, responsive popover, joined-border, hover-lift, and reduced-motion contracts now live with their component families instead of the versioned tail of `app/market-views.css`. Historical feature rules remain in the legacy stylesheets for later component-by-component cleanup; the milestone intentionally avoids a one-shot rewrite. The large popover now uses `top: 0` and `min-height: 100%`, matching the card tile without a one-pixel top or bottom overhang.
 
 ---
 
