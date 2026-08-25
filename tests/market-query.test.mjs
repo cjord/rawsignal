@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {parseMarketQuery,serializeMarketQuery} from "../app/state/market-query.ts";
+import {getHistoryWriteMode,parseMarketQuery,serializeMarketQuery} from "../app/state/market-query.ts";
 
 test("round-trips a complex Singles URL",()=>{
  const state=parseMarketQuery("?mode=singles&market=riftbound&rarity=overnumbered%7Csignatures&view=full&sort=change30&direction=asc&page=3&perPage=40&signal=buy&strictness=conservative&q=teemo&minPrice=12&maxPrice=90&sets=Origins%7CSpiritforged&up7=1&down30=1");
@@ -15,4 +15,23 @@ test("round-trips a complex Sealed URL",()=>{
 test("normalizes legacy Magic and invalid values",()=>{
  const state=parseMarketQuery("?market=magic&rarity=all&view=unknown&page=-2&perPage=999");
  assert.equal(state.mode,"singles");assert.equal(state.market,"pokemon");assert.deepEqual(state.rarities,[]);assert.equal(state.view,"medium");assert.equal(state.page,1);assert.equal(state.perPage,20);
+});
+
+test("replaces initial state and skips duplicate state",()=>{
+ const state=parseMarketQuery("?mode=singles&market=pokemon");
+ assert.equal(getHistoryWriteMode(null,state),"replace");
+ assert.equal(getHistoryWriteMode(state,{...state}),"skip");
+});
+
+test("replaces rapid search edits, including their page reset",()=>{
+ const previous=parseMarketQuery("?mode=singles&market=pokemon&page=4&q=umbre");
+ const next={...previous,page:1,query:"umbreon"};
+ assert.equal(getHistoryWriteMode(previous,next),"replace");
+});
+
+test("pushes meaningful navigation and control changes",()=>{
+ const previous=parseMarketQuery("?mode=singles&market=pokemon");
+ assert.equal(getHistoryWriteMode(previous,{...previous,page:2}),"push");
+ assert.equal(getHistoryWriteMode(previous,{...previous,view:"full"}),"push");
+ assert.equal(getHistoryWriteMode(previous,{...previous,up7:true}),"push");
 });

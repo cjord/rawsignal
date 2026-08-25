@@ -235,6 +235,10 @@ The selected market displayed in Sealed must match the URL. Switching markets sh
 
 Add round-trip tests for one complex Singles URL and one complex Sealed URL: `parse(serialize(state))` must equal the normalized state. Manually load each URL once and confirm the market, mode, view, sort, page size, and active-filter count match the URL.
 
+### Implementation note
+
+Implemented with a single typed query-state codec and URL owner. A post-deployment validation exposed that replace-only synchronization made browser Back/Forward ineffective. The correction now uses `pushState` for meaningful navigation and control changes, `replaceState` for initial canonicalization and rapid search edits, and a restoration guard for `popstate`. Regression tests cover duplicate, search-only, pagination, view, and filter transitions. Milestone 4 remains paused until the corrected deployed behavior is validated in a browser.
+
 ---
 
 ## Milestone 4 — Extract shared request, history, and derived-metric hooks

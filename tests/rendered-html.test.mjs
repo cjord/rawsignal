@@ -89,7 +89,9 @@ test("keeps core controls and chart interactions accessible", async () => {
   assert.match(sealed, /sealed=1/);
   assert.match(sealed, /<HistoryPanel/);
   assert.match(urlState, /window\.history\.replaceState/);
+  assert.match(urlState, /window\.history\.pushState/);
   assert.match(urlState, /popstate/);
+  assert.match(urlState, /restoringRef/);
   assert.match(page, /30D Low/);
   assert.match(page, /touch-open/);
   assert.match(page, /dataset\.expand=rect\.right\+430>window\.innerWidth\?"left":"right"/);

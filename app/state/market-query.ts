@@ -8,6 +8,7 @@ type SharedState={signal:SignalSide;strictness:SignalStrictness};
 export type SinglesQueryState=SharedState&{mode:"singles";market:SinglesGame;rarities:string[];view:SinglesView;sort:SinglesSort;direction:Direction;page:number;perPage:number;query:string;minPrice:string;maxPrice:string;sets:string[];up7:boolean;down7:boolean;up30:boolean;down30:boolean};
 export type SealedQueryState=SharedState&{mode:"sealed";market:SealedGame;productTypes:string[];view:SealedView;sort:SealedSort;direction:Direction;page:number;perPage:number;query:string;sets:string[];marketMin:string;marketMax:string;msrpMin:string;msrpMax:string;profitMin:string;profitMax:string;profitPctMin:string;profitPctMax:string;basis:"market"|"median";keepPct:number;taxOn:boolean;taxRate:number;shipping:number;profitableOnly:boolean};
 export type MarketQueryState=SinglesQueryState|SealedQueryState;
+export type HistoryWriteMode="replace"|"push"|"skip";
 
 export const defaultRarities:Record<SinglesGame,string[]>={pokemon:["illustration-rares","special-illustration-rares"],riftbound:["overnumbered"]};
 const allowedRarities:Record<SinglesGame,string[]>={pokemon:["illustration-rares","special-illustration-rares","promos","ultra-rares","double-rares","secret-hyper-rares","shiny-radiant-rares","vintage"],riftbound:["rares","epics","alt-arts","overnumbered","signatures"]};
@@ -43,4 +44,16 @@ export function serializeMarketQuery(state:MarketQueryState){
   setOptional(params,"basis",state.basis,"market");setOptional(params,"keepPct",state.keepPct,100);if(state.taxOn)params.set("taxOn","1");setOptional(params,"taxRate",state.taxRate,8);setOptional(params,"shipping",state.shipping,0);if(state.profitableOnly)params.set("profitableOnly","1");
  }
  return params.toString();
+}
+
+function withoutSearchTransition(state:MarketQueryState):MarketQueryState{
+ return state.mode==="singles"?{...state,query:"",page:1}:{...state,query:"",page:1};
+}
+
+export function getHistoryWriteMode(previous:MarketQueryState|null,next:MarketQueryState):HistoryWriteMode{
+ if(!previous)return"replace";
+ if(serializeMarketQuery(previous)===serializeMarketQuery(next))return"skip";
+ const searchChanged=previous.mode===next.mode&&previous.query!==next.query;
+ if(searchChanged&&serializeMarketQuery(withoutSearchTransition(previous))===serializeMarketQuery(withoutSearchTransition(next)))return"replace";
+ return"push";
 }
