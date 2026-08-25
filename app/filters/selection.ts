@@ -1,0 +1,2 @@
+export function toggleSelection(selected:string[],key:string,allKeys:string[]){const next=selected.includes(key)?selected.filter(value=>value!==key):[...selected,key];return next.length===allKeys.length?[]:next}
+export function filterSelectionOptions<T extends {label:string}>(options:T[],query:string){const needle=query.trim().toLowerCase();return needle?options.filter(option=>option.label.toLowerCase().includes(needle)):options}

@@ -27,8 +27,9 @@ The target architecture should provide:
 - Milestone 3 completed and production-validated on 2026-08-25: added one typed parser/serializer for Singles and Sealed, made the application shell the URL owner, added complete Sealed URL restoration, and corrected browser Back/Forward history semantics after manual validation.
 - Milestone 4 completed and production-validated on 2026-08-25: Singles and Sealed now share abortable catalog loading, bounded/cached history batching, retry/status state, and one pure derived-metric implementation. The history API emits the same normalized metrics. JSON remains the live catalog path and the bounded history endpoint remains the documented fallback until database backfill/cutover.
 - Milestone 5 completed and production-validated on 2026-08-25: Singles and Sealed now compose their mode-specific market strip, header, filter summary, controls, sort surface, rows, and footer through one shared leaderboard shell with common loading, retry, empty, and pagination behavior. Distinct mode models preserve each page's supported views and sort columns.
-- Milestone 6 completed locally on 2026-08-25: Singles and Sealed now share semantic row disclosures, identity, history-popover, full-card, viewport-placement, focus, pointer, touch, and Escape behavior. Direct TCGplayer navigation and misleading external-link arrows were removed from rows, artwork, and full cards.
-- Validation gate: Milestone 5 passed manual production switching across pages and views. Milestone 6 passes the production build and expanded automated suite; it awaits manual production validation before Milestone 7 begins.
+- Milestone 6 completed and production-validated on 2026-08-25: Singles and Sealed now share semantic row disclosures, identity, history-popover, full-card, viewport-placement, focus, pointer, touch, and Escape behavior. Direct TCGplayer navigation and misleading external-link arrows were removed from rows, artwork, and full cards. The final large-card review identified and corrected the joined outline so the tile and lateral history expansion share one continuous blue perimeter and combined shadow without an internal seam.
+- Milestone 7 completed locally on 2026-08-25: Singles, Sealed, and top-level multi-selects now share dismissible-details behavior, filter-button presentation, numeric ranges, searchable checkbox selection, normalized All semantics, and reset actions. Mode-specific filter fields remain configured in their adapters.
+- Validation gate: Milestone 6 passed manual production validation after the joined-outline correction. Milestone 7 passes the production build and expanded automated suite; it awaits production validation before Milestone 8 begins.
 
 ## Current technical debt
 
@@ -407,6 +408,10 @@ Singles and Sealed should differ by configuration and fields, not by independent
 ### Smallest stability proof
 
 Write one shared checkbox-grid test covering All, select-one, select-every-item normalization, search, and reset. Render the Singles and Sealed filter buttons with two active fields and assert the same active-count/focus/chevron contract. Run `npm test`.
+
+### Implementation note
+
+Implemented `useDismissibleDetails`, `FilterButton`, `RangeFilter`, `CheckboxGrid`, `SearchableCheckboxGrid`, `FilterActions`, and the pure `toggleSelection` normalization helper. Singles and Sealed now configure their unique ranges and checkboxes through the same primitives; `MultiSelectField` also uses the shared dismissal and selection logic. Selecting the final remaining option normalizes to the existing empty-array All representation, outside pointer events close menus without intercepting internal changes, and Escape closes a menu while returning focus to its summary. Automated coverage checks individual toggles, select-everything normalization, shared component composition, labels, and dismissal behavior.
 
 ---
 
