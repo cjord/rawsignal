@@ -202,7 +202,7 @@
 
   /* v41: roomier signal cells, unified strictness control, and display settings. */
   .controls>.strictness-control{display:grid!important;align-items:center!important;gap:2px!important;padding:6px 11px!important;border:1px solid var(--line)!important;border-radius:12px!important;background:var(--control)!important}
-  .controls>.strictness-control select{height:29px!important;margin:0!important;padding:0 28px 0 0!important;border:0!important;background:transparent!important}
+  .controls>.strictness-control select{height:29px!important;min-height:29px!important;margin:0!important;padding:0 28px 0 0!important;border:0!important;border-radius:0!important;background-color:transparent!important;background-image:none!important;box-shadow:none!important}
   .view-text .signal-cell .signal-badge,.sealed-view-text .sealed-signal-cell .signal-badge{min-height:44px;padding-block:9px}
   .view-medium .signal-cell .signal-badge,.sealed-view-medium .sealed-signal-cell .signal-badge{min-height:58px;padding-block:11px}
   .view-medium .signal-cell,.view-text .signal-cell,.sealed-view-medium .sealed-signal-cell,.sealed-view-text .sealed-signal-cell{padding-right:12px;box-sizing:border-box}
