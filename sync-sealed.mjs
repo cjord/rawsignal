@@ -1,36 +1,81 @@
 import fs from "node:fs/promises";
+import {isPokemonSealedProduct, normalizeProductType, normalizedProductKey} from "./sealed-product-utils.mjs";
 
-const BASE="https://tcgcsv.com/tcgplayer";
-const headers={"User-Agent":"RawSignal/4.0 (+sealed market tracker)"};
-const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-async function json(url){for(let attempt=0;attempt<3;attempt++){const response=await fetch(url,{headers});if(response.ok){const body=await response.json();await wait(90);return body.results??body}await wait(500*(attempt+1))}throw new Error(`Failed ${url}`)}
-const highestPrice=prices=>{const priced=prices.filter(row=>Number(row.marketPrice)>0);return priced.sort((a,b)=>b.marketPrice-a.marketPrice)[0]};
-const sealedName=name=>/(booster|bundle|box|display|collection|deck|tin|kit|vault|starter)/i.test(name)&&!/(single card|code card)/i.test(name);
-const category=name=>/booster (box|display)/i.test(name)?"Booster boxes":/booster/i.test(name)?"Boosters":/bundle/i.test(name)?"Bundles":/deck/i.test(name)?"Decks":/tin/i.test(name)?"Tins":/collection/i.test(name)?"Collections":"Other";
-const card=(game,product,set,msrp,price,source)=>({game,productId:product.productId??product.id,name:product.name,set,category:category(product.name),image:(product.imageUrl??product.image)?.replace("_200w","_in_1000x1000"),url:product.url,msrp,marketPrice:Number(price.marketPrice??price.market),midPrice:Number(price.midPrice??price.median)||null,profit:Number((Number(price.marketPrice??price.market)-msrp).toFixed(2)),profitPct:Number((((Number(price.marketPrice??price.market)-msrp)/msrp)*100).toFixed(1)),msrpSource:source});
-const isOnePiece=product=>/one[ -]?piece/i.test(`${product.name} ${product.set} ${product.url}`);
-const isLorcana=product=>/lorcana|attack of the vine/i.test(`${product.name} ${product.set} ${product.url}`);
+const BASE = "https://tcgcsv.com/tcgplayer";
+const headers = {"User-Agent": "RawSignal/6.0 (+pokemon sealed market tracker)"};
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-const pokemonRaw=await fetch("https://tcg-price-tracker.shizukaziye.workers.dev/data/data.json",{headers}).then(response=>response.json());
-const trackedProducts=pokemonRaw.items.filter(item=>item.matched&&item.msrp>0&&item.market>0);
-const pokemon=trackedProducts.filter(item=>!isOnePiece(item)&&!isLorcana(item)).map(item=>card("pokemon",item,item.set,item.msrp,{market:item.market,median:item.median},"Published product MSRP")).sort((a,b)=>b.profitPct-a.profitPct);
-const onepiece=trackedProducts.filter(isOnePiece).map(item=>card("onepiece",item,item.set,item.msrp,{market:item.market,median:item.median},"Published product MSRP")).sort((a,b)=>b.profitPct-a.profitPct);
+async function json(url) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const response = await fetch(url, {headers});
+    if (response.ok) {
+      const body = await response.json();
+      await wait(75);
+      return body.results ?? body;
+    }
+    await wait(500 * (attempt + 1));
+  }
+  throw new Error(`Failed ${url}`);
+}
 
-function riftMsrp(name){if(/case|set of|art bundle/i.test(name))return null;if(/booster (display|box)/i.test(name))return 120;if(/booster pack/i.test(name))return 4.99;if(/proving grounds/i.test(name))return 29.99;if(/champion deck.*display|display.*champion deck/i.test(name))return 79.96;if(/champion deck/i.test(name))return 19.99;if(/unleashed vault/i.test(name))return 34.99;if(/arcane box set/i.test(name))return 40;return null}
-function magicMsrp(group,name){if(/display|case|booster box|set of|sample pack|omega pack/i.test(name))return null;if(/foundations/i.test(group)){if(/collector booster/i.test(name))return 24.99;if(/jumpstart booster/i.test(name))return 5.49;if(/play booster|booster pack/i.test(name))return 5.25;if(/starter collection/i.test(name))return 59.99;if(/beginner box/i.test(name))return 29.99;if(/bundle/i.test(name))return 49.99}if(/innistrad remastered/i.test(group)){if(/collector booster/i.test(name))return 29.99;if(/play booster|booster pack/i.test(name))return 6.99}if(/aetherdrift/i.test(group)){if(/collector booster/i.test(name))return 24.99;if(/play booster|booster pack/i.test(name))return 5.49;if(/commander deck/i.test(name))return 44.99;if(/finish line|specialty bundle/i.test(name))return 79.99;if(/bundle/i.test(name))return 53.99}return null}
+const positive = value => Number(value) > 0 ? Number(value) : null;
+function preferredPrice(rows = []) {
+  const priced = rows.filter(row => positive(row.marketPrice) != null || positive(row.midPrice) != null);
+  return priced.find(row => /normal|unopened|sealed/i.test(row.subTypeName ?? "")) ?? priced[0] ?? null;
+}
 
-async function collect(categoryId,game,msrpFor,groupFilter=()=>true){const groups=(await json(`${BASE}/${categoryId}/groups`)).filter(groupFilter),items=[];for(const [index,group] of groups.entries()){const [products,prices]=await Promise.all([json(`${BASE}/${categoryId}/${group.groupId}/products`),json(`${BASE}/${categoryId}/${group.groupId}/prices`)]);const byProduct=new Map();for(const row of prices)(byProduct.get(row.productId)??byProduct.set(row.productId,[]).get(row.productId)).push(row);for(const product of products){if(!sealedName(product.name))continue;const msrp=msrpFor(product.name,group.name),price=highestPrice(byProduct.get(product.productId)??[]);if(msrp&&price)items.push(card(game,product,group.name,msrp,price,game==="riftbound"?"Asmodee/Riftbound MSRP":"Wizards published MSRP"))}if(index%20===0)console.error(`${game}: ${index+1}/${groups.length}`)}return items.sort((a,b)=>b.profitPct-a.profitPct)}
+function outputProduct(product, group, price, msrpRecord) {
+  const msrp = positive(msrpRecord?.msrp);
+  const marketPrice = positive(price?.marketPrice);
+  const midPrice = positive(price?.midPrice);
+  const profit = msrp != null && marketPrice != null ? Number((marketPrice - msrp).toFixed(2)) : null;
+  return {
+    game: "pokemon",
+    productId: Number(product.productId),
+    name: product.name,
+    set: group.name,
+    category: normalizeProductType(product.name),
+    image: product.imageUrl?.replace("_200w", "_in_1000x1000") ?? null,
+    url: product.url ?? "",
+    msrp,
+    marketPrice,
+    midPrice,
+    profit,
+    profitPct: profit != null && msrp ? Number((profit / msrp * 100).toFixed(1)) : null,
+    msrpSource: msrp == null ? null : "Published product MSRP",
+  };
+}
 
-const regionalRiftbound=[
- {game:"riftbound",productId:-1001,name:"Lunar Revel Bundle 2026 (Simplified Chinese)",set:"Lunar Revel 2026",category:"Gift boxes",image:null,url:"https://playriftbound.com/en-us/news/announcements/january-merch-store-updates/",msrp:39.99,marketPrice:null,midPrice:null,profit:null,profitPct:null,msrpSource:"Riot Merch US price"},
- {game:"riftbound",productId:-1002,name:"Secret Garden Gift Box (Simplified Chinese)",set:"Secret Garden",category:"Gift boxes",image:null,url:"https://playriftbound.com/en-us/news/announcements/products-and-sets-into-2027/",msrp:50,marketPrice:null,midPrice:null,profit:null,profitPct:null,msrpSource:"China MSRP ¥299 (~$50)"},
- {game:"riftbound",productId:-1003,name:"T1 2025 Worlds Champion Signature Edition (Chinese)",set:"T1 2025 Worlds Champion Collection",category:"Collector bundles",image:null,url:"https://playriftbound.com/en-us/news/announcements/the-riftbound-x-t1-2025-worlds-champion-collection/",msrp:360,marketPrice:null,midPrice:null,profit:null,profitPct:null,msrpSource:"USD reference; China ¥2,025"},
- {game:"riftbound",productId:-1004,name:"T1 2025 Worlds Champion Signature Edition (Korean)",set:"T1 2025 Worlds Champion Collection",category:"Collector bundles",image:null,url:"https://playriftbound.com/en-us/news/announcements/the-riftbound-x-t1-2025-worlds-champion-collection/",msrp:360,marketPrice:null,midPrice:null,profit:null,profitPct:null,msrpSource:"USD reference; Korea ₩500K"},
- {game:"riftbound",productId:-1005,name:"T1 2025 Worlds Champion Player Bundle (Chinese)",set:"T1 2025 Worlds Champion Collection",category:"Collector bundles",image:null,url:"https://playriftbound.com/en-us/news/announcements/the-riftbound-x-t1-2025-worlds-champion-collection/",msrp:70,marketPrice:null,midPrice:null,profit:null,profitPct:null,msrpSource:"USD reference; China ¥399"},
- {game:"riftbound",productId:-1006,name:"T1 2025 Worlds Champion Player Bundle (Korean)",set:"T1 2025 Worlds Champion Collection",category:"Collector bundles",image:null,url:"https://playriftbound.com/en-us/news/announcements/the-riftbound-x-t1-2025-worlds-champion-collection/",msrp:70,marketPrice:null,midPrice:null,profit:null,profitPct:null,msrpSource:"USD reference; Korea ₩100K"}
-];
-const riftbound=[...await collect(89,"riftbound",riftMsrp),...regionalRiftbound];
-const magic=await collect(1,"magic",(name,group)=>magicMsrp(group,name),group=>/Foundations|Innistrad Remastered|Aetherdrift/i.test(group.name));
-await fs.mkdir("public/data",{recursive:true});
-await Promise.all(Object.entries({pokemon,onepiece,riftbound,magic}).map(([game,items])=>fs.writeFile(`public/data/sealed-${game}.json`,JSON.stringify(items))));
-console.log({pokemon:pokemon.length,onepiece:onepiece.length,riftbound:riftbound.length,magic:magic.length});
+const tracker = await fetch("https://tcg-price-tracker.shizukaziye.workers.dev/data/data.json", {headers}).then(response => response.json());
+const msrpById = new Map((tracker.items ?? []).filter(item => item.matched && positive(item.msrp) != null).map(item => [Number(item.productId ?? item.id), item]));
+const groups = await json(`${BASE}/3/groups`);
+const products = [];
+const seenIds = new Set();
+const seenExact = new Set();
+
+for (const [index, group] of groups.entries()) {
+  const [groupProducts, groupPrices] = await Promise.all([
+    json(`${BASE}/3/${group.groupId}/products`),
+    json(`${BASE}/3/${group.groupId}/prices`),
+  ]);
+  const pricesByProduct = new Map();
+  for (const row of groupPrices) {
+    const rows = pricesByProduct.get(Number(row.productId)) ?? [];
+    rows.push(row);
+    pricesByProduct.set(Number(row.productId), rows);
+  }
+  for (const product of groupProducts) {
+    if (!isPokemonSealedProduct(product, group) || seenIds.has(Number(product.productId))) continue;
+    const exactKey = normalizedProductKey(product, group.name);
+    if (seenExact.has(exactKey)) continue;
+    seenIds.add(Number(product.productId));
+    seenExact.add(exactKey);
+    products.push(outputProduct(product, group, preferredPrice(pricesByProduct.get(Number(product.productId))), msrpById.get(Number(product.productId))));
+  }
+  if (index % 20 === 0) console.error(`pokemon: ${index + 1}/${groups.length}`);
+}
+
+products.sort((a, b) => (b.marketPrice ?? -1) - (a.marketPrice ?? -1) || a.name.localeCompare(b.name));
+await fs.mkdir("public/data", {recursive: true});
+await fs.writeFile("public/data/sealed-pokemon.json", JSON.stringify(products));
+console.log({pokemon: products.length, withMarket: products.filter(item => item.marketPrice != null).length, withMsrp: products.filter(item => item.msrp != null).length});
