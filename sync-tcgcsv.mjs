@@ -3,9 +3,8 @@ const BASE="https://tcgcsv.com/tcgplayer",headers={"User-Agent":"RawSignal/3.0 (
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function readJson(url){for(let attempt=0;attempt<3;attempt++){const response=await fetch(url,{headers});if(response.ok){const data=await response.json();await sleep(110);return data.results??[]}await sleep(500*(attempt+1))}throw new Error(`Failed ${url}`)}
 const ext=(product,key)=>product.extendedData?.find(item=>item.name===key)?.value??"";
-const slug=value=>value.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
 let previous={};try{const old=JSON.parse(await fs.readFile("tcg-data.json","utf8"));for(const cards of Object.values(old.sections??{}))for(const card of cards)previous[`${card.game}:${card.productId}`]=card.marketPrice}catch{/* First sync has no prior snapshot. */}
-const today=new Date(),sections={},rarities={pokemon:[],riftbound:[],magic:[]};
+const today=new Date(),sections={},rarities={pokemon:[],riftbound:[]};
 const pokemonSection=(rarity,year)=>{
  if(/^Illustration Rare$/i.test(rarity))return ["illustration-rares","Illustration Rares"];
  if(/^Special Illustration Rare$/i.test(rarity))return ["special-illustration-rares","Special Illustration Rares"];
@@ -26,18 +25,18 @@ async function collect(categoryId,game){
    const year=new Date(group.publishedOn).getFullYear();let section,label;
    if(game==="pokemon"){const selected=pokemonSection(rarity,year);if(selected)[section,label]=selected}
    else if(game==="riftbound"){if(/\(Signature\)/i.test(product.name))[section,label]=["signatures","Signatures"];else if(/\(Overnumbered\)/i.test(product.name))[section,label]=["overnumbered","Overnumbered"];else if(/\(Alternate Art\)/i.test(product.name))[section,label]=["alt-arts","Alt Arts"];else if(/^Epic$/i.test(rarity))[section,label]=["epics","Epics"];else if(/^Rare$/i.test(rarity))[section,label]=["rares","Rares"]}
-   else{section=`magic-${slug(rarity)}`;label=rarity}if(!section)continue;
+   if(!section)continue;
    const prior=previous[`${game}:${product.productId}`],card={game,section,productId:product.productId,name:product.name,set:group.name,year,rarity,number,image:product.imageUrl?.replace("_200w","_in_1000x1000"),url:product.url,marketPrice:price.marketPrice,lowPrice:price.lowPrice,midPrice:price.midPrice,highPrice:price.highPrice,printing:price.subTypeName,priceChange:typeof prior==="number"?Number((price.marketPrice-prior).toFixed(2)):null};
    (sections[section]??=[]).push(card);if(!rarities[game].some(item=>item.key===section))rarities[game].push({key:section,label});
   }
   done++;if(done%25===0)console.error(`${game}: ${done}/${groups.length}`);
  }
 }
-await collect(3,"pokemon");await collect(89,"riftbound");await collect(1,"magic");
+await collect(3,"pokemon");await collect(89,"riftbound");
 sections["illustration-and-special-rares"]=[...(sections["illustration-rares"]??[]),...(sections["special-illustration-rares"]??[])];
 rarities.pokemon.push({key:"illustration-and-special-rares",label:"Illustration + Special Illustration Rares"});
 for(const cards of Object.values(sections))cards.sort((a,b)=>b.marketPrice-a.marketPrice);
-const order={pokemon:["illustration-and-special-rares","illustration-rares","special-illustration-rares","promos","ultra-rares","double-rares","secret-hyper-rares","shiny-radiant-rares","vintage"],riftbound:["rares","epics","alt-arts","overnumbered","signatures"],magic:["magic-m","magic-r","magic-u","magic-c","magic-s","magic-p","magic-l","magic-t"]};
+const order={pokemon:["illustration-and-special-rares","illustration-rares","special-illustration-rares","promos","ultra-rares","double-rares","secret-hyper-rares","shiny-radiant-rares","vintage"],riftbound:["rares","epics","alt-arts","overnumbered","signatures"]};
 for(const game of Object.keys(rarities)){rarities[game].sort((a,b)=>order[game].indexOf(a.key)-order[game].indexOf(b.key));rarities[game].push({key:"all",label:"All"})}
 const lastUpdated=await fetch("https://tcgcsv.com/last-updated.txt",{headers}).then(response=>response.text()).catch(()=>today.toISOString()),totals={};
 for(const game of Object.keys(rarities))totals[game]=new Set(Object.values(sections).flat().filter(card=>card.game===game).map(card=>card.productId)).size;

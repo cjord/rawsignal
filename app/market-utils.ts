@@ -1,4 +1,4 @@
-import type {PricePoint} from "./PriceChart";
+import type {PricePoint} from "./domain/types";
 
 export const normalized=(value:string)=>value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
 

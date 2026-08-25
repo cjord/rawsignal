@@ -1,9 +1,5 @@
-import type {PricePoint} from "./PriceChart";
-
-export type SignalSide="leaderboard"|"buy"|"sell";
-export type SignalStrictness="conservative"|"balanced"|"aggressive";
-export type SignalConfidence="high"|"medium"|"low";
-export type MarketSignal={side:"buy"|"sell";score:number;confidence:SignalConfidence;reason:string;detail:string;distance:number;cutoff:number};
+import type {MarketSignal,PricePoint,SignalConfidence,SignalStrictness} from "./domain/types";
+export type {MarketSignal,SignalConfidence,SignalSide,SignalStrictness} from "./domain/types";
 
 const presets={conservative:{base:1.5,scale:.13,max:8,minScore:72},balanced:{base:2.25,scale:.2,max:12,minScore:58},aggressive:{base:3.5,scale:.28,max:18,minScore:44}} as const;
 const pct=(value:number)=>`${value.toFixed(1)}%`;
