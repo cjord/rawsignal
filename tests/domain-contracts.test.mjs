@@ -5,12 +5,14 @@ import test from "node:test";
 import {parseCard,parsePriceHistory,parseSealedProduct} from "../app/domain/contracts.ts";
 import {formatPercent,formatUsd} from "../app/domain/formatters.ts";
 import {completeIngestion,readProductSnapshot,startIngestion,upsertCard,upsertHistory,upsertSealedProduct} from "../db/repository.ts";
+import {createD1CatalogRepository} from "../db/catalog-repository.ts";
 
 class LocalStatement{
   constructor(statement){this.statement=statement;this.values=[]}
   bind(...values){this.values=values;return this}
   async run(){return this.statement.run(...this.values)}
   async first(){return this.statement.get(...this.values)??null}
+  async all(){return{results:this.statement.all(...this.values)}}
 }
 
 class LocalD1{
@@ -56,6 +58,11 @@ test("applies the D1 migration and ingests a fixture idempotently",async()=>{
   assert.equal(database.prepare("select count(*) as count from ingestion_runs").get().count,1);
   assert.deepEqual({...await readProductSnapshot(db,1)},{productId:1,kind:"single",game:"pokemon",name:"Fixture Card",setName:"Fixture Set",marketCents:1234,medianCents:1300,msrpCents:null});
   assert.deepEqual({...await readProductSnapshot(db,3)},{productId:3,kind:"sealed",game:"pokemon",name:"Regional Gift Box",setName:"Fixture Set",marketCents:null,medianCents:null,msrpCents:null});
+  const repository=createD1CatalogRepository(db);
+  const singles=await repository.querySingles({market:"pokemon",sections:["illustration-rares"],query:"fixture",sets:[],minPrice:"",maxPrice:"",up7:false,down7:false,up30:false,down30:false,signal:"leaderboard",strictness:"balanced",sort:"market",direction:"desc",page:1,perPage:20});
+  assert.deepEqual(singles.items.map(item=>item.productId),[1]);
+  const sealedPage=await repository.querySealed({market:"pokemon",productTypes:[],query:"",sets:[],marketMin:"",marketMax:"",msrpMin:"",msrpMax:"",profitMin:"",profitMax:"",profitPctMin:"",profitPctMax:"",profitableOnly:false,basis:"market",keepPct:100,taxOn:false,taxRate:8,shipping:0,signal:"leaderboard",strictness:"balanced",sort:"market",direction:"desc",page:1,perPage:20});
+  assert.deepEqual(sealedPage.items.map(item=>item.productId),[2,3]);
   const plan=database.prepare("explain query plan select * from catalog_products where kind='single' and game='pokemon' and section='illustration-rares'").all();
   assert.match(plan.map(row=>row.detail).join(" "),/idx_catalog_kind_game_section/);
   database.close();

@@ -27,11 +27,15 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - `app/SignalControls.tsx`, `app/signal-utils.ts`: Hot Buy/Hot Sell controls and scoring.
 - `app/market-utils.ts`, `app/history-utils.ts`: shared search, history, range, concurrency, and popover utilities.
 - `app/domain/`: shared market types, runtime feed contracts, and display formatters.
+- `app/data/catalog-query.ts`, `app/data/catalog-repository.ts`: shared Singles/Sealed query semantics and repository contract.
+- `app/data/feed-catalog-repository.ts`, `app/data/catalog-service.ts`: bundled-feed adapter and transport-neutral catalog service.
 - `app/state/`: the authoritative Singles/Sealed URL-state parser, serializer, and browser synchronization hook.
 - `app/globals.css`: original global layout and component styles.
 - `app/market-views.css`: later shared view, filter, signal, and responsive refinements. Check both stylesheets before adding overrides.
 - `app/api/history/route.ts`: normalized TCGplayer market-history access.
+- `app/api/catalog/route.ts`: compact catalog query endpoint with D1-readiness checks and bundled-feed fallback.
 - `db/schema.ts`, `db/repository.ts`: D1 persistence schema and idempotent ingestion/read boundary.
+- `db/catalog-repository.ts`: D1 catalog adapter using the shared catalog query contract.
 - `drizzle/`: generated, committed D1 migrations and schema snapshots.
 - `docs/adr/`: accepted architecture decisions, including the Sites-to-Cloudflare path.
 - `sync-tcgcsv.mjs`: generates Singles market data and `tcg-index.json` from TCGCSV.

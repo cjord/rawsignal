@@ -4,6 +4,7 @@ type Statement = {
   bind(...values: unknown[]): Statement;
   run(): Promise<unknown>;
   first<T = Record<string, unknown>>(): Promise<T | null>;
+  all<T = Record<string, unknown>>(): Promise<{ results?: T[] }>;
 };
 
 export type D1DatabaseLike = {

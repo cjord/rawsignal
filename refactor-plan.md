@@ -29,8 +29,9 @@ The target architecture should provide:
 - Milestone 5 completed and production-validated on 2026-08-25: Singles and Sealed now compose their mode-specific market strip, header, filter summary, controls, sort surface, rows, and footer through one shared leaderboard shell with common loading, retry, empty, and pagination behavior. Distinct mode models preserve each page's supported views and sort columns.
 - Milestone 6 completed and production-validated on 2026-08-25: Singles and Sealed now share semantic row disclosures, identity, history-popover, full-card, viewport-placement, focus, pointer, touch, and Escape behavior. Direct TCGplayer navigation and misleading external-link arrows were removed from rows, artwork, and full cards. Final large-card review corrections make the tile and lateral history expansion share one continuous blue perimeter, combined shadow, and wrapper-level hover lift without an internal seam; reduced-motion users receive no translation.
 - Milestone 7 completed and production-validated on 2026-08-25: Singles, Sealed, and top-level multi-selects now share dismissible-details behavior, filter-button presentation, numeric ranges, searchable checkbox selection, normalized All semantics, and reset actions. Mode-specific filter fields remain configured in their adapters.
-- Milestone 8 completed locally on 2026-08-25: introduced shared dimensions, motion, focus, radius, and stacking tokens; moved the current shared controls/filter presentation and leaderboard disclosure/popover presentation out of the append-only stylesheet into component-family stylesheets; and removed the large-popover 1 px vertical overhang at its legacy source. CSS regression coverage now protects import order, ownership, flush geometry, and reduced motion.
-- Validation gate: Milestone 7 passed manual production validation. Milestone 8 passes the production build, lint, and 44-test automated suite; it awaits final production validation after publication before Milestone 9 begins.
+- Milestone 8 completed and production-validated on 2026-08-25: introduced shared dimensions, motion, focus, radius, and stacking tokens; moved the current shared controls/filter presentation and leaderboard disclosure/popover presentation out of the append-only stylesheet into component-family stylesheets; and corrected the large-popover joined border and hover geometry. CSS regression coverage protects import order, ownership, flush geometry, and reduced motion.
+- Milestone 9 completed locally on 2026-08-25: Singles and Sealed now use one query, filtering, sorting, pagination, deduplication, facet, and sealed-scenario engine. A compact catalog service and API can read through D1 after market backfill, while safely falling back to bundled feeds without a hard-coded production origin. Repository and service parity are covered by the 50-test suite.
+- Validation gate: Milestone 8 passed automated and manual production validation. Milestone 9 passes the production build, lint, query parity matrix, worker-route build, and complete 50-test automated suite; it awaits publication and production validation before Milestone 10 begins.
 
 ## Current technical debt
 
@@ -479,6 +480,14 @@ Keep fuzzy-search semantics, null sorting, deduplication, filter capitalization,
 ### Smallest stability proof
 
 Run one query matrix against both the old fixture implementation and the new repository: empty query, multi-token partial query, typo, set filter, ascending/descending nullable price sort, and page boundary. Assert identical product IDs and totals. Then run a production build to prove worker-compatible asset access.
+
+### Implementation note
+
+Implemented a transport-neutral catalog query engine and repository contract shared by Singles and Sealed. The engine owns fuzzy matching, market/rarity/set/type filters, movement and signal qualification, nullable sorting, deduplication, facets, sealed scenario calculations, totals, and bounded pagination. The existing pages now use that engine directly, preserving current history enrichment and rendering behavior while eliminating their independent query implementations.
+
+`/api/catalog` exposes the same contract as a compact server response. Its runtime adapter prefers D1 only after the requested market has catalog rows; otherwise it reads bundled assets through the deployment asset binding or request origin, with no production-host constant. The D1 adapter deliberately applies the shared query engine to a market slice during this parity-first phase. SQL/FTS pushdown and database `LIMIT`/cursor optimization should follow only after Milestone 10 backfill and benchmarks prove identical IDs, totals, and null ordering.
+
+Automated coverage exercises typo and multi-token search, nullable ascending/descending ordering, page clamping, facets, signal/movement filters, sealed profit calculations, feed/repository parity, compact service responses, and D1 fixture reads. The production build confirms the worker route and asset access compile successfully. The browser remains on the shared in-memory engine until daily catalog, history, and signal backfill makes D1 an authoritative replacement rather than a partial data source.
 
 ---
 
