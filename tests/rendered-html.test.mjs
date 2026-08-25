@@ -32,16 +32,19 @@ test("keeps core controls and chart interactions accessible", async () => {
     readFile(new URL("../app/MarketUI.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/PriceChart.tsx", import.meta.url), "utf8"),
   ]);
-  for (const label of ["Singles market", "Card rarity", "Cards per page"])
+  for (const label of ["Singles market", "Cards per page"])
     assert.match(page, new RegExp(`aria-label=\\"${label}\\"`));
-  for (const label of ["Sealed market", "Sealed set", "Sealed products per page"])
-    assert.match(sealedFilters, new RegExp(`aria-label=\\"${label}\\"`));
+  for (const label of ["Sealed market", "Sealed products per page"])
+    assert.match(sealed, new RegExp(`aria-label=\\"${label}\\"`));
+  assert.match(page, /<MultiSelectField label="Rarity"/);
+  assert.match(sealed, /<MultiSelectField label="Set"/);
   assert.match(page, /label="Card view"/);
   assert.match(page, /label="Leaderboard pages"/);
   assert.match(sealed, /label="Sealed product view"/);
   assert.match(sealed, /className="sealed-toolbar"/);
-  assert.match(sealedFilters, /Keep after fees/);
-  assert.match(sealedFilters, /document\.addEventListener\("pointerdown",close\)/);
+  assert.match(sealed, /<SaleScenario/);
+  assert.match(sealedFilters, /<StrictnessControl value=\{strictness\}/);
+  assert.match(page, /leader-filter-summary.*has-content/);
   assert.match(sealed, /label="Sealed product pages"/);
   assert.match(priceChart, /onPointerMove=\{move\}/);
   assert.match(priceChart, /className="chart-cursor"/);
