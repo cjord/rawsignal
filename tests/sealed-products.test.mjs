@@ -11,6 +11,8 @@ test("normalizes common Pokémon sealed product types", () => {
   assert.equal(normalizeProductType("Mega Evolution Enhanced Booster Case"), "Cases");
   assert.equal(normalizeProductType("Surging Sparks Booster Box Case"), "Cases");
   assert.equal(normalizeProductType("Celebrations Ultra-Premium Collection Case"), "Cases");
+  assert.equal(normalizeProductType("151 Booster Bundle Display"), "Cases");
+  assert.equal(normalizeProductType("Ascended Heroes Booster Bundle Display"), "Cases");
   assert.equal(normalizeProductType("Detective Pikachu: Charizard GX Special Case File"), "Collections");
   assert.equal(normalizeProductType("Pokemon TCG: Back to School Pencil Case 2024"), "Collections");
 });

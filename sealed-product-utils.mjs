@@ -16,6 +16,7 @@ const NON_POKEMON = /\b(lorcana|one[ -]?piece|riftbound|yu-?gi-?oh|flesh and blo
 const NON_PRODUCT = /\b(code card|single card|jumbo card|oversize(?:d)? card|wrapper|empty box|deck box|card sleeves?|playmat|dice set)\b/i;
 
 export function normalizeProductType(name = "") {
+  if (/\bbooster bundle display\b/i.test(name)) return "Cases";
   if (/\bcase\b/i.test(name) && !/\b(case file|pencil case)\b/i.test(name)) return "Cases";
   return TYPE_RULES.find(([, pattern]) => pattern.test(name))?.[0] ?? "Other";
 }
