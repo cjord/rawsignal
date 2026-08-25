@@ -528,7 +528,7 @@ Implemented retrying TCGCSV/HTTP clients, pure Singles and Sealed normalizers, s
 
 The D1 boundary now records those diagnostics on ingestion runs. `runDailyMarketIngestion` uses a deterministic daily run ID, upserts catalog/current-price records, adds idempotent dated observations, derives shared history metrics, writes or deletes all six strictness/side signals per product, and advances the published refresh pointer only after completion. The catalog reader verifies the published run count and falls back to bundled feeds during a partial run.
 
-`/api/history` reads durable TCGplayer observations first and persists successful upstream fallbacks with derived metrics/signals. `runHistoryBackfillBatch` uses a durable cursor so full-market bootstrap can be split across safe invocations. Persisted Hot Buy/Hot Sell data is exposed only after the independent `history-signals` completion marker exists; until then Singles and Sealed retain the bounded 400-candidate fallback. The Singles interface now reports that transitional coverage explicitly. This explains why 499 Illustration Rares can omit 99 candidates and the 721-card IR/SIR selection can omit 321.
+`/api/history` reads durable TCGplayer observations first and persists successful upstream fallbacks with derived metrics/signals. `runHistoryBackfillBatch` uses a durable cursor so full-market bootstrap can be split across safe invocations. Persisted Hot Buy/Hot Sell data is exposed only after the independent `history-signals` completion marker exists; until then Singles and Sealed retain the bounded 400-candidate fallback. The Singles interface now reports that transitional coverage explicitly. This explains why 499 Illustration Rares can omit 99 candidates and the 721-card IR/SIR selection can omit 321. Milestone 11 replaces the original first-400 selection with proportional, price-stratified fallback coverage so combined rarities cannot starve later source files while the persisted backfill is incomplete.
 
 OpenAI Sites still has no project Cron Trigger. The scheduler-independent job boundary is complete, but activation is reserved for direct Cloudflare hosting: bind the same D1 database, attach a daily catalog trigger plus bounded backfill continuations, validate counts/history/signal parity, then retire the browser fallback. No unauthenticated administrative endpoint was added.
 
@@ -566,6 +566,12 @@ Critical journeys should include restoring a shared URL, changing markets, apply
 ### Smallest stability proof
 
 Create one smoke journey that loads a Singles URL, applies and removes a filter, changes sort, opens history, switches to Sealed, and confirms the URL and visible controls remain consistent. Require `npm test`, `npm run lint`, and that smoke journey to pass before merging future UI work.
+
+### Implementation note
+
+Added deterministic fallback-coverage tests, explicit signal exclusion evaluations, and a critical-journey smoke test that restores and mutates a Singles URL, executes shared filtering/sorting, switches to Sealed, and verifies the corresponding product-type result. The `check` command now requires the production build, complete Node test suite, and lint; a Node 24 GitHub Actions workflow applies the same gate when the repository is connected to GitHub.
+
+The test pyramid remains intentionally light at the browser layer while OpenAI Sites is the active host: shared query-state, catalog, rendered-HTML, disclosure, filter, CSS-contract, ingestion, history, and signal tests protect the current contracts without introducing brittle screenshots. A focused browser runner should be added after the Cloudflare hosting transition supplies a stable preview URL and deployment pipeline.
 
 ---
 
