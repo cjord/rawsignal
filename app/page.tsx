@@ -1,6 +1,6 @@
 "use client";
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps -- keyed effects synchronize remote data and theme */
-import {useEffect,useMemo,useState} from "react";
+import {useEffect,useMemo,useRef,useState} from "react";
 import index from "../tcg-index.json";
 import SealedView from "./SealedView";
 import DeferredImage from "./DeferredImage";
@@ -37,7 +37,8 @@ function HoverCard({card,history}:{card:Card;history?:History}){return <span cla
 export default function Home(){
  const defaultRarities:Record<Game,string[]>={pokemon:["illustration-rares","special-illustration-rares"],riftbound:["overnumbered"],magic:["magic-m"]};
  const [game,setGame]=useState<Game>("pokemon"),[selectedRarities,setSelectedRarities]=useState<string[]>(defaultRarities.pokemon),[cards,setCards]=useState<Card[]>([]),[loading,setLoading]=useState(true),[query,setQuery]=useState(""),[sort,setSort]=useState<SortKey>("market"),[direction,setDirection]=useState<Direction>("desc"),[view,setView]=useState<View>("medium"),[perPage,setPerPage]=useState(20),[page,setPage]=useState(1),[history,setHistory]=useState<Record<number,History>>({}),[serverTotal,setServerTotal]=useState<number|null>(null),[touchOpen,setTouchOpen]=useState<number|null>(null);
- const [mode,setMode]=useState<"singles"|"sealed">("singles"),[theme,setTheme]=useState<"dark"|"light">("dark"),[urlReady,setUrlReady]=useState(false);
+ const [mode,setMode]=useState<"singles"|"sealed">("singles"),[theme,setTheme]=useState<"dark"|"light">("dark"),[fontSize,setFontSize]=useState<"default"|"large">("default"),[settingsOpen,setSettingsOpen]=useState(false),[urlReady,setUrlReady]=useState(false);
+ const settingsRef=useRef<HTMLDivElement>(null);
  const [signalView,setSignalView]=useState<SignalSide>("leaderboard"),[strictness,setStrictness]=useState<SignalStrictness>("balanced");
  const [minPrice,setMinPrice]=useState(""),[maxPrice,setMaxPrice]=useState(""),[selectedSets,setSelectedSets]=useState<string[]>([]),[movement,setMovement]=useState<MovementFilters>({up7:false,down7:false,up30:false,down30:false});
  useEffect(()=>{const close=(event:KeyboardEvent)=>{if(event.key==="Escape")setTouchOpen(null)};window.addEventListener("keydown",close);return()=>window.removeEventListener("keydown",close)},[]);
@@ -54,11 +55,14 @@ export default function Home(){
  const switchGame=(next:Game)=>{setGame(next);setSelectedRarities(defaultRarities[next]);setSelectedSets([]);setQuery("");setSort("market");setDirection("desc");setPage(1)};
  const changeSort=(next:SortKey)=>{setDirection(current=>sort===next?(current==="asc"?"desc":"asc"):defaultDirection(next));setSort(next);setPage(1)};
  useEffect(()=>{const saved=localStorage.getItem("raw-signal-theme")==="light"?"light":"dark";setTheme(saved);document.documentElement.dataset.theme=saved},[]);
+ useEffect(()=>{const saved=localStorage.getItem("raw-signal-font-size")==="large"?"large":"default";setFontSize(saved);document.documentElement.dataset.fontSize=saved},[]);
+ useEffect(()=>{if(!settingsOpen)return;const close=(event:PointerEvent)=>{if(!settingsRef.current?.contains(event.target as Node))setSettingsOpen(false)};window.addEventListener("pointerdown",close);return()=>window.removeEventListener("pointerdown",close)},[settingsOpen]);
  const toggleTheme=()=>setTheme(current=>{const next=current==="dark"?"light":"dark";document.documentElement.dataset.theme=next;localStorage.setItem("raw-signal-theme",next);return next});
+ const changeFontSize=(next:"default"|"large")=>{setFontSize(next);document.documentElement.dataset.fontSize=next;localStorage.setItem("raw-signal-font-size",next)};
  const changeSignalView=(value:SignalSide)=>{setSignalView(value);setSort(value==="leaderboard"?"market":"signal");setDirection("desc");setPage(1)};
  const activeSorts=signalView==="leaderboard"?singleSorts:[singleSorts[0],signalSort,...singleSorts.slice(1)];
  const filterSummary=[minPrice||maxPrice?`${minPrice?`$${minPrice}`:"Any"}–${maxPrice?`$${maxPrice}`:"Any"}`:"",selectedSets.length?`${selectedSets.length} set${selectedSets.length===1?"":"s"}`:"",movement.up7?"7D ↑":"",movement.down7?"7D ↓":"",movement.up30?"30D ↑":"",movement.down30?"30D ↓":""].filter(Boolean);
- return <main><nav className="topbar"><a className="brand" href="#top"><span>R</span> Raw Signal</a><div className="toplinks"><a href="#leaderboard">Rankings</a><a href="#method">Method</a><button className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme==="dark"?"light":"dark"} mode`}><span aria-hidden="true">{theme==="dark"?"☀":"☾"}</span><b>{theme==="dark"?"Light":"Dark"}</b></button></div></nav>
+ return <main><nav className="topbar"><a className="brand" href="#top"><span>R</span> Raw Signal</a><div className="toplinks"><a href="#leaderboard">Rankings</a><a href="#method">Method</a><div className="display-settings" ref={settingsRef}><button className="settings-toggle" onClick={()=>setSettingsOpen(value=>!value)} aria-label="Display settings" aria-expanded={settingsOpen} aria-haspopup="menu"><span aria-hidden="true">⚙</span></button>{settingsOpen&&<div className="settings-menu" role="menu" aria-label="Display settings"><span>Font size</span><div className="font-size-options" role="group" aria-label="Font size"><button className={fontSize==="default"?"active":""} aria-pressed={fontSize==="default"} onClick={()=>changeFontSize("default")}><b>Aa</b><small>Default</small></button><button className={fontSize==="large"?"active":""} aria-pressed={fontSize==="large"} onClick={()=>changeFontSize("large")}><b>Aa</b><small>Larger</small></button></div></div>}</div><button className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme==="dark"?"light":"dark"} mode`}><span aria-hidden="true">{theme==="dark"?"☀":"☾"}</span><b>{theme==="dark"?"Light":"Dark"}</b></button></div></nav>
  <header className="masthead" id="top"><p className="kicker">Daily TCG market intelligence</p><h1>The card market,<br/><span>without the noise.</span></h1><p className="dek">Price intelligence for Pokémon, Riftbound, and Magic: The Gathering—across raw singles and sealed products.</p></header>
  <div className="product-navigation"><SegmentedView value={mode} options={productViews} label="Product type" className="product-toggle" onChange={value=>{setMode(value);setPage(1)}}/></div>
  <div className="signal-navigation"><SignalTabs value={signalView} onChange={changeSignalView}/></div>
