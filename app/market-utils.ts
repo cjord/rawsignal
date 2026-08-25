@@ -11,3 +11,5 @@ export function nearestChange(points:PricePoint[],days:number){if(points.length<
 export function rangeStats(points:PricePoint[],days:number){if(!points.length)return{low:null,high:null};const latest=new Date(`${points.at(-1)!.date}T00:00:00Z`);latest.setUTCDate(latest.getUTCDate()-days);const prices=points.filter(point=>new Date(`${point.date}T00:00:00Z`)>=latest).map(point=>point.price);return prices.length?{low:Math.min(...prices),high:Math.max(...prices)}:{low:null,high:null}}
 
 export async function mapWithConcurrency<T,R>(items:T[],limit:number,worker:(item:T)=>Promise<R>){const results=new Array<R>(items.length),cursor={value:0};await Promise.all(Array.from({length:Math.min(limit,items.length)},async()=>{while(cursor.value<items.length){const index=cursor.value++;results[index]=await worker(items[index])}}));return results}
+
+export function positionRowPopover(row:HTMLElement,selector:string){const popup=row.querySelector<HTMLElement>(selector);if(!popup)return;const rect=row.getBoundingClientRect(),height=Math.max(popup.scrollHeight,320),roomBelow=window.innerHeight-rect.bottom;row.dataset.popupPlace=roomBelow>=height+18?"below":"above"}
