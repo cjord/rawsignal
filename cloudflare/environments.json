@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "environments": {
+    "staging": {
+      "workerName": "raw-signal-staging",
+      "databaseName": "raw-signal-staging",
+      "workersDev": true,
+      "previewUrls": true
+    },
+    "production": {
+      "workerName": "raw-signal",
+      "databaseName": "raw-signal-production",
+      "workersDev": false,
+      "previewUrls": true
+    }
+  }
+}

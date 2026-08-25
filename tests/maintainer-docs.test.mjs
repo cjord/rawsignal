@@ -5,13 +5,15 @@ import test from "node:test";
 const read=path=>readFile(new URL(`../${path}`,import.meta.url),"utf8");
 
 test("maintainer documentation identifies the production workflow and data boundaries",async()=>{
- const [readme,agents,architecture,sources,legacy,ingestion,ignore,packageText,research]=await Promise.all([
-  read("README.md"),read("AGENTS.md"),read("docs/architecture.md"),read("docs/data-sources.md"),read("docs/legacy-artifacts.md"),read("docs/data-ingestion.md"),read(".gitignore"),read("package.json"),read("research.mjs"),
+ const [readme,agents,architecture,sources,legacy,ingestion,cutover,ignore,packageText,research]=await Promise.all([
+  read("README.md"),read("AGENTS.md"),read("docs/architecture.md"),read("docs/data-sources.md"),read("docs/legacy-artifacts.md"),read("docs/data-ingestion.md"),read("docs/cloudflare-cutover.md"),read(".gitignore"),read("package.json"),read("research.mjs"),
  ]);
  const pkg=JSON.parse(packageText);
  assert.equal(pkg.name,"raw-signal");
  assert.equal(pkg.scripts["data:sync:singles"],"node sync-tcgcsv.mjs");
  assert.equal(pkg.scripts["data:sync:sealed"],"node sync-sealed.mjs");
+ assert.equal(pkg.scripts["cloudflare:prepare:staging"],"node scripts/cloudflare/prepare-deployment.mjs --environment staging");
+ assert.equal(pkg.scripts["cloudflare:parity"],"node scripts/cloudflare/catalog-parity.mjs");
  for(const section of ["Local development","Quality checks","Data refresh","Architecture","Deployment","Market-data interpretation"])assert.match(readme,new RegExp(`## ${section}`));
  assert.match(readme,/package-lock\.json.*only authoritative dependency lockfile/);
  assert.match(agents,/npm run check/);
@@ -21,6 +23,10 @@ test("maintainer documentation identifies the production workflow and data bound
  assert.match(legacy,/not part of the maintained application/);
  assert.match(research,/LEGACY RESEARCH ONLY/);
  assert.match(ignore,/site-package\*\.tar\.gz/);
+ assert.match(ignore,/\/backups\//);
+ assert.match(cutover,/Cron remains disabled|Do not enable a schedule/);
+ assert.match(cutover,/Worker version rollback[\s\S]*does not restore D1 contents/);
+ assert.match(cutover,/candidate API reports a fallback source instead of `database`/);
 });
 
 test("unused starter package-manager and D1 example artifacts are absent",async()=>{

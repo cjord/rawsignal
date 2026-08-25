@@ -40,4 +40,7 @@ yarn-error.log*
 /outputs/
 /work/
 /site-package*.tar.gz
+/backups/
+/dist/server/wrangler.staging.json
+/dist/server/wrangler.production.json
 *.tsbuildinfo

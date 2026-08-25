@@ -9,12 +9,13 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 ## Working conventions
 
 - Use Node.js 24 when available; the declared minimum is Node.js 22.13.
-- Use `npm` and preserve `package-lock.json`. Do not switch package managers or regenerate `pnpm-lock.yaml` unless explicitly requested.
+- Use `npm` and preserve `package-lock.json`. Do not switch package managers or add another package-manager lockfile unless explicitly requested.
 - Use TypeScript and existing React patterns. Keep components accessible and keyboard-friendly.
 - Preserve user changes and unrelated working-tree edits.
 - Use `rg`/`rg --files` for repository searches and `apply_patch` for source edits.
 - Do not edit build output or tool state in `.next/`, `.vinext/`, `dist/`, `.wrangler/`, or `node_modules/`.
 - Do not commit `site-package*.tar.gz` archives. They are deployment artifacts, not source.
+- Do not commit Cloudflare account IDs, D1 UUIDs, API tokens, generated Wrangler environment configs, D1 exports, or database backups.
 - Prefer small shared utilities and components over duplicated Singles/Sealed implementations.
 
 ## Repository map
@@ -42,6 +43,7 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - `drizzle/`: generated, committed D1 migrations and schema snapshots.
 - `docs/adr/`: accepted architecture decisions, including the Sites-to-Cloudflare path.
 - `docs/architecture.md`, `docs/data-sources.md`: maintained system boundaries and source semantics.
+- `docs/cloudflare-cutover.md`, `cloudflare/environments.json`, `scripts/cloudflare/`: direct-Cloudflare staging contract, generated-config preparation, and catalog parity checks.
 - `sync-tcgcsv.mjs`: generates Singles market data and `tcg-index.json` from TCGCSV.
 - `sync-sealed.mjs`: generates normalized Pokémon sealed-product data.
 - `sealed-product-utils.mjs`: market validation, deduplication, and product-type classification.

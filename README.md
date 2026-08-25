@@ -78,7 +78,7 @@ TCGCSV and approved MSRP sources
 
 The browser currently uses bundled feeds as its reliable catalog source. The catalog API can use D1 only after a complete published ingestion run is available. Hot Buy and Hot Sell use persisted signals only after the independent `history-signals` readiness marker exists; otherwise the interface reports bounded, stratified fallback coverage.
 
-See [Architecture](docs/architecture.md), [Hosting decision](docs/adr/001-hosting-and-database.md), and [Signal eligibility](docs/signal-eligibility.md) for the complete contracts.
+See [Architecture](docs/architecture.md), [Hosting decision](docs/adr/001-hosting-and-database.md), [Cloudflare cutover](docs/cloudflare-cutover.md), and [Signal eligibility](docs/signal-eligibility.md) for the complete contracts.
 
 ## Important directories
 
@@ -116,6 +116,8 @@ The release sequence is:
 5. wait for the production deployment to succeed.
 
 The accepted future direction is a direct Cloudflare Worker with D1 and Cron Triggers. Generated feeds remain available until database counts, nullability, histories, and signals pass parity checks and the D1 cutover is approved.
+
+The staged migration procedure, rollback boundaries, and catalog-parity gate are documented in [Cloudflare cutover](docs/cloudflare-cutover.md). Cron remains disabled until a staging ingestion adapter has completed successfully and database-backed API parity is proven.
 
 ## Market-data interpretation
 
