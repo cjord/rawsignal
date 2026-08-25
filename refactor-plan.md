@@ -27,7 +27,7 @@ The target architecture should provide:
 - Milestone 3 completed and production-validated on 2026-08-25: added one typed parser/serializer for Singles and Sealed, made the application shell the URL owner, added complete Sealed URL restoration, and corrected browser Back/Forward history semantics after manual validation.
 - Milestone 4 completed and production-validated on 2026-08-25: Singles and Sealed now share abortable catalog loading, bounded/cached history batching, retry/status state, and one pure derived-metric implementation. The history API emits the same normalized metrics. JSON remains the live catalog path and the bounded history endpoint remains the documented fallback until database backfill/cutover.
 - Milestone 5 completed locally on 2026-08-25: Singles and Sealed now compose their mode-specific market strip, header, filter summary, controls, sort surface, rows, and footer through one shared leaderboard shell with common loading, retry, empty, and pagination behavior. Distinct mode models preserve each page's supported views and sort columns.
-- Validation gate: Milestone 4 passed manual production switching across modes and views. Milestone 5 awaits automated and production validation before Milestone 6 begins.
+- Validation gate: Milestone 4 passed manual production switching across modes and views. Milestone 5 passes the production build, 33-test suite, lint, and standalone TypeScript check; it awaits manual production validation before Milestone 6 begins.
 
 ## Current technical debt
 
