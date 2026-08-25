@@ -29,6 +29,10 @@ The daily job has four transactional phases: create a run, stage or upsert catal
 
 OpenAI Sites configuration currently declares the D1 resource but not a scheduled trigger. While Sites remains the host, the existing refresh scripts remain the controlled ingestion mechanism. At direct Cloudflare cutover, bind the same `DB` database to the Worker and configure a daily Cron Trigger for the ingestion entry point. Do not add an unauthenticated refresh endpoint as a workaround.
 
+The application now contains the scheduler-independent job boundary. `runDailyMarketIngestion` validates a complete snapshot before changing the published refresh pointer, records one dated market observation per priced product, derives metrics and all strictness/side signals, and preserves failed-run diagnostics. `runHistoryBackfillBatch` advances a durable cursor in bounded batches. Readers require the separate `history-signals` success marker before treating persisted signals as complete.
+
+Until direct Cloudflare scheduling is configured, Hot Buy/Hot Sell retains its bounded on-demand fallback and reports the evaluated-candidate count. This prevents a partial database or interrupted backfill from being presented as full-market coverage.
+
 ## Migration and rollback
 
 - Migrations are additive by default and committed in `drizzle/`.

@@ -9,6 +9,11 @@ export const ingestionRuns = sqliteTable("ingestion_runs", {
   completedAt: text("completed_at"),
   recordsSeen: integer("records_seen").notNull().default(0),
   recordsWritten: integer("records_written").notNull().default(0),
+  recordsRejected: integer("records_rejected").notNull().default(0),
+  duplicateDecisions: integer("duplicate_decisions").notNull().default(0),
+  schemaVersion: integer("schema_version").notNull().default(1),
+  sourceUpdatedAt: text("source_updated_at"),
+  statsJson: text("stats_json"),
   errorMessage: text("error_message"),
 }, (table) => [
   check("ingestion_runs_status_check", sql`${table.status} in ('running','succeeded','failed')`),
@@ -107,11 +112,14 @@ export const marketSignals = sqliteTable("market_signals", {
   distanceBps: integer("distance_bps").notNull(),
   cutoffBps: integer("cutoff_bps").notNull(),
   asOfDate: text("as_of_date").notNull(),
+  observationDate: text("observation_date").notNull().default(""),
+  coverage: text("coverage", { enum: ["exact", "fallback", "none"] }).notNull().default("none"),
 }, (table) => [
   primaryKey({ columns: [table.productId, table.side, table.strictness] }),
   check("market_signals_side_check", sql`${table.side} in ('buy','sell')`),
   check("market_signals_strictness_check", sql`${table.strictness} in ('conservative','balanced','aggressive')`),
   check("market_signals_confidence_check", sql`${table.confidence} in ('high','medium','low')`),
+  check("market_signals_coverage_check", sql`${table.coverage} in ('exact','fallback','none')`),
   check("market_signals_score_check", sql`${table.score} between 0 and 100`),
   index("idx_market_signals_rank").on(table.side, table.strictness, table.score),
 ]);

@@ -29,6 +29,7 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - `app/domain/`: shared market types, runtime feed contracts, and display formatters.
 - `app/data/catalog-query.ts`, `app/data/catalog-repository.ts`: shared Singles/Sealed query semantics and repository contract.
 - `app/data/feed-catalog-repository.ts`, `app/data/catalog-service.ts`: bundled-feed adapter and transport-neutral catalog service.
+- `app/data/usePersistedSignals.ts`, `app/api/signals/route.ts`: persisted Hot Buy/Hot Sell readiness gate and compact signal records.
 - `app/state/`: the authoritative Singles/Sealed URL-state parser, serializer, and browser synchronization hook.
 - `app/globals.css`: original global layout and component styles.
 - `app/market-views.css`: later shared view, filter, signal, and responsive refinements. Check both stylesheets before adding overrides.
@@ -36,11 +37,13 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - `app/api/catalog/route.ts`: compact catalog query endpoint with D1-readiness checks and bundled-feed fallback.
 - `db/schema.ts`, `db/repository.ts`: D1 persistence schema and idempotent ingestion/read boundary.
 - `db/catalog-repository.ts`: D1 catalog adapter using the shared catalog query contract.
+- `db/daily-ingestion.ts`, `db/history-backfill.ts`: idempotent daily snapshots, derived metrics/signals, and resumable history backfill.
 - `drizzle/`: generated, committed D1 migrations and schema snapshots.
 - `docs/adr/`: accepted architecture decisions, including the Sites-to-Cloudflare path.
 - `sync-tcgcsv.mjs`: generates Singles market data and `tcg-index.json` from TCGCSV.
 - `sync-sealed.mjs`: generates normalized Pokémon sealed-product data.
 - `sealed-product-utils.mjs`: market validation, deduplication, and product-type classification.
+- `scripts/clients/`, `scripts/normalize/`, `scripts/validate/`, `scripts/io/`: retrying source clients, pure normalization, validation manifests, and last-good publishing.
 - `public/data/`: generated market feeds consumed by the application.
 - `tests/`: Node test suite covering history, search, rendering, market validation, sealed classification, and signal scoring.
 - `.openai/hosting.json`: OpenAI Sites project configuration. Preserve its opaque `project_id`.

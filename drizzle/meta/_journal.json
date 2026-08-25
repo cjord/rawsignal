@@ -8,6 +8,13 @@
       "when": 1787685763658,
       "tag": "0000_exotic_zombie",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1787697343989,
+      "tag": "0001_broken_tattoo",
+      "breakpoints": true
     }
   ]
 }

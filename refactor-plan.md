@@ -31,7 +31,8 @@ The target architecture should provide:
 - Milestone 7 completed and production-validated on 2026-08-25: Singles, Sealed, and top-level multi-selects now share dismissible-details behavior, filter-button presentation, numeric ranges, searchable checkbox selection, normalized All semantics, and reset actions. Mode-specific filter fields remain configured in their adapters.
 - Milestone 8 completed and production-validated on 2026-08-25: introduced shared dimensions, motion, focus, radius, and stacking tokens; moved the current shared controls/filter presentation and leaderboard disclosure/popover presentation out of the append-only stylesheet into component-family stylesheets; and corrected the large-popover joined border and hover geometry. CSS regression coverage protects import order, ownership, flush geometry, and reduced motion.
 - Milestone 9 completed locally on 2026-08-25: Singles and Sealed now use one query, filtering, sorting, pagination, deduplication, facet, and sealed-scenario engine. A compact catalog service and API can read through D1 after market backfill, while safely falling back to bundled feeds without a hard-coded production origin. Repository and service parity are covered by the 50-test suite.
-- Validation gate: Milestone 8 passed automated and manual production validation. Milestone 9 passes the production build, lint, query parity matrix, worker-route build, and complete 50-test automated suite; it awaits publication and production validation before Milestone 10 begins.
+- Milestone 10 foundation completed locally on 2026-08-25: source clients, normalization, validation, manifests, and last-good output are separated; D1 ingestion records daily observations and complete derived signals; history caching is durable; and resumable backfill gates complete persisted signal coverage. Direct Cloudflare Cron activation remains intentionally deferred until the planned hosting move.
+- Validation gate: Milestone 9 passed automated and production validation; the observed Illustration Rare reduction was traced to the pre-existing 400-candidate history fallback rather than query drift. Milestone 10 passes the production build, lint, additive migration, retry/validation/last-good tests, daily-ingestion idempotency tests, resumable-backfill tests, and the complete automated suite. It awaits publication and production validation.
 
 ## Current technical debt
 
@@ -520,6 +521,16 @@ For history, operationalize the database-backed daily snapshot and derived-signa
 ### Smallest stability proof
 
 Run each sync twice against the same cached source fixture and assert byte-equivalent normalized output, unique product IDs, valid market ownership, and explicit nullable values. Simulate one malformed upstream response and prove the script exits without overwriting the last good fixture.
+
+### Implementation note
+
+Implemented retrying TCGCSV/HTTP clients, pure Singles and Sealed normalizers, schema-versioned validation manifests, and staged last-good file publication. Syncs record source freshness, counts, rejection reasons, and explicit duplicate decisions. Malformed, duplicate, or implausibly small snapshots fail before current feeds are replaced.
+
+The D1 boundary now records those diagnostics on ingestion runs. `runDailyMarketIngestion` uses a deterministic daily run ID, upserts catalog/current-price records, adds idempotent dated observations, derives shared history metrics, writes or deletes all six strictness/side signals per product, and advances the published refresh pointer only after completion. The catalog reader verifies the published run count and falls back to bundled feeds during a partial run.
+
+`/api/history` reads durable TCGplayer observations first and persists successful upstream fallbacks with derived metrics/signals. `runHistoryBackfillBatch` uses a durable cursor so full-market bootstrap can be split across safe invocations. Persisted Hot Buy/Hot Sell data is exposed only after the independent `history-signals` completion marker exists; until then Singles and Sealed retain the bounded 400-candidate fallback. The Singles interface now reports that transitional coverage explicitly. This explains why 499 Illustration Rares can omit 99 candidates and the 721-card IR/SIR selection can omit 321.
+
+OpenAI Sites still has no project Cron Trigger. The scheduler-independent job boundary is complete, but activation is reserved for direct Cloudflare hosting: bind the same D1 database, attach a daily catalog trigger plus bounded backfill continuations, validate counts/history/signal parity, then retire the browser fallback. No unauthenticated administrative endpoint was added.
 
 ---
 

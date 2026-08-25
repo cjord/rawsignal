@@ -1,63 +1,17 @@
-import fs from "node:fs/promises";
-import {isPokemonSealedProduct, normalizeProductType, normalizedProductKey} from "./sealed-product-utils.mjs";
+import { createTcgcsvClient } from "./scripts/clients/tcgcsv.mjs";
+import { fetchJson } from "./scripts/clients/http-json.mjs";
+import { publishCatalogSnapshot } from "./scripts/io/last-good.mjs";
+import { normalizePokemonSealedProduct, preferredSealedPrice, sealedIdentity } from "./scripts/normalize/sealed.mjs";
+import { ingestionManifest, validateCatalogSnapshot } from "./scripts/validate/catalog.mjs";
 
-const BASE = "https://tcgcsv.com/tcgplayer";
-const headers = {"User-Agent": "RawSignal/6.0 (+pokemon sealed market tracker)"};
-const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-async function json(url) {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const response = await fetch(url, {headers});
-    if (response.ok) {
-      const body = await response.json();
-      await wait(75);
-      return body.results ?? body;
-    }
-    await wait(500 * (attempt + 1));
-  }
-  throw new Error(`Failed ${url}`);
-}
-
-const positive = value => Number(value) > 0 ? Number(value) : null;
-function preferredPrice(rows = []) {
-  const priced = rows.filter(row => positive(row.marketPrice) != null || positive(row.midPrice) != null);
-  return priced.find(row => /normal|unopened|sealed/i.test(row.subTypeName ?? "")) ?? priced[0] ?? null;
-}
-
-function outputProduct(product, group, price, msrpRecord) {
-  const msrp = positive(msrpRecord?.msrp);
-  const marketPrice = positive(price?.marketPrice);
-  const midPrice = positive(price?.midPrice);
-  const profit = msrp != null && marketPrice != null ? Number((marketPrice - msrp).toFixed(2)) : null;
-  return {
-    game: "pokemon",
-    productId: Number(product.productId),
-    name: product.name,
-    set: group.name,
-    category: normalizeProductType(product.name),
-    image: product.imageUrl?.replace("_200w", "_in_1000x1000") ?? null,
-    url: product.url ?? "",
-    msrp,
-    marketPrice,
-    midPrice,
-    profit,
-    profitPct: profit != null && msrp ? Number((profit / msrp * 100).toFixed(1)) : null,
-    msrpSource: msrp == null ? null : "Published product MSRP",
-  };
-}
-
-const tracker = await fetch("https://tcg-price-tracker.shizukaziye.workers.dev/data/data.json", {headers}).then(response => response.json());
-const msrpById = new Map((tracker.items ?? []).filter(item => item.matched && positive(item.msrp) != null).map(item => [Number(item.productId ?? item.id), item]));
-const groups = await json(`${BASE}/3/groups`);
-const products = [];
-const seenIds = new Set();
-const seenExact = new Set();
+const tracker = await fetchJson("https://tcg-price-tracker.shizukaziye.workers.dev/data/data.json", { headers: { "User-Agent": "RawSignal/7.0" } });
+const msrpById = new Map((tracker.items ?? []).filter(item => item.matched && Number(item.msrp) > 0).map(item => [Number(item.productId ?? item.id), item]));
+const client = createTcgcsvClient(), groups = await client.groups(3);
+const products = [], seenIds = new Set(), seenExact = new Set(), rejected = {}, duplicateDecisions = [];
+const reject = reason => rejected[reason] = (rejected[reason] ?? 0) + 1;
 
 for (const [index, group] of groups.entries()) {
-  const [groupProducts, groupPrices] = await Promise.all([
-    json(`${BASE}/3/${group.groupId}/products`),
-    json(`${BASE}/3/${group.groupId}/prices`),
-  ]);
+  const [groupProducts, groupPrices] = await Promise.all([client.products(3, group.groupId), client.prices(3, group.groupId)]);
   const pricesByProduct = new Map();
   for (const row of groupPrices) {
     const rows = pricesByProduct.get(Number(row.productId)) ?? [];
@@ -65,17 +19,22 @@ for (const [index, group] of groups.entries()) {
     pricesByProduct.set(Number(row.productId), rows);
   }
   for (const product of groupProducts) {
-    if (!isPokemonSealedProduct(product, group) || seenIds.has(Number(product.productId))) continue;
-    const exactKey = normalizedProductKey(product, group.name);
-    if (seenExact.has(exactKey)) continue;
-    seenIds.add(Number(product.productId));
-    seenExact.add(exactKey);
-    products.push(outputProduct(product, group, preferredPrice(pricesByProduct.get(Number(product.productId))), msrpById.get(Number(product.productId))));
+    const normalized = normalizePokemonSealedProduct(product, group, preferredSealedPrice(pricesByProduct.get(Number(product.productId))), msrpById.get(Number(product.productId)));
+    if (!normalized) { reject("not-pokemon-sealed"); continue; }
+    const productId = Number(product.productId), exactKey = sealedIdentity(product, group);
+    if (seenIds.has(productId)) { reject("duplicate-product-id"); duplicateDecisions.push({ key: `pokemon:${productId}`, rule: "first-product-id" }); continue; }
+    if (seenExact.has(exactKey)) { reject("duplicate-normalized-product"); duplicateDecisions.push({ key: exactKey, rule: "first-normalized-product" }); continue; }
+    seenIds.add(productId); seenExact.add(exactKey); products.push(normalized);
   }
-  if (index % 20 === 0) console.error(`pokemon: ${index + 1}/${groups.length}`);
+  if ((index + 1) % 20 === 0) console.error(`pokemon: ${index + 1}/${groups.length}`);
 }
 
 products.sort((a, b) => (b.marketPrice ?? -1) - (a.marketPrice ?? -1) || a.name.localeCompare(b.name));
-await fs.mkdir("public/data", {recursive: true});
-await fs.writeFile("public/data/sealed-pokemon.json", JSON.stringify(products));
-console.log({pokemon: products.length, withMarket: products.filter(item => item.marketPrice != null).length, withMsrp: products.filter(item => item.msrp != null).length});
+const counts = validateCatalogSnapshot({ sealed: products, minimumRecords: 100 });
+const generatedAt = new Date().toISOString();
+const manifest = ingestionManifest({ source: "TCGCSV / TCGplayer + published MSRP", sourceUpdatedAt: generatedAt, generatedAt, counts, rejected, duplicateDecisions });
+await publishCatalogSnapshot({ sealed: products }, {
+  "public/data/sealed-pokemon.json": products,
+  "public/data/sealed-pokemon-manifest.json": manifest,
+}, { validation: { minimumRecords: 100 } });
+console.log({ pokemon: products.length, withMarket: products.filter(item => item.marketPrice != null).length, withMsrp: products.filter(item => item.msrp != null).length, rejected, duplicateDecisions: duplicateDecisions.length });

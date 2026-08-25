@@ -3,20 +3,24 @@ import { NextResponse } from "next/server";
 import { createFeedCatalogRepository } from "../../data/feed-catalog-repository.ts";
 import { catalogRequestFromUrl, executeCatalogRequest } from "../../data/catalog-service.ts";
 import { createD1CatalogRepository } from "../../../db/catalog-repository.ts";
-import type { D1DatabaseLike } from "../../../db/repository.ts";
+import { publishedIngestion, type D1DatabaseLike } from "../../../db/repository.ts";
 
-async function hasDatabaseCatalog(db: D1DatabaseLike, kind: "single" | "sealed", game: string) {
-  const row = await db.prepare("select count(*) as count from catalog_products where kind=? and game=?").bind(kind, game).first<{ count: number }>();
-  return (row?.count ?? 0) > 0;
+async function readyDatabaseCatalog(db: D1DatabaseLike) {
+  const published = await publishedIngestion(db);
+  if (!published) return null;
+  const row = await db.prepare("select count(*) as count from catalog_products where ingestion_run_id=?").bind(published.runId).first<{ count: number }>();
+  return (row?.count ?? 0) === published.recordsWritten && published.recordsWritten > 0 ? published : null;
 }
 
 export async function GET(request: Request) {
-  const url = new URL(request.url), catalogRequest = catalogRequestFromUrl(url), kind = catalogRequest.kind;
+  const url = new URL(request.url), catalogRequest = catalogRequestFromUrl(url);
   const db = env.DB as unknown as D1DatabaseLike | undefined;
   if (db) {
     try {
-      if (await hasDatabaseCatalog(db, kind, catalogRequest.options.market)) {
-        const repository = createD1CatalogRepository(db);
+      const published = await readyDatabaseCatalog(db);
+      const signalsReady = catalogRequest.options.signal === "leaderboard" || Boolean(await publishedIngestion(db, "history-signals"));
+      if (published && signalsReady) {
+        const repository = createD1CatalogRepository(db, published.runId);
         const result = await executeCatalogRequest(catalogRequest, repository, "database");
         return NextResponse.json(result, { headers: { "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=3600" } });
       }

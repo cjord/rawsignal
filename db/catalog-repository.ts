@@ -128,16 +128,21 @@ async function loadDerived(db: D1DatabaseLike, kind: "single" | "sealed", game: 
   return derived;
 }
 
-export function createD1CatalogRepository(db: D1DatabaseLike): CatalogRepository {
+export function createD1CatalogRepository(db: D1DatabaseLike, ingestionRunId?: string): CatalogRepository {
+  const productRows = async (kind: "single" | "sealed", game: string) => {
+    const sql = ingestionRunId ? `${productsSql} and p.ingestion_run_id=?` : productsSql;
+    const statement = db.prepare(sql).bind(...(ingestionRunId ? [kind, game, ingestionRunId] : [kind, game]));
+    return (await statement.all<ProductRow>()).results ?? [];
+  };
   return {
     async querySingles(options) {
-      const rows = (await db.prepare(productsSql).bind("single", options.market).all<ProductRow>()).results ?? [];
+      const rows = await productRows("single", options.market);
       const cards = rows.map(toCard).filter((card): card is Card => card !== null);
       const derived = await loadDerived(db, "single", options.market, options);
       return createMemoryCatalogRepository(cards, []).querySingles(options, derived);
     },
     async querySealed(options) {
-      const rows = (await db.prepare(productsSql).bind("sealed", options.market).all<ProductRow>()).results ?? [];
+      const rows = await productRows("sealed", options.market);
       const products = rows.map(toSealed).filter((product): product is SealedProduct => product !== null);
       const derived = await loadDerived(db, "sealed", options.market, options);
       return createMemoryCatalogRepository([], products).querySealed(options, derived);

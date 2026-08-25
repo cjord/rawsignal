@@ -36,11 +36,15 @@ on conflict(product_id) do update set
   currency=excluded.currency, observed_at=excluded.observed_at, source=excluded.source,
   ingestion_run_id=excluded.ingestion_run_id`;
 
-export async function startIngestion(db:D1DatabaseLike,id:string,source:string,startedAt:string){
-  await db.prepare(`insert into ingestion_runs (id,source,status,started_at,records_seen,records_written)
-    values (?,?,'running',?,0,0)
+export type IngestionMetadata={schemaVersion?:number;sourceUpdatedAt?:string|null;stats?:Record<string,unknown>};
+
+export async function startIngestion(db:D1DatabaseLike,id:string,source:string,startedAt:string,metadata:IngestionMetadata={}){
+  await db.prepare(`insert into ingestion_runs (id,source,status,started_at,records_seen,records_written,records_rejected,duplicate_decisions,schema_version,source_updated_at,stats_json)
+    values (?,?,'running',?,0,0,0,0,?,?,?)
     on conflict(id) do update set source=excluded.source,status='running',started_at=excluded.started_at,
-    completed_at=null,records_seen=0,records_written=0,error_message=null`).bind(id,source,startedAt).run();
+    completed_at=null,records_seen=0,records_written=0,records_rejected=0,duplicate_decisions=0,
+    schema_version=excluded.schema_version,source_updated_at=excluded.source_updated_at,stats_json=excluded.stats_json,error_message=null`)
+    .bind(id,source,startedAt,metadata.schemaVersion??1,metadata.sourceUpdatedAt??null,metadata.stats?JSON.stringify(metadata.stats):null).run();
 }
 
 export async function upsertCard(db:D1DatabaseLike,card:Card,observedAt:string,runId:string){
@@ -82,18 +86,23 @@ export async function upsertMarketMetrics(db:D1DatabaseLike,productId:number,var
       toCents(history.low30),toCents(history.high30),toCents(history.historyLow),toCents(history.historyHigh),updatedAt).run();
 }
 
-export async function upsertMarketSignal(db:D1DatabaseLike,productId:number,strictness:SignalStrictness,signal:MarketSignal,asOfDate:string){
-  await db.prepare(`insert into market_signals (product_id,side,strictness,score,confidence,reason,detail,distance_bps,cutoff_bps,as_of_date)
-    values (?,?,?,?,?,?,?,?,?,?) on conflict(product_id,side,strictness) do update set
+export async function upsertMarketSignal(db:D1DatabaseLike,productId:number,strictness:SignalStrictness,signal:MarketSignal,asOfDate:string,coverage:PriceHistory["coverage"]="none",observationDate=asOfDate){
+  await db.prepare(`insert into market_signals (product_id,side,strictness,score,confidence,reason,detail,distance_bps,cutoff_bps,as_of_date,observation_date,coverage)
+    values (?,?,?,?,?,?,?,?,?,?,?,?) on conflict(product_id,side,strictness) do update set
     score=excluded.score,confidence=excluded.confidence,reason=excluded.reason,detail=excluded.detail,
-    distance_bps=excluded.distance_bps,cutoff_bps=excluded.cutoff_bps,as_of_date=excluded.as_of_date`).bind(
+    distance_bps=excluded.distance_bps,cutoff_bps=excluded.cutoff_bps,as_of_date=excluded.as_of_date,
+    observation_date=excluded.observation_date,coverage=excluded.coverage`).bind(
       productId,signal.side,strictness,signal.score,signal.confidence,signal.reason,signal.detail,
-      toBasisPoints(signal.distance),toBasisPoints(signal.cutoff),asOfDate).run();
+      toBasisPoints(signal.distance),toBasisPoints(signal.cutoff),asOfDate,observationDate,coverage).run();
 }
 
-export async function completeIngestion(db:D1DatabaseLike,id:string,refreshKey:string,completedAt:string,recordsSeen:number,recordsWritten:number){
+export async function deleteMarketSignal(db:D1DatabaseLike,productId:number,side:"buy"|"sell",strictness:SignalStrictness){
+  await db.prepare("delete from market_signals where product_id=? and side=? and strictness=?").bind(productId,side,strictness).run();
+}
+
+export async function completeIngestion(db:D1DatabaseLike,id:string,refreshKey:string,completedAt:string,recordsSeen:number,recordsWritten:number,recordsRejected=0,duplicateDecisions=0,stats:Record<string,unknown>|null=null){
   await db.batch([
-    db.prepare(`update ingestion_runs set status='succeeded',completed_at=?,records_seen=?,records_written=? where id=?`).bind(completedAt,recordsSeen,recordsWritten,id),
+    db.prepare(`update ingestion_runs set status='succeeded',completed_at=?,records_seen=?,records_written=?,records_rejected=?,duplicate_decisions=?,stats_json=coalesce(?,stats_json) where id=?`).bind(completedAt,recordsSeen,recordsWritten,recordsRejected,duplicateDecisions,stats?JSON.stringify(stats):null,id),
     db.prepare(`insert into refresh_state (key,last_success_at,ingestion_run_id) values (?,?,?)
       on conflict(key) do update set last_success_at=excluded.last_success_at,ingestion_run_id=excluded.ingestion_run_id`).bind(refreshKey,completedAt,id),
   ]);
@@ -101,6 +110,28 @@ export async function completeIngestion(db:D1DatabaseLike,id:string,refreshKey:s
 
 export async function failIngestion(db:D1DatabaseLike,id:string,completedAt:string,errorMessage:string){
   await db.prepare(`update ingestion_runs set status='failed',completed_at=?,error_message=? where id=?`).bind(completedAt,errorMessage,id).run();
+}
+
+export async function checkpointIngestion(db:D1DatabaseLike,id:string,refreshKey:string,recordsSeen:number,recordsWritten:number,cursor:string,stats:Record<string,unknown>|null=null){
+  await db.batch([
+    db.prepare("update ingestion_runs set status='running',records_seen=?,records_written=?,stats_json=coalesce(?,stats_json) where id=?")
+      .bind(recordsSeen,recordsWritten,stats?JSON.stringify(stats):null,id),
+    db.prepare(`insert into refresh_state (key,ingestion_run_id,cursor) values (?,?,?)
+      on conflict(key) do update set ingestion_run_id=excluded.ingestion_run_id,cursor=excluded.cursor`).bind(refreshKey,id,cursor),
+  ]);
+}
+
+export async function readRefreshCursor(db:D1DatabaseLike,key:string){
+  return db.prepare(`select r.cursor,r.ingestion_run_id as ingestionRunId,i.stats_json as statsJson
+    from refresh_state r left join ingestion_runs i on i.id=r.ingestion_run_id where r.key=?`).bind(key).first<{cursor:string|null;ingestionRunId:string|null;statsJson:string|null}>();
+}
+
+export async function publishedIngestion(db:D1DatabaseLike,refreshKey="daily-market"){
+  return db.prepare(`select r.ingestion_run_id as runId,r.last_success_at as lastSuccessAt,i.records_written as recordsWritten,
+    i.records_rejected as recordsRejected,i.duplicate_decisions as duplicateDecisions,i.schema_version as schemaVersion,
+    i.source_updated_at as sourceUpdatedAt,i.stats_json as statsJson
+    from refresh_state r join ingestion_runs i on i.id=r.ingestion_run_id
+    where r.key=? and i.status='succeeded'`).bind(refreshKey).first<{runId:string;lastSuccessAt:string;recordsWritten:number;recordsRejected:number;duplicateDecisions:number;schemaVersion:number;sourceUpdatedAt:string|null;statsJson:string|null}>();
 }
 
 export async function readProductSnapshot(db:D1DatabaseLike,productId:number){
