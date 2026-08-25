@@ -1,100 +1,128 @@
-# vinext-starter
+# Raw Signal
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+Raw Signal is a mobile-friendly trading-card market dashboard for raw Singles and Sealed products. It combines current TCGCSV/TCGplayer catalog pricing with dated market history, sortable leaderboards, and explainable Hot Buy and Hot Sell signals.
 
-## Prerequisites
+Current coverage:
 
-- Node.js `>=22.13.0`
+- Pokémon and Riftbound Singles;
+- Pokémon, Riftbound, and selected One Piece Sealed products;
+- Large, Medium, Text, and Full Singles views;
+- Medium, Text, and Full Sealed views;
+- shareable URL state for markets, filters, sorting, views, and pagination.
 
-## Quick Start
+Magic: The Gathering support is intentionally paused. Sales volume and sales rank are not presented because the current sources do not provide an authorized, complete transaction feed.
 
-```bash
-npm install
+## Requirements
+
+- Node.js 24 recommended; 22.13 or later is supported.
+- npm. `package-lock.json` is the only authoritative dependency lockfile.
+
+## Local development
+
+```powershell
+npm ci
 npm run dev
-npm run build
 ```
 
-This starter does not use `wrangler.jsonc`.
+The application is available at the local URL printed by vinext. The default theme is dark; theme and font-size preferences are stored in the browser.
 
-## Included Shape
+## Quality checks
 
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
-
-## Workspace Auth Headers
-
-Signed-in visitors receive both `oai-authenticated-user-id` and `oai-authenticated-user-email`. Private Sites require every visitor to sign in; public Sites may also have anonymous visitors, for whom neither header is present.
-
-The user ID is stable for the same user on the same Site and different across Sites. Email and name are intended for display or contact purposes.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const userId = requestHeaders.get("oai-authenticated-user-id");
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
+```powershell
+npm run check
 ```
 
-## Optional Dispatch-Owned ChatGPT Sign-In
+`npm run check` performs the production build, all Node tests, and lint. For the narrow critical URL/query journey only:
 
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
+```powershell
+npm run test:smoke
+```
 
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
+The quality workflow in `.github/workflows/quality.yml` runs the same complete check on pushes to `main` and on pull requests when this repository is connected to GitHub.
 
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
+## Data refresh
 
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
+The generated JSON feeds under `public/data/` remain the production read fallback while the D1 catalog and history backfill are being completed.
 
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
+```powershell
+npm run data:sync:singles
+npm run data:sync:sealed
+```
 
-## Useful Commands
+These commands access external sources and rewrite generated feeds. Review record counts, rejected records, duplicate decisions, market ownership, and generated diffs before committing. A failed validation preserves the previous last-good feed.
 
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
+- `sync-tcgcsv.mjs` refreshes Pokémon and Riftbound Singles from TCGCSV.
+- `sync-sealed.mjs` refreshes validated Pokémon Sealed products and published MSRP matches.
+- Existing Riftbound and One Piece Sealed feeds are maintained data assets; they are not currently regenerated by `sync-sealed.mjs`.
+- `research.mjs` and `cards.json` are legacy PriceCharting research artifacts and are not production inputs.
 
-## Learn More
+See [Data ingestion](docs/data-ingestion.md), [Data sources](docs/data-sources.md), and [Legacy artifacts](docs/legacy-artifacts.md) before changing a refresh path.
 
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+## Architecture
+
+The React 19 and TypeScript application is built with vinext for a Cloudflare Worker runtime. OpenAI Sites is the current host and supplies the logical D1 binding declared in `.openai/hosting.json`.
+
+```text
+TCGCSV and approved MSRP sources
+            |
+   validated normalization
+            |
+ bundled last-good JSON feeds ----+
+            |                      |
+            +---- D1 ingestion ----+
+                        |
+          shared catalog repository/query engine
+                        |
+       Singles and Sealed leaderboard adapters
+```
+
+The browser currently uses bundled feeds as its reliable catalog source. The catalog API can use D1 only after a complete published ingestion run is available. Hot Buy and Hot Sell use persisted signals only after the independent `history-signals` readiness marker exists; otherwise the interface reports bounded, stratified fallback coverage.
+
+See [Architecture](docs/architecture.md), [Hosting decision](docs/adr/001-hosting-and-database.md), and [Signal eligibility](docs/signal-eligibility.md) for the complete contracts.
+
+## Important directories
+
+- `app/domain/`: market types, runtime feed contracts, formatting, and history metrics.
+- `app/data/`: shared catalog queries, repositories, history loading, and signal coverage.
+- `app/state/`: URL parsing, serialization, and browser history synchronization.
+- `app/leaderboard/`, `app/filters/`: shared Singles/Sealed presentation primitives.
+- `app/api/`: catalog, history, and persisted-signal endpoints.
+- `db/`: D1 schema, repository operations, ingestion, and resumable history backfill.
+- `scripts/`: source clients, normalization, validation, and last-good publication.
+- `drizzle/`: committed D1 migrations and snapshots.
+- `public/data/`: generated and maintained market feeds.
+- `tests/`: unit, contract, rendered-output, and critical-journey tests.
+
+## Database changes
+
+Edit `db/schema.ts`, then generate and inspect a migration:
+
+```powershell
+npm run db:generate
+```
+
+Migrations are additive by default. Do not perform a destructive production migration without an export, an approved rollback plan, and parity verification against the current feeds.
+
+## Deployment
+
+Raw Signal is currently published through OpenAI Sites. `.openai/hosting.json` contains the existing opaque project ID and logical `DB` binding; do not replace or invent either value.
+
+The release sequence is:
+
+1. run `npm run check`;
+2. commit and push the exact validated source;
+3. package the matching vinext output with the Sites packaging helper;
+4. save and deploy that exact version;
+5. wait for the production deployment to succeed.
+
+The accepted future direction is a direct Cloudflare Worker with D1 and Cron Triggers. Generated feeds remain available until database counts, nullability, histories, and signals pass parity checks and the D1 cutover is approved.
+
+## Market-data interpretation
+
+- Market price approximates recent selling value; listing low, median, and listing high are listings, not transaction counts.
+- Displayed 30-day low/high and 7-/30-/90-day changes come from dated market history.
+- Missing market, history, or MSRP values stay `null` and render as unavailable.
+- Hot Buy and Hot Sell signals indicate proximity to historical extrema under a selected strictness preset. They are informational, not financial advice.
+- Product IDs plus printing/condition form identity; similarly named variants must not be merged by name alone.
+
+Contributor instructions and change checklists are in [AGENTS.md](AGENTS.md).

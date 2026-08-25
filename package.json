@@ -1,5 +1,5 @@
 {
-  "name": "site-creator-vinext-starter",
+  "name": "raw-signal",
   "version": "0.1.0",
   "private": true,
   "engines": {
@@ -13,6 +13,8 @@
     "test:smoke": "node --test tests/critical-journey.test.mjs",
     "check": "npm test && npm run lint",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "data:sync:singles": "node sync-tcgcsv.mjs",
+    "data:sync:sealed": "node sync-sealed.mjs",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {

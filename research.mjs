@@ -1,3 +1,6 @@
+// LEGACY RESEARCH ONLY. This PriceCharting experiment is not a production
+// catalog, history, signal, or transaction-volume source. See
+// docs/legacy-artifacts.md before using or modifying it.
 import fs from 'node:fs/promises';
 
 const sets = [

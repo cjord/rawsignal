@@ -30,6 +30,7 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - `app/data/catalog-query.ts`, `app/data/catalog-repository.ts`: shared Singles/Sealed query semantics and repository contract.
 - `app/data/feed-catalog-repository.ts`, `app/data/catalog-service.ts`: bundled-feed adapter and transport-neutral catalog service.
 - `app/data/usePersistedSignals.ts`, `app/api/signals/route.ts`: persisted Hot Buy/Hot Sell readiness gate and compact signal records.
+- `app/data/signal-coverage.ts`: proportional, price-stratified transitional signal sampling.
 - `app/state/`: the authoritative Singles/Sealed URL-state parser, serializer, and browser synchronization hook.
 - `app/globals.css`: original global layout and component styles.
 - `app/market-views.css`: later shared view, filter, signal, and responsive refinements. Check both stylesheets before adding overrides.
@@ -40,6 +41,7 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - `db/daily-ingestion.ts`, `db/history-backfill.ts`: idempotent daily snapshots, derived metrics/signals, and resumable history backfill.
 - `drizzle/`: generated, committed D1 migrations and schema snapshots.
 - `docs/adr/`: accepted architecture decisions, including the Sites-to-Cloudflare path.
+- `docs/architecture.md`, `docs/data-sources.md`: maintained system boundaries and source semantics.
 - `sync-tcgcsv.mjs`: generates Singles market data and `tcg-index.json` from TCGCSV.
 - `sync-sealed.mjs`: generates normalized Pokémon sealed-product data.
 - `sealed-product-utils.mjs`: market validation, deduplication, and product-type classification.
@@ -51,6 +53,7 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 ## Data rules
 
 - Treat TCGCSV product and pricing records as the current catalog/price source. Standard price fields are market, listing low, median, and listing high; they are not transaction counts.
+- Treat `package-lock.json` as the only dependency lockfile and `npm run check` as the complete release gate.
 - Do not label price observations as sales volume or sales rank. A frequency metric requires a separate transaction source and confidence/coverage metadata.
 - Calculate 7-, 30-, and 90-day changes from dated history observations using the nearest observation at or before the cutoff.
 - Calculate displayed 30-day low/high from the historical market series, not listing extremes.
@@ -94,13 +97,13 @@ Run the narrowest relevant tests during development, then run the complete check
 npm test
 ```
 
-`npm test` performs the production build and runs all `tests/*.test.mjs` tests. Also run:
+`npm test` performs the production build and runs all `tests/*.test.mjs` tests. Prefer the complete gate:
 
 ```powershell
-npm run lint
+npm run check
 ```
 
-when changing TypeScript/React structure, hooks, accessibility, or adding new files. Fix new warnings introduced by the change; do not broaden scope to unrelated legacy warnings without approval.
+It also runs lint. Fix new warnings introduced by the change; do not broaden scope to unrelated legacy warnings without approval.
 
 Add or update tests when changing:
 

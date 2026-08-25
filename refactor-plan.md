@@ -601,6 +601,10 @@ Make the intended workflow obvious after the architecture stabilizes. Replace th
 
 From a clean checkout, follow the README to install, run the site, execute `npm test`, and identify the production data-refresh scripts without relying on tribal knowledge. Confirm `git status` does not list build output or `site-package*.tar.gz` files.
 
+### Implementation note
+
+Replaced the vinext starter README with Raw Signal setup, architecture, data-refresh, test, database, deployment, and market-interpretation guidance. Added maintained architecture, data-source, and legacy-artifact documents; labeled the archived PriceCharting experiment; removed unused starter D1 examples and pnpm workspace artifacts; normalized the package and local Worker names; and exposed production refresh scripts through npm. A maintainer-document contract test guards the key source-of-truth and archive boundaries.
+
 ---
 
 ## Recommended delivery order and checkpoints

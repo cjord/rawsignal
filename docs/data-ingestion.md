@@ -4,7 +4,7 @@
 
 OpenAI Sites hosts the application and owns the logical `DB` binding. Sites does not currently configure a Cron Trigger for this project, so production refreshes remain controlled sync operations. Do not expose an unauthenticated ingestion route as a scheduling substitute.
 
-`sync-tcgcsv.mjs` and `sync-sealed.mjs` now separate four concerns:
+`sync-tcgcsv.mjs` and `sync-sealed.mjs` separate four concerns:
 
 1. retrying source clients under `scripts/clients/`;
 2. deterministic normalization under `scripts/normalize/`;
@@ -12,6 +12,15 @@ OpenAI Sites hosts the application and owns the logical `DB` binding. Sites does
 4. staged last-good output replacement under `scripts/io/`.
 
 Every successful sync produces provenance metadata containing schema version, source update time, record counts, rejected-record reasons, and duplicate decisions. Validation completes before any last-good file is replaced.
+
+## Refresh commands
+
+```powershell
+npm run data:sync:singles
+npm run data:sync:sealed
+```
+
+Both commands access external services and can rewrite generated feeds. Review validation output and diffs before committing them. `sync-sealed.mjs` currently regenerates Pokémon Sealed only; Riftbound and One Piece Sealed feeds are maintained assets until dedicated validated generators are added.
 
 ## Durable market observations
 
@@ -29,9 +38,13 @@ The catalog API compares the published run count with records bearing that run I
 
 ## History backfill and signal readiness
 
-The previous browser implementation evaluates at most 400 candidates. Pokémon currently has 499 Illustration Rares and 721 cards across Illustration Rare plus Special Illustration Rare, so 99 and 321 candidates respectively can be unevaluated in that fallback.
+The transitional browser implementation evaluates at most 400 candidates. Pokémon currently has 499 Illustration Rares and 721 cards across Illustration Rare plus Special Illustration Rare, so 99 and 321 candidates respectively can be unevaluated in that fallback.
 
-`runHistoryBackfillBatch` replaces that limitation without creating one oversized Worker invocation. It processes a bounded batch, persists its cursor, stores exact/fallback coverage, and derives signals from normalized observations. Only completion advances the independent `history-signals` marker. Singles and Sealed use persisted signals only when that marker exists; otherwise they keep the bounded fallback. Singles discloses its evaluated-candidate count during this transition.
+Candidate selection is proportional across selected rarities and evenly stratified through each rarity's existing price order. An earlier source file or only the highest-priced records can no longer consume the full budget.
+
+`runHistoryBackfillBatch` removes that limitation without creating one oversized Worker invocation. It processes a bounded batch, persists its cursor, stores exact/fallback coverage, and derives signals from normalized observations. Only completion advances the independent `history-signals` marker. Singles and Sealed use persisted signals only when that marker exists; otherwise they retain the bounded fallback. Singles discloses its evaluated-candidate count during this transition.
+
+See [Signal eligibility](signal-eligibility.md) for the qualification and exclusion contract.
 
 ## Direct Cloudflare activation
 
@@ -45,4 +58,4 @@ When hosting moves to a directly managed Cloudflare Worker:
 6. confirm `history-signals` is present before removing the browser fallback;
 7. monitor failed ingestion runs and source freshness without advancing the last-success pointer.
 
-Daily TCGCSV observations are sufficient for ongoing history after backfill. Detailed TCGplayer history remains the one-time/bootstrap and cache-miss source, rather than a daily full-catalog fan-out.
+Daily TCGCSV observations are sufficient for ongoing history after backfill. Detailed TCGplayer history remains the bootstrap and cache-miss source rather than a daily full-catalog fan-out.
