@@ -139,5 +139,14 @@
   @media(max-width:760px){.sale-scenario>div{grid-template-columns:1fr 1fr}.sealed-filter-panel{grid-template-columns:1fr!important}.sealed-filter-panel>.set-filters,.sealed-filter-panel>.filter-actions{grid-column:1}.market-strip>.multi-select{border-right:0;border-bottom:1px solid var(--line)}}
   @media(max-width:480px){.sale-scenario>div{grid-template-columns:1fr}.multi-select-panel{position:fixed;top:auto;right:12px;bottom:12px;left:12px;width:auto;max-height:75vh}}
 
+  /* v35: rarity and set pickers share the filter-panel checkbox language. */
+  .multi-select-panel{width:min(650px,calc(100vw - 40px))}
+  .multi-options{grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:8px;padding:1px}
+  .multi-options label{min-height:44px;border-color:var(--line);background:var(--control)}
+  .multi-options label:has(input:checked),.set-filters label:has(input:checked){border-color:var(--blue)!important;background:color-mix(in srgb,var(--blue) 13%,var(--control))!important;box-shadow:0 0 0 1px color-mix(in srgb,var(--blue) 34%,transparent)}
+  .multi-select-panel>.all.active{border-color:var(--blue);background:color-mix(in srgb,var(--blue) 13%,var(--control));box-shadow:0 0 0 1px color-mix(in srgb,var(--blue) 34%,transparent)}
+  .multi-select.is-compact .multi-select-panel{padding-top:12px}.multi-select.is-compact .multi-options{max-height:none}
+  @media(max-width:620px){.multi-options{grid-template-columns:1fr}.multi-select-panel{overflow:auto}.multi-select.is-compact .multi-options{max-height:55vh}}
+
   /* v33: centered, equal-height primary/secondary selectors and in-filter strictness. */
   .product-navigation{margin-bottom:8px}.product-toggle button,.signal-tabs button{height:46px;min-height:46px}.signal-navigation{flex-direction:column;align-items:center;gap:8px;margin:0 auto 20px}.signal-slider{background:linear-gradient(135deg,color-mix(in srgb,var(--signal-color) 34%,var(--surface-raised)),color-mix(in srgb,var(--signal-color) 16%,var(--surface-raised)));box-shadow:0 4px 14px color-mix(in srgb,var(--signal-color) 20%,transparent),inset 0 1px #ffffff18}.signal-tabs button.active,.signal-tabs button.active.buy,.signal-tabs button.active.sell{color:color-mix(in srgb,var(--signal-color) 78%,var(--text));text-shadow:none}.filter-strictness{margin-top:14px;padding-top:13px;border-top:1px solid var(--line)}.filter-strictness .strictness-control{display:grid;grid-template-columns:1fr;gap:5px;padding:0}.filter-strictness .strictness-control>span{font-size:8px}.filter-strictness .strictness-control select{grid-column:1;grid-row:auto;width:100%;height:42px}.filter-strictness .strictness-control small{font-size:8px}.signal-navigation>.strictness-control{width:min(100%,360px);grid-template-columns:1fr 155px}
