@@ -9,10 +9,11 @@ const sealedName=name=>/(booster|bundle|box|display|collection|deck|tin|kit|vaul
 const category=name=>/booster (box|display)/i.test(name)?"Booster boxes":/booster/i.test(name)?"Boosters":/bundle/i.test(name)?"Bundles":/deck/i.test(name)?"Decks":/tin/i.test(name)?"Tins":/collection/i.test(name)?"Collections":"Other";
 const card=(game,product,set,msrp,price,source)=>({game,productId:product.productId??product.id,name:product.name,set,category:category(product.name),image:(product.imageUrl??product.image)?.replace("_200w","_in_1000x1000"),url:product.url,msrp,marketPrice:Number(price.marketPrice??price.market),midPrice:Number(price.midPrice??price.median)||null,profit:Number((Number(price.marketPrice??price.market)-msrp).toFixed(2)),profitPct:Number((((Number(price.marketPrice??price.market)-msrp)/msrp)*100).toFixed(1)),msrpSource:source});
 const isOnePiece=product=>/one[ -]?piece/i.test(`${product.name} ${product.set} ${product.url}`);
+const isLorcana=product=>/lorcana|attack of the vine/i.test(`${product.name} ${product.set} ${product.url}`);
 
 const pokemonRaw=await fetch("https://tcg-price-tracker.shizukaziye.workers.dev/data/data.json",{headers}).then(response=>response.json());
 const trackedProducts=pokemonRaw.items.filter(item=>item.matched&&item.msrp>0&&item.market>0);
-const pokemon=trackedProducts.filter(item=>!isOnePiece(item)).map(item=>card("pokemon",item,item.set,item.msrp,{market:item.market,median:item.median},"Published product MSRP")).sort((a,b)=>b.profitPct-a.profitPct);
+const pokemon=trackedProducts.filter(item=>!isOnePiece(item)&&!isLorcana(item)).map(item=>card("pokemon",item,item.set,item.msrp,{market:item.market,median:item.median},"Published product MSRP")).sort((a,b)=>b.profitPct-a.profitPct);
 const onepiece=trackedProducts.filter(isOnePiece).map(item=>card("onepiece",item,item.set,item.msrp,{market:item.market,median:item.median},"Published product MSRP")).sort((a,b)=>b.profitPct-a.profitPct);
 
 function riftMsrp(name){if(/case|set of|art bundle/i.test(name))return null;if(/booster (display|box)/i.test(name))return 120;if(/booster pack/i.test(name))return 4.99;if(/proving grounds/i.test(name))return 29.99;if(/champion deck.*display|display.*champion deck/i.test(name))return 79.96;if(/champion deck/i.test(name))return 19.99;if(/unleashed vault/i.test(name))return 34.99;if(/arcane box set/i.test(name))return 40;return null}
