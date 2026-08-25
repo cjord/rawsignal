@@ -1,5 +1,5 @@
 const TYPE_RULES = [
-  ["Booster Boxes / Displays", /\b(booster (box|display)|display box)\b/i],
+  ["Booster Boxes", /\b(booster (box|display)|display box)\b/i],
   ["Booster Bundles", /\bbooster bundle\b/i],
   ["Booster Packs", /\b(booster pack|sleeved booster|double pack|checklane booster)\b/i],
   ["Elite Trainer Boxes", /\belite trainer box\b/i],
@@ -7,9 +7,8 @@ const TYPE_RULES = [
   ["Build & Battle", /\b(build\s*(?:&|and)\s*battle|prerelease kit|pre-release kit)\b/i],
   ["Tins", /\b(tin|mini tin)\b/i],
   ["Blisters", /\b(blister|checklane)\b/i],
-  ["Collections", /\b(collection|collector chest|premium tournament collection|ultra-premium collection)\b/i],
+  ["Collections", /\b(collection|collector chest|premium tournament collection|ultra-premium collection|case file|pencil case)\b/i],
   ["Trainer Kits / Toolkits", /\b(trainer(?:'s)? toolkit|trainer kit|battle academy)\b/i],
-  ["Cases", /\b(case of|sealed case|case)\b/i],
   ["Boxes / Bundles", /\b(box|bundle|vault|calendar)\b/i],
 ];
 
@@ -17,6 +16,7 @@ const NON_POKEMON = /\b(lorcana|one[ -]?piece|riftbound|yu-?gi-?oh|flesh and blo
 const NON_PRODUCT = /\b(code card|single card|jumbo card|oversize(?:d)? card|wrapper|empty box|deck box|card sleeves?|playmat|dice set)\b/i;
 
 export function normalizeProductType(name = "") {
+  if (/\bcase\b/i.test(name) && !/\b(case file|pencil case)\b/i.test(name)) return "Cases";
   return TYPE_RULES.find(([, pattern]) => pattern.test(name))?.[0] ?? "Other";
 }
 

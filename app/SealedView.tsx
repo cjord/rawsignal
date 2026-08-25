@@ -20,7 +20,7 @@ const sealedSorts:{label:string;key:SortKey}[]=[{label:"Product",key:"name"},{la
 const usd=(value:number|null)=>value==null?"N/A":new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:value>=100?0:2}).format(value);
 const pct=(value:number|null)=>value==null?"N/A":`${value>=0?"+":""}${value.toFixed(1)}%`;
 const nullableSort=(a:number|null,b:number|null,direction:Direction)=>a==null?1:b==null?-1:direction==="asc"?a-b:b-a;
-const typeOrder=["Booster Packs","Booster Boxes / Displays","Booster Bundles","Starter / Theme Decks","Elite Trainer Boxes","Build & Battle","Collections","Tins","Blisters","Trainer Kits / Toolkits","Cases","Boxes / Bundles","Other"];
+const typeOrder=["Booster Packs","Booster Boxes","Booster Bundles","Starter / Theme Decks","Elite Trainer Boxes","Build & Battle","Collections","Tins","Blisters","Trainer Kits / Toolkits","Cases","Boxes / Bundles","Other"];
 const productType=(product:Product)=>typeOrder.includes(product.category)?product.category:"Other";
 
 export default function SealedView({signalView="leaderboard",strictness="balanced",onStrictness=()=>{}}:{signalView?:SignalSide;strictness?:SignalStrictness;onStrictness?:(value:SignalStrictness)=>void}){

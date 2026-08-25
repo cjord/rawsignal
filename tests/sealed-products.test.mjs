@@ -5,9 +5,14 @@ import {isPokemonSealedProduct, normalizeProductType, normalizedProductKey} from
 
 test("normalizes common Pokémon sealed product types", () => {
   assert.equal(normalizeProductType("151 Booster Bundle"), "Booster Bundles");
-  assert.equal(normalizeProductType("Surging Sparks Booster Box"), "Booster Boxes / Displays");
+  assert.equal(normalizeProductType("Surging Sparks Booster Box"), "Booster Boxes");
   assert.equal(normalizeProductType("Charizard ex League Battle Deck"), "Starter / Theme Decks");
   assert.equal(normalizeProductType("Stellar Crown Build & Battle Box"), "Build & Battle");
+  assert.equal(normalizeProductType("Mega Evolution Enhanced Booster Case"), "Cases");
+  assert.equal(normalizeProductType("Surging Sparks Booster Box Case"), "Cases");
+  assert.equal(normalizeProductType("Celebrations Ultra-Premium Collection Case"), "Cases");
+  assert.equal(normalizeProductType("Detective Pikachu: Charizard GX Special Case File"), "Collections");
+  assert.equal(normalizeProductType("Pokemon TCG: Back to School Pencil Case 2024"), "Collections");
 });
 
 test("rejects cards and products from other markets", () => {
