@@ -26,8 +26,9 @@ The target architecture should provide:
 - Milestone 2 foundation completed locally on 2026-08-25: selected OpenAI Sites with a logical Cloudflare D1 binding, documented the future direct-Cloudflare path, added authoritative domain contracts/formatters, generated the initial schema migration, and proved idempotent fixture ingestion with preserved nullability and a 90-day history series.
 - Milestone 3 completed and production-validated on 2026-08-25: added one typed parser/serializer for Singles and Sealed, made the application shell the URL owner, added complete Sealed URL restoration, and corrected browser Back/Forward history semantics after manual validation.
 - Milestone 4 completed and production-validated on 2026-08-25: Singles and Sealed now share abortable catalog loading, bounded/cached history batching, retry/status state, and one pure derived-metric implementation. The history API emits the same normalized metrics. JSON remains the live catalog path and the bounded history endpoint remains the documented fallback until database backfill/cutover.
-- Milestone 5 completed locally on 2026-08-25: Singles and Sealed now compose their mode-specific market strip, header, filter summary, controls, sort surface, rows, and footer through one shared leaderboard shell with common loading, retry, empty, and pagination behavior. Distinct mode models preserve each page's supported views and sort columns.
-- Validation gate: Milestone 4 passed manual production switching across modes and views. Milestone 5 passes the production build, 33-test suite, lint, and standalone TypeScript check; it awaits manual production validation before Milestone 6 begins.
+- Milestone 5 completed and production-validated on 2026-08-25: Singles and Sealed now compose their mode-specific market strip, header, filter summary, controls, sort surface, rows, and footer through one shared leaderboard shell with common loading, retry, empty, and pagination behavior. Distinct mode models preserve each page's supported views and sort columns.
+- Milestone 6 completed locally on 2026-08-25: Singles and Sealed now share semantic row disclosures, identity, history-popover, full-card, viewport-placement, focus, pointer, touch, and Escape behavior. Direct TCGplayer navigation and misleading external-link arrows were removed from rows, artwork, and full cards.
+- Validation gate: Milestone 5 passed manual production switching across pages and views. Milestone 6 passes the production build and expanded automated suite; it awaits manual production validation before Milestone 7 begins.
 
 ## Current technical debt
 
@@ -362,6 +363,10 @@ Remove TCGplayer navigation from row anchors and artwork. Convert each row to a 
 ### Smallest stability proof
 
 Add one interaction test that proves rows and artwork have no external link, opens a Medium row panel by pointer/focus, moves into a chart range button without closing it, and closes with Escape. Repeat through the Sealed adapter. At a short viewport, assert the placement data attribute flips below. Assert there is no nested interactive content.
+
+### Implementation note
+
+Implemented `MarketRow` with native `<details>/<summary>` disclosure semantics and a shared `useDisclosurePopover` controller for fine-pointer hover, focus retention, Escape, touch toggling, vertical placement, and large-card horizontal flipping. The interactive `HistoryPopover` is a sibling of the summary trigger, so chart buttons are no longer nested inside an anchor or disclosure trigger and pointer/focus can move into the panel without closing it. `ProductIdentity` and `FullMarketCard` now provide the shared image/title and expanded-record structures while mode adapters retain their own fields and calculations. Contract tests cover both adapters, removal of product links, disclosure structure, supported interactions, and pure viewport-placement decisions.
 
 ---
 
