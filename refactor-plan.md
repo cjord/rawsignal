@@ -24,8 +24,9 @@ The target architecture should provide:
 - Milestone 0 completed locally on 2026-08-25: added Singles and Sealed default-behavior characterization coverage.
 - Milestone 1 completed locally on 2026-08-25: removed active Magic UI, sync, index, data files, and its market-specific cards API; legacy Magic URLs now normalize to Pokémon.
 - Milestone 2 foundation completed locally on 2026-08-25: selected OpenAI Sites with a logical Cloudflare D1 binding, documented the future direct-Cloudflare path, added authoritative domain contracts/formatters, generated the initial schema migration, and proved idempotent fixture ingestion with preserved nullability and a 90-day history series.
-- Milestone 3 completed locally on 2026-08-25: added one typed parser/serializer for Singles and Sealed, made the application shell the URL owner, added complete Sealed URL restoration, and subscribed to browser back/forward navigation.
-- Validation gate: the production build, complete test suite, lint, and standalone TypeScript check pass. The generated migration has been inspected locally. Publishing the Sites-managed D1 resource is the next step; JSON remains the live catalog read path.
+- Milestone 3 completed and production-validated on 2026-08-25: added one typed parser/serializer for Singles and Sealed, made the application shell the URL owner, added complete Sealed URL restoration, and corrected browser Back/Forward history semantics after manual validation.
+- Milestone 4 completed locally on 2026-08-25: Singles and Sealed now share abortable catalog loading, bounded/cached history batching, retry/status state, and one pure derived-metric implementation. The history API emits the same normalized metrics. JSON remains the live catalog path and the bounded history endpoint remains the documented fallback until database backfill/cutover.
+- Validation gate: the production build, 32-test suite, lint, and standalone TypeScript check pass. Milestone 4 awaits production validation before Milestone 5 begins.
 
 ## Current technical debt
 
@@ -276,6 +277,10 @@ Use `AbortController` for request cancellation. The normal page path should read
 ### Smallest stability proof
 
 Unit-test one dated history series against exact expected 7-, 30-, and 90-day changes plus 30-day and historic extrema. Add one cancellation test proving an obsolete request cannot update the active result. Run `npm test`.
+
+### Implementation note
+
+Implemented `useCatalogPage`, `usePriceHistoryBatch`, and `deriveHistoryMetrics` without adding a client-state dependency. Catalog requests expose idle/loading/success/empty/error states and retry; history requests use variant-aware cache keys, a four-request concurrency bound, AbortController cancellation, explicit coverage, and retry/status metadata. Singles and Sealed retain their existing target-selection limits. The client and `/api/history` now use the same dated-history calculation. Database-backed primary reads remain intentionally deferred until persisted history is backfilled and parity-tested.
 
 ---
 

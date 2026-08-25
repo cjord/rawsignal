@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {mergeHistoryBuckets} from "../../history-utils";
+import {deriveHistoryMetrics} from "../../domain/history-metrics";
 
 type Bucket = { marketPrice: string; bucketStartDate: string };
 type Series = { variant: string; language: string; condition: string; buckets: Bucket[] };
@@ -27,7 +28,7 @@ export async function GET(request: Request) {
   if (!selected) return NextResponse.json({ points: [], coverage: "none" }, { headers: { "Cache-Control": "public, max-age=3600" } });
   const annualMatch=annual.find(row=>row.language==="English"&&row.variant===selected.variant&&row.condition===selected.condition);
   const points=mergeHistoryBuckets(annualMatch?.buckets,selected.buckets);
-  return NextResponse.json({ points, variant: selected.variant, condition: selected.condition, coverage: exact ? "exact" : "fallback" }, {
+  return NextResponse.json({ points, variant: selected.variant, condition: selected.condition, coverage: exact ? "exact" : "fallback",...deriveHistoryMetrics(points) }, {
     headers: { "Cache-Control": "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400" },
   });
 }
