@@ -21,12 +21,26 @@ test("approved Scalper feed contains only real sealed records and approved varia
   const ids = new Set(products.map(product => product.productId));
   assert.ok(products.length > 100);
   assert.equal(ids.size, products.length);
-  assert.ok(products.every(product => ["pokemon", "onepiece", "riftbound", "yugioh", "lorcana"].includes(product.game)));
+  assert.ok(products.every(product => ["pokemon", "onepiece", "riftbound", "yugioh", "lorcana", "football"].includes(product.game)));
   assert.ok(products.every(product => product.category !== "Other"));
   for (const productId of [654154,654156,666909,666908,671250,671249,669278,669277,669273,656487,697970]) assert.ok(ids.has(productId), `missing approved product ${productId}`);
   assert.equal(products.find(product => product.productId === 671250)?.msrp, 24.99);
   assert.equal(products.find(product => product.productId === 671249)?.msrp, 24.99);
   assert.ok(!ids.has(669298), "random-art approval excludes the Set of 3");
+});
+
+test("Scalper feed includes curated trading-card supplements and excludes merchandise", async () => {
+  const products = parseSealedProducts(await json("../public/data/sealed-scalping.json"));
+  const names = new Set(products.map(product => product.name));
+  assert.ok(names.has("Mega Evolution—Ascended Heroes 2-Pack Blister"));
+  assert.ok(names.has("Quarter Century Stampede Booster Box"));
+  assert.ok(names.has("2025 Topps Chrome Football Hanger Box"));
+  assert.equal(products.filter(product => product.name === "Quarter Century Stampede Booster Box").length, 1);
+  assert.ok(!products.some(product => /Canon PowerShot|Sunny Days|NeeDoh/i.test(product.name)));
+  const supplemental = products.find(product => product.productId === 990000001);
+  assert.equal(supplemental?.msrp, 10.99);
+  assert.equal(supplemental?.marketPrice, null);
+  assert.equal(supplemental?.image, null);
 });
 
 test("Scalping queries the mixed sealed allowlist without filtering by source game", async () => {

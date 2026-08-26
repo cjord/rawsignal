@@ -12,6 +12,7 @@ const categoryGame = new Map([[2, "yugioh"], [3, "pokemon"], [68, "onepiece"], [
 const report = await readJson("../../docs/scalper-reconciliation.json");
 const candidates = await readJson("../../docs/scalper-candidates.json");
 const approved = await readJson("./approved-variants.json");
+const supplemental = await readJson("./supplemental-products.json");
 const byProductId = new Map(candidates.map(candidate => [Number(candidate.productId), candidate]));
 const reportEntries = [...report.matched, ...report.ambiguous, ...report.unmatched];
 const selected = new Map();
@@ -52,7 +53,7 @@ for (const group of groups.values()) {
   }
 }
 
-const products = [...selected.values()].map(({ candidate, msrpOverride }) => {
+const tcgcsvProducts = [...selected.values()].map(({ candidate, msrpOverride }) => {
   const regular = regularById.get(Number(candidate.productId));
   const price = preferredSealedPrice(pricesByProduct.get(Number(candidate.productId)));
   const marketPrice = positive(price?.marketPrice), midPrice = positive(price?.midPrice);
@@ -75,11 +76,39 @@ const products = [...selected.values()].map(({ candidate, msrpOverride }) => {
     profitPct: profit != null && msrp ? Number((profit / msrp * 100).toFixed(1)) : null,
     msrpSource: msrpOverride != null ? "Scalper watchlist MSRP override" : regular?.msrpSource ?? null,
   };
-}).sort((a, b) => (b.marketPrice ?? -1) - (a.marketPrice ?? -1) || a.name.localeCompare(b.name));
+});
+
+const resolvedSourceLines = new Set(reportEntries.flatMap(entry => {
+  const replacement = approved[String(entry.lineNumber)];
+  return (replacement?.length || entry.candidates.length === 1) ? [entry.lineNumber] : [];
+}));
+const supplementalProducts = supplemental
+  .filter(product => !product.sourceLines.some(line => resolvedSourceLines.has(line)))
+  .map(product => ({
+    game: product.game,
+    productId: Number(product.productId),
+    name: product.name,
+    set: product.set,
+    category: normalizeProductType(product.name),
+    image: null,
+    url: product.url,
+    msrp: positive(product.msrp),
+    marketPrice: null,
+    midPrice: null,
+    profit: null,
+    profitPct: null,
+    msrpSource: product.msrpSource,
+  }));
+const productsById = new Map(tcgcsvProducts.map(product => [product.productId, product]));
+for (const product of supplementalProducts) if (!productsById.has(product.productId)) productsById.set(product.productId, product);
+const products = [...productsById.values()].sort((a, b) => (b.marketPrice ?? -1) - (a.marketPrice ?? -1) || a.name.localeCompare(b.name));
 
 const generatedAt = new Date().toISOString();
-const counts = { records: products.length, withMarket: products.filter(product => product.marketPrice != null).length, withMsrp: products.filter(product => product.msrp != null).length };
-const manifest = ingestionManifest({ source: "TCGCSV sealed products filtered by approved scalper.txt allowlist", sourceUpdatedAt: report.generatedAt, generatedAt, counts, rejected: { unmatchedWatchlistEntries: report.counts.unmatched } });
+const supplementalLines = new Set(supplementalProducts.flatMap(product => supplemental.find(source => source.productId === product.productId)?.sourceLines ?? []));
+const manuallyApprovedLines = new Set(Object.entries(approved).filter(([, ids]) => ids.length).map(([line]) => Number(line)));
+const unmatchedWatchlistEntries = report.unmatched.filter(entry => !supplementalLines.has(entry.lineNumber) && !manuallyApprovedLines.has(entry.lineNumber)).length;
+const counts = { records: products.length, withMarket: products.filter(product => product.marketPrice != null).length, withMsrp: products.filter(product => product.msrp != null).length, supplemental: supplementalProducts.length };
+const manifest = ingestionManifest({ source: "TCGCSV sealed products plus curated trading-card supplements filtered by the approved Scalper allowlist", sourceUpdatedAt: report.generatedAt, generatedAt, counts, rejected: { unmatchedWatchlistEntries } });
 await publishCatalogSnapshot({ sealed: products }, {
   "public/data/sealed-scalping.json": products,
   "public/data/sealed-scalping-manifest.json": manifest,

@@ -4,7 +4,7 @@ const TYPE_RULES = [
   ["Booster Packs", /\b(booster pack|sleeved booster|double pack|checklane booster)\b/i],
   ["Elite Trainer Boxes", /\belite trainer box\b/i],
   ["Troves", /\btrove\b/i],
-  ["Starter / Theme Decks", /\b(starter deck|theme deck|battle deck|league battle deck|ex battle deck|v battle deck|championship deck)\b/i],
+  ["Starter / Theme Decks", /\b(starter deck|theme deck|battle deck|league battle deck|ex battle deck|v battle deck|championship deck|deck set)\b/i],
   ["Build & Battle", /\b(build\s*(?:&|and)\s*battle|prerelease kit|pre-release kit)\b/i],
   ["Tins", /\b(tin|mini tin)\b/i],
   ["Blisters", /\b(blister|checklane)\b/i],
