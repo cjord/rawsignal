@@ -426,6 +426,12 @@
 }
 
 @media (max-width: 759px) {
+  .view-medium .leader-row,
+  .view-text .leader-row {
+    grid-template-columns: 32px minmax(0, 1fr) auto !important;
+    grid-template-areas: "rank identity price" "rank set price" !important;
+  }
+
   .view-medium .leader-row.has-signal,
   .view-text .leader-row.has-signal {
     grid-template-areas: "rank identity price" "rank set price" "signal signal signal" !important;
@@ -485,4 +491,102 @@
   .sealed-toolbar > .view-toggle {
     transition: none;
   }
+}
+
+/* Shared numbered pagination */
+.pagination {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 0;
+}
+
+.pagination button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 12px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: transform var(--motion-fast), box-shadow var(--motion-fast), border-color var(--motion-fast);
+}
+
+.pagination button:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
+
+.pagination button:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.pagination > button {
+  white-space: nowrap;
+}
+
+.page-numbers {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.page-numbers > span {
+  padding: 0 2px;
+  color: var(--gray);
+  font-size: 11px;
+}
+
+.page-numbers button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  place-items: center;
+  border-radius: 9px;
+}
+
+.page-numbers button.current {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: #fff;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pagination button:not(:disabled):hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--blue) 35%, var(--line));
+    box-shadow: 0 4px 12px #10182812;
+  }
+}
+
+@media (max-width: 759px) {
+  .pagination {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .page-numbers {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    overflow: hidden;
+  }
+
+  .pagination > button:first-child { grid-column: 1; }
+  .pagination > button:last-child { grid-column: 2; }
+  .page-numbers button { width: 34px; height: 34px; }
+}
+
+@media (max-width: 430px) {
+  .pagination > button { padding: 10px 8px; }
+  .page-numbers button { width: 32px; height: 32px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pagination button { transition: none; }
+  .pagination button:not(:disabled):hover { transform: none; }
 }

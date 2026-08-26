@@ -213,3 +213,10 @@ The recommended near-term operating model is therefore:
 3. Preserve but do not automatically deploy the direct-Cloudflare target.
 4. Upgrade Cloudflare when ready for operational work.
 5. On an explicit Cloudflare request, implement the Workflow, finish staging data, prove parity, and plan production cutover separately.
+POST-REFACTOR MAINTENANCE FOLLOW-UP — 2026-08-25
+
+- Reconciled refactor-plan.md so completed refactoring and the future direct-Cloudflare operations program are separate scopes. OpenAI Sites remains the default development, testing, and publishing path; Cloudflare mutation/deployment remains explicit-request-only.
+- Moved numbered-pagination ownership out of the legacy global stylesheet and into the shared market-controls stylesheet, including focus, hover, responsive, current-page, and reduced-motion behavior. The legacy !important count fell from 310 to 305.
+- Added a shared leaderboard mode adapter for derived catalog fields, signal-aware sort choices, and default sort direction. Singles and Sealed now also share one history-prefetch hook instead of duplicating effects.
+- Added Playwright Chromium automation for browser history, product/view switching, phone-width controls, filter dismissal, theme persistence, and URL stability. The suite exposed and fixed missing accessible names on mobile icon-only segmented controls and a 500px mobile row overflow.
+- The complete gate passes: production build, 73 Node tests, lint, and 3 Chromium journeys. No OpenAI Sites or Cloudflare deployment was performed.

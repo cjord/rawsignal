@@ -11,6 +11,13 @@ type BatchEntry={target:HistoryTarget;history:PriceHistory;failed:boolean};
 const unavailableHistory:PriceHistory={points:[],coverage:"none",change7:null,change30:null,change90:null,low30:null,high30:null,historyLow:null,historyHigh:null};
 export const historyTargetKey=(target:HistoryTarget)=>`${target.sealed?"sealed":"single"}:${target.productId}:${target.printing.toLowerCase()}`;
 
+export function usePriceHistoryPrefetch(targets:HistoryTarget[],enabled:boolean,request:(targets:HistoryTarget[])=>Promise<void>){
+ const targetsRef=useRef(targets);
+ const key=targets.map(historyTargetKey).join(",");
+ useEffect(()=>{targetsRef.current=targets},[targets]);
+ useEffect(()=>{if(enabled)void request(targetsRef.current)},[enabled,key,request]);
+}
+
 export async function loadPriceHistoryBatch(targets:HistoryTarget[],signal:AbortSignal,fetcher:typeof fetch=fetch,limit=4){
  return mapWithConcurrency(targets,limit,async target=>{
   if(signal.aborted)throw new DOMException("Request aborted","AbortError");

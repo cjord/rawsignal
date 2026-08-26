@@ -46,7 +46,8 @@ test("keeps large popover flush with its tile and preserves reduced motion", asy
 });
 
 test("component families own current shared control and disclosure contracts", async () => {
-  const [legacy, controls, content] = await Promise.all([
+  const [globals, legacy, controls, content] = await Promise.all([
+    read("../app/globals.css"),
     read("../app/market-views.css"),
     read("../app/styles/market-controls.css"),
     read("../app/styles/market-content.css"),
@@ -55,6 +56,8 @@ test("component families own current shared control and disclosure contracts", a
   assert.doesNotMatch(legacy, /v41: roomier signal cells/);
   assert.match(controls, /\.controls > \.strictness-control/);
   assert.match(controls, /\.signal-cell/);
+  assert.match(controls, /\/\* Shared numbered pagination \*\//);
+  assert.doesNotMatch(globals + legacy, /\.page-numbers/);
   assert.match(content, /\.market-row-shell/);
   assert.match(content, /data-popup-place="below"/);
 });

@@ -21,6 +21,7 @@ Magic: The Gathering support is intentionally paused. Sales volume and sales ran
 
 ```powershell
 npm ci
+npm run test:browser:install
 npm run dev
 ```
 
@@ -32,11 +33,13 @@ The application is available at the local URL printed by vinext. The default the
 npm run check
 ```
 
-`npm run check` performs the production build, all Node tests, and lint. For the narrow critical URL/query journey only:
+`npm run check` performs the production build, all Node tests, lint, and the focused Chromium browser suite. Install its browser once with `npm run test:browser:install`. For the narrow critical URL/query journey only:
 
 ```powershell
 npm run test:smoke
 ```
+
+Run only the browser journeys with `npm run test:browser`. They cover browser back/forward state restoration, Singles/Sealed and display-mode switching, mobile control behavior, filter dismissal, and persisted display preferences.
 
 The quality workflow in `.github/workflows/quality.yml` runs the same complete check on pushes to `main` and on pull requests when this repository is connected to GitHub.
 
