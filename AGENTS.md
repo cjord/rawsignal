@@ -54,6 +54,24 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - `tests/`: Node test suite covering history, search, rendering, market validation, sealed classification, and signal scoring.
 - `.openai/hosting.json`: OpenAI Sites project configuration. Preserve its opaque `project_id`.
 
+## Hosting and environment policy
+
+- OpenAI Sites is the default environment for ongoing development, testing, previews, and production publishing. Preserve the Sites-compatible vinext build and the logical bindings in `.openai/hosting.json`.
+- Continue to keep direct Cloudflare compatibility in the shared source, migrations, repository interfaces, Worker entry point, and deployment-preparation scripts. Do not introduce a Sites-only application fork or a separate Cloudflare UI implementation.
+- Deploy to direct Cloudflare only when the user explicitly requests a Cloudflare deployment in the active task. A linked Cloudflare account, an available Wrangler login, or a general request to publish the website does not authorize a Cloudflare deploy.
+- Unless explicitly authorized, do not create or mutate direct-Cloudflare Workers, D1 databases, routes, schedules, secrets, Workflows, Queues, or production bindings. Read-only inspection is acceptable when needed for planning or diagnosis.
+- A normal request to publish or deploy Raw Signal means publish through the existing OpenAI Sites project. If the target is ambiguous and direct Cloudflare would materially change external state, keep Sites as the target or ask for clarification.
+
+### Current direct-Cloudflare capability
+
+- The linked Cloudflare account has an isolated `raw-signal-staging` Worker and an isolated, migrated `raw-signal-staging` D1 database. The staging URL is `https://raw-signal-staging.raw-signal-watch.workers.dev`.
+- The staging Worker supports the vinext application, static assets through `ASSETS`, D1 through `DB`, Cloudflare Images through `IMAGES`, Worker version metadata, and an explicit `ENVIRONMENT=staging` boundary.
+- `POST /__ops/staging-jobs` is staging-only, bearer-protected, non-cacheable, and checkpointed. Catalog batches are capped at 80 records to remain within the limits verified on the current plan. Do not expose its token or convert it into a public production API.
+- Catalog and history ingestion have been proven with bounded live batches. The D1 bootstrap and history backfill are incomplete, so staging public APIs intentionally retain the bundled-feed fallback until atomic readiness markers exist.
+- No Cloudflare Cron Trigger, Queue, Workflow, production Worker route, production D1 database, or custom production hostname is active. Full database-backed catalog/signal parity has not yet passed.
+- The anticipated paid-plan continuation is a durable Cloudflare Workflow with resumable catalog and history steps, monitoring, and explicit usage limits. Implement or deploy it only after a specific user request.
+- Before any future Cloudflare production cutover, complete staging backfills, prove API and UI parity against Sites, create backups, validate rollback, obtain approval for the production hostname, and keep Sites available as the rollback target.
+
 ## Data rules
 
 - Treat TCGCSV product and pricing records as the current catalog/price source. Standard price fields are market, listing low, median, and listing high; they are not transaction counts.
@@ -133,13 +151,14 @@ Review generated counts, market validation, duplicates, and diffs before committ
 
 ## Deployment
 
-- This repository is hosted with OpenAI Sites because `.openai/hosting.json` is present.
+- This repository's current production and default deployment target is OpenAI Sites because `.openai/hosting.json` is present.
 - Build and test before publishing.
 - Commit and push the exact validated source state before saving a Site version.
 - Package deployments with the Sites packaging helper; never commit the resulting archive.
 - Reuse the existing Sites project and source branch. Do not create a new Site or alter the stored project ID.
 - Prefer the existing private deployment workflow and poll until it succeeds or fails.
 - Publishing is an external action: do it only when the user asks to publish/deploy or when the active site-building workflow explicitly requires deployment.
+- Do not deploy the direct Cloudflare staging or production targets unless the user specifically requests Cloudflare deployment. Sites publication does not imply Cloudflare publication.
 - After publishing, report the production URL and the user-visible changes. Do not expose credentials, repository tokens, or internal deployment IDs.
 
 ## Change checklist

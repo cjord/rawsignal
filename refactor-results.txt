@@ -1,0 +1,215 @@
+RAW SIGNAL REFACTOR RESULTS AND CURRENT-STATE AUDIT
+Date: 2026-08-25
+
+1. EXECUTIVE RESULT
+
+The phased refactor substantially improved code reuse, state consistency, data boundaries, test coverage, and future hosting portability without redesigning the product. Singles and Sealed now share the important interaction and query foundations instead of evolving as two unrelated applications.
+
+The central refactor goals are largely achieved:
+
+- One URL-state parser/serializer owns both Singles and Sealed state.
+- One leaderboard shell composes shared controls, rows, summaries, disclosures, loading states, and pagination.
+- Shared filter primitives provide consistent selection, reset, dismissal, and active-state behavior.
+- Shared history loading, calculation, charting, and popover placement remove parallel implementations.
+- A shared catalog query engine owns fuzzy search, filtering, sorting, null handling, pagination, facets, and sealed-profit calculations.
+- Feed and D1 repositories implement the same catalog contract.
+- Data ingestion is validated, idempotent, checkpointed, observable, and protected against partially published datasets.
+- Hot Buy/Hot Sell calculations use one tested signal and history path.
+- Direct TCGplayer navigation was removed from rows and artwork.
+- Magic: The Gathering is removed from active product surfaces while extension points remain.
+- The release gate now includes a production build, Node tests, and lint.
+- Maintainer documentation, architecture decisions, data-source semantics, and Cloudflare cutover boundaries are recorded.
+
+The refactor is not equivalent to a finished Cloudflare migration. OpenAI Sites remains the stable production host. Cloudflare staging proves deployment compatibility and bounded D1 ingestion, but its full catalog/history backfill and database parity gate are incomplete.
+
+2. AUDIT SCOPE AND EVIDENCE
+
+The audit reviewed:
+
+- refactor-plan.md milestone objectives, implementation notes, and completion records;
+- AGENTS.md, README.md, architecture, data-source, ingestion, signal, and cutover documentation;
+- the current application, domain, data, database, Worker, scripts, and test structure;
+- the current Git history and clean working state before this documentation update;
+- the most recent complete validation run;
+- the live Cloudflare staging deployment results from the post-refactor infrastructure checkpoint.
+
+Current measurable indicators:
+
+- 98 source/test/documentation files across the primary maintained directories.
+- 19 test files.
+- 71 tests passed in the most recent complete npm run check execution.
+- Production build passed.
+- ESLint passed.
+- app/page.tsx is 87 physical lines and app/SealedView.tsx is 58 physical lines, reflecting their movement toward composition/adaptor roles.
+- From the Milestone 3 URL-state baseline through the current source, 100 files changed with 4,655 insertions and 6,673 deletions. A large share of deletion volume is the intentional removal of the pnpm lock/workspace artifacts.
+
+3. MILESTONE RESULTS
+
+Milestone 0 - Characterization baseline
+Status: Complete.
+Result: Added tests for the established Singles and Sealed defaults before structural changes. This reduced the risk that later code reuse work would silently change product behavior.
+
+Milestone 1 - Remove active Magic support
+Status: Complete.
+Result: Removed Magic navigation, active data, sync paths, and the market-specific API branch. Legacy Magic URLs normalize to Pokemon. The remaining architecture can add markets later without carrying dormant Magic complexity now.
+
+Milestone 2 - Hosting, domain contracts, and D1 foundation
+Status: Foundation complete.
+Result: Selected OpenAI Sites as the current host with a logical DB binding, documented a future direct-Cloudflare path, added shared domain contracts/formatters, generated D1 migrations, and proved idempotent fixture ingestion with explicit nullability and historical data.
+Remaining qualification: Direct Cloudflare is staging-only and is not the authoritative production data boundary yet.
+
+Milestone 3 - Shared URL and navigation state
+Status: Complete and manually production-validated.
+Result: Singles and Sealed use one parser/serializer and top-level URL owner. Sealed state restores correctly, meaningful changes push browser history, rapid search edits replace state, and browser Back/Forward behavior was corrected and manually confirmed.
+
+Milestone 4 - Shared catalog/history loading
+Status: Complete and manually production-validated.
+Result: Both modes share abortable catalog loading, bounded history concurrency, cache merging, retry/status handling, and derived history metrics. The history API emits the same normalized calculations.
+
+Milestone 5 - Shared leaderboard shell
+Status: Complete and manually production-validated.
+Result: Market strip, header, filter summary, controls, sorting surface, rows, loading/error/empty states, pagination, and footer are composed through one shell. Mode adapters retain only genuinely different columns, views, and calculations.
+
+Milestone 6 - Shared row disclosure and interaction
+Status: Complete and manually production-validated.
+Result: Singles and Sealed share product identity, history popovers, full cards, pointer/focus/touch/Escape behavior, and viewport placement. Row and artwork navigation to TCGplayer was removed. Large-card tile and popover now behave as one joined hover surface with reduced-motion protection.
+
+Milestone 7 - Shared filters and menus
+Status: Complete and manually production-validated.
+Result: Reusable dismissal, filter button, numeric range, checkbox grid, searchable checkbox grid, actions, and selection-normalization primitives now serve both modes. All-selection semantics and outside-click/Escape behavior are tested.
+
+Milestone 8 - CSS tokens and component ownership
+Status: Safe migration slice complete; broader cleanup remains.
+Result: Added shared tokens and component-family styles for controls and market content. Regression tests protect stylesheet order, popover geometry, focus/motion contracts, and component ownership.
+Remaining qualification: globals.css and market-views.css still contain historical rules, and approximately 310 !important declarations remain across application CSS. This is the clearest remaining UI-maintainability debt and should be reduced incrementally, not with a single rewrite.
+
+Milestone 9 - Shared query/repository/service layer
+Status: Complete and production-validated for current behavior.
+Result: Singles and Sealed share fuzzy search, filtering, sorting, null ordering, deduplication, facets, pagination, signals, movement filters, and sealed scenario calculations. Feed and D1 repository adapters implement the same service contract. The catalog API has no hard-coded production origin and safely gates D1 readiness.
+Remaining qualification: The D1 adapter still applies the shared in-memory query engine to a database market slice. SQL/FTS filtering and database-native LIMIT/cursor pagination remain later performance work after parity is established.
+
+Milestone 10 - Ingestion, history caching, and scheduled-job boundary
+Status: Code foundation complete; production operation incomplete.
+Result: Source clients, normalization, validation, manifests, last-good publication, daily D1 observations, derived metrics/signals, durable history, and resumable backfills are implemented. Partial refreshes do not become authoritative.
+Remaining qualification: No production scheduler is active. Cloudflare staging has only a partial catalog/history bootstrap. Complete persisted Hot Buy/Hot Sell coverage still depends on the history-signals readiness marker.
+
+Milestone 11 - Test pyramid and quality gate
+Status: Complete for the intended Sites phase.
+Result: Unit, contract, rendered-HTML, CSS-contract, ingestion, state, query, signal, documentation, and critical-journey tests are present. npm run check enforces build, tests, and lint, and a Node 24 CI workflow records the same gate.
+Remaining qualification: Browser automation remains intentionally light. A focused browser runner is still recommended when a stable Cloudflare preview/deployment pipeline becomes an active release target.
+
+Milestone 12 - Repository cleanup and maintainer documentation
+Status: Complete.
+Result: Replaced starter documentation, documented architecture and data ownership, removed unused starter D1 and pnpm workspace artifacts, labeled legacy research code, normalized package/deployment naming, and added a maintainer-document contract test.
+Remaining qualification: refactor-plan.md's top Progress section does not fully summarize Milestones 11 and 12 and contains transitional wording around Milestone 10 publication. This is documentation drift, not runtime debt.
+
+4. TECHNICAL DEBT RESOLVED OR MATERIALLY REDUCED
+
+A. Duplicate Singles/Sealed behavior
+Result: Materially reduced. Shared shell, query engine, filters, disclosures, history hooks, controls, and utilities now define consistent behavior.
+
+B. Conflicting URL/state ownership
+Result: Resolved. One parser, serializer, and browser-state contract controls both modes.
+
+C. Unenforced feed and domain shapes
+Result: Materially reduced. Shared runtime parsing, domain types, normalization, validation, and explicit null handling now form the application boundary.
+
+D. Duplicated history calculations and browser request queues
+Result: Materially reduced. One history derivation and bounded request implementation is shared; durable storage/backfill exists for the future authoritative path.
+
+E. Divergent sorting, filtering, and pagination
+Result: Resolved at the product-contract level. The same query semantics serve current in-memory, feed, service, and D1 adapters.
+
+F. Misleading external navigation
+Result: Resolved. Rows and artwork no longer navigate directly to TCGplayer.
+
+G. Unsupported Magic complexity
+Result: Resolved for current scope. Active support is removed without blocking a future explicit reintroduction.
+
+H. Unsafe data refresh replacement
+Result: Resolved in the ingestion design. Validation and last-good output protect bundled feeds, while D1 readiness pointers prevent partial database publication.
+
+I. Weak release verification
+Result: Materially improved. The repeatable complete gate currently passes build, 71 tests, and lint.
+
+5. CURRENT DEPLOYMENT CAPABILITIES
+
+OpenAI Sites:
+
+- Current production and default publishing target.
+- Suitable for continued UI development, functional testing, previews, and normal releases.
+- Uses the existing Sites project and logical DB declaration.
+- Can continue serving complete bundled feeds while Cloudflare database work remains isolated.
+- Must remain the normal meaning of publish/deploy unless the user explicitly names Cloudflare.
+
+Direct Cloudflare staging:
+
+- Linked account and authenticated deployment tooling are available.
+- An isolated staging Worker is deployed at https://raw-signal-staging.raw-signal-watch.workers.dev.
+- An isolated D1 database exists and has both committed migrations applied.
+- The Worker has ASSETS, DB, IMAGES, Worker version metadata, and staging-environment bindings.
+- A staging-only bearer-protected endpoint supports checkpointed daily catalog and history batches.
+- Live tests proved catalog writes, exact history retrieval, D1 persistence, secret handling, and feed fallback while D1 is incomplete.
+- Catalog batches are currently capped at 80 based on the verified account limit behavior.
+- Static-asset fallback was corrected to use Request objects compatible with Cloudflare's ASSETS binding.
+- No Cron Trigger, Workflow, Queue, production route, production D1 database, or custom hostname is active.
+- Catalog backfill and history backfill are incomplete, so full database parity has not passed.
+
+Deployment policy after this audit:
+
+- Continue development, testing, and normal publishing through OpenAI Sites.
+- Preserve Cloudflare compatibility in shared code and migrations.
+- Do not deploy or mutate direct Cloudflare resources unless the user specifically requests Cloudflare deployment.
+- An eventual Workers Paid plan should be paired with a durable Workflow rather than merely increasing one HTTP request's batch size.
+
+6. REMAINING DEBT AND RISKS, PRIORITIZED
+
+Priority 1 - Complete the data-operation architecture before Cloudflare cutover
+
+- Implement a durable Workflow for catalog and history continuation only when Cloudflare work is explicitly requested.
+- Add retry policy, observability, usage limits, and an operator-visible failure state.
+- Complete staging backfills and require database source readiness before parity approval.
+- Do not enable Cron until a manual Workflow run and recovery test pass.
+
+Priority 2 - Continue CSS ownership migration
+
+- Reduce the remaining legacy rules and roughly 310 !important declarations by component family.
+- Do not rewrite all styles at once.
+- Add computed-style or browser checks for each migrated family across dark/light and desktop/mobile states.
+
+Priority 3 - Make page adapters thinner and more readable
+
+- Physical line counts are small, but compressed expressions still make page orchestration harder to review.
+- Extract named mode-model builders and signal/history orchestration hooks where doing so removes judgment from page components.
+- Prefer readability over reducing line count.
+
+Priority 4 - Add database-native query optimization after parity
+
+- Benchmark the D1 market-slice approach first.
+- Add indexes based on observed row-read metrics.
+- Move filters, ordering, and pagination into SQL incrementally while asserting identical IDs, totals, facets, and null ordering against the shared engine.
+
+Priority 5 - Expand browser-level regression testing at the right time
+
+- Keep the current fast contract suite.
+- Add a small browser suite for URL restoration, filters, sorting, pagination, history interaction, touch disclosure, themes, and responsive layouts once Cloudflare preview deployment is an active workflow.
+
+Priority 6 - Reconcile planning-document status
+
+- Update refactor-plan.md's Progress section to explicitly record Milestones 11 and 12 as complete.
+- Separate the completed refactor program from the subsequent Cloudflare migration program.
+- Remove or qualify stale statements that imply Milestone 10 merely awaits its original publication.
+
+7. MAINTAINABILITY CONCLUSION
+
+The codebase is materially more maintainable and expandable than before the refactor. New market views can now build on shared state, shell, filter, history, query, and disclosure contracts rather than copying a page. Data semantics are explicit, unavailable values remain honest, and partial ingestion cannot silently replace the last complete catalog.
+
+The remaining work is concentrated rather than systemic: legacy CSS cleanup, further page-adapter readability, D1 query pushdown, browser automation, and the separate Cloudflare operational rollout. These can proceed in bounded milestones without destabilizing Sites production.
+
+The recommended near-term operating model is therefore:
+
+1. Keep OpenAI Sites as the development, testing, and production publishing environment.
+2. Continue normal feature work against the shared architecture and complete npm run check before release.
+3. Preserve but do not automatically deploy the direct-Cloudflare target.
+4. Upgrade Cloudflare when ready for operational work.
+5. On an explicit Cloudflare request, implement the Workflow, finish staging data, prove parity, and plan production cutover separately.
