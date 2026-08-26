@@ -52,11 +52,11 @@ test("characterizes Singles defaults before refactoring", async () => {
   assert.match(page, /useMarketQueryState\(restoreQuery\)/);
 });
 
-test("characterizes Sealed defaults before refactoring", async () => {
+test("characterizes Sealed defaults and guards the disabled Scalper fallback", async () => {
   const sealed = await readFile(new URL("../app/SealedView.tsx", import.meta.url), "utf8");
   const defaults=parseMarketQuery("?mode=sealed");
   assert.equal(defaults.mode,"sealed");assert.equal(defaults.market,"pokemon");assert.equal(defaults.sort,"profitPct");assert.equal(defaults.direction,"desc");assert.equal(defaults.perPage,20);assert.equal(defaults.view,"medium");assert.equal(defaults.basis,"market");assert.equal(defaults.keepPct,100);assert.equal(defaults.taxOn,false);
-  assert.match(sealed, /useState<Game>\(initialState\.market\)/);
+  assert.match(sealed, /useState<Game>\(\(\)=>initialState\.market==="scalping"&&!scalperEnabled\?"pokemon":initialState\.market\)/);
   assert.match(sealed, /useState<SortKey>\(initialState\.sort\)/);
   assert.match(sealed, /onQueryChange\(\{mode:"sealed"/);
 });

@@ -56,3 +56,28 @@ test("persists display preferences without changing market state",async({page})=
  await waitForApp(page);
  await expect(page.locator("html")).toHaveAttribute("data-theme","light");
 });
+
+test("enables Scalper features without navigating away from Singles",async({page})=>{
+ await page.addInitScript(()=>localStorage.removeItem("raw-signal-scalper-mode"));
+ await page.goto(singlesUrl);
+ await waitForApp(page);
+ await page.getByRole("button",{name:"Display settings"}).click();
+ await page.getByRole("button",{name:"Scalper",exact:true}).click();
+ await expect(page).toHaveURL(/mode=singles/);
+ await expect(page.getByRole("button",{name:"Singles",exact:true})).toHaveAttribute("aria-pressed","true");
+
+ await page.getByRole("button",{name:"Sealed",exact:true}).click();
+ await expect(page).toHaveURL(/market=scalping/);
+ await expect(page.getByLabel("Sealed market")).toHaveValue("scalping");
+ await expect(page.locator(".sale-scenario")).toBeVisible();
+ await expect(page.getByText("Products available").locator("..").locator("strong")).not.toHaveText("0");
+
+ await page.getByLabel("Sealed market").selectOption("pokemon");
+ await expect(page.locator(".sale-scenario")).toBeVisible();
+ await expect(page.getByLabel("Sealed market").locator('option[value="scalping"]')).toHaveCount(1);
+
+ await page.getByRole("button",{name:"Display settings"}).click();
+ await page.getByRole("button",{name:"Regular",exact:true}).click();
+ await expect(page.getByLabel("Sealed market").locator('option[value="scalping"]')).toHaveCount(0);
+ await expect(page).toHaveURL(/market=pokemon/);
+});

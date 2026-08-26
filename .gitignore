@@ -43,6 +43,8 @@ yarn-error.log*
 /work/
 /site-package*.tar.gz
 /backups/
+/docs/scalper-candidates.json
+/docs/scalper-reconciliation.json
 /dist/server/wrangler.staging.json
 /dist/server/wrangler.production.json
 *.tsbuildinfo

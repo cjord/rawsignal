@@ -2,12 +2,12 @@
 /* eslint-disable react-hooks/set-state-in-effect -- remote signal readiness follows the requested market */
 import {useEffect,useMemo,useState} from "react";
 import type {CatalogDerived} from "./catalog-query.ts";
-import type {SealedGame,SignalSide,SignalStrictness,SinglesGame} from "../domain/types.ts";
+import type {SealedMarket,SignalSide,SignalStrictness,SinglesGame} from "../domain/types.ts";
 
 type SignalRecord={productId:number;change7Bps:number|null;change30Bps:number|null;low30Cents:number|null;high30Cents:number|null;side:"buy"|"sell";score:number;confidence:"high"|"medium"|"low";reason:string;detail:string;distanceBps:number;cutoffBps:number};
 type ResponseBody={ready:boolean;asOfDate?:string;records?:SignalRecord[]};
 
-export function usePersistedSignals(options:{kind:"single"|"sealed";market:SinglesGame|SealedGame;side:SignalSide;strictness:SignalStrictness}){
+export function usePersistedSignals(options:{kind:"single"|"sealed";market:SinglesGame|SealedMarket;side:SignalSide;strictness:SignalStrictness}){
  const {kind,market,side,strictness}=options,enabled=side!=="leaderboard",key=`${kind}:${market}:${side}:${strictness}`;
  const [state,setState]=useState<{key:string;resolved:boolean;ready:boolean;derived:Record<number,CatalogDerived>;asOfDate?:string}>({key:"",resolved:false,ready:false,derived:{}});
  useEffect(()=>{

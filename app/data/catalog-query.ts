@@ -1,5 +1,5 @@
 import { fuzzyTextMatch } from "../market-utils.ts";
-import type { Card, MarketSignal, PriceHistory, SealedGame, SealedProduct, SignalSide, SignalStrictness, SinglesGame } from "../domain/types.ts";
+import type { Card, MarketSignal, PriceHistory, SealedMarket, SealedProduct, SignalSide, SignalStrictness, SinglesGame } from "../domain/types.ts";
 import type { Direction, SealedSort, SinglesSort } from "../state/market-query.ts";
 
 export type CatalogDerived = Pick<PriceHistory, "change7" | "change30" | "low30" | "high30"> & {
@@ -58,7 +58,7 @@ export type SealedCalculation = {
 };
 
 export type SealedCatalogQuery = SealedScenario & {
-  market: SealedGame;
+  market: SealedMarket;
   productTypes: string[];
   query: string;
   sets: string[];
@@ -85,6 +85,7 @@ export const sealedProductTypes = [
   "Booster Bundles",
   "Starter / Theme Decks",
   "Elite Trainer Boxes",
+  "Troves",
   "Build & Battle",
   "Collections",
   "Tins",
@@ -182,7 +183,7 @@ export function filterSinglesCandidates(cards: Card[], options: SinglesCandidate
 }
 
 export function querySealedCatalog(products: SealedProduct[], options: SealedCatalogQuery, derived: Record<number, CatalogDerived | undefined> = {}): CatalogPage<SealedProduct> {
-  const marketProducts = products.filter(product => product.game === options.market);
+  const marketProducts = options.market === "scalping" ? products : products.filter(product => product.game === options.market);
   const facets = {
     sets: [...new Set(marketProducts.map(product => product.set))].sort(),
     sections: [],

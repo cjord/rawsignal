@@ -1,5 +1,7 @@
 export type SinglesGame = "pokemon" | "riftbound";
 export type SealedGame = SinglesGame | "onepiece";
+export type SealedProductGame = SealedGame | "yugioh" | "lorcana";
+export type SealedMarket = SealedGame | "scalping";
 export type CatalogKind = "single" | "sealed";
 export type SinglesView = "large" | "medium" | "text" | "full";
 export type SealedView = "medium" | "text" | "full";
@@ -57,7 +59,7 @@ export type Card = {
 };
 
 export type SealedProduct = {
-  game: SealedGame;
+  game: SealedProductGame;
   productId: number;
   name: string;
   set: string;

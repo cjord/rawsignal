@@ -70,7 +70,7 @@ export function parseCards(value: unknown): Card[] {
 
 export function parseSealedProduct(value: unknown): SealedProduct {
   if (!record(value)) throw new TypeError("Invalid sealed-product record");
-  if (value.game !== "pokemon" && value.game !== "riftbound" && value.game !== "onepiece") throw new TypeError("Invalid sealed market");
+  if (value.game !== "pokemon" && value.game !== "riftbound" && value.game !== "onepiece" && value.game !== "yugioh" && value.game !== "lorcana") throw new TypeError("Invalid sealed market");
   if (!Number.isInteger(value.productId)) throw new TypeError("Invalid sealed product ID");
   for (const key of ["name", "set", "category", "url"] as const) if (!string(value[key])) throw new TypeError(`Invalid sealed field: ${key}`);
   if (value.image !== null && !string(value.image)) throw new TypeError("Invalid sealed image");

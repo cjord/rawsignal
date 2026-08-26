@@ -12,9 +12,9 @@ export function createTcgcsvClient(options = {}) {
     return rows;
   };
   return {
+    categories: () => results(`${BASE}/categories`),
     groups: categoryId => results(`${BASE}/${categoryId}/groups`),
     products: (categoryId, groupId) => results(`${BASE}/${categoryId}/${groupId}/products`),
     prices: (categoryId, groupId) => results(`${BASE}/${categoryId}/${groupId}/prices`),
   };
 }
-
