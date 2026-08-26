@@ -30,6 +30,7 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - `app/domain/`: shared market types, runtime feed contracts, and display formatters.
 - `app/data/catalog-query.ts`, `app/data/catalog-repository.ts`: shared Singles/Sealed query semantics and repository contract.
 - `app/data/feed-catalog-repository.ts`, `app/data/catalog-service.ts`: bundled-feed adapter and transport-neutral catalog service.
+- `app/data/tcgplayer-history-client.ts`: shared annual/quarterly TCGplayer history loading used by the public API and staging backfill.
 - `app/data/usePersistedSignals.ts`, `app/api/signals/route.ts`: persisted Hot Buy/Hot Sell readiness gate and compact signal records.
 - `app/data/signal-coverage.ts`: proportional, price-stratified transitional signal sampling.
 - `app/state/`: the authoritative Singles/Sealed URL-state parser, serializer, and browser synchronization hook.
@@ -40,6 +41,7 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - `db/schema.ts`, `db/repository.ts`: D1 persistence schema and idempotent ingestion/read boundary.
 - `db/catalog-repository.ts`: D1 catalog adapter using the shared catalog query contract.
 - `db/daily-ingestion.ts`, `db/history-backfill.ts`: idempotent daily snapshots, derived metrics/signals, and resumable history backfill.
+- `worker/staging-jobs.ts`: staging-only, bearer-protected, checkpointed catalog/history execution adapter. It must remain hidden outside staging and must not gain a production route.
 - `drizzle/`: generated, committed D1 migrations and schema snapshots.
 - `docs/adr/`: accepted architecture decisions, including the Sites-to-Cloudflare path.
 - `docs/architecture.md`, `docs/data-sources.md`: maintained system boundaries and source semantics.

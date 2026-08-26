@@ -114,7 +114,7 @@ export async function failIngestion(db:D1DatabaseLike,id:string,completedAt:stri
 
 export async function checkpointIngestion(db:D1DatabaseLike,id:string,refreshKey:string,recordsSeen:number,recordsWritten:number,cursor:string,stats:Record<string,unknown>|null=null){
   await db.batch([
-    db.prepare("update ingestion_runs set status='running',records_seen=?,records_written=?,stats_json=coalesce(?,stats_json) where id=?")
+    db.prepare("update ingestion_runs set status='running',completed_at=null,error_message=null,records_seen=?,records_written=?,stats_json=coalesce(?,stats_json) where id=?")
       .bind(recordsSeen,recordsWritten,stats?JSON.stringify(stats):null,id),
     db.prepare(`insert into refresh_state (key,ingestion_run_id,cursor) values (?,?,?)
       on conflict(key) do update set ingestion_run_id=excluded.ingestion_run_id,cursor=excluded.cursor`).bind(refreshKey,id,cursor),

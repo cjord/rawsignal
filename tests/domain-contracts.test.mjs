@@ -6,7 +6,7 @@ import {parseCard,parsePriceHistory,parseSealedProduct} from "../app/domain/cont
 import {formatPercent,formatUsd} from "../app/domain/formatters.ts";
 import {completeIngestion,publishedIngestion,readProductSnapshot,startIngestion,upsertCard,upsertHistory,upsertSealedProduct} from "../db/repository.ts";
 import {createD1CatalogRepository} from "../db/catalog-repository.ts";
-import {runDailyMarketIngestion} from "../db/daily-ingestion.ts";
+import {runDailyMarketIngestion,runDailyMarketIngestionBatch} from "../db/daily-ingestion.ts";
 import {runHistoryBackfillBatch} from "../db/history-backfill.ts";
 
 class LocalStatement{
@@ -89,6 +89,17 @@ test("daily ingestion is idempotent, observable, and publishes complete signal c
   assert.equal(published.runId,"daily-market:2026-08-25");
   assert.equal(published.recordsRejected,2);
   assert.equal(published.duplicateDecisions,1);
+  database.close();
+});
+
+test("daily ingestion batches checkpoint without publishing a partial catalog",async()=>{
+  const database=await migratedDatabase(),db=new LocalD1(database);
+  const secondCard={...card,productId:4,name:"Second Fixture"};
+  const snapshot={cards:[card,secondCard],sealed:[sealed],source:"fixture",sourceUpdatedAt:"2026-08-25",schemaVersion:1};
+  const first=await runDailyMarketIngestionBatch(db,snapshot,{batchSize:2,now:new Date("2026-08-25T12:00:00Z")});
+  assert.equal(first.done,false);assert.equal(first.cursor,2);assert.equal(await publishedIngestion(db),null);
+  const second=await runDailyMarketIngestionBatch(db,snapshot,{batchSize:2,now:new Date("2026-08-25T12:05:00Z")});
+  assert.equal(second.done,true);assert.equal(second.recordsWritten,3);assert.equal((await publishedIngestion(db)).recordsWritten,3);
   database.close();
 });
 

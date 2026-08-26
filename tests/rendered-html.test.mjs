@@ -124,13 +124,15 @@ test("keeps core controls and chart interactions accessible", async () => {
 });
 
 test("includes cached history and resilient image fallbacks", async () => {
-  const [historyRoute, historyUtils, image] = await Promise.all([
+  const [historyRoute, historyClient, historyUtils, image] = await Promise.all([
     readFile(new URL("../app/api/history/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/data/tcgplayer-history-client.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/history-utils.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/DeferredImage.tsx", import.meta.url), "utf8"),
   ]);
-  assert.match(historyRoute, /history\(productId,"annual"\)/);
-  assert.match(historyRoute, /mergeHistoryBuckets/);
+  assert.match(historyRoute, /fetchTcgplayerHistory/);
+  assert.match(historyClient, /history\(productId, "annual"/);
+  assert.match(historyClient, /mergeHistoryBuckets/);
   assert.match(historyUtils, /new Map<string,number>/);
   assert.match(image, /onError=\{\(\)=>setFailed\(true\)\}/);
   assert.match(image, /Image<br\/>unavailable/);

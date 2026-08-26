@@ -1,10 +1,14 @@
 /** Cloudflare Worker entry point for Raw Signal. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
+import { handleStagingJob } from "./staging-jobs.ts";
 
 interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
+  ENVIRONMENT?: string;
+  STAGING_JOB_TOKEN?: string;
+  CF_VERSION_METADATA?: { id: string; tag: string; timestamp: string };
   IMAGES: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
@@ -28,6 +32,9 @@ interface ExecutionContext {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+
+    const stagingJob = await handleStagingJob(request, env);
+    if (stagingJob) return stagingJob;
 
     if (url.pathname === "/_vinext/image") {
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];

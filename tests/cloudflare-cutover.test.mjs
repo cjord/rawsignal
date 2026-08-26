@@ -9,14 +9,14 @@ const databaseId="123e4567-e89b-42d3-a456-426614174000";
 test("staging config keeps Cron disabled and binds assets plus an isolated D1 database",()=>{
  const config=prepareDeploymentConfig(base,{environment:"staging",databaseId,databaseName:"raw-signal-staging",workerName:"raw-signal-staging"});
  assert.equal(config.name,"raw-signal-staging");assert.equal(config.workers_dev,true);assert.equal(config.preview_urls,true);
- assert.deepEqual(config.triggers,{});assert.equal(config.assets.binding,"ASSETS");assert.equal(config.d1_databases[0].binding,"DB");assert.equal(config.d1_databases[0].database_id,databaseId);assert.equal(config.d1_databases[0].migrations_dir,"../../drizzle");
+ assert.deepEqual(config.triggers,{});assert.equal(config.assets.binding,"ASSETS");assert.equal(config.images.binding,"IMAGES");assert.equal(config.version_metadata.binding,"CF_VERSION_METADATA");assert.equal(config.vars.ENVIRONMENT,"staging");assert.equal(config.d1_databases[0].binding,"DB");assert.equal(config.d1_databases[0].database_id,databaseId);assert.equal(config.d1_databases[0].migrations_dir,"../../drizzle");
  assert.equal("routes" in config,false);
 });
 
 test("production config requires an explicit hostname and never inherits a schedule",()=>{
  assert.throws(()=>prepareDeploymentConfig(base,{environment:"production",databaseId,databaseName:"raw-signal-production",workerName:"raw-signal"}),/custom-domain/);
  const config=prepareDeploymentConfig(base,{environment:"production",databaseId,databaseName:"raw-signal-production",workerName:"raw-signal",route:"cards.example.com"});
- assert.equal(config.workers_dev,false);assert.deepEqual(config.routes,[{pattern:"cards.example.com",custom_domain:true}]);assert.deepEqual(config.triggers,{});
+ assert.equal(config.workers_dev,false);assert.equal(config.vars.ENVIRONMENT,"production");assert.deepEqual(config.routes,[{pattern:"cards.example.com",custom_domain:true}]);assert.deepEqual(config.triggers,{});
 });
 
 const response=(source,items)=>new Response(JSON.stringify({source,items,total:items.length,page:1,pages:1,perPage:50,facets:{sets:["Set A"],productTypes:[]}}),{headers:{"Content-Type":"application/json"}});

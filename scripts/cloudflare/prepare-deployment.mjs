@@ -16,6 +16,9 @@ export function prepareDeploymentConfig(base,{environment,databaseId,databaseNam
  config.preview_urls=true;
  config.d1_databases=[{...sourceDb,binding:"DB",database_name:databaseName,database_id:databaseId,migrations_dir:"../../drizzle"}];
  config.assets={...(config.assets??{}),directory:"../client",binding:"ASSETS"};
+ config.images={binding:"IMAGES"};
+ config.version_metadata={binding:"CF_VERSION_METADATA"};
+ config.vars={...(config.vars??{}),ENVIRONMENT:environment};
  config.triggers={};
  config.observability={...(config.observability??{}),enabled:true};
  if(environment==="production")config.routes=[{pattern:route.trim(),custom_domain:true}];else delete config.routes;
