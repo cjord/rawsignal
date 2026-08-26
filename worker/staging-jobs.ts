@@ -16,6 +16,9 @@ export type StagingJobEnv = {
 };
 
 const path = "/__ops/staging-jobs";
+// A catalog record can issue several D1 operations while refreshing derived metrics.
+// Keep the batch below Workers' per-invocation external-operation ceiling.
+const maxDailyBatchSize = 80;
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status,
   headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
@@ -69,7 +72,7 @@ export async function handleStagingJob(request: Request, env: StagingJobEnv): Pr
   try {
     if (input.job === "daily") {
       const requested = typeof input.batchSize === "number" ? input.batchSize : 50;
-      const batchSize = Math.max(1, Math.min(100, Math.floor(requested)));
+      const batchSize = Math.max(1, Math.min(maxDailyBatchSize, Math.floor(requested)));
       return json({ job: "daily", result: await runDailyMarketIngestionBatch(env.DB, snapshot, { batchSize }) });
     }
     if (input.job === "history") {

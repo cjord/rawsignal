@@ -51,7 +51,7 @@ Do not enable a schedule yet. The staging Worker exposes `POST /__ops/staging-jo
 npx wrangler secret put STAGING_JOB_TOKEN --config dist/server/wrangler.staging.json
 ```
 
-Invoke catalog ingestion with `{"job":"daily","batchSize":100}` until the response reports `done: true`. The job checkpoints after every batch and does not publish `daily-market` readiness until every catalog record is written. Invoke history with `{"job":"history","batchSize":20}`; it uses an independent durable cursor and publishes `history-signals` only after all eligible products are processed.
+Invoke catalog ingestion with `{"job":"daily","batchSize":80}` until the response reports `done: true`. The staging adapter caps catalog batches at 80 because each record performs multiple D1 operations and larger batches can exceed Workers' per-invocation API-request limit. The job checkpoints after every batch and does not publish `daily-market` readiness until every catalog record is written. Invoke history with `{"job":"history","batchSize":20}`; it uses an independent durable cursor and publishes `history-signals` only after all eligible products are processed.
 
 Until those two readiness markers exist, the catalog and signal APIs intentionally retain their bounded feed fallbacks. The adapter is not a public administrative API: it is hidden outside staging, has no GET behavior, uses constant-time bearer verification, and must be removed or replaced by a service binding or Workflow before production cutover.
 
