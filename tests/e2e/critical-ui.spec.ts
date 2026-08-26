@@ -70,6 +70,13 @@ test("enables Scalper features without navigating away from Singles",async({page
  await expect(page).toHaveURL(/market=scalping/);
  await expect(page.getByLabel("Sealed market")).toHaveValue("scalping");
  await expect(page.locator(".sale-scenario")).toBeVisible();
+ await expect(page.locator(".sale-scenario summary")).toHaveCount(0);
+ await page.getByLabel("Shipping cost").fill("5");
+ await page.getByLabel("Include sales tax").check();
+ await page.getByLabel("Profitable products only").check();
+ await expect(page.locator(".leader-filter-summary")).toContainText("Shipping: $5.00");
+ await expect(page.locator(".leader-filter-summary")).toContainText("Sales Tax: 8%");
+ await expect(page.locator(".leader-filter-summary")).toContainText("Profitable Only");
  await expect(page.getByText("Products available").locator("..").locator("strong")).not.toHaveText("0");
 
  await page.getByLabel("Sealed market").selectOption("pokemon");
