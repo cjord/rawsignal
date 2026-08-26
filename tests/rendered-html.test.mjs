@@ -35,6 +35,19 @@ test("renders the branded dark-first application shell", async () => {
   assert.doesNotMatch(html, /codex-preview|Building your site|react-loading-skeleton/i);
 });
 
+test("styles Scalper mode and its sale scenario as a distinct sealed state",async()=>{
+  const [scenario,css,globals]=await Promise.all([
+    readFile(new URL("../app/SaleScenario.tsx",import.meta.url),"utf8"),
+    readFile(new URL("../app/market-views.css",import.meta.url),"utf8"),
+    readFile(new URL("../app/globals.css",import.meta.url),"utf8"),
+  ]);
+  assert.match(scenario,/taxOn\?"has-value":"is-disabled"/);
+  assert.match(css,/\.sealed-market:has\(\.sale-scenario\)>\.sealed-summary\{border-bottom-color:transparent\}/);
+  assert.match(css,/option\[value="scalping"\]:checked/);
+  assert.match(css,/\.scenario-checks label>span\{display:flex;align-items:center/);
+  assert.match(globals,/\.scalper-mode-toggle\.is-scalper i\{[^}]*#e05454/);
+});
+
 test("characterizes Singles defaults before refactoring", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const defaults=parseMarketQuery("");

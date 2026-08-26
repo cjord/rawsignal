@@ -22,7 +22,7 @@ export default function SaleScenario({keepPct,onKeepPct,taxOn,onTaxOn,taxRate,on
   <div className="sale-scenario-controls">
    <label className={`scenario-number ${keepPct!==100?"has-value":""}`}><span>Keep after fees</span><span className="number-control"><input aria-label="Keep after fees" type="number" min="1" max="100" value={keepPct} onChange={event=>onKeepPct(Math.min(100,Math.max(1,Number(event.target.value))))}/><b>%</b></span></label>
    <label className={`scenario-number ${shipping>0?"has-value":""}`}><span>Shipping cost</span><span className="number-control"><b>$</b><input aria-label="Shipping cost" type="number" min="0" step="0.5" value={shipping} onChange={event=>onShipping(Math.max(0,Number(event.target.value)))}/></span></label>
-   <label className={`scenario-number ${taxOn?"has-value":""}`}><span>Tax rate</span><span className="number-control"><input aria-label="Tax rate" type="number" min="0" max="20" step="0.1" disabled={!taxOn} value={taxRate} onChange={event=>onTaxRate(Math.max(0,Number(event.target.value)))}/><b>%</b></span></label>
+   <label className={`scenario-number ${taxOn?"has-value":"is-disabled"}`}><span>Tax rate</span><span className="number-control"><input aria-label="Tax rate" type="number" min="0" max="20" step="0.1" disabled={!taxOn} value={taxRate} onChange={event=>onTaxRate(Math.max(0,Number(event.target.value)))}/><b>%</b></span></label>
    <CheckboxGrid className="movement-filters scenario-checks" options={[{key:"tax",label:"Include sales tax"},{key:"profitable",label:"Profitable products only"}]} selected={selected} onToggle={key=>key==="tax"?onTaxOn(!taxOn):onProfitableOnly(!profitableOnly)}/>
   </div>
  </section>;

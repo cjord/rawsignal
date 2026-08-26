@@ -61,6 +61,10 @@
 @media(max-width:560px){.toplinks>a{display:none}.toplinks{gap:8px}.theme-toggle{min-width:42px;width:42px}.theme-toggle b{display:none}.settings-menu{position:fixed;top:70px;right:12px;width:min(230px,calc(100vw - 24px))}}
 @media(prefers-reduced-motion:reduce){body,.theme-toggle,.market-strip select,.controls select,.sealed-controls select,.scalper-mode-toggle i{transition:none!important}}
 
+/* Scalper mode intentionally uses the Hot Sell red accent; Regular stays blue. */
+.scalper-mode-toggle.is-scalper i{border-color:color-mix(in srgb,#e05454 70%,var(--line));background:color-mix(in srgb,#e05454 17%,var(--surface-raised));box-shadow:0 2px 10px color-mix(in srgb,#e05454 26%,transparent)}
+.scalper-mode-toggle.is-scalper button:focus-visible{outline-color:#e05454}
+
 /* v14: sortable columns, segmented views, full analysis, transparent art, numbered pages */
 .controls{grid-template-columns:1fr!important;align-items:center}.view-toggle{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;padding:4px;border:1px solid var(--line);border-radius:13px;background:var(--soft)}.view-toggle button{min-width:0;height:46px;border:0;border-radius:9px;background:transparent;color:var(--gray);display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}.view-toggle button>span{font-size:18px;line-height:1}.view-toggle button b{font-size:10px}.view-toggle button.active{color:var(--text);background:var(--surface-raised);box-shadow:0 2px 9px #0002}.view-toggle button:focus-visible,.table-head button:focus-visible{outline:3px solid color-mix(in srgb,var(--blue) 60%,transparent);outline-offset:1px}
 .table-head{grid-template-columns:45px minmax(210px,2fr) minmax(120px,1fr) 78px 70px 70px 58px 58px 20px!important;align-items:center;padding:0 3px}.table-head>span{min-width:0}.table-head button{width:100%;padding:12px 0;border:0;background:transparent;color:inherit;text-align:left;font:800 9px var(--font-sans);text-transform:uppercase;letter-spacing:.08em;cursor:pointer;white-space:nowrap}.sort-mark{display:inline-block;margin-left:5px;color:var(--gray);font-size:8px}.sort-mark.active{color:var(--blue)}

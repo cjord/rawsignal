@@ -180,3 +180,13 @@
   .sealed-filter-panel>.sealed-checks{padding:2px 0 18px!important;border-bottom:1px solid var(--line)!important}
   .set-filter-tools .set-search{width:100%;box-sizing:border-box}.set-filter-tools .set-search input{flex:1;height:42px;padding:0;font-size:12px;line-height:42px}.set-filter-tools .set-search input::placeholder{color:var(--gray);opacity:.9}
   @media(max-width:620px){.sealed-market>.sealed-market-strip{margin-top:8px}.sealed-filter-panel>.sealed-range{padding:11px!important}}
+
+  /* The active Scalping market shares the red signal language used by Hot Sells. */
+  .sealed-market-strip:has(select[aria-label="Sealed market"] option[value="scalping"]:checked){border-color:color-mix(in srgb,#e05454 64%,var(--line));box-shadow:0 0 0 2px color-mix(in srgb,#e05454 14%,transparent),0 10px 30px color-mix(in srgb,#e05454 12%,transparent)}
+  .sealed-market-strip:has(select[aria-label="Sealed market"] option[value="scalping"]:checked)>label:first-child select{border-color:color-mix(in srgb,#e05454 68%,var(--line))!important;background-color:color-mix(in srgb,#e05454 10%,var(--control))!important;box-shadow:0 0 0 2px color-mix(in srgb,#e05454 12%,transparent)}
+  .sealed-market:has(.sale-scenario)>.sealed-summary{border-bottom-color:transparent}
+  .scenario-checks label{align-items:center!important;padding:9px 12px!important;font-size:10.5px;font-weight:650;line-height:1.2}
+  .scenario-checks label>span{display:flex;align-items:center;min-height:20px}
+  .scenario-number.is-disabled{color:color-mix(in srgb,var(--gray) 72%,var(--surface));cursor:not-allowed}
+  .scenario-number.is-disabled .number-control{border-color:color-mix(in srgb,var(--line) 78%,#000);background:color-mix(in srgb,var(--control) 70%,#000);box-shadow:inset 0 1px 3px #0002}
+  .scenario-number.is-disabled .number-control b{opacity:.4}
