@@ -6,7 +6,9 @@ import { createMemoryCatalogRepository, type CatalogRepository } from "./catalog
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
 async function loadJson<T>(url: URL, parse: (value: unknown) => T[], fetcher: FetchLike) {
-  const response = await fetcher(url, { headers: { Accept: "application/json" }, cache: "force-cache" });
+  // Cloudflare's static-assets binding expects a Request. Passing a URL plus a
+  // browser-only cache mode works with global fetch but fails on ASSETS.fetch.
+  const response = await fetcher(new Request(url, { headers: { Accept: "application/json" } }));
   if (!response.ok) throw new Error(`Catalog source unavailable: ${response.status}`);
   return parse(await response.json());
 }

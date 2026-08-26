@@ -104,7 +104,8 @@ test("memory and feed repositories return the same IDs and totals", async () => 
   const direct = await directRepository.querySingles(directOptions);
 
   const fetcher = async input => {
-    const url = new URL(input);
+    assert.ok(input instanceof Request);
+    const url = new URL(input.url);
     try {
       return new Response(await readFile(new URL(`../public${url.pathname}`, import.meta.url)), { status: 200, headers: { "Content-Type": "application/json" } });
     } catch {
