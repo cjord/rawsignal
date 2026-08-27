@@ -122,3 +122,21 @@ test("section-keyed pull rates distinguish tiers that share a rarity string", as
   assert.equal(rows.Signatures.costPerHit, 3600);
   assert.equal(rows.Overnumbered.cardCount, 1);
 });
+
+test("graded snapshots attach to card details and absent cards stay null", async () => {
+  const { parseGradedPriceFeed } = await import("../app/domain/contracts.ts");
+  const graded = parseGradedPriceFeed({ entries: {
+    1: { updatedAt: "2026-08-27", grades: {
+      psa10: { count: 5, average: 100, median: 110, smartPrice: 105, confidence: "high", trend: "up", lastSaleDate: "2026-08-25" },
+      psa9: { count: 0, median: 50 },
+    } },
+    2: { updatedAt: "2026-08-27", grades: {} },
+  } });
+  const repo = createMemoryCatalogRepository([card(1), card(2)], [], [], undefined, graded);
+  const detail = await repo.getDetail("single", 1);
+  assert.equal(detail.graded.grades.psa10.median, 110);
+  assert.equal(detail.graded.grades.psa10.trend, "up");
+  assert.equal(detail.graded.grades.psa9, undefined);
+  const none = await repo.getDetail("single", 2);
+  assert.equal(none.graded, null);
+});

@@ -1,4 +1,4 @@
-import type { Card, CatalogDetail, CatalogDetailEnrichment, CatalogKind, PullRateConfig, RarityPullRate, SealedProduct } from "../domain/types.ts";
+import type { Card, CatalogDetail, CatalogDetailEnrichment, CatalogKind, GradedCardData, PullRateConfig, RarityPullRate, SealedProduct } from "../domain/types.ts";
 import {exactTcgplayerUrl,marketRank,similarCards,similarSealed} from "../domain/detail.ts";
 import { querySealedCatalog, querySinglesCatalog, type CatalogDerived, type CatalogPage, type SealedCatalogQuery, type SinglesCatalogQuery } from "./catalog-query.ts";
 
@@ -29,7 +29,7 @@ function pullRateFor(config:PullRateConfig|undefined,game:string,set:string,card
 }
 const tierLabel=(key:string,bySection:boolean)=>bySection?key.split("-").map(word=>word.charAt(0).toUpperCase()+word.slice(1)).join(" "):key;
 
-export function createMemoryCatalogRepository(cards: Card[], sealedProducts: SealedProduct[], enrichments:CatalogDetailEnrichment[]=[], pullRateConfig?:PullRateConfig): CatalogRepository {
+export function createMemoryCatalogRepository(cards: Card[], sealedProducts: SealedProduct[], enrichments:CatalogDetailEnrichment[]=[], pullRateConfig?:PullRateConfig, gradedByProductId?:Record<string,GradedCardData>): CatalogRepository {
   const uniqueCards = [...new Map(cards.map(card => [card.productId, card])).values()];
   const uniqueSealed = [...new Map(sealedProducts.map(product => [product.productId, product])).values()];
   const enrichmentByKey=new Map(enrichments.map(detail=>[`${detail.kind}:${detail.productId}`,detail]));
@@ -52,7 +52,7 @@ export function createMemoryCatalogRepository(cards: Card[], sealedProducts: Sea
         const tierCount=resolvedRate?uniqueCards.filter(item=>item.set===card.set&&(resolvedRate.bySection?item.section===card.section:item.rarity===card.rarity)).length:0;
         const cardPackPrice=resolvedRate!=null?packPriceForSet(card.set):null;
         const pullRate=resolvedRate!=null&&tierCount>0?{packsPerHit:resolvedRate.packsPerHit,packsPerCard:resolvedRate.packsPerHit*tierCount,packPrice:cardPackPrice,costPerCard:cardPackPrice!=null?resolvedRate.packsPerHit*tierCount*cardPackPrice:null}:null;
-        return {...card,kind:"single",image:card.image||null,exactTcgplayerUrl:exactTcgplayerUrl(card.url),metadata:enrichment?.metadata??[],priceVariants:enrichment?.priceVariants??[{printing:card.printing,marketPrice:card.marketPrice,lowPrice:card.lowPrice,directLowPrice:null,midPrice:card.midPrice,highPrice:card.highPrice}],source:enrichment?.source??emptySource,similar:similarCards(card,uniqueCards),marketRank:rank.rank,marketRankTotal:rank.total,peerContext:peerAverage(`${card.rarity} cards`,rarityPeers.map(item=>item.marketPrice)),setPeerContext:peerAverage(`${card.rarity} cards in ${card.set}`,setRarityPeers.map(item=>item.marketPrice)),pullRate,graded:null};
+        return {...card,kind:"single",image:card.image||null,exactTcgplayerUrl:exactTcgplayerUrl(card.url),metadata:enrichment?.metadata??[],priceVariants:enrichment?.priceVariants??[{printing:card.printing,marketPrice:card.marketPrice,lowPrice:card.lowPrice,directLowPrice:null,midPrice:card.midPrice,highPrice:card.highPrice}],source:enrichment?.source??emptySource,similar:similarCards(card,uniqueCards),marketRank:rank.rank,marketRankTotal:rank.total,peerContext:peerAverage(`${card.rarity} cards`,rarityPeers.map(item=>item.marketPrice)),setPeerContext:peerAverage(`${card.rarity} cards in ${card.set}`,setRarityPeers.map(item=>item.marketPrice)),pullRate,graded:gradedByProductId?.[String(card.productId)]??null};
       }
       const candidates=market==="scalping"?uniqueSealed:uniqueSealed.filter(item=>!market||item.game===market),product=candidates.find(item=>item.productId===productId)??uniqueSealed.find(item=>item.productId===productId);if(!product)return null;
       const peers=uniqueSealed.filter(item=>item.game===product.game&&item.set===product.set&&item.category===product.category),rank=marketRank(product.marketPrice,peers.map(item=>item.marketPrice));

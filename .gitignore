@@ -48,3 +48,4 @@ yarn-error.log*
 /dist/server/wrangler.staging.json
 /dist/server/wrangler.production.json
 *.tsbuildinfo
+.secrets/

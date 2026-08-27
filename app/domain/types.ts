@@ -142,6 +142,21 @@ export type DetailPeerContext = {
   count: number;
 };
 
+export type GradedGradeStat = {
+  count: number;
+  average: number | null;
+  median: number | null;
+  smartPrice: number | null;
+  confidence: string | null;
+  trend: "up" | "down" | null;
+  lastSaleDate: string | null;
+};
+
+export type GradedCardData = {
+  updatedAt: string;
+  grades: Record<string, GradedGradeStat>;
+};
+
 export type PullRateConfig = {
   games: Record<string, { default: Record<string, number>; sets: Record<string, Record<string, number>> }>;
 };
@@ -177,7 +192,7 @@ export type CatalogDetailBase = {
   marketRank: number | null;
   marketRankTotal: number | null;
   peerContext: DetailPeerContext | null;
-  graded: null;
+  graded: GradedCardData | null;
 };
 
 export type CardDetail = CatalogDetailBase & {

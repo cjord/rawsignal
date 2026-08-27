@@ -1,4 +1,4 @@
-import type { Card, CatalogDetailEnrichment, DetailMetadataField, DetailPriceVariant, DetailSource, PriceHistory, PricePoint, PullRateConfig, SealedProduct } from "./types";
+import type { Card, CatalogDetailEnrichment, DetailMetadataField, DetailPriceVariant, DetailSource, GradedCardData, PriceHistory, PricePoint, PullRateConfig, SealedProduct } from "./types";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -108,4 +108,20 @@ export function parsePullRateConfig(value:unknown):PullRateConfig{
   games[game]={default:rates(entry.default,"default"),sets};
  }
  return {games};
+}
+
+export function parseGradedPriceFeed(value:unknown):Record<string,GradedCardData>{
+ if(!record(value)||!record(value.entries))throw new TypeError("Invalid graded price feed");
+ const entries:Record<string,GradedCardData>={};
+ for(const [productId,entry] of Object.entries(value.entries)){
+  if(!record(entry)||!string(entry.updatedAt)||!record(entry.grades))continue;
+  const grades:GradedCardData["grades"]={};
+  for(const [grade,stat] of Object.entries(entry.grades)){
+   if(!record(stat)||!finite(stat.count)||stat.count<=0)continue;
+   const price=(input:unknown)=>finite(input)&&input>0?input:null;
+   grades[grade]={count:stat.count,average:price(stat.average),median:price(stat.median),smartPrice:price(stat.smartPrice),confidence:string(stat.confidence)?stat.confidence:null,trend:stat.trend==="up"||stat.trend==="down"?stat.trend:null,lastSaleDate:string(stat.lastSaleDate)?stat.lastSaleDate:null};
+  }
+  if(Object.keys(grades).length)entries[productId]={updatedAt:entry.updatedAt,grades};
+ }
+ return entries;
 }

@@ -20,6 +20,7 @@
     "data:reconcile:scalper": "node scripts/scalper/reconcile.mjs",
     "data:build:scalper": "node scripts/scalper/build-feed.mjs",
     "data:build:details": "node scripts/details/build-detail-feeds.mjs --enrich",
+    "data:sync:graded": "node scripts/graded/sync-graded.mjs",
     "db:generate": "drizzle-kit generate",
     "cloudflare:prepare:staging": "node scripts/cloudflare/prepare-deployment.mjs --environment staging",
     "cloudflare:prepare:production": "node scripts/cloudflare/prepare-deployment.mjs --environment production",

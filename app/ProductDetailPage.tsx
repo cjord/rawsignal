@@ -10,7 +10,7 @@ import {calculateSealedScenario,type SealedScenario} from "./data/catalog-query"
 import {detailPercentile} from "./domain/detail";
 import {demandTrend,distanceAbove,distanceBelow,drawdownFromPeak,historyDepth,modeledFairValue,momentum,priceStreak,rangePosition,rangeWidth,salesWindow,trendSlope,volatilityRange} from "./domain/detail-metrics";
 import {formatPercent,formatUsd,formatUtcDate} from "./domain/formatters";
-import type {CatalogDetail,DetailPriceVariant,PriceHistory,SealedDetail,SignalStrictness} from "./domain/types";
+import type {CatalogDetail,DetailPriceVariant,GradedCardData,PriceHistory,SealedDetail,SignalStrictness} from "./domain/types";
 
 const emptyHistory:PriceHistory={points:[],coverage:"none",change7:null,change30:null,change90:null,low30:null,high30:null,historyLow:null,historyHigh:null};
 const numberParam=(params:URLSearchParams,key:string,fallback:number)=>{const raw=params.get(key);if(raw==null||raw.trim()==="")return fallback;const value=Number(raw);return Number.isFinite(value)?value:fallback};
@@ -96,6 +96,20 @@ function FairValuePanel({history,current,midPrice,kind}:{history:PriceHistory|nu
  </section>;
 }
 
+const gradeLabel=(key:string)=>{if(key==="ungraded")return "Raw (eBay)";const match=key.match(/^([a-z]+)([\d_]+)$/);return match?`${match[1].toUpperCase()} ${match[2].replace("_",".")}`:key.toUpperCase()};
+
+function GradedMarketSection({graded,current}:{graded:GradedCardData|null;current:number|null}){
+ if(!graded)return null;
+ const rows=Object.entries(graded.grades).filter(([,stat])=>stat.count>=2).sort((a,b)=>(b[1].smartPrice??b[1].median??0)-(a[1].smartPrice??a[1].median??0)).slice(0,10);
+ if(!rows.length)return null;
+ return <section className="detail-section"><header><span>Graded market</span><h2>Graded sales</h2></header>
+  <div className="detail-table-scroll"><table className="detail-variants-table"><thead><tr><th scope="col">Grade</th><th scope="col">Sales</th><th scope="col">Median</th><th scope="col">Smart market</th><th scope="col">Trend</th><th scope="col">Vs raw</th></tr></thead><tbody>
+  {rows.map(([key,stat])=>{const anchor=stat.smartPrice??stat.median,multiple=anchor!=null&&current?anchor/current:null;return <tr key={key}><th scope="row">{gradeLabel(key)}</th><td>{stat.count.toLocaleString()}</td><td>{formatUsd(stat.median,"N/A")}</td><td>{formatUsd(stat.smartPrice,"N/A")}{stat.confidence&&<small className="grade-confidence">{stat.confidence}</small>}</td><td className={stat.trend??""}>{stat.trend==="up"?"▲ up":stat.trend==="down"?"▼ down":"—"}</td><td>{multiple!=null?`${multiple.toFixed(1)}×`:"N/A"}</td></tr>})}
+  </tbody></table></div>
+  <p className="detail-note">eBay completed sales via PokemonPriceTracker · updated {graded.updatedAt} · smart market is the provider&apos;s filtered, weighted sale price with its stated confidence. Grading population counts are unavailable on the current plan. Marketplace data — not a valuation guarantee.</p>
+ </section>;
+}
+
 function PullRatesSection({detail}:{detail:SealedDetail}){
  if(!detail.pullRates.length)return null;
  return <section className="detail-section"><header><span>Pack odds</span><h2>Pull rates</h2></header>
@@ -126,6 +140,7 @@ export default function ProductDetailPage({detail,market}:{detail:CatalogDetail;
  <PrintingsTable detail={detail} printing={printing} onSelect={setVariant}/>
  <p className="detail-note">{h.coverage==="exact"?"Exact":"Fallback"} {h.variant??variant?.printing} · {h.condition??"market"} history. Sales counts are TCGplayer completed sales for this printing and condition, reported in three-day buckets over the trailing 90 days.</p></>}</section>
  <SignalsPanel history={historyData} current={current} strictness={strictness} onStrictness={setStrictness}/>
+ {detail.kind==="single"&&<GradedMarketSection graded={detail.graded} current={current}/>}
  {detail.kind==="sealed"&&<SealedScenarioPanel detail={detail}/>}
  {detail.kind==="sealed"&&<PullRatesSection detail={detail}/>}
  {detail.kind==="sealed"&&<ChaseCardsSection cards={detail.chaseCards} packPrice={detail.packPrice} setName={detail.set}/>}
