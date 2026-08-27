@@ -9,13 +9,28 @@ type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Respo
 const headers = { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; RawSignal/3.0)" };
 const cache = new Map<string, { expires: number; request: Promise<Series[]> }>();
 
+async function readSeries(url: string, range: string, fetcher: FetchLike, init: RequestInit) {
+  const response = await fetcher(url, init);
+  if (!response.ok) throw new Error(`History ${range} unavailable`);
+  return response;
+}
+
 async function history(productId: number, range: "quarter" | "annual", fetcher: FetchLike) {
   const key = `${productId}:${range}`, now = Date.now(), hit = cache.get(key);
   if (fetcher === fetch && hit && hit.expires > now) return hit.request;
-  const request = fetcher(`https://infinite-api.tcgplayer.com/price/history/${productId}/detailed?range=${range}`, { headers })
-    .then(async response => {
-      if (!response.ok) throw new Error(`History ${range} unavailable`);
-      return (await response.json() as { result?: Series[] }).result ?? [];
+  const url = `https://infinite-api.tcgplayer.com/price/history/${productId}/detailed?range=${range}`;
+  const request = readSeries(url, range, fetcher, { headers })
+    .then(async response => (await response.json() as { result?: Series[] }).result ?? [])
+    .catch(async () => {
+      // Some runtimes (workerd behind the Vite dev proxy) receive an already-decompressed
+      // body behind a lingering Content-Encoding header and fail automatic gunzip. Refetch
+      // with manual response encoding and decode whichever form the bytes are actually in.
+      const retry = await readSeries(url, range, fetcher, { headers, ...({ encodeResponseBody: "manual" } as RequestInit) });
+      const raw = new Uint8Array(await retry.arrayBuffer());
+      const text = raw[0] === 0x1f && raw[1] === 0x8b
+        ? await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream("gzip"))).text()
+        : new TextDecoder().decode(raw);
+      return (JSON.parse(text) as { result?: Series[] }).result ?? [];
     });
   if (fetcher === fetch) {
     cache.set(key, { expires: now + 15 * 60_000, request });

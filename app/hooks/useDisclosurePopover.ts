@@ -13,9 +13,11 @@ export default function useDisclosurePopover({rootRef,panelRef,minimumHeight=320
  const measure=useCallback(()=>{const root=rootRef.current,panel=panelRef.current;if(!root)return;const rect=root.getBoundingClientRect(),height=Math.max(panel?.scrollHeight??0,minimumHeight);setPlacement(disclosurePlacement(rect.top,height));setSide(disclosureSide(rect.right,popupWidth,window.innerWidth))},[minimumHeight,panelRef,popupWidth,rootRef]);
  const reveal=useCallback(()=>{setOpen(true);requestAnimationFrame(measure)},[measure]);
  const onPointerEnter=(event:PointerEvent<HTMLDetailsElement>)=>{if(event.pointerType==="mouse"&&supportsHover())reveal()};
- const onPointerLeave=(event:PointerEvent<HTMLDetailsElement>)=>{if(event.pointerType==="mouse"&&supportsHover()&&!event.currentTarget.contains(event.relatedTarget as Node|null))setOpen(false)};
+ // relatedTarget can be the Window (or other non-Node) when the pointer or focus exits the page; contains() rejects those.
+ const containsRelated=(event:{currentTarget:HTMLDetailsElement;relatedTarget:EventTarget|null})=>event.relatedTarget instanceof Node&&event.currentTarget.contains(event.relatedTarget);
+ const onPointerLeave=(event:PointerEvent<HTMLDetailsElement>)=>{if(event.pointerType==="mouse"&&supportsHover()&&!containsRelated(event))setOpen(false)};
  const onFocusCapture=()=>reveal();
- const onBlurCapture=(event:FocusEvent<HTMLDetailsElement>)=>{if(!event.currentTarget.contains(event.relatedTarget as Node|null))setOpen(false)};
+ const onBlurCapture=(event:FocusEvent<HTMLDetailsElement>)=>{if(!containsRelated(event))setOpen(false)};
  const onKeyDown=(event:KeyboardEvent<HTMLDetailsElement>)=>{if(event.key!=="Escape")return;event.preventDefault();setOpen(false);rootRef.current?.querySelector("summary")?.focus()};
  const onToggle=(event:SyntheticEvent<HTMLDetailsElement>)=>setOpen(event.currentTarget.open);
  const onSummaryClick=(event:{detail:number;preventDefault:()=>void;target?:EventTarget|null})=>{if((event.target as Element|null)?.closest?.("a[href]"))return;if(event.detail>0&&supportsHover())event.preventDefault()};
