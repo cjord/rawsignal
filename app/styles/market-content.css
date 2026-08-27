@@ -138,6 +138,16 @@
     overflow: visible !important;
   }
 
+  .view-large .market-row-shell[open] .hover-card .history-panel {
+    display: flex !important;
+    flex-direction: column !important;
+    min-width: 0;
+  }
+
+  .view-large .market-row-shell[open] .hover-card .history-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
   .market-row-shell[open] .touch-hint {
     display: none !important;
   }
@@ -167,6 +177,15 @@
 
   .market-row-shell[open] .history-panel {
     display: flex !important;
+  }
+
+  .view-large .market-row-shell[open] .hover-card .history-panel {
+    flex-direction: column !important;
+    min-width: 0;
+  }
+
+  .view-large .market-row-shell[open] .hover-card .history-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
 
