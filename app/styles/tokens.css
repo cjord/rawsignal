@@ -1,11 +1,28 @@
+/* Root-driven type scale (docs/design-baseline.md): the font-size setting scales the root,
+   so every rem-based size follows. Floor is ~10.5px at Default. */
+html {
+  font-size: 100%;
+}
+
+html[data-font-size="large"] {
+  font-size: 108%;
+}
+
 :root {
   color-scheme: dark light;
+  --text-2xs: .65625rem; /* 10.5px — uppercase micro-labels, hints */
+  --text-xs: .71875rem;  /* 11.5px — notes, secondary text */
+  --text-sm: .78125rem;  /* 12.5px — compact body */
+  --text-md: .8125rem;   /* 13px — controls, table text */
+  --text-base: .875rem;  /* 14px — body, row titles */
+  --text-lg: .9375rem;   /* 15px — emphasized values */
   --control-height: 56px;
   --control-radius: 12px;
   --panel-radius: 12px;
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--blue) 16%, transparent);
-  --hover-lift: -1px;
-  --popover-lift: -4px;
+  /* Hover feedback is flat by decision (docs/todo.md D1): tint and border only, no lift. */
+  --hover-lift: 0;
+  --popover-lift: 0;
   --motion-fast: 160ms;
   --motion-standard: 180ms;
   --ease-standard: cubic-bezier(.2, .75, .25, 1);

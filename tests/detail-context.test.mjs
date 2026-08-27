@@ -141,6 +141,19 @@ test("graded snapshots attach to card details and absent cards stay null", async
   assert.equal(none.graded, null);
 });
 
+test("single-card details list same-set sealed products sorted by market", async () => {
+  const products = [
+    sealed(11, { marketPrice: 80 }),
+    sealed(12, { category: "Booster Boxes", marketPrice: 300 }),
+    sealed(13, { set: "Other Set", marketPrice: 900 }),
+    sealed(14, { game: "riftbound", marketPrice: 50 }),
+  ];
+  const detail = await createMemoryCatalogRepository([card(1)], products).getDetail("single", 1);
+  assert.deepEqual(detail.relatedSealed.map(item => item.productId), [12, 11]);
+  const none = await createMemoryCatalogRepository([card(2, { set: "Sealed-less Set" })], products).getDetail("single", 2);
+  assert.deepEqual(none.relatedSealed, []);
+});
+
 test("peer anchors attach by game|set|rarity cohort and absent cohorts stay null", async () => {
   const anchors = { "pokemon|Test Set|Illustration Rare": { current: 30, cardCount: 6, avg30: 20, avg90: 20, observations: 3 } };
   const repo = createMemoryCatalogRepository([card(1), card(2, { set: "Other Set" })], [], [], undefined, undefined, anchors);

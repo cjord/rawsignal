@@ -9,7 +9,7 @@ import {
   type Direction,
 } from "./MarketUI";
 import SealedFilters from "./SealedFilters";
-import { SignalBadge, StrictnessControl } from "./SignalControls";
+import { SignalBadge } from "./SignalControls";
 import {
   marketSignal,
   type SignalSide,
@@ -18,7 +18,7 @@ import {
 import MultiSelectField from "./MultiSelectField";
 import SaleScenario from "./SaleScenario";
 import { parseSealedProducts } from "./domain/contracts";
-import { formatPercent, formatUsd } from "./domain/formatters";
+import { formatGameName, formatPercent, formatUsd } from "./domain/formatters";
 import type {
   PriceHistory,
   SealedMarket,
@@ -68,12 +68,6 @@ type SortKey =
   | "profitPct";
 type Product = SealedProduct;
 type History = PriceHistory;
-const games: Record<Game, string> = {
-  pokemon: "Pokémon",
-  onepiece: "One Piece",
-  riftbound: "Riftbound",
-  scalping: "Scalping",
-};
 const sealedModel: LeaderboardModeModel<View, SortKey> = {
   views: [
     { key: "medium", label: "Medium", icon: "▤" },
@@ -100,14 +94,12 @@ const productKey = (product: Product) => product.productId;
 export default function SealedView({
   signalView = "leaderboard",
   strictness = "balanced",
-  onStrictness = () => {},
   scalperEnabled = false,
   initialState,
   onQueryChange,
 }: {
   signalView?: SignalSide;
   strictness?: SignalStrictness;
-  onStrictness?: (value: SignalStrictness) => void;
   scalperEnabled?: boolean;
   initialState: SealedQueryState;
   onQueryChange: (state: SealedQueryState) => void;
@@ -568,7 +560,7 @@ export default function SealedView({
           className="sealed-summary"
           kicker="Sealed product intelligence"
           kickerClassName="kicker"
-          title={`${games[game]} ${signalView === "leaderboard" ? "Sealed" : signalView === "buy" ? "Hot Buys" : "Hot Sells"}`}
+          title={`${formatGameName(game)} ${signalView === "leaderboard" ? "Sealed" : signalView === "buy" ? "Hot Buys" : "Hot Sells"}`}
           description={
             signalView === "leaderboard"
               ? "Verified MSRP compared with current TCGplayer pricing."
@@ -638,9 +630,7 @@ export default function SealedView({
         ) : undefined
       }
       controls={
-        <LeaderboardControls
-          className={`sealed-toolbar ${signalView !== "leaderboard" ? "has-strictness" : ""}`}
-        >
+        <LeaderboardControls className="sealed-toolbar">
           <label className="sealed-toolbar-search">
             <span>⌕</span>
             <input
@@ -652,15 +642,6 @@ export default function SealedView({
               placeholder="Search product, set, or type"
             />
           </label>
-          {signalView !== "leaderboard" && (
-            <StrictnessControl
-              value={strictness}
-              onChange={(value) => {
-                onStrictness(value);
-                setPage(1);
-              }}
-            />
-          )}
           <SealedFilters
             sets={sets}
             selectedSets={selectedSets}

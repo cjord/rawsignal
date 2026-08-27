@@ -2,14 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {getHistoryWriteMode,parseMarketQuery,serializeMarketQuery} from "../app/state/market-query.ts";
 
-test("round-trips a complex Singles URL",()=>{
+test("round-trips a complex Singles URL without persisting the strictness preference",()=>{
  const state=parseMarketQuery("?mode=singles&market=riftbound&rarity=overnumbered%7Csignatures&view=full&sort=change30&direction=asc&page=3&perPage=40&signal=buy&strictness=conservative&q=teemo&minPrice=12&maxPrice=90&sets=Origins%7CSpiritforged&up7=1&down30=1");
- assert.deepEqual(parseMarketQuery(serializeMarketQuery(state)),state);
+ assert.equal(state.strictness,"conservative");
+ // Strictness is a device preference (settings menu); it is parsed for old links but never serialized.
+ assert.doesNotMatch(serializeMarketQuery(state),/strictness=/);
+ assert.deepEqual(parseMarketQuery(serializeMarketQuery(state)),{...state,strictness:"balanced"});
 });
 
-test("round-trips a complex Sealed URL",()=>{
+test("round-trips a complex Sealed URL without persisting the strictness preference",()=>{
  const state=parseMarketQuery("?mode=sealed&market=onepiece&type=Booster+Boxes%7CCases&view=text&sort=profit&direction=asc&page=2&perPage=30&signal=sell&strictness=aggressive&q=display&sets=OP-01%7COP-02&marketMin=50&marketMax=500&msrpMin=30&profitMin=-10&profitPctMax=200&basis=median&keepPct=90&taxOn=1&taxRate=7.5&shipping=8&profitableOnly=1");
- assert.deepEqual(parseMarketQuery(serializeMarketQuery(state)),state);
+ assert.doesNotMatch(serializeMarketQuery(state),/strictness=/);
+ assert.deepEqual(parseMarketQuery(serializeMarketQuery(state)),{...state,strictness:"balanced"});
 });
 
 test("normalizes legacy Magic and invalid values",()=>{

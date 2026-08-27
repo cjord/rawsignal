@@ -75,7 +75,7 @@ test("characterizes Sealed defaults and guards the disabled Scalper fallback", a
 });
 
 test("keeps core controls and chart interactions accessible", async () => {
-  const [page, sealed, sealedFilters, marketUi, priceChart, urlState, leaderboard, summary] = await Promise.all([
+  const [page, sealed, sealedFilters, marketUi, priceChart, urlState, leaderboard, summary, topBar] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/SealedView.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/SealedFilters.tsx", import.meta.url), "utf8"),
@@ -84,6 +84,7 @@ test("keeps core controls and chart interactions accessible", async () => {
     readFile(new URL("../app/state/useMarketQueryState.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/leaderboard/MarketLeaderboard.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/leaderboard/ActiveFilterSummary.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/TopBar.tsx", import.meta.url), "utf8"),
   ]);
   for (const label of ["Singles market", "Cards per page"])
     assert.match(page, new RegExp(`aria-label=\\"${label}\\"`));
@@ -94,11 +95,15 @@ test("keeps core controls and chart interactions accessible", async () => {
   assert.match(page, /viewLabel:\s*"Card view"/);
   assert.match(page, /paginationLabel:\s*"Leaderboard pages"/);
   assert.match(sealed, /viewLabel:\s*"Sealed product view"/);
-  assert.match(sealed, /className=\{`sealed-toolbar/);
+  assert.match(sealed, /className="sealed-toolbar"/);
   assert.match(sealed, /<SaleScenario/);
   assert.doesNotMatch(sealedFilters, /StrictnessControl|strictness/);
-  assert.match(page, /<StrictnessControl\s+value=\{strictness\}/);
-  assert.match(sealed, /<StrictnessControl\s+value=\{strictness\}/);
+  // Strictness and hover previews are settings-menu preferences in the shared TopBar, never in toolbars.
+  assert.match(page, /<TopBar/);
+  assert.match(topBar, /<StrictnessControl\s+value=\{strictness\}/);
+  assert.match(topBar, /Hover previews/);
+  assert.doesNotMatch(page, /<StrictnessControl/);
+  assert.doesNotMatch(sealed, /<StrictnessControl/);
   assert.match(summary, /leader-filter-summary.*has-content/);
   assert.match(sealed, /paginationLabel:\s*"Sealed product pages"/);
   assert.match(leaderboard, /<NumberedPagination/);
@@ -159,7 +164,7 @@ test("provides animated view selection and accessible card filters",async()=>{co
 
 test("composes Singles and Sealed through the shared leaderboard shell",async()=>{const [page,sealed,shell,summary]=await Promise.all([readFile(new URL("../app/page.tsx",import.meta.url),"utf8"),readFile(new URL("../app/SealedView.tsx",import.meta.url),"utf8"),readFile(new URL("../app/leaderboard/MarketLeaderboard.tsx",import.meta.url),"utf8"),readFile(new URL("../app/leaderboard/ActiveFilterSummary.tsx",import.meta.url),"utf8")]);for(const source of [page,sealed]){assert.match(source,/<MarketLeaderboard/);assert.match(source,/<LeaderboardHeader/);assert.match(source,/<LeaderboardControls/);assert.match(source,/<ActiveFilterSummary/)}assert.match(page,/views:\s*\[\s*\{\s*key:\s*"large"[\s\S]*\{\s*key:\s*"medium"[\s\S]*\{\s*key:\s*"text"[\s\S]*\{\s*key:\s*"full"/);assert.match(sealed,/views:\s*\[\s*\{\s*key:\s*"medium"[\s\S]*\{\s*key:\s*"text"[\s\S]*\{\s*key:\s*"full"/);assert.doesNotMatch(sealed,/views:\s*\[[^\]]*key:\s*"large"/);for(const state of ["loading","error","empty","ready"])assert.match(shell,new RegExp(`displayState===\\"${state}\\"|state===\\"${state}\\"`));assert.match(shell,/<NumberedPagination/);assert.match(summary,/matches\.toLocaleString\(\).*Matches/);assert.match(summary,/Remove \$\{item\.label\} filter/)});
 
-test("uses one non-navigational disclosure contract for Singles and Sealed",async()=>{const [page,sealed,row,identity,popover,full,hook,css]=await Promise.all([readFile(new URL("../app/page.tsx",import.meta.url),"utf8"),readFile(new URL("../app/SealedView.tsx",import.meta.url),"utf8"),readFile(new URL("../app/leaderboard/MarketRow.tsx",import.meta.url),"utf8"),readFile(new URL("../app/leaderboard/ProductIdentity.tsx",import.meta.url),"utf8"),readFile(new URL("../app/leaderboard/HistoryPopover.tsx",import.meta.url),"utf8"),readFile(new URL("../app/leaderboard/FullMarketCard.tsx",import.meta.url),"utf8"),readFile(new URL("../app/hooks/useDisclosurePopover.ts",import.meta.url),"utf8"),readStyles()]);for(const source of [page,sealed]){assert.match(source,/<MarketRow/);assert.match(source,/<ProductIdentity/);assert.match(source,/<HistoryPopover/);assert.match(source,/<FullMarketCard/);assert.doesNotMatch(source,/href=\{(?:c|card|product)\.url\}/);assert.doesNotMatch(source,/Tap again to open TCGplayer|Click again to open TCGplayer/)}assert.match(row,/<details/);assert.match(row,/<summary/);assert.ok(row.indexOf("</summary>")<row.indexOf("{popover}"));assert.match(popover,/role="region"/);assert.match(identity,/<DeferredImage/);assert.match(full,/<article/);for(const behavior of ["onPointerEnter","onPointerLeave","onFocusCapture","onBlurCapture","onKeyDown","onSummaryClick"])assert.match(hook,new RegExp(behavior));assert.match(hook,/event\.key!=="Escape"/);assert.match(css,/\.market-row-shell\[open\] \.hover-card/);assert.match(css,/data-popup-place="below"/);assert.match(css,/data-expand="left"/);assert.match(css,/transform: translateY\(var\(--popover-lift\)\)/);assert.match(css,/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.market-row-shell[\s\S]*transition: none !important/)});
+test("uses one non-navigational disclosure contract for Singles and Sealed",async()=>{const [page,sealed,row,identity,popover,full,hook,css]=await Promise.all([readFile(new URL("../app/page.tsx",import.meta.url),"utf8"),readFile(new URL("../app/SealedView.tsx",import.meta.url),"utf8"),readFile(new URL("../app/leaderboard/MarketRow.tsx",import.meta.url),"utf8"),readFile(new URL("../app/leaderboard/ProductIdentity.tsx",import.meta.url),"utf8"),readFile(new URL("../app/leaderboard/HistoryPopover.tsx",import.meta.url),"utf8"),readFile(new URL("../app/leaderboard/FullMarketCard.tsx",import.meta.url),"utf8"),readFile(new URL("../app/hooks/useDisclosurePopover.ts",import.meta.url),"utf8"),readStyles()]);for(const source of [page,sealed]){assert.match(source,/<MarketRow/);assert.match(source,/<ProductIdentity/);assert.match(source,/<HistoryPopover/);assert.match(source,/<FullMarketCard/);assert.doesNotMatch(source,/href=\{(?:c|card|product)\.url\}/);assert.doesNotMatch(source,/Tap again to open TCGplayer|Click again to open TCGplayer/)}assert.match(row,/<details/);assert.match(row,/<summary/);assert.ok(row.indexOf("</summary>")<row.indexOf("{popover}"));assert.match(popover,/role="region"/);assert.match(identity,/<DeferredImage/);assert.match(full,/<article/);for(const behavior of ["onPointerEnter","onPointerLeave","onFocusCapture","onBlurCapture","onKeyDown","onSummaryClick"])assert.match(hook,new RegExp(behavior));assert.match(hook,/event\.key!=="Escape"/);assert.match(hook,/HOVER_OPEN_DELAY_MS/);assert.match(row,/useHoverPreviews/);assert.match(css,/\.market-row-shell\[open\] \.hover-card/);assert.match(css,/data-popup-place="below"/);assert.match(css,/data-expand="left"/);assert.match(css,/transform: translateY\(var\(--popover-lift\)\)/);assert.match(css,/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.market-row-shell[\s\S]*transition: none !important/)});
 
 test("uses shared sliding navigation and responsive signal evidence",async()=>{const [page,sealed,signals,filters,ui,css]=await Promise.all([readFile(new URL("../app/page.tsx",import.meta.url),"utf8"),readFile(new URL("../app/SealedView.tsx",import.meta.url),"utf8"),readFile(new URL("../app/SignalControls.tsx",import.meta.url),"utf8"),readFile(new URL("../app/CardFilters.tsx",import.meta.url),"utf8"),readFile(new URL("../app/MarketUI.tsx",import.meta.url),"utf8"),readStyles()]);assert.match(page,/className="product-toggle"/);assert.match(page,/setSort\(value\s*===\s*"leaderboard"\s*\?\s*"market"\s*:\s*"signal"\)/);assert.match(page,/className="signal-cell"/);assert.match(sealed,/className="sealed-signal-cell"/);assert.match(page,/signalSort/);assert.match(sealed,/sealedSignalSort/);assert.match(ui,/className=\{`view-toggle \$\{className\}`/);assert.match(signals,/className="signal-slider"/);assert.match(signals,/tone-\$\{value\}/);assert.doesNotMatch(filters,/filter-strictness|StrictnessControl/);assert.match(css,/\.signal-tabs\.tone-buy/);assert.match(css,/\.signal-tabs\.tone-sell/);assert.match(css,/\.product-toggle button,[\s\n]*\.signal-tabs button/);assert.match(css,/\.signal-navigation \{/);assert.match(css,/\.view-large \.identity \.signal-badge\{width:100%/);assert.match(css,/\.table-head\.has-signal/);assert.match(css,/\.sealed-head\.has-signal/);assert.match(sealed,/price-basis[\s\S]*<i aria-hidden="true"/)});
 

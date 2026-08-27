@@ -18,15 +18,32 @@ export default function PriceChart({points,volumes,large=false,label="market"}:{
  const maxQuantity=Math.max(0,...shownVolumes.map(bucket=>bucket.quantity)),volumeByDate=new Map(shownVolumes.map(bucket=>[bucket.date,bucket.quantity])),barWidth=shownVolumes.length?Math.max(1.4,Math.min(7,240/(shownVolumes.length*1.7))):0;
  const activeQuantity=active?volumeByDate.get(active.date):undefined;
  const move=(event:React.PointerEvent<SVGSVGElement>)=>{const rect=event.currentTarget.getBoundingClientRect(),target=times[0]+Math.max(0,Math.min(1,(event.clientX-rect.left)/rect.width))*timeSpan;let nearest=0;for(let i=1;i<times.length;i++)if(Math.abs(times[i]-target)<Math.abs(times[nearest]-target))nearest=i;setHovered(nearest)};
- return <div className={`chart-wrap ${large?"chart-large":""}`}>
+ // The SVG is stretched with preserveAspectRatio="none", which turns viewBox circles into
+ // ellipses; markers and the cursor tooltip render as HTML positioned by percentage instead.
+ const pctX=(x:number)=>`${((x/240)*100).toFixed(2)}%`,pctY=(y:number)=>`${((y/76)*100).toFixed(2)}%`;
+ const tipEdge=active==null?"center":active.x<45?"left":active.x>195?"right":"center";
+ const minIndex=values.indexOf(min),maxIndex=values.indexOf(max);
+ // Detail-page overlay only: trailing 30-day mean computed over the full series so short ranges stay anchored.
+ const maLine=large&&chartPoints.length>7?chartPoints.map((point,index)=>{
+  const end=Date.parse(`${point.date}T00:00:00Z`),start=end-30*86400000;
+  const windowPrices=points.filter(item=>{const time=Date.parse(`${item.date}T00:00:00Z`);return time>start&&time<=end}).map(item=>item.price);
+  const value=windowPrices.length?windowPrices.reduce((sum,item)=>sum+item,0)/windowPrices.length:point.price;
+  return `${xy[index].x},${Math.max(4,Math.min(74,70-((value-min)/span)*62)).toFixed(2)}`;
+ }).join(" "):null;
+ return <div className={`chart-wrap ${large?"chart-large":""}${deltaTone?` chart-${deltaTone}`:""}`}>
   <div className="chart-toolbar"><div className={`chart-readout ${active?"visible":""}`}>{active?<><b>{formatUsd(active.price)}</b><span>{formatUtcDate(active.date,true)}{activeQuantity!=null&&` · ${activeQuantity} sold`}</span></>:<><span>{rangeLabel(range)} {label} history</span>{delta!=null&&<b className={`chart-delta ${deltaTone}`}>{formatPercent(delta)}</b>}</>}</div><div className="chart-ranges" role="group" aria-label="Chart range">{([7,30,90,365] as const).map(days=><button key={days} className={range===days?"active":""} onClick={event=>{event.preventDefault();setRange(days)}}>{rangeLabel(days)}</button>)}</div></div>
-  <div className="chart-canvas"><span className="axis axis-high">{formatUsd(max)}</span><svg className="sparkline" viewBox="0 0 240 76" preserveAspectRatio="none" role="img" aria-label={active?`${formatUsd(active.price)} on ${active.date}`:`${rangeLabel(range)} ${label} price history, ${delta==null?"movement unavailable":`${formatPercent(delta)} over the range`}`} onPointerMove={move} onPointerLeave={()=>setHovered(null)} onClick={event=>event.preventDefault()}>
-   <defs><linearGradient id={`chart-fill-${gradientId}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="var(--blue)" stopOpacity=".26"/><stop offset="1" stopColor="var(--blue)" stopOpacity="0"/></linearGradient></defs>
+  <div className="chart-canvas"><span className="axis axis-high">{formatUsd(max)}</span><div className="chart-plot"><svg className="sparkline" viewBox="0 0 240 76" preserveAspectRatio="none" role="img" aria-label={active?`${formatUsd(active.price)} on ${active.date}`:`${rangeLabel(range)} ${label} price history, ${delta==null?"movement unavailable":`${formatPercent(delta)} over the range`}`} onPointerMove={move} onPointerLeave={()=>setHovered(null)} onClick={event=>event.preventDefault()}>
+   <defs><linearGradient id={`chart-fill-${gradientId}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="var(--chart-line,var(--blue))" stopOpacity=".24"/><stop offset="1" stopColor="var(--chart-line,var(--blue))" stopOpacity="0"/></linearGradient></defs>
    <polygon className="chart-area" fill={`url(#chart-fill-${gradientId})`} points={`${xy[0].x},76 ${line} ${xy.at(-1)!.x},76`}/>
    {maxQuantity>0&&shownVolumes.map(bucket=><rect key={bucket.date} className="chart-volume" x={Math.max(0,Math.min(240-barWidth,((bucket.time-times[0])/timeSpan)*240-barWidth/2))} y={76-(bucket.quantity/maxQuantity)*15-1} width={barWidth} height={(bucket.quantity/maxQuantity)*15+1}/>)}
+   {maLine&&<polyline className="chart-ma" points={maLine}/>}
    <polyline points={line}/>
-   <circle className="chart-end" cx={xy.at(-1)!.x} cy={xy.at(-1)!.y} r="3"/>
-   {active&&<><line className="chart-cursor" x1={active.x} x2={active.x} y1="2" y2="74"/><circle className="chart-point" cx={active.x} cy={active.y} r="3.5"/></>}
-  </svg><span className="axis axis-low">{formatUsd(min)}</span>{large&&<span className="axis axis-price-mid">{formatUsd((min+max)/2)}</span>}<span className="axis axis-date-start">{formatUtcDate(chartPoints[0].date)}</span>{large&&<span className="axis axis-date-mid">{formatUtcDate(midDate)}</span>}<span className="axis axis-date-end">{formatUtcDate(chartPoints.at(-1)!.date)}</span></div>
+   {active&&<line className="chart-cursor" x1={active.x} x2={active.x} y1="2" y2="74"/>}
+  </svg>
+  {max>min&&<><span className="chart-dot chart-dot-extreme" style={{left:pctX(xy[maxIndex].x),top:pctY(xy[maxIndex].y)}} title={`Range high ${formatUsd(max)}`} aria-hidden="true"/><span className="chart-dot chart-dot-extreme" style={{left:pctX(xy[minIndex].x),top:pctY(xy[minIndex].y)}} title={`Range low ${formatUsd(min)}`} aria-hidden="true"/></>}
+  <span className="chart-dot chart-dot-end" style={{left:pctX(xy.at(-1)!.x),top:pctY(xy.at(-1)!.y)}} aria-hidden="true"/>
+  {active&&<span className="chart-dot chart-dot-active" style={{left:pctX(active.x),top:pctY(active.y)}} aria-hidden="true"/>}
+  {active&&<div className={`chart-tip edge-${tipEdge}${active.y<20?" flip-below":""}`} style={{left:pctX(active.x),top:pctY(active.y)}} aria-hidden="true"><b>{formatUsd(active.price)}</b><span>{formatUtcDate(active.date,true)}{activeQuantity!=null&&` · ${activeQuantity} sold`}</span></div>}
+  </div><span className="axis axis-low">{formatUsd(min)}</span>{large&&<span className="axis axis-price-mid">{formatUsd((min+max)/2)}</span>}<span className="axis axis-date-start">{formatUtcDate(chartPoints[0].date)}</span>{large&&<span className="axis axis-date-mid">{formatUtcDate(midDate)}</span>}<span className="axis axis-date-end">{formatUtcDate(chartPoints.at(-1)!.date)}</span></div>
  </div>;
 }

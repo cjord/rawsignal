@@ -40,8 +40,11 @@ test("keeps large popover flush with its tile and preserves reduced motion", asy
     read("../app/styles/market-content.css"),
   ]);
   assert.doesNotMatch(legacy + content, /top:\s*-1px|min-height:\s*calc\(100% \+ 2px\)/);
-  assert.match(content, /\.view-large \.market-row-shell\[open\] \.hover-card[\s\S]*top: 0 !important;[\s\S]*min-height: 100%;/);
+  // The open popover stretches to exactly the tile's height (top+bottom pinned), never past it.
+  assert.match(content, /\.view-large \.market-row-shell\[open\] \.hover-card[\s\S]*top: 0 !important;[\s\S]*bottom: 0 !important;/);
   assert.match(content, /border-(?:left|right)-color: transparent !important/);
+  // Side borders are zero-width at the seam: 1px transparent borders taper the top/bottom borders into a notch.
+  assert.match(content, /border-left-width: 0 !important/);
   assert.match(content, /@media \(prefers-reduced-motion: reduce\)[\s\S]*transform: none !important/);
 });
 
@@ -54,7 +57,8 @@ test("component families own current shared control and disclosure contracts", a
   ]);
   assert.doesNotMatch(legacy, /Milestone 6: one semantic disclosure/);
   assert.doesNotMatch(legacy, /v41: roomier signal cells/);
-  assert.match(controls, /\.controls > \.strictness-control/);
+  assert.match(controls, /\.settings-menu \.strictness-control/);
+  assert.doesNotMatch(controls, /\.controls > \.strictness-control|\.sealed-toolbar > \.strictness-control|has-strictness/);
   assert.match(controls, /\.signal-cell/);
   assert.match(controls, /\/\* Shared numbered pagination \*\//);
   assert.doesNotMatch(globals + legacy, /\.page-numbers/);

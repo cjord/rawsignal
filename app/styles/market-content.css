@@ -5,6 +5,24 @@
   transition: transform var(--motion-standard) var(--ease-standard);
 }
 
+/* Large-view shells are grid items stretched to the row track; the tile must fill the
+   shell so the popover (pinned top/bottom to the shell) aligns exactly with the card. */
+.view-large .market-row-shell {
+  display: flex;
+  flex-direction: column;
+}
+
+.view-large .market-row-shell > summary {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.view-large .market-row-shell > summary > .leader-row {
+  flex: 1;
+}
+
 .market-row-shell > summary {
   list-style: none;
   cursor: pointer;
@@ -69,13 +87,13 @@
     filter: none !important;
   }
 
-  .view-large .market-row-shell[open] > .leader-row .identity > .deferred-image img {
-    transform: scale(1.012);
-  }
-
+  /* Stretch to exactly the tile's height so the popup's bottom edge always aligns with the card. */
   .view-large .market-row-shell[open] .hover-card {
     top: 0 !important;
-    min-height: 100%;
+    bottom: 0 !important;
+    height: auto;
+    min-height: 0;
+    overflow: auto;
     border-color: color-mix(in srgb, var(--blue) 55%, var(--line)) !important;
     box-shadow: none !important;
   }
@@ -88,8 +106,11 @@
   .view-large .market-row-shell[data-expand="right"] .hover-card {
     left: calc(100% - 10px) !important;
     right: auto !important;
-    padding-left: 26px;
+    padding-left: 27px;
     border-left-color: transparent !important;
+    /* Zero width, not just transparent: a 1px transparent side border makes the top/bottom
+       borders taper into a visible notch at the seam with the card tile. */
+    border-left-width: 0 !important;
     border-radius: 0 var(--panel-radius) var(--panel-radius) 0;
   }
 
@@ -101,8 +122,9 @@
   .view-large .market-row-shell[data-expand="left"] .hover-card {
     left: auto !important;
     right: calc(100% - 10px) !important;
-    padding-right: 26px;
+    padding-right: 27px;
     border-right-color: transparent !important;
+    border-right-width: 0 !important;
     border-radius: var(--panel-radius) 0 0 var(--panel-radius);
   }
 

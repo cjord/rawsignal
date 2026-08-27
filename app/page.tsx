@@ -12,7 +12,8 @@ import {
 import HistoryPanel, { movementTone, type HistoryMetric } from "./HistoryPanel";
 import { normalized } from "./market-utils";
 import CardFilters, { type MovementFilters } from "./CardFilters";
-import { SignalBadge, SignalTabs, StrictnessControl } from "./SignalControls";
+import TopBar from "./TopBar";
+import { SignalBadge, SignalTabs } from "./SignalControls";
 import {
   marketSignal,
   type SignalSide,
@@ -20,7 +21,7 @@ import {
 } from "./signal-utils";
 import MultiSelectField from "./MultiSelectField";
 import { parseCards } from "./domain/contracts";
-import { formatPercent, formatRarity, formatUsd } from "./domain/formatters";
+import { formatGameName, formatPercent, formatRarity, formatUsd } from "./domain/formatters";
 import type {
   Card,
   PriceHistory,
@@ -77,10 +78,6 @@ type SortKey =
   | "change30";
 type ScalperMode = "regular" | "scalper";
 type History = PriceHistory;
-const gameNames: Record<Game, string> = {
-  pokemon: "Pokémon",
-  riftbound: "Riftbound",
-};
 const displayLabel = formatRarity;
 const usd = (value: number | null) => formatUsd(value);
 const pct = (value: number | null) => formatPercent(value);
@@ -257,16 +254,12 @@ export default function Home() {
     [perPage, setPerPage] = useState(20),
     [page, setPage] = useState(1);
   const [mode, setMode] = useState<"singles" | "sealed">("singles"),
-    [theme, setTheme] = useState<"dark" | "light">("dark"),
-    [fontSize, setFontSize] = useState<"default" | "large">("default"),
     [scalperMode, setScalperMode] = useState<ScalperMode>("regular"),
-    [settingsOpen, setSettingsOpen] = useState(false),
     [sealedState, setSealedState] = useState<SealedQueryState>(
       () => parseMarketQuery("?mode=sealed") as SealedQueryState,
     ),
     [sealedRevision, setSealedRevision] = useState(0);
-  const settingsRef = useRef<HTMLDivElement>(null),
-    lastRegularSealedMarket = useRef<SealedGame>("pokemon");
+  const lastRegularSealedMarket = useRef<SealedGame>("pokemon");
   const [signalView, setSignalView] = useState<SignalSide>("leaderboard"),
     [strictness, setStrictness] = useState<SignalStrictness>("balanced");
   const [minPrice, setMinPrice] = useState(""),
@@ -281,7 +274,6 @@ export default function Home() {
   const restoreQuery = (state: MarketQueryState) => {
     setMode(state.mode);
     setSignalView(state.signal);
-    setStrictness(state.strictness);
     if (state.mode === "sealed") {
       if (state.market === "scalping") setScalperMode("scalper");
       else lastRegularSealedMarket.current = state.market;
@@ -523,18 +515,8 @@ export default function Home() {
     };
   }, []);
   useEffect(() => {
-    const saved =
-      localStorage.getItem("raw-signal-theme") === "light" ? "light" : "dark";
-    setTheme(saved);
-    document.documentElement.dataset.theme = saved;
-  }, []);
-  useEffect(() => {
-    const saved =
-      localStorage.getItem("raw-signal-font-size") === "large"
-        ? "large"
-        : "default";
-    setFontSize(saved);
-    document.documentElement.dataset.fontSize = saved;
+    const saved = localStorage.getItem("raw-signal-strictness");
+    if (saved === "conservative" || saved === "aggressive") setStrictness(saved);
   }, []);
   useEffect(() => {
     const params = new URLSearchParams(location.search),
@@ -557,26 +539,10 @@ export default function Home() {
       setSealedRevision((value) => value + 1);
     }
   }, []);
-  useEffect(() => {
-    if (!settingsOpen) return;
-    const close = (event: PointerEvent) => {
-      if (!settingsRef.current?.contains(event.target as Node))
-        setSettingsOpen(false);
-    };
-    window.addEventListener("pointerdown", close);
-    return () => window.removeEventListener("pointerdown", close);
-  }, [settingsOpen]);
-  const toggleTheme = () =>
-    setTheme((current) => {
-      const next = current === "dark" ? "light" : "dark";
-      document.documentElement.dataset.theme = next;
-      localStorage.setItem("raw-signal-theme", next);
-      return next;
-    });
-  const changeFontSize = (next: "default" | "large") => {
-    setFontSize(next);
-    document.documentElement.dataset.fontSize = next;
-    localStorage.setItem("raw-signal-font-size", next);
+  const changeStrictness = (value: SignalStrictness) => {
+    setStrictness(value);
+    localStorage.setItem("raw-signal-strictness", value);
+    setPage(1);
   };
   const changeScalperMode = (next: ScalperMode) => {
     setScalperMode(next);
@@ -699,101 +665,45 @@ export default function Home() {
   );
   return (
     <main>
-      <nav className="topbar">
-        <a className="brand" href="#top">
-          <span>R</span> Raw Signal
-        </a>
-        <div className="toplinks">
-          <a href="#leaderboard">Rankings</a>
-          <a href="#method">Method</a>
-          <div className="display-settings" ref={settingsRef}>
-            <button
-              className="settings-toggle"
-              onClick={() => setSettingsOpen((value) => !value)}
-              aria-label="Display settings"
-              aria-expanded={settingsOpen}
-              aria-haspopup="menu"
+      <TopBar
+        active={mode === "sealed" ? "sealed" : game}
+        strictness={strictness}
+        onStrictness={changeStrictness}
+        settingsExtra={
+          <>
+            <span className="settings-section-title">Sealed analysis</span>
+            <div
+              className={`scalper-mode-toggle is-${scalperMode}`}
+              role="group"
+              aria-label="Sealed analysis mode"
             >
-              <span aria-hidden="true">⚙</span>
-            </button>
-            {settingsOpen && (
-              <div
-                className="settings-menu"
-                role="menu"
-                aria-label="Display settings"
+              <i aria-hidden="true" />
+              <button
+                className={scalperMode === "regular" ? "active" : ""}
+                aria-pressed={scalperMode === "regular"}
+                onClick={() => changeScalperMode("regular")}
               >
-                <span>Font size</span>
-                <div
-                  className="font-size-options"
-                  role="group"
-                  aria-label="Font size"
-                >
-                  <button
-                    className={fontSize === "default" ? "active" : ""}
-                    aria-pressed={fontSize === "default"}
-                    onClick={() => changeFontSize("default")}
-                  >
-                    <b>Aa</b>
-                    <small>Default</small>
-                  </button>
-                  <button
-                    className={fontSize === "large" ? "active" : ""}
-                    aria-pressed={fontSize === "large"}
-                    onClick={() => changeFontSize("large")}
-                  >
-                    <b>Aa</b>
-                    <small>Larger</small>
-                  </button>
-                </div>
-                <span className="settings-section-title">Sealed analysis</span>
-                <div
-                  className={`scalper-mode-toggle is-${scalperMode}`}
-                  role="group"
-                  aria-label="Sealed analysis mode"
-                >
-                  <i aria-hidden="true" />
-                  <button
-                    className={scalperMode === "regular" ? "active" : ""}
-                    aria-pressed={scalperMode === "regular"}
-                    onClick={() => changeScalperMode("regular")}
-                  >
-                    Regular
-                  </button>
-                  <button
-                    className={scalperMode === "scalper" ? "active" : ""}
-                    aria-pressed={scalperMode === "scalper"}
-                    onClick={() => changeScalperMode("scalper")}
-                  >
-                    Scalper
-                  </button>
-                </div>
-                <small className="scalper-mode-help">
-                  Adds an in-print sealed market and optional sale assumptions.
-                </small>
-              </div>
-            )}
-          </div>
-          <button
-            className="theme-toggle"
-            onClick={toggleTheme}
-            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-          >
-            <span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span>
-            <b>{theme === "dark" ? "Light" : "Dark"}</b>
-          </button>
-        </div>
-      </nav>
+                Regular
+              </button>
+              <button
+                className={scalperMode === "scalper" ? "active" : ""}
+                aria-pressed={scalperMode === "scalper"}
+                onClick={() => changeScalperMode("scalper")}
+              >
+                Scalper
+              </button>
+            </div>
+            <small className="scalper-mode-help">
+              Adds an in-print sealed market and optional sale assumptions.
+            </small>
+          </>
+        }
+      />
       <header className="masthead" id="top">
         <p className="kicker">Daily TCG market intelligence</p>
         <h1>
-          The card market,
-          <br />
-          <span>without the noise.</span>
+          The card market, <span>without the noise.</span>
         </h1>
-        <p className="dek">
-          Price intelligence for Pokémon and Riftbound—across raw singles and
-          sealed products.
-        </p>
       </header>
       <div className="product-navigation">
         <SegmentedView
@@ -843,7 +753,7 @@ export default function Home() {
               <div>
                 <span>Cards ranked</span>
                 <strong>{index.totals[game].toLocaleString()}</strong>
-                <small>total in {gameNames[game]}</small>
+                <small>total in {formatGameName(game)}</small>
               </div>
               <label>
                 <span>Cards per page</span>
@@ -866,7 +776,7 @@ export default function Home() {
           header={
             <LeaderboardHeader
               className="section-heading is-filtered"
-              kicker={`${gameNames[game]} market ranking`}
+              kicker={`${formatGameName(game)} market ranking`}
               title={`${rarityLabel} ${signalView === "leaderboard" ? (selectedRarities.length > 1 && !allRarities ? "Leaderboards" : "Leaderboard") : signalView === "buy" ? "Hot Buys" : "Hot Sells"}`}
               summary={
                 <ActiveFilterSummary
@@ -890,9 +800,7 @@ export default function Home() {
             />
           }
           controls={
-            <LeaderboardControls
-              className={`controls ${signalView !== "leaderboard" ? "has-strictness" : ""}`}
-            >
+            <LeaderboardControls className="controls">
               <label>
                 <span>⌕</span>
                 <input
@@ -904,15 +812,6 @@ export default function Home() {
                   placeholder="Search card, set, or number"
                 />
               </label>
-              {signalView !== "leaderboard" && (
-                <StrictnessControl
-                  value={strictness}
-                  onChange={(value) => {
-                    setStrictness(value);
-                    setPage(1);
-                  }}
-                />
-              )}
               <CardFilters
                 sets={availableSets}
                 selectedSets={selectedSets}
@@ -1078,7 +977,6 @@ export default function Home() {
           key={sealedRevision}
           signalView={signalView}
           strictness={strictness}
-          onStrictness={setStrictness}
           scalperEnabled={scalperMode === "scalper"}
           initialState={sealedState}
           onQueryChange={updateSealedState}
@@ -1102,9 +1000,9 @@ export default function Home() {
           </p>
           <p>
             <b>Current price fields</b> Market approximates recent selling
-            value. TCGCSV listing low, median, and listing high remain in card
-            details; listing high can be distorted by price parking and is not
-            treated as a valuation target.
+            value. TCGCSV listing low and median remain in card details;
+            listing highs are excluded from the interface because price
+            parking distorts them.
           </p>
           <p>
             <b>30-day range columns</b> The leaderboard’s Low and High columns

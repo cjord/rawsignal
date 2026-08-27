@@ -215,6 +215,7 @@ export type CardDetail = CatalogDetailBase & {
   setPeerContext: DetailPeerContext | null;
   pullRate: CardPullRate | null;
   peerAnchor: PeerAnchorStats | null;
+  relatedSealed: SealedProduct[];
 };
 
 export type SealedDetail = CatalogDetailBase & {

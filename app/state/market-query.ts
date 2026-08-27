@@ -32,7 +32,8 @@ export function parseMarketQuery(input:string|URLSearchParams):MarketQueryState{
 
 const setOptional=(params:URLSearchParams,key:string,value:string|number,defaultValue:string|number="")=>{if(String(value)!==String(defaultValue))params.set(key,String(value))};
 export function serializeMarketQuery(state:MarketQueryState){
- const params=new URLSearchParams({market:state.market,view:state.view,sort:state.sort,direction:state.direction,page:String(state.page),perPage:String(state.perPage),mode:state.mode,signal:state.signal,strictness:state.strictness});
+ // Strictness is a device preference (settings menu), not shareable state; parse still tolerates old strictness= links.
+ const params=new URLSearchParams({market:state.market,view:state.view,sort:state.sort,direction:state.direction,page:String(state.page),perPage:String(state.perPage),mode:state.mode,signal:state.signal});
  setOptional(params,"q",state.query);
  if(state.sets.length)params.set("sets",state.sets.join("|"));
  if(state.mode==="singles"){

@@ -32,3 +32,14 @@ export function formatUtcDate(value: string, includeYear = false) {
 export function formatRarity(value: string) {
   return value;
 }
+
+const gameNames: Record<string, string> = {
+  pokemon: "Pokémon",
+  riftbound: "Riftbound",
+  onepiece: "One Piece",
+  scalping: "Scalping",
+};
+
+export function formatGameName(value: string) {
+  return gameNames[value] ?? value;
+}
