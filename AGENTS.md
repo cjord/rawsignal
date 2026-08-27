@@ -55,6 +55,7 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - `drizzle/`: generated, committed D1 migrations and schema snapshots.
 - `docs/adr/`: accepted architecture decisions, including the Sites-to-Cloudflare path.
 - `docs/architecture.md`, `docs/data-sources.md`: maintained system boundaries and source semantics.
+- `docs/roadmap.md`: agreed-but-deferred work (D1 backfill continuation, daily feed scheduling decisions, graded-sync rotation, fair-value peer anchor). Keep it current as items land.
 - `docs/cloudflare-cutover.md`, `cloudflare/environments.json`, `scripts/cloudflare/`: direct-Cloudflare staging contract, generated-config preparation, and catalog parity checks.
 - `sync-tcgcsv.mjs`: generates Singles market data and `tcg-index.json` from TCGCSV.
 - `sync-sealed.mjs`: generates normalized Pokémon sealed-product data.
@@ -62,7 +63,7 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - `scripts/clients/`, `scripts/normalize/`, `scripts/validate/`, `scripts/io/`: retrying source clients, pure normalization, validation manifests, and last-good publishing.
 - `scripts/graded/sync-graded.mjs`: budgeted PokemonPriceTracker sync producing `public/data/graded-prices.json` (eBay graded-sale snapshots for the most valuable Pokémon singles, stalest-first rotation).
 - `scripts/scalper/`: the Scalper allowlist pipeline — `reconcile.mjs` and `build-feed.mjs` produce `public/data/sealed-scalping.json` from `approved-variants.json`, `supplemental-products.json`, and the review process in `docs/scalper-variant-review.md`.
-- Known gap: `scripts/details/build-detail-feeds.mjs` (npm `data:build:details`) is referenced but has never been committed. The detail feeds it produced (`public/data/detail-manifest.json` plus `public/data/details/`) are rescued copies of earlier build output; recreate the generator before regenerating them.
+- `scripts/details/`: the detail-feed generator — `build-detail-feeds.mjs` (npm `data:build:details`, IO and flags) and `enrichment.mjs` (pure construction). It rebuilds `public/data/detail-manifest.json` plus `public/data/details/` from the bundled feeds, fetching TCGCSV per-group metadata and printing prices with `--enrich` and pruning stale chunks; `--require-fresh` exits with code 3 when TCGCSV has not published since the last sync.
 - `public/data/`: generated market feeds consumed by the application.
 - `tests/`: Node test suite covering history, search, rendering, market validation, sealed classification, and signal scoring.
 - `.openai/hosting.json`: OpenAI Sites project configuration. Preserve its opaque `project_id`.

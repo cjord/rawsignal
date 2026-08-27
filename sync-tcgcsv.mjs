@@ -58,7 +58,9 @@ for (const game of Object.keys(rarities)) {
   rarities[game] = [...rarityLabels[game]].map(([key, label]) => ({ key, label })).sort((a, b) => order[game].indexOf(a.key) - order[game].indexOf(b.key));
   rarities[game].push({ key: "all", label: "All" });
 }
-const sourceUpdatedAt = await fetch("https://tcgcsv.com/last-updated.txt").then(response => response.ok ? response.text() : Promise.reject()).catch(() => today.toISOString());
+const sourceUpdatedAt = await fetch("https://tcgcsv.com/last-updated.txt", { headers: { "User-Agent": "RawSignal/7.0 (+validated daily market ingestion)" } })
+  .then(response => response.ok ? response.text() : Promise.reject(new Error(`last-updated ${response.status}`)))
+  .catch(error => { console.error(`WARNING: TCGCSV last-updated probe failed (${error.message}); recording sync time instead.`); return today.toISOString(); });
 const totals = Object.fromEntries(Object.keys(rarities).map(game => [game, cards.filter(card => card.game === game).length]));
 const generatedAt = new Date().toISOString();
 const index = { source: "TCGCSV / TCGplayer", syncedAt: generatedAt, sourceUpdatedAt: sourceUpdatedAt.trim(), rarities, totals };
