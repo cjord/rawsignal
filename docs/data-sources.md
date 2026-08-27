@@ -24,6 +24,8 @@ The history endpoint retrieves normalized Near Mint market history for Singles a
 - historic low and high;
 - Buy/Sell proximity and volatility calculations.
 
+The same endpoint reports completed-sale activity per variant/condition SKU: quantity sold and transaction counts in three-day buckets over the trailing quarter, window totals, and realized low/high sale prices with and without shipping. This is the only authorized sales-volume source. Volume is presented per printing/condition with its window and bucket size labeled, and is never inferred from listings or observation counts.
+
 History availability varies by product. Missing or unmatched history remains unavailable and can prevent signal qualification.
 
 ## Sealed MSRP
@@ -46,13 +48,11 @@ Artwork remains externally hosted and is loaded lazily after text and pricing. R
 
 Raw Signal does not currently publish:
 
-- verified transaction volume;
 - most-frequently-sold rankings;
 - TCGplayer sales rank;
-- bid/ask depth;
-- shipping-inclusive realized price.
+- bid/ask depth.
 
-TCGCSV price files do not provide complete transaction counts. Price observations, listings, and the number of visible history points are not substitutes for sales volume. A future volume feature requires an authorized transaction source, a defined observation window, product/printing matching, coverage confidence, and explicit handling of missing days.
+TCGCSV price files do not provide transaction counts; sales volume comes only from the TCGplayer history endpoint's completed-sale buckets described above. Price observations, listings, and the number of visible history points are still not substitutes for sales volume.
 
 ## Legacy PriceCharting research
 

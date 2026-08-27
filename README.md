@@ -10,7 +10,7 @@ Current coverage:
 - Medium, Text, and Full Sealed views;
 - shareable URL state for markets, filters, sorting, views, and pagination.
 
-Magic: The Gathering support is intentionally paused. Sales volume and sales rank are not presented because the current sources do not provide an authorized, complete transaction feed.
+Magic: The Gathering support is intentionally paused. Sales volume comes from TCGplayer completed-sale history per printing/condition with labeled windows; sales rank is not presented because no authorized ranking feed exists.
 
 ## Requirements
 

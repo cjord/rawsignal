@@ -17,6 +17,7 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - Do not commit `site-package*.tar.gz` archives. They are deployment artifacts, not source.
 - Do not commit Cloudflare account IDs, D1 UUIDs, API tokens, generated Wrangler environment configs, D1 exports, or database backups.
 - Prefer small shared utilities and components over duplicated Singles/Sealed implementations.
+- Do not add route-level `loading.tsx` files: vinext 1.0.0-beta.2 leaves their Suspense fallbacks unresolved on a cold dev server, freezing the route. Use in-page loading states instead until a vinext upgrade is verified to fix this.
 
 ## Repository map
 
@@ -64,6 +65,12 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - `tests/`: Node test suite covering history, search, rendering, market validation, sealed classification, and signal scoring.
 - `.openai/hosting.json`: OpenAI Sites project configuration. Preserve its opaque `project_id`.
 
+## Source control and GitHub
+
+- Local commits are normal workflow. Pushing to GitHub is an external action: never run `git push` (or create remote branches, tags, or pull requests) unless the user explicitly requests a push in the active task.
+- A request to publish or deploy the site does not authorize a push, and a push request does not authorize a deployment.
+- Never force-push `main`, and never rewrite history that has already been pushed.
+
 ## Hosting and environment policy
 
 - OpenAI Sites is the default environment for ongoing development, testing, previews, and production publishing. Preserve the Sites-compatible vinext build and the logical bindings in `.openai/hosting.json`.
@@ -86,7 +93,8 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 
 - Treat TCGCSV product and pricing records as the current catalog/price source. Standard price fields are market, listing low, median, and listing high; they are not transaction counts.
 - Treat `package-lock.json` as the only dependency lockfile and `npm run check` as the complete release gate.
-- Do not label price observations as sales volume or sales rank. A frequency metric requires a separate transaction source and confidence/coverage metadata.
+- Sales volume is presented only from the TCGplayer history endpoint's completed-sale buckets (`quantitySold`, `transactionCount`, realized low/high sale prices with and without shipping, per variant/condition SKU). Label the window and bucket size wherever volume appears, keep it scoped to the selected printing/condition, and render missing sales data as unavailable.
+- Never derive volume from price observations, listing counts, or history-point counts, and do not label anything as TCGplayer sales rank; rank remains unavailable.
 - Calculate 7-, 30-, and 90-day changes from dated history observations using the nearest observation at or before the cutoff.
 - Calculate displayed 30-day low/high from the historical market series, not listing extremes.
 - Keep variants/printings explicit. Do not merge records solely because their names match.

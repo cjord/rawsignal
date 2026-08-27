@@ -25,10 +25,27 @@ export type PricePoint = {
   price: number;
 };
 
+export type SalesBucket = {
+  date: string;
+  quantity: number;
+  low: number | null;
+  high: number | null;
+  lowWithShipping: number | null;
+  highWithShipping: number | null;
+};
+
+export type SalesActivity = {
+  windowDays: number;
+  totalQuantity: number | null;
+  totalTransactions: number | null;
+  buckets: SalesBucket[];
+};
+
 export type PriceHistory = {
   points: PricePoint[];
   variant?: string;
   condition?: string;
+  sales?: SalesActivity;
   coverage: PriceCoverage;
   change7: number | null;
   change30: number | null;
