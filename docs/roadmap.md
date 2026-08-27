@@ -77,3 +77,28 @@ original 50/30/20 blend and the panel notes that the anchor is still accumulatin
 accrues one observation per TCGCSV publish date, so activation needs the daily job from
 item 2 (or manual refreshes) to run consistently. D1 remains a future upgrade path for
 deeper retroactive history.
+
+## 5. Fair-value model improvements — BACKLOG (added 2026-08-27)
+
+Candidate refinements to evaluate once the peer anchor has activated and its behavior can be
+observed against real cohorts. Each stays within the AGENTS.md rule: transparent,
+documented, labeled a model, no opaque or predictive components without an explicit user
+decision.
+
+- **Validate the anchor empirically** before tuning anything else: once cohorts hit 14+
+  observations, compare anchored vs unanchored fair value against subsequent realized sale
+  prices (TCGplayer completed-sale buckets) to see whether the 20% weight helps or hurts.
+- **Weight calibration** from that same backtest — the 40/24/16/20 split was chosen for
+  exact backward compatibility, not measured accuracy.
+- **Sales-weighted components**: blend in realized sale prices (quantity-weighted median of
+  completed-sale buckets) as a component, since listings and market estimates can diverge
+  from what buyers actually pay.
+- **Volatility-aware banding**: widen the "near fair" band for high-volatility printings so
+  the premium/discount label doesn't overstate precision on thin markets.
+- **Graded-market coupling (singles)**: where PokemonPriceTracker raw-card eBay sales exist,
+  consider them as a cross-marketplace sanity component for the raw price.
+- **Sealed peer anchor**: the current anchor is singles-only; a set-scoped sealed-category
+  cohort (e.g., ETBs of the same set generation) could anchor sealed fair value the same way.
+- **Cohort robustness**: median instead of mean for cohort averages (a single spiking chase
+  card currently moves its whole cohort), and a minimum cohort size before the anchor
+  applies.
