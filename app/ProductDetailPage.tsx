@@ -1,6 +1,6 @@
 "use client";
 /* eslint-disable @next/next/no-html-link-for-pages -- detail navigation preserves exact leaderboard URLs */
-import {useEffect,useMemo,useState} from "react";
+import {useEffect,useMemo,useRef,useState} from "react";
 import DeferredImage from "./DeferredImage";
 import PriceChart from "./PriceChart";
 import SaleScenario from "./SaleScenario";
@@ -18,8 +18,17 @@ function Metric({label,value,hint,tone}:{label:string;value:string;hint?:string;
 
 function DetailChrome({fallback}:{fallback:string}){
  const [theme,setTheme]=useState<"dark"|"light">(()=>typeof document!=="undefined"&&document.documentElement.dataset.theme==="light"?"light":"dark");
+ const [fontSize,setFontSize]=useState<"default"|"large">(()=>typeof document!=="undefined"&&document.documentElement.dataset.fontSize==="large"?"large":"default");
+ const [settingsOpen,setSettingsOpen]=useState(false),settingsRef=useRef<HTMLDivElement>(null);
+ useEffect(()=>{if(!settingsOpen)return;const close=(event:PointerEvent)=>{if(!settingsRef.current?.contains(event.target as Node))setSettingsOpen(false)};window.addEventListener("pointerdown",close);return()=>window.removeEventListener("pointerdown",close)},[settingsOpen]);
  const toggle=()=>{const next=theme==="dark"?"light":"dark";setTheme(next);document.documentElement.dataset.theme=next;localStorage.setItem("raw-signal-theme",next)};
- return <nav className="topbar detail-topbar"><a className="brand" href="/"><span>R</span> Raw Signal</a><div className="detail-nav-actions"><button type="button" className="detail-back" onClick={()=>history.length>1?history.back():location.assign(fallback)}>← Back to results</button><button type="button" className="theme-toggle" onClick={toggle} aria-label={`Switch to ${theme==="dark"?"light":"dark"} mode`}><span aria-hidden="true">{theme==="dark"?"☀":"☾"}</span><b>{theme==="dark"?"Light":"Dark"}</b></button></div></nav>
+ const changeFontSize=(next:"default"|"large")=>{setFontSize(next);document.documentElement.dataset.fontSize=next;localStorage.setItem("raw-signal-font-size",next)};
+ return <nav className="topbar detail-topbar"><a className="brand" href="/"><span>R</span> Raw Signal</a><div className="detail-nav-actions"><button type="button" className="detail-back" onClick={()=>history.length>1?history.back():location.assign(fallback)}>← Back to results</button>
+  <div className="display-settings" ref={settingsRef}>
+   <button type="button" className="settings-toggle" onClick={()=>setSettingsOpen(value=>!value)} aria-label="Display settings" aria-expanded={settingsOpen} aria-haspopup="menu"><span aria-hidden="true">⚙</span></button>
+   {settingsOpen&&<div className="settings-menu" role="menu" aria-label="Display settings"><span>Font size</span><div className="font-size-options" role="group" aria-label="Font size"><button type="button" className={fontSize==="default"?"active":""} aria-pressed={fontSize==="default"} onClick={()=>changeFontSize("default")}><b>Aa</b><small>Default</small></button><button type="button" className={fontSize==="large"?"active":""} aria-pressed={fontSize==="large"} onClick={()=>changeFontSize("large")}><b>Aa</b><small>Larger</small></button></div></div>}
+  </div>
+  <button type="button" className="theme-toggle" onClick={toggle} aria-label={`Switch to ${theme==="dark"?"light":"dark"} mode`}><span aria-hidden="true">{theme==="dark"?"☀":"☾"}</span><b>{theme==="dark"?"Light":"Dark"}</b></button></div></nav>
 }
 
 function SourceFacts({detail}:{detail:CatalogDetail}){const source=detail.source,premium=detail.kind==="sealed"&&detail.msrp&&detail.marketPrice!=null?(detail.marketPrice-detail.msrp)/detail.msrp*100:null,rows=[source.setAbbreviation&&["Set abbreviation",source.setAbbreviation],source.publishedOn&&["Set published",source.publishedOn.slice(0,10)],source.modifiedOn&&["Product updated",source.modifiedOn.slice(0,10)],source.imageCount!=null&&["Images available",String(source.imageCount)],source.isPresale!=null&&["Presale",source.isPresale?"Yes":"No"],premium!=null&&["MSRP premium",pct(premium)]].filter(Boolean) as string[][];return rows.length?<dl className="detail-facts">{rows.map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>:<p className="detail-unavailable">Additional source metadata is unavailable for this product.</p>}
