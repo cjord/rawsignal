@@ -1,5 +1,5 @@
 import { deriveHistoryMetrics } from "../app/domain/history-metrics.ts";
-import type { Card, PriceHistory, PricePoint, SealedProduct, SignalStrictness } from "../app/domain/types.ts";
+import type { Card, CatalogDetailEnrichment, PriceHistory, PricePoint, SealedProduct, SignalStrictness } from "../app/domain/types.ts";
 import { marketSignal } from "../app/signal-utils.ts";
 import {
   completeIngestion,
@@ -12,6 +12,7 @@ import {
   upsertHistory,
   upsertMarketMetrics,
   upsertMarketSignal,
+  upsertProductDetail,
   upsertSealedProduct,
   type D1DatabaseLike,
 } from "./repository.ts";
@@ -27,6 +28,7 @@ export type DailyCatalogSnapshot = {
   schemaVersion: number;
   rejected?: Record<string, number>;
   duplicateDecisions?: unknown[];
+  details?:CatalogDetailEnrichment[];
 };
 
 export type DailyIngestionResult = {
@@ -116,6 +118,7 @@ export async function runDailyMarketIngestion(db: D1DatabaseLike, snapshot: Dail
       const derived = await persistRecord(db, product, observedAt, asOfDate, runId); recordsWritten++; observationsWritten += derived.observationsWritten;
       signalsWritten += derived.signalsWritten; if (derived.eligible) signalEligibleProducts++;
     }
+    for(const detail of snapshot.details??[])await upsertProductDetail(db,detail);
     const stats = { observationsWritten, signalsWritten, signalEligibleProducts };
     await completeIngestion(db, runId, "daily-market", observedAt, recordsSeen, recordsWritten, recordsRejected, snapshot.duplicateDecisions?.length ?? 0, stats);
     return { runId, recordsSeen, recordsWritten, ...stats };
@@ -151,6 +154,7 @@ export async function runDailyMarketIngestionBatch(db: D1DatabaseLike, snapshot:
     }
     const done = recordsWritten >= total, stats = { observationsWritten, signalsWritten, signalEligibleProducts };
     if (done) {
+      for(const detail of snapshot.details??[])await upsertProductDetail(db,detail);
       const rejected = Object.values(snapshot.rejected ?? {}).reduce((sum, count) => sum + count, 0);
       await checkpointIngestion(db, runId, "daily-market-progress", total, recordsWritten, String(recordsWritten), stats);
       await completeIngestion(db, runId, "daily-market", new Date().toISOString(), total, recordsWritten, rejected, snapshot.duplicateDecisions?.length ?? 0, stats);

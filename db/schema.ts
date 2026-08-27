@@ -67,6 +67,23 @@ export const sealedDetails = sqliteTable("sealed_details", {
   msrpSource: text("msrp_source"),
 });
 
+export const productDetails = sqliteTable("product_details", {
+  productId: integer("product_id").primaryKey().references(() => catalogProducts.productId, { onDelete: "cascade" }),
+  categoryId: integer("category_id"),
+  groupId: integer("group_id"),
+  setAbbreviation: text("set_abbreviation"),
+  publishedOn: text("published_on"),
+  modifiedOn: text("modified_on"),
+  imageCount: integer("image_count"),
+  isPresale: integer("is_presale", { mode: "boolean" }),
+  presaleNote: text("presale_note"),
+  metadataJson: text("metadata_json").notNull().default("[]"),
+  priceVariantsJson: text("price_variants_json").notNull().default("[]"),
+  sourceUpdatedAt: text("source_updated_at"),
+}, (table) => [
+  index("idx_product_details_group").on(table.categoryId, table.groupId),
+]);
+
 export const priceObservations = sqliteTable("price_observations", {
   productId: integer("product_id").notNull().references(() => catalogProducts.productId, { onDelete: "cascade" }),
   variant: text("variant").notNull(),

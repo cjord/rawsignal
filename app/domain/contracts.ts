@@ -1,4 +1,4 @@
-import type { Card, PriceHistory, PricePoint, SealedProduct } from "./types";
+import type { Card, CatalogDetailEnrichment, DetailMetadataField, DetailPriceVariant, DetailSource, PriceHistory, PricePoint, SealedProduct } from "./types";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -84,4 +84,15 @@ export function parseSealedProduct(value: unknown): SealedProduct {
 export function parseSealedProducts(value: unknown): SealedProduct[] {
   if (!Array.isArray(value)) throw new TypeError("Invalid sealed-product collection");
   return value.map(parseSealedProduct);
+}
+
+export function parseCatalogDetailEnrichments(value:unknown):CatalogDetailEnrichment[]{
+ if(!Array.isArray(value))throw new TypeError("Invalid detail collection");
+ return value.map(item=>{
+  if(!record(item)||(item.kind!=="single"&&item.kind!=="sealed")||!Number.isInteger(item.productId)||!Array.isArray(item.metadata)||!Array.isArray(item.priceVariants)||!record(item.source))throw new TypeError("Invalid detail record");
+  const metadata=item.metadata.map(field=>{if(!record(field)||!string(field.name)||!string(field.label)||!string(field.value))throw new TypeError("Invalid detail metadata");return field as DetailMetadataField});
+  const priceVariants=item.priceVariants.map(variant=>{if(!record(variant)||!string(variant.printing))throw new TypeError("Invalid detail price variant");for(const key of ["marketPrice","lowPrice","directLowPrice","midPrice","highPrice"] as const)if(!nullableFinite(variant[key]))throw new TypeError("Invalid detail price");return variant as DetailPriceVariant});
+  const source=item.source as Record<string,unknown>;for(const key of ["categoryId","groupId","imageCount"] as const)if(source[key]!==null&&!finite(source[key]))throw new TypeError("Invalid detail source number");for(const key of ["setAbbreviation","publishedOn","modifiedOn","presaleNote","sourceUpdatedAt"] as const)if(source[key]!==null&&!string(source[key]))throw new TypeError("Invalid detail source text");if(source.isPresale!==null&&typeof source.isPresale!=="boolean")throw new TypeError("Invalid presale state");
+  return {kind:item.kind,productId:item.productId as number,metadata,priceVariants,source:item.source as DetailSource};
+ });
 }

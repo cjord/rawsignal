@@ -18,6 +18,6 @@ export default function useDisclosurePopover({rootRef,panelRef,minimumHeight=320
  const onBlurCapture=(event:FocusEvent<HTMLDetailsElement>)=>{if(!event.currentTarget.contains(event.relatedTarget as Node|null))setOpen(false)};
  const onKeyDown=(event:KeyboardEvent<HTMLDetailsElement>)=>{if(event.key!=="Escape")return;event.preventDefault();setOpen(false);rootRef.current?.querySelector("summary")?.focus()};
  const onToggle=(event:SyntheticEvent<HTMLDetailsElement>)=>setOpen(event.currentTarget.open);
- const onSummaryClick=(event:{detail:number;preventDefault:()=>void})=>{if(event.detail>0&&supportsHover())event.preventDefault()};
- return{id,panelId:`market-popover-${id.replace(/:/g,"")}`,open,placement,side,detailsProps:{open,onToggle,onPointerEnter,onPointerLeave,onFocusCapture,onBlurCapture,onKeyDown},summaryProps:{onClick:onSummaryClick}};
+ const onSummaryClick=(event:{detail:number;preventDefault:()=>void;target?:EventTarget|null})=>{if((event.target as Element|null)?.closest?.("a[href]"))return;if(event.detail>0&&supportsHover())event.preventDefault()};
+ return{id,panelId:`market-popover-${id.replace(/:/g,"")}`,open,reveal,placement,side,supportsHover,detailsProps:{open,onToggle,onPointerEnter,onPointerLeave,onFocusCapture,onBlurCapture,onKeyDown},summaryProps:{onClick:onSummaryClick}};
 }

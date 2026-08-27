@@ -74,6 +74,91 @@ export type SealedProduct = {
   msrpSource: string | null;
 };
 
+export type DetailMetadataField = {
+  name: string;
+  label: string;
+  value: string;
+};
+
+export type DetailPriceVariant = {
+  printing: string;
+  marketPrice: number | null;
+  lowPrice: number | null;
+  directLowPrice: number | null;
+  midPrice: number | null;
+  highPrice: number | null;
+};
+
+export type SimilarCatalogItem = {
+  kind: CatalogKind;
+  productId: number;
+  name: string;
+  set: string;
+  image: string | null;
+  marketPrice: number | null;
+  href: string;
+};
+
+export type DetailSource = {
+  categoryId: number | null;
+  groupId: number | null;
+  setAbbreviation: string | null;
+  publishedOn: string | null;
+  modifiedOn: string | null;
+  imageCount: number | null;
+  isPresale: boolean | null;
+  presaleNote: string | null;
+  sourceUpdatedAt: string | null;
+};
+
+export type CatalogDetailEnrichment = {
+  kind: CatalogKind;
+  productId: number;
+  metadata: DetailMetadataField[];
+  priceVariants: DetailPriceVariant[];
+  source: DetailSource;
+};
+
+export type CatalogDetailBase = {
+  kind: CatalogKind;
+  productId: number;
+  name: string;
+  game: SealedProductGame;
+  set: string;
+  image: string | null;
+  url: string;
+  exactTcgplayerUrl: boolean;
+  metadata: DetailMetadataField[];
+  priceVariants: DetailPriceVariant[];
+  source: DetailSource;
+  similar: SimilarCatalogItem[];
+  marketRank: number | null;
+  marketRankTotal: number | null;
+  graded: null;
+};
+
+export type CardDetail = CatalogDetailBase & {
+  kind: "single";
+  game: SinglesGame;
+  section: string;
+  year: number;
+  rarity: string;
+  number: string;
+  printing: string;
+  marketPrice: number;
+};
+
+export type SealedDetail = CatalogDetailBase & {
+  kind: "sealed";
+  category: string;
+  msrp: number | null;
+  msrpSource: string | null;
+  marketPrice: number | null;
+  midPrice: number | null;
+};
+
+export type CatalogDetail = CardDetail | SealedDetail;
+
 export type HistoryMetric = {
   label: string;
   value: string;

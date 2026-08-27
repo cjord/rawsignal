@@ -56,7 +56,7 @@ test("Scalper controls are preference-driven and gated to Sealed rendering", asy
   const [page, sealed] = await Promise.all([text("../app/page.tsx"), text("../app/SealedView.tsx")]);
   assert.match(page, /raw-signal-scalper-mode/);
   assert.match(page, /setMode\(value\)/);
-  assert.match(page, /scalperEnabled=\{scalperMode==="scalper"\}/);
-  assert.match(sealed, /scalperEnabled&&<option value="scalping">Scalping<\/option>/);
-  assert.match(sealed, /beforeControls=\{isScalping\?<SaleScenario/);
+  assert.match(page, /scalperEnabled=\{scalperMode\s*===\s*"scalper"\}/);
+  assert.match(sealed, /scalperEnabled\s*&&\s*<option value="scalping">Scalping<\/option>/);
+  assert.match(sealed, /beforeControls=\{\s*isScalping\s*\?\s*\(?\s*<SaleScenario/);
 });

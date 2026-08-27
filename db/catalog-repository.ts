@@ -1,4 +1,4 @@
-import type { Card, MarketSignal, SealedProduct } from "../app/domain/types.ts";
+import type { Card, CatalogDetailEnrichment, DetailMetadataField, DetailPriceVariant, MarketSignal, SealedProduct } from "../app/domain/types.ts";
 import { createMemoryCatalogRepository, type CatalogRepository } from "../app/data/catalog-repository.ts";
 import type { CatalogDerived, SealedCatalogQuery, SinglesCatalogQuery } from "../app/data/catalog-query.ts";
 import type { D1DatabaseLike } from "./repository.ts";
@@ -40,6 +40,8 @@ type MetricRow = {
   distanceBps: number | null;
   cutoffBps: number | null;
 };
+
+type DetailRow={categoryId:number|null;groupId:number|null;setAbbreviation:string|null;publishedOn:string|null;modifiedOn:string|null;imageCount:number|null;isPresale:number|null;presaleNote:string|null;metadataJson:string;priceVariantsJson:string;sourceUpdatedAt:string|null};
 
 const dollars = (value: number | null) => value == null ? null : value / 100;
 const percent = (value: number | null) => value == null ? null : value / 100;
@@ -146,6 +148,19 @@ export function createD1CatalogRepository(db: D1DatabaseLike, ingestionRunId?: s
       const products = rows.map(toSealed).filter((product): product is SealedProduct => product !== null);
       const derived = await loadDerived(db, "sealed", options.market, options);
       return createMemoryCatalogRepository([], products).querySealed(options, derived);
+    },
+    async getDetail(kind,productId,market){
+      const row=await db.prepare(`select p.product_id as productId,p.kind,p.game,p.section,p.name,p.set_name as setName,
+        p.release_year as releaseYear,p.rarity,p.card_number as cardNumber,p.printing,p.product_type as productType,
+        p.image_url as imageUrl,p.source_url as sourceUrl,cp.market_cents as marketCents,
+        cp.listing_low_cents as listingLowCents,cp.median_cents as medianCents,cp.listing_high_cents as listingHighCents,
+        sd.msrp_cents as msrpCents,sd.msrp_source as msrpSource from catalog_products p
+        left join current_prices cp on cp.product_id=p.product_id left join sealed_details sd on sd.product_id=p.product_id
+        where p.kind=? and p.product_id=?`).bind(kind,productId).first<ProductRow>();
+      if(!row)return null;
+      const peerRows=await productRows(kind,row.game),cards=peerRows.map(toCard).filter((item):item is Card=>item!==null),sealed=peerRows.map(toSealed).filter((item):item is SealedProduct=>item!==null),detailRow=await db.prepare(`select category_id as categoryId,group_id as groupId,set_abbreviation as setAbbreviation,published_on as publishedOn,modified_on as modifiedOn,image_count as imageCount,is_presale as isPresale,presale_note as presaleNote,metadata_json as metadataJson,price_variants_json as priceVariantsJson,source_updated_at as sourceUpdatedAt from product_details where product_id=?`).bind(productId).first<DetailRow>();
+      let enrichments:CatalogDetailEnrichment[]=[];if(detailRow)try{enrichments=[{kind,productId,metadata:JSON.parse(detailRow.metadataJson) as DetailMetadataField[],priceVariants:JSON.parse(detailRow.priceVariantsJson) as DetailPriceVariant[],source:{categoryId:detailRow.categoryId,groupId:detailRow.groupId,setAbbreviation:detailRow.setAbbreviation,publishedOn:detailRow.publishedOn,modifiedOn:detailRow.modifiedOn,imageCount:detailRow.imageCount,isPresale:detailRow.isPresale==null?null:Boolean(detailRow.isPresale),presaleNote:detailRow.presaleNote,sourceUpdatedAt:detailRow.sourceUpdatedAt}}]}catch{/* Invalid optional detail JSON must not hide the core catalog record. */}
+      return createMemoryCatalogRepository(cards,sealed,enrichments).getDetail(kind,productId,market);
     },
   };
 }

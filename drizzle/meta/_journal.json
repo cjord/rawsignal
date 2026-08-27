@@ -15,6 +15,13 @@
       "when": 1787697343989,
       "tag": "0001_broken_tattoo",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1787781318519,
+      "tag": "0002_volatile_catseye",
+      "breakpoints": true
     }
   ]
 }
