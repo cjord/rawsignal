@@ -4,6 +4,7 @@ import {useEffect,useMemo,useRef,useState} from "react";
 import DeferredImage from "./DeferredImage";
 import PriceChart from "./PriceChart";
 import SaleScenario from "./SaleScenario";
+import {ChaseCardsSection,RelatedSealedSection} from "./detail-tables";
 import {evaluateMarketSignal,type MarketSignal} from "./signal-utils";
 import {calculateSealedScenario,type SealedScenario} from "./data/catalog-query";
 import {detailPercentile} from "./domain/detail";
@@ -34,11 +35,17 @@ function DetailChrome({fallback}:{fallback:string}){
 
 function SourceFacts({detail}:{detail:CatalogDetail}){const source=detail.source,premium=detail.kind==="sealed"&&detail.msrp&&detail.marketPrice!=null?(detail.marketPrice-detail.msrp)/detail.msrp*100:null,rows=[source.setAbbreviation&&["Set abbreviation",source.setAbbreviation],source.publishedOn&&["Set published",source.publishedOn.slice(0,10)],source.modifiedOn&&["Product updated",source.modifiedOn.slice(0,10)],source.imageCount!=null&&["Images available",String(source.imageCount)],source.isPresale!=null&&["Presale",source.isPresale?"Yes":"No"],premium!=null&&["MSRP premium",pct(premium)]].filter(Boolean) as string[][];return rows.length?<dl className="detail-facts">{rows.map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>:<p className="detail-unavailable">Additional source metadata is unavailable for this product.</p>}
 
+function PeerLine({label,count,average,current,noun}:{label:string;count:number;average:number|null;current:number|null;noun:string}){
+ const delta=average&&current!=null?((current-average)/average)*100:null;
+ return <p className="detail-peer-context">Average {label.toLowerCase().endsWith("s")?label:`${label}s`}: <b>{formatUsd(average,"N/A")}</b> across {count.toLocaleString()} others{delta!=null&&<> · this {noun} sits <b className={delta<0?"down":"up"}>{formatPercent(Math.abs(delta)).replace("+","")} {delta<0?"below":"above"}</b> that average</>}.</p>;
+}
+
 function PeerContextNote({detail}:{detail:CatalogDetail}){
- const peers=detail.peerContext;
- if(!peers||!peers.count)return null;
- const average=peers.averagePrice,current=detail.marketPrice,delta=average&&current!=null?((current-average)/average)*100:null;
- return <p className="detail-peer-context">Average {peers.label.toLowerCase().endsWith("s")?peers.label:`${peers.label}s`}: <b>{formatUsd(average,"N/A")}</b> across {peers.count.toLocaleString()} others{delta!=null&&<> · this {detail.kind==="single"?"card":"product"} sits <b className={delta<0?"down":"up"}>{formatPercent(Math.abs(delta)).replace("+","")} {delta<0?"below":"above"}</b> that average</>}.</p>;
+ const noun=detail.kind==="single"?"card":"product",setPeers=detail.kind==="single"?detail.setPeerContext:null;
+ return <>
+  {setPeers&&setPeers.count>0&&<PeerLine label={setPeers.label} count={setPeers.count} average={setPeers.averagePrice} current={detail.marketPrice} noun={noun}/>}
+  {detail.peerContext&&detail.peerContext.count>0&&<PeerLine label={detail.peerContext.label} count={detail.peerContext.count} average={detail.peerContext.averagePrice} current={detail.marketPrice} noun={noun}/>}
+ </>;
 }
 
 function SimilarItems({detail}:{detail:CatalogDetail}){return <section className="detail-section"><header><span>Explore the market</span><h2>Similar {detail.kind==="single"?"cards":"products"}</h2></header><PeerContextNote detail={detail}/>{detail.similar.length?<div className="similar-grid">{detail.similar.map(item=><a href={item.href} className="similar-card" key={`${item.kind}:${item.productId}`}><DeferredImage src={item.image} alt=""/><span><b>{item.name}</b><small>{item.set}</small><strong>{formatUsd(item.marketPrice,"N/A")}</strong></span></a>)}</div>:<p className="detail-unavailable">No close comparisons are available.</p>}</section>}
@@ -87,5 +94,8 @@ export default function ProductDetailPage({detail,market}:{detail:CatalogDetail;
  <PrintingsTable detail={detail} printing={printing} onSelect={setVariant}/>
  <p className="detail-note">{h.coverage==="exact"?"Exact":"Fallback"} {h.variant??variant?.printing} · {h.condition??"market"} history. Sales counts are TCGplayer completed sales for this printing and condition, reported in three-day buckets over the trailing 90 days.</p></>}</section>
  <SignalsPanel history={historyData} current={current} strictness={strictness} onStrictness={setStrictness}/>
- {detail.kind==="sealed"&&<SealedScenarioPanel detail={detail}/>}<section className="detail-section"><header><span>Product overview</span><h2>{detail.kind==="single"?"Card details":"Product details"}</h2></header><div className="detail-info-layout"><SourceFacts detail={detail}/>{detail.metadata.length?<dl className="detail-metadata">{detail.metadata.map(field=><div key={`${field.name}:${field.value}`}><dt>{field.label}</dt><dd>{field.value}</dd></div>)}</dl>:<p className="detail-unavailable">No additional category-specific fields were supplied for this product.</p>}</div>{detail.source.presaleNote&&<p className="detail-note">Presale note: {detail.source.presaleNote}</p>}</section><SimilarItems detail={detail}/><section className="detail-provenance"><b>Data notes</b><p>{sourceLabel}. TCGplayer listing highs can be distorted by price parking. Market prices and history are informational and are not guarantees of future value.</p></section></article></main>;
+ {detail.kind==="sealed"&&<SealedScenarioPanel detail={detail}/>}
+ {detail.kind==="sealed"&&<ChaseCardsSection cards={detail.chaseCards} packPrice={detail.packPrice} setName={detail.set}/>}
+ {detail.kind==="sealed"&&<RelatedSealedSection products={detail.relatedSealed} setName={detail.set} market={market}/>}
+ <section className="detail-section"><header><span>Product overview</span><h2>{detail.kind==="single"?"Card details":"Product details"}</h2></header><div className="detail-info-layout"><SourceFacts detail={detail}/>{detail.metadata.length?<dl className="detail-metadata">{detail.metadata.map(field=><div key={`${field.name}:${field.value}`}><dt>{field.label}</dt><dd>{field.value}</dd></div>)}</dl>:<p className="detail-unavailable">No additional category-specific fields were supplied for this product.</p>}</div>{detail.source.presaleNote&&<p className="detail-note">Presale note: {detail.source.presaleNote}</p>}</section><SimilarItems detail={detail}/><section className="detail-provenance"><b>Data notes</b><p>{sourceLabel}. TCGplayer listing highs can be distorted by price parking. Market prices and history are informational and are not guarantees of future value.</p></section></article></main>;
 }

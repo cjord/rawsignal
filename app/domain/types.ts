@@ -170,6 +170,7 @@ export type CardDetail = CatalogDetailBase & {
   number: string;
   printing: string;
   marketPrice: number;
+  setPeerContext: DetailPeerContext | null;
 };
 
 export type SealedDetail = CatalogDetailBase & {
@@ -179,6 +180,9 @@ export type SealedDetail = CatalogDetailBase & {
   msrpSource: string | null;
   marketPrice: number | null;
   midPrice: number | null;
+  packPrice: number | null;
+  chaseCards: Card[];
+  relatedSealed: SealedProduct[];
 };
 
 export type CatalogDetail = CardDetail | SealedDetail;

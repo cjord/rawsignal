@@ -33,6 +33,7 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - `app/market-utils.ts`, `app/history-utils.ts`: shared search, history, range, concurrency, and popover utilities.
 - `app/hooks/useDisclosurePopover.ts`: the shared hover/touch/keyboard disclosure behavior for row history popovers.
 - `app/cards/[productId]/`, `app/sealed/[productId]/`, `app/ProductDetailPage.tsx`, `app/detail-route.ts`: product detail pages and their server-route metadata/validation helpers.
+- `app/detail-tables.tsx`: the sealed detail page's Chase cards and same-set sealed tables, reusing the leaderboard row shell in Medium/Text views. Chase cards are set cards priced above the set's cheapest plain booster-pack market price (top cards by value when no pack price exists), capped at twelve.
 - `app/domain/detail.ts`, `app/domain/detail-metrics.ts`, `app/data/load-detail.ts`: detail formatting, similarity scoring, and the D1 → scalping-feed → generated-feed detail resolution cascade.
 - `app/not-found.tsx`: shared 404 surface.
 - `app/domain/`: shared market types, runtime feed contracts, and display formatters.
