@@ -23,10 +23,17 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - `app/page.tsx`: application shell and Singles leaderboard orchestration.
 - `app/SealedView.tsx`: Sealed leaderboard, calculations, filtering, sorting, and views.
 - `app/MarketUI.tsx`: shared pagination, segmented view controls, and sortable headers.
+- `app/leaderboard/`: the shared Singles/Sealed leaderboard shell — `MarketLeaderboard.tsx`, `MarketRow.tsx`, `HistoryPopover.tsx`, `FullMarketCard.tsx`, `ProductIdentity.tsx`, `ActiveFilterSummary.tsx`, `LeaderboardHeader.tsx`, `LeaderboardControls.tsx`, and the `mode-adapter.ts` sort/derivation contract. Compose new list behavior here, not in the page files.
+- `app/filters/`: filter primitives — `CheckboxGrid.tsx` (+`SearchableCheckboxGrid`), `RangeFilter.tsx`, `FilterButton.tsx`, `FilterActions.tsx`, `selection.ts`, `useDismissibleDetails.ts`.
 - `app/HistoryPanel.tsx`, `app/PriceChart.tsx`: shared historical-price presentation and interactive charts.
 - `app/CardFilters.tsx`, `app/SealedFilters.tsx`, `app/MultiSelectField.tsx`: filter and multi-select controls.
 - `app/SignalControls.tsx`, `app/signal-utils.ts`: Hot Buy/Hot Sell controls and scoring.
+- `app/SaleScenario.tsx`: the sale-scenario what-if strip (keep-after-fees, shipping, tax, profitable-only) shared by Scalper mode and the sealed detail page.
 - `app/market-utils.ts`, `app/history-utils.ts`: shared search, history, range, concurrency, and popover utilities.
+- `app/hooks/useDisclosurePopover.ts`: the shared hover/touch/keyboard disclosure behavior for row history popovers.
+- `app/cards/[productId]/`, `app/sealed/[productId]/`, `app/ProductDetailPage.tsx`, `app/detail-route.ts`: product detail pages and their server-route metadata/validation helpers.
+- `app/domain/detail.ts`, `app/domain/detail-metrics.ts`, `app/data/load-detail.ts`: detail formatting, similarity scoring, and the D1 → scalping-feed → generated-feed detail resolution cascade.
+- `app/not-found.tsx`: shared 404 surface.
 - `app/domain/`: shared market types, runtime feed contracts, and display formatters.
 - `app/data/catalog-query.ts`, `app/data/catalog-repository.ts`: shared Singles/Sealed query semantics and repository contract.
 - `app/data/feed-catalog-repository.ts`, `app/data/catalog-service.ts`: bundled-feed adapter and transport-neutral catalog service.
@@ -34,13 +41,14 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - `app/data/usePersistedSignals.ts`, `app/api/signals/route.ts`: persisted Hot Buy/Hot Sell readiness gate and compact signal records.
 - `app/data/signal-coverage.ts`: proportional, price-stratified transitional signal sampling.
 - `app/state/`: the authoritative Singles/Sealed URL-state parser, serializer, and browser synchronization hook.
-- `app/globals.css`: original global layout and component styles.
-- `app/market-views.css`: later shared view, filter, signal, and responsive refinements. Check both stylesheets before adding overrides.
+- Styles load as a layered chain in `app/layout.tsx`: `app/styles/tokens.css` (design tokens) → `app/globals.css` (original global layout, minified-era) → `app/market-views.css` (later shared view/filter/signal refinements) → `app/styles/market-controls.css` and `app/styles/market-content.css` (extracted shared control and row presentation) → `app/detail.css` (self-contained detail-page styles). Check the whole chain before adding overrides; later files intentionally override earlier ones.
 - `app/api/history/route.ts`: normalized TCGplayer market-history access.
 - `app/api/catalog/route.ts`: compact catalog query endpoint with D1-readiness checks and bundled-feed fallback.
+- `app/api/catalog/detail/route.ts`: JSON detail endpoint mirroring `loadCatalogDetail`; the detail pages currently load directly on the server instead of calling it.
 - `db/schema.ts`, `db/repository.ts`: D1 persistence schema and idempotent ingestion/read boundary.
 - `db/catalog-repository.ts`: D1 catalog adapter using the shared catalog query contract.
 - `db/daily-ingestion.ts`, `db/history-backfill.ts`: idempotent daily snapshots, derived metrics/signals, and resumable history backfill.
+- `product_details` (migration `0002`) stores detail-page enrichments read by `db/catalog-repository.ts`. Known gap: no ingestion path calls `upsertProductDetail` yet, so D1 detail enrichment stays empty until one exists.
 - `worker/staging-jobs.ts`: staging-only, bearer-protected, checkpointed catalog/history execution adapter. It must remain hidden outside staging and must not gain a production route.
 - `drizzle/`: generated, committed D1 migrations and schema snapshots.
 - `docs/adr/`: accepted architecture decisions, including the Sites-to-Cloudflare path.
@@ -50,6 +58,8 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - `sync-sealed.mjs`: generates normalized Pokémon sealed-product data.
 - `sealed-product-utils.mjs`: market validation, deduplication, and product-type classification.
 - `scripts/clients/`, `scripts/normalize/`, `scripts/validate/`, `scripts/io/`: retrying source clients, pure normalization, validation manifests, and last-good publishing.
+- `scripts/scalper/`: the Scalper allowlist pipeline — `reconcile.mjs` and `build-feed.mjs` produce `public/data/sealed-scalping.json` from `approved-variants.json`, `supplemental-products.json`, and the review process in `docs/scalper-variant-review.md`.
+- Known gap: `scripts/details/build-detail-feeds.mjs` (npm `data:build:details`) is referenced but has never been committed. The detail feeds it produced (`public/data/detail-manifest.json` plus `public/data/details/`) are rescued copies of earlier build output; recreate the generator before regenerating them.
 - `public/data/`: generated market feeds consumed by the application.
 - `tests/`: Node test suite covering history, search, rendering, market validation, sealed classification, and signal scoring.
 - `.openai/hosting.json`: OpenAI Sites project configuration. Preserve its opaque `project_id`.
@@ -101,6 +111,8 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - Avoid layout shifts when filters become active. Reserve summary space or update content in place.
 - Respect `prefers-reduced-motion` for added animation.
 - Use semantic controls, visible focus states, `aria-label`, `aria-pressed`, and `aria-sort` consistently.
+- Scalper mode is a stored preference (`raw-signal-scalper-mode`) that gates the `scalping` sealed market and its sale-scenario controls. Enabling it must not navigate away from the current view, and `market=scalping` in a shared URL must still round-trip.
+- Detail pages live at `/cards/[productId]` and `/sealed/[productId]` (Sealed threads `?market=` through). They must render correctly from feed-only data when D1 detail enrichment is unavailable, keep the leaderboard's provenance and `N/A` rules, and keep the back control functional on direct loads.
 
 ## Signal rules
 
@@ -125,7 +137,9 @@ npm test
 npm run check
 ```
 
-It also runs lint. Fix new warnings introduced by the change; do not broaden scope to unrelated legacy warnings without approval.
+It also runs lint and the Chromium browser suite (install its browser once with `npm run test:browser:install`). Fix new warnings introduced by the change; do not broaden scope to unrelated legacy warnings without approval.
+
+Note that `tests/rendered-html.test.mjs` and `tests/scalper-mode.test.mjs` include characterization assertions that regex-match raw component source. When reformatting or restructuring a matched file, update those regexes deliberately (keep them whitespace-tolerant) rather than weakening or deleting the assertion.
 
 Add or update tests when changing:
 
