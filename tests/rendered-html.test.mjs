@@ -188,6 +188,33 @@ test("validates rarity order, high prices, and regional N/A records", async () =
   assert.ok(regional.every(product => product.marketPrice === null && product.profit === null));
 });
 
+test("tucks explanatory copy behind info hints and warms detail routes on popover intent", async () => {
+  const [detail, row, prefetch, loadDetail, css] = await Promise.all([
+    readFile(new URL("../app/ProductDetailPage.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/leaderboard/MarketRow.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/leaderboard/detail-prefetch.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/data/load-detail.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/detail.css", import.meta.url), "utf8"),
+  ]);
+  // D3: explanatory metric text rides an InfoHint; data hints (dates, delivered ranges) stay visible.
+  assert.match(detail, /import InfoHint from "\.\/InfoHint"/);
+  assert.match(detail, /info\?:string/);
+  assert.doesNotMatch(detail, /hint="10–90th percentile range vs median"/);
+  assert.doesNotMatch(detail, /hint="Within the all-time range"/);
+  // F1: history-gated sections keep their footprint with shimmer skeletons while /api/history resolves.
+  assert.match(detail, /detail-skeleton/);
+  assert.match(detail, /loading=\{!historyData&&!historyError\}/);
+  assert.match(css, /\.detail-skeleton\{/);
+  assert.match(css, /\.info-hint \[role="tooltip"\]\{display:none/);
+  // F1: a popover dwell prefetches the detail route once per href, during idle time.
+  assert.match(row, /warmDetailPage/);
+  assert.match(prefetch, /requestIdleCallback/);
+  assert.match(prefetch, /saveData/);
+  // F1: the server surfaces repository/detail build timings for cold-start measurement.
+  assert.match(loadDetail, /detailServerTiming/);
+  assert.match(detail, /data-server-timing/);
+});
+
 test("keeps Magic support paused across active application surfaces", async () => {
   const [page, sealed, layout, sync, rawIndex, queryState] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),

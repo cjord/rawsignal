@@ -625,7 +625,19 @@ starts without the Gate 0 items.
   card heights per row — and the popup's seam-side border is zero-width, not transparent,
   killing the 1px miter notch); the masthead is centered with "without the noise." in the
   site blue.
-- **Phase 3:** D3, F1 (measure first, then 1+2).
+- **Phase 3:** D3, F1 (measure first, then 1+2). **LANDED 2026-08-27.** D3: shared
+  `app/InfoHint.tsx` toggletip (edge-aware alignment via `app/hooks/info-hint.ts`);
+  explanatory metric hints (volatility, momentum, trend, range position, sales/week,
+  realized range), the fair-value blend formula, the graded smart-market explainer, and
+  the pull-rate caveat now ride ⓘ hints while data hints stay visible. F1(1): a popover
+  dwell calls `warmDetailPage` (`app/leaderboard/detail-prefetch.ts`) — one idle-time
+  fetch per href warms the cold-isolate repository build; `/api/history` was already
+  browser-cached by the row batch. F1(2): shimmer skeletons (`.detail-skeleton`) hold the
+  fair-value panel, history metric grid, and signal cards while `/api/history` resolves.
+  Measurement: RSC pages can't set headers, so `loadCatalogDetail` records
+  Server-Timing-formatted repo/detail/source timings surfaced as `data-server-timing` on
+  the detail page root (curl the HTML on Sites to read real cold-start numbers). F1(3)
+  (per-product summary chunks) stays parked until those numbers justify it; F1(4) is G1.
 - **Phase 4:** G1 (after the UI phases, gated on Gate 0 authorization).
 - Each phase ends with the full gate (`npm run check`, dev server stopped first) and a
   packaged vN handoff if you want it deployed.

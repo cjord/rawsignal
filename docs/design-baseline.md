@@ -58,6 +58,14 @@ Defined in `app/styles/tokens.css` (dimensions/motion/stacking) and `app/globals
   (`data-popup-place`, `data-expand`) — never hand-roll popover placement.
 - **Collapsible section** (`.detail-collapsible`): native `<details>`; summary reuses the
   section header anatomy plus a rotating `▸` mark; content stays in the DOM.
+- **Info hint** (`.info-hint`): 15px ⓘ toggletip for *explanatory* copy — hover/focus
+  reveal, tap to toggle, Escape closes; the text stays in the DOM so `aria-describedby`
+  keeps announcing it. Explanations ride the ⓘ; *data* (dates, counts, delivered ranges)
+  stays visible on the tile. Alignment flips near viewport edges via `data-align`.
+- **Skeleton** (`.detail-skeleton`): shimmer placeholder matching the final component's
+  footprint (metric tile, signal card, gauge lines) while client-fetched data resolves;
+  static under reduced motion; wrappers are `aria-hidden` with `aria-busy` on the section.
+  Route-level `loading.tsx` stays banned (vinext) — skeletons are always in-page.
 - **Settings menu** (`.settings-menu`): 230–260px panel, section titles via
   `.settings-section-title`, controls full-width. Device preferences (theme, font size,
   signal strictness, scalper mode) live here — persisted in `localStorage` with
