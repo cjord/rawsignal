@@ -10,6 +10,12 @@ export interface CatalogRepository {
 
 const emptySource={categoryId:null,groupId:null,setAbbreviation:null,publishedOn:null,modifiedOn:null,imageCount:null,isPresale:null,presaleNote:null,sourceUpdatedAt:null};
 
+// "Other" peers only: the product itself is excluded, and unavailable prices stay out of the average.
+function peerAverage(label:string,prices:(number|null)[]){
+ const usable=prices.filter((price):price is number=>price!=null&&price>0);
+ return {label,averagePrice:usable.length?usable.reduce((sum,price)=>sum+price,0)/usable.length:null,count:usable.length};
+}
+
 export function createMemoryCatalogRepository(cards: Card[], sealedProducts: SealedProduct[], enrichments:CatalogDetailEnrichment[]=[]): CatalogRepository {
   const uniqueCards = [...new Map(cards.map(card => [card.productId, card])).values()];
   const uniqueSealed = [...new Map(sealedProducts.map(product => [product.productId, product])).values()];
@@ -26,11 +32,13 @@ export function createMemoryCatalogRepository(cards: Card[], sealedProducts: Sea
       if(kind==="single"){
         const card=uniqueCards.find(item=>item.productId===productId);if(!card)return null;
         const peers=uniqueCards.filter(item=>item.game===card.game&&item.set===card.set&&(item.rarity===card.rarity||item.section===card.section)),rank=marketRank(card.marketPrice,peers.map(item=>item.marketPrice));
-        return {...card,kind:"single",image:card.image||null,exactTcgplayerUrl:exactTcgplayerUrl(card.url),metadata:enrichment?.metadata??[],priceVariants:enrichment?.priceVariants??[{printing:card.printing,marketPrice:card.marketPrice,lowPrice:card.lowPrice,directLowPrice:null,midPrice:card.midPrice,highPrice:card.highPrice}],source:enrichment?.source??emptySource,similar:similarCards(card,uniqueCards),marketRank:rank.rank,marketRankTotal:rank.total,graded:null};
+        const rarityPeers=uniqueCards.filter(item=>item.game===card.game&&item.rarity===card.rarity&&item.productId!==card.productId);
+        return {...card,kind:"single",image:card.image||null,exactTcgplayerUrl:exactTcgplayerUrl(card.url),metadata:enrichment?.metadata??[],priceVariants:enrichment?.priceVariants??[{printing:card.printing,marketPrice:card.marketPrice,lowPrice:card.lowPrice,directLowPrice:null,midPrice:card.midPrice,highPrice:card.highPrice}],source:enrichment?.source??emptySource,similar:similarCards(card,uniqueCards),marketRank:rank.rank,marketRankTotal:rank.total,peerContext:peerAverage(`${card.rarity} cards`,rarityPeers.map(item=>item.marketPrice)),graded:null};
       }
       const candidates=market==="scalping"?uniqueSealed:uniqueSealed.filter(item=>!market||item.game===market),product=candidates.find(item=>item.productId===productId)??uniqueSealed.find(item=>item.productId===productId);if(!product)return null;
       const peers=uniqueSealed.filter(item=>item.game===product.game&&item.set===product.set&&item.category===product.category),rank=marketRank(product.marketPrice,peers.map(item=>item.marketPrice));
-      return {...product,kind:"sealed",exactTcgplayerUrl:exactTcgplayerUrl(product.url),metadata:enrichment?.metadata??[],priceVariants:enrichment?.priceVariants??[{printing:"Sealed",marketPrice:product.marketPrice,lowPrice:null,directLowPrice:null,midPrice:product.midPrice,highPrice:null}],source:enrichment?.source??emptySource,similar:similarSealed(product,uniqueSealed),marketRank:rank.rank,marketRankTotal:rank.total,graded:null};
+      const categoryPeers=candidates.filter(item=>item.category===product.category&&item.productId!==product.productId);
+      return {...product,kind:"sealed",exactTcgplayerUrl:exactTcgplayerUrl(product.url),metadata:enrichment?.metadata??[],priceVariants:enrichment?.priceVariants??[{printing:"Sealed",marketPrice:product.marketPrice,lowPrice:null,directLowPrice:null,midPrice:product.midPrice,highPrice:null}],source:enrichment?.source??emptySource,similar:similarSealed(product,uniqueSealed),marketRank:rank.rank,marketRankTotal:rank.total,peerContext:peerAverage(product.category,categoryPeers.map(item=>item.marketPrice)),graded:null};
     },
   };
 }

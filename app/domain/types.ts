@@ -119,6 +119,12 @@ export type CatalogDetailEnrichment = {
   source: DetailSource;
 };
 
+export type DetailPeerContext = {
+  label: string;
+  averagePrice: number | null;
+  count: number;
+};
+
 export type CatalogDetailBase = {
   kind: CatalogKind;
   productId: number;
@@ -134,6 +140,7 @@ export type CatalogDetailBase = {
   similar: SimilarCatalogItem[];
   marketRank: number | null;
   marketRankTotal: number | null;
+  peerContext: DetailPeerContext | null;
   graded: null;
 };
 
