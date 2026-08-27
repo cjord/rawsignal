@@ -102,3 +102,23 @@ test("peer context reports no average when every peer price is unavailable", asy
   assert.equal(detail.peerContext.averagePrice, null);
   assert.equal(detail.peerContext.count, 0);
 });
+
+test("section-keyed pull rates distinguish tiers that share a rarity string", async () => {
+  const config = { games: { riftbound: { default: { signatures: 720, overnumbered: 72 }, sets: {} } } };
+  const cards = [
+    card(1, { game: "riftbound", rarity: "Showcase", section: "signatures", marketPrice: 400 }),
+    card(2, { game: "riftbound", rarity: "Showcase", section: "signatures", marketPrice: 200 }),
+    card(3, { game: "riftbound", rarity: "Showcase", section: "overnumbered", marketPrice: 50 }),
+  ];
+  const products = [sealed(9, { game: "riftbound", category: "Booster Packs", marketPrice: 5 })];
+  const repo = createMemoryCatalogRepository(cards, products, [], config);
+  const detail = await repo.getDetail("single", 1);
+  assert.equal(detail.pullRate.packsPerHit, 720);
+  assert.equal(detail.pullRate.packsPerCard, 1440);
+  assert.equal(detail.pullRate.costPerCard, 7200);
+  const sealedDetail = await repo.getDetail("sealed", 9, "riftbound");
+  const rows = Object.fromEntries(sealedDetail.pullRates.map(r => [r.rarity, r]));
+  assert.equal(rows.Signatures.cardCount, 2);
+  assert.equal(rows.Signatures.costPerHit, 3600);
+  assert.equal(rows.Overnumbered.cardCount, 1);
+});

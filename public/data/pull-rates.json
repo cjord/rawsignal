@@ -1,6 +1,6 @@
 {
-  "note": "Community-measured pull-rate estimates, expressed as packs per hit of ANY card of the rarity. Curated by hand; the UI must always label derived values as estimates. Per-card odds multiply by the count of that rarity in the set. Set-level entries override the game default. Rarities without an entry render as unavailable.",
-  "sources": "Aggregated community opening data (JustInBasil-style rate summaries and TCGplayer pull-rate articles) for the Scarlet & Violet / Mega Evolution era; verify against current-set articles when adding overrides.",
+  "note": "Community-measured pull-rate estimates, expressed as packs per hit of ANY card of the tier. Curated by hand; the UI must always label derived values as estimates. Keys may be a card rarity (e.g. 'Special Illustration Rare') or a section slug (e.g. 'signatures'); a section key wins when both match, which lets tiers that share a rarity string (Riftbound's Showcase cards) carry different rates. Per-card odds multiply by the count of matching cards in the set. Set-level entries override the game default. Tiers without an entry render as unavailable.",
+  "sources": "Pokemon: aggregated community opening data (JustInBasil-style rate summaries and TCGplayer pull-rate articles) for the Scarlet & Violet / Mega Evolution era. Riftbound: community per-box estimates (Epic ~6/box, Alt Art ~2/box, Showcase/Overnumbered ~1 per 3 boxes, Signature ~1 per 30 boxes), applied across all sets until per-set data exists.",
   "games": {
     "pokemon": {
       "default": {
@@ -19,7 +19,12 @@
       }
     },
     "riftbound": {
-      "default": {},
+      "default": {
+        "Epic": 4,
+        "alt-arts": 12,
+        "overnumbered": 72,
+        "signatures": 720
+      },
       "sets": {}
     }
   }
