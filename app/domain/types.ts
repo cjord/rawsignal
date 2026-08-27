@@ -176,6 +176,14 @@ export type RarityPullRate = {
   averageMarket: number | null;
 };
 
+export type PeerAnchorStats = {
+  current: number;
+  cardCount: number;
+  avg30: number | null;
+  avg90: number | null;
+  observations: number;
+};
+
 export type CatalogDetailBase = {
   kind: CatalogKind;
   productId: number;
@@ -206,6 +214,7 @@ export type CardDetail = CatalogDetailBase & {
   marketPrice: number;
   setPeerContext: DetailPeerContext | null;
   pullRate: CardPullRate | null;
+  peerAnchor: PeerAnchorStats | null;
 };
 
 export type SealedDetail = CatalogDetailBase & {

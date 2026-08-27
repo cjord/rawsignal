@@ -61,6 +61,22 @@ test("modeled fair value blends medians and listing with renormalized weights", 
   // no listing: weights renormalize over the medians alone
   assert.equal(modeledFairValue(points, null), 100);
   assert.equal(modeledFairValue([], null), null);
+  // anchored: 90D 100 (.4) + 30D 100 (.24) + listing 150 (.16) + anchor 200 (.2) => 128
+  assert.ok(Math.abs(modeledFairValue(points, 150, 200) - 128) < 1e-9);
+  // a null anchor renormalizes to exactly the original 50/30/20 blend
+  assert.equal(modeledFairValue(points, 150, null), modeledFairValue(points, 150));
+});
+
+test("peer anchor projects the card's cohort position and gates on history depth", async () => {
+  const { MIN_PEER_OBSERVATIONS, peerAnchorValue } = await import("../app/domain/detail-metrics.ts");
+  const points = series([100, 100, 100, 100]);
+  const peer = { current: 60, cardCount: 8, avg30: 55, avg90: 50, observations: MIN_PEER_OBSERVATIONS };
+  // card median 100 vs cohort 90D average 50 => 2x position; anchored to current cohort 60 => 120
+  assert.equal(peerAnchorValue(points, peer), 120);
+  assert.equal(peerAnchorValue(points, { ...peer, observations: MIN_PEER_OBSERVATIONS - 1 }), null);
+  assert.equal(peerAnchorValue(points, { ...peer, avg90: null }), null);
+  assert.equal(peerAnchorValue([], peer), null);
+  assert.equal(peerAnchorValue(points, null), null);
 });
 
 test("demand trend compares the last thirty days against the prior thirty", async () => {

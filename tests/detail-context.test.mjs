@@ -140,3 +140,13 @@ test("graded snapshots attach to card details and absent cards stay null", async
   const none = await repo.getDetail("single", 2);
   assert.equal(none.graded, null);
 });
+
+test("peer anchors attach by game|set|rarity cohort and absent cohorts stay null", async () => {
+  const anchors = { "pokemon|Test Set|Illustration Rare": { current: 30, cardCount: 6, avg30: 20, avg90: 20, observations: 3 } };
+  const repo = createMemoryCatalogRepository([card(1), card(2, { set: "Other Set" })], [], [], undefined, undefined, anchors);
+  const detail = await repo.getDetail("single", 1);
+  assert.equal(detail.peerAnchor.current, 30);
+  assert.equal(detail.peerAnchor.observations, 3);
+  const none = await repo.getDetail("single", 2);
+  assert.equal(none.peerAnchor, null);
+});

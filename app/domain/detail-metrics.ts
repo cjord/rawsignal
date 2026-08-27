@@ -1,4 +1,4 @@
-import type {PriceHistory,PricePoint,SalesBucket} from "./types";
+import type {PeerAnchorStats,PriceHistory,PricePoint,SalesBucket} from "./types";
 
 export const distanceAbove=(value:number|null,low:number|null)=>value==null||low==null||low<=0?null:(value-low)/low*100;
 export const distanceBelow=(value:number|null,high:number|null)=>value==null||high==null||high<=0?null:(high-value)/high*100;
@@ -21,9 +21,20 @@ export function priceStreak(points:PricePoint[]){const usable=points.filter(poin
 export function trendSlope(points:PricePoint[],days:number){const window=windowPoints(points,days);if(window.length<3)return null;const times=window.map(point=>Date.parse(`${point.date}T00:00:00Z`)/86_400_000),prices=window.map(point=>point.price),n=window.length;const meanT=times.reduce((a,b)=>a+b,0)/n,meanP=prices.reduce((a,b)=>a+b,0)/n;let num=0,den=0;for(let i=0;i<n;i++){num+=(times[i]-meanT)*(prices[i]-meanP);den+=(times[i]-meanT)**2}return den?(num/den)*7:null}
 // Median market observation over the trailing window.
 export function windowMedian(points:PricePoint[],days:number){const prices=windowPoints(points,days).map(point=>point.price);if(prices.length<2)return null;return quantileOf([...prices].sort((a,b)=>a-b),.5)}
-// Transparent weighted blend: 90D median (.5), 30D median (.3), current median listing (.2), renormalized over available components. Null when no component exists.
-export function modeledFairValue(points:PricePoint[],midPrice:number|null){
- const components:[number|null,number][]=[[windowMedian(points,90),.5],[windowMedian(points,30),.3],[midPrice!=null&&midPrice>0?midPrice:null,.2]];
+// The set-rarity anchor needs enough daily peer observations before its ratio is meaningful.
+export const MIN_PEER_OBSERVATIONS=14;
+// Projects the card's typical position within its set-rarity cohort onto the cohort's current
+// average: peer current × (card 90D median ÷ peer 90D average). Null until enough history.
+export function peerAnchorValue(points:PricePoint[],peer:PeerAnchorStats|null){
+ if(!peer||peer.observations<MIN_PEER_OBSERVATIONS||peer.avg90==null||peer.avg90<=0||peer.current<=0)return null;
+ const median90=windowMedian(points,90);
+ return median90!=null&&median90>0?peer.current*(median90/peer.avg90):null;
+}
+// Transparent weighted blend: 90D median (.4), 30D median (.24), current median listing (.16),
+// set-rarity peer anchor (.2), renormalized over available components — exactly the original
+// 50/30/20 blend while the anchor is unavailable. Null when no component exists.
+export function modeledFairValue(points:PricePoint[],midPrice:number|null,anchor:number|null=null){
+ const components:[number|null,number][]=[[windowMedian(points,90),.4],[windowMedian(points,30),.24],[midPrice!=null&&midPrice>0?midPrice:null,.16],[anchor!=null&&anchor>0?anchor:null,.2]];
  const usable=components.filter((entry):entry is [number,number]=>entry[0]!=null);
  if(!usable.length)return null;
  const totalWeight=usable.reduce((sum,[,weight])=>sum+weight,0);

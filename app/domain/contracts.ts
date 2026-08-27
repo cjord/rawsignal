@@ -1,4 +1,4 @@
-import type { Card, CatalogDetailEnrichment, DetailMetadataField, DetailPriceVariant, DetailSource, GradedCardData, PriceHistory, PricePoint, PullRateConfig, SealedProduct } from "./types";
+import type { Card, CatalogDetailEnrichment, DetailMetadataField, DetailPriceVariant, DetailSource, GradedCardData, PeerAnchorStats, PriceHistory, PricePoint, PullRateConfig, SealedProduct } from "./types";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -108,6 +108,20 @@ export function parsePullRateConfig(value:unknown):PullRateConfig{
   games[game]={default:rates(entry.default,"default"),sets};
  }
  return {games};
+}
+
+// Tolerant like the graded feed: malformed cohorts are skipped rather than failing the load.
+export function parsePeerAnchorFeed(value:unknown):Record<string,PeerAnchorStats>{
+ if(!record(value)||!record(value.entries))throw new TypeError("Invalid peer-context feed");
+ const entries:Record<string,PeerAnchorStats>={};
+ for(const [key,entry] of Object.entries(value.entries)){
+  if(!record(entry)||!finite(entry.current)||entry.current<=0||!finite(entry.cardCount)||entry.cardCount<1)continue;
+  const window=(input:unknown)=>finite(input)&&input>0?input:null;
+  const observations=finite(entry.observations)&&entry.observations>=1?Math.floor(entry.observations):0;
+  if(!observations)continue;
+  entries[key]={current:entry.current,cardCount:Math.floor(entry.cardCount),avg30:window(entry.avg30),avg90:window(entry.avg90),observations};
+ }
+ return entries;
 }
 
 export function parseGradedPriceFeed(value:unknown):Record<string,GradedCardData>{

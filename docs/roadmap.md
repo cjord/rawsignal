@@ -28,7 +28,12 @@ Blocked on: user-supplied Wrangler login and `STAGING_JOB_TOKEN`, plus explicit 
 to mutate Cloudflare state. Payoff: D1-served catalog/history/signals, accumulating per-day
 observation history (unblocks item 4 below), and data refreshes without redeploys.
 
-## 2. Daily detail-feed regeneration (plan validated 2026-08-26)
+## 2. Daily detail-feed regeneration — BACKLOG (user deferred 2026-08-27)
+
+Skipped for now at the user's direction; revisit when scheduling is requested. The generator
+and freshness probe exist (`scripts/details/build-detail-feeds.mjs`), so this item is now
+purely the scheduling and publish-path decisions below. Until it lands, feeds (and the peer
+history in item 4) refresh only when a data-refresh task runs the scripts manually.
 
 Cadence: TCGCSV publishes daily at 20:00 UTC (`https://tcgcsv.com/last-updated.txt` is the
 cheap freshness probe). First attempt at ~20:10 UTC, retrying every 10 minutes until the
@@ -60,9 +65,15 @@ A daily scheduled run (same host decision as item 2) keeps the rotation moving. 
 tier would cover the pool daily. Population/GemRate data requires the provider's Business
 plan and stays rendered as unavailable.
 
-## 4. Fair-value set-rarity anchor
+## 4. Fair-value set-rarity anchor — implemented via feed accumulation (2026-08-27)
 
-`modeledFairValue` currently blends the card's own history (90-day median .5, 30-day median
-.3, current median listing .2, renormalized). A set/rarity peer anchor was designed but
-collapses algebraically without historical peer averages, which need the D1 per-day
-observation history from item 1. Revisit once `daily-market` has accumulated history.
+Rather than waiting on D1 history (the original plan), per-day set/rarity peer averages now
+accumulate in `data-history/peer-averages.json` (committed, not bundled) each time
+`scripts/details/build-peer-context.mjs` runs after a singles sync; the bundled summary is
+`public/data/peer-context.json`. The anchor component is
+`peer current average × (card 90-day median ÷ peer 90-day average)` and activates only once
+a cohort has 14 daily observations — until then fair value renormalizes to exactly the
+original 50/30/20 blend and the panel notes that the anchor is still accumulating. History
+accrues one observation per TCGCSV publish date, so activation needs the daily job from
+item 2 (or manual refreshes) to run consistently. D1 remains a future upgrade path for
+deeper retroactive history.
