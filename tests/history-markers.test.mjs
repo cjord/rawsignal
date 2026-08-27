@@ -50,3 +50,28 @@ test("sales window aggregates trailing buckets and keeps missing prices out", ()
   assert.equal(window.highWithShipping, 95);
   assert.deepEqual(salesWindow([], 30), { quantity: 0, low: null, high: null, lowWithShipping: null, highWithShipping: null });
 });
+
+test("modeled fair value blends medians and listing with renormalized weights", async () => {
+  const { modeledFairValue, windowMedian } = await import("../app/domain/detail-metrics.ts");
+  const points = series([100, 100, 100, 100]);
+  assert.equal(windowMedian(points, 90), 100);
+  assert.equal(modeledFairValue(points, 100), 100);
+  // 90D median 100 (.5) + 30D median 100 (.3) + listing 150 (.2) => 110
+  assert.ok(Math.abs(modeledFairValue(points, 150) - 110) < 1e-9);
+  // no listing: weights renormalize over the medians alone
+  assert.equal(modeledFairValue(points, null), 100);
+  assert.equal(modeledFairValue([], null), null);
+});
+
+test("demand trend compares the last thirty days against the prior thirty", async () => {
+  const { demandTrend } = await import("../app/domain/detail-metrics.ts");
+  const bucket = (date, quantity) => ({ date, quantity, low: null, high: null, lowWithShipping: null, highWithShipping: null });
+  assert.equal(demandTrend([]), null);
+  assert.equal(demandTrend([bucket("2026-08-20", 0)]), null);
+  const rising = demandTrend([bucket("2026-07-05", 2), bucket("2026-08-01", 5), bucket("2026-08-20", 6)]);
+  assert.equal(rising.label, "rising");
+  assert.equal(rising.recent, 11);
+  assert.equal(rising.prior, 2);
+  const holding = demandTrend([bucket("2026-07-10", 10), bucket("2026-08-15", 10)]);
+  assert.equal(holding.label, "holding");
+});

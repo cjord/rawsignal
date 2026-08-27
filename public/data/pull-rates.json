@@ -1,0 +1,26 @@
+{
+  "note": "Community-measured pull-rate estimates, expressed as packs per hit of ANY card of the rarity. Curated by hand; the UI must always label derived values as estimates. Per-card odds multiply by the count of that rarity in the set. Set-level entries override the game default. Rarities without an entry render as unavailable.",
+  "sources": "Aggregated community opening data (JustInBasil-style rate summaries and TCGplayer pull-rate articles) for the Scarlet & Violet / Mega Evolution era; verify against current-set articles when adding overrides.",
+  "games": {
+    "pokemon": {
+      "default": {
+        "Double Rare": 4,
+        "Ultra Rare": 14,
+        "Illustration Rare": 12,
+        "Special Illustration Rare": 58,
+        "Hyper Rare": 51,
+        "Mega Hyper Rare": 90
+      },
+      "sets": {
+        "SV: Prismatic Evolutions": {
+          "Illustration Rare": 8,
+          "Special Illustration Rare": 45
+        }
+      }
+    },
+    "riftbound": {
+      "default": {},
+      "sets": {}
+    }
+  }
+}

@@ -96,6 +96,8 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - Treat `package-lock.json` as the only dependency lockfile and `npm run check` as the complete release gate.
 - Sales volume is presented only from the TCGplayer history endpoint's completed-sale buckets (`quantitySold`, `transactionCount`, realized low/high sale prices with and without shipping, per variant/condition SKU). Label the window and bucket size wherever volume appears, keep it scoped to the selected printing/condition, and render missing sales data as unavailable.
 - Never derive volume from price observations, listing counts, or history-point counts, and do not label anything as TCGplayer sales rank; rank remains unavailable.
+- Pull rates are curated community-measured estimates in `public/data/pull-rates.json` (packs per hit of any card of the rarity; per-card odds multiply by the set's rarity count). Every derived value must be labeled an estimate, uncurated rarities render as unavailable, and rates are never inferred from prices or card counts alone.
+- Modeled fair value is the documented transparent blend in `app/domain/detail-metrics.ts` (90-day median 50%, 30-day median 30%, current median listing 20%, renormalized over available components). It must always be labeled a model, never a valuation guarantee, and renders nothing when no component exists. Do not add opaque or predictive components without an explicit user decision.
 - Calculate 7-, 30-, and 90-day changes from dated history observations using the nearest observation at or before the cutoff.
 - Calculate displayed 30-day low/high from the historical market series, not listing extremes.
 - Keep variants/printings explicit. Do not merge records solely because their names match.

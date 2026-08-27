@@ -19,6 +19,23 @@ export function drawdownFromPeak(current:number|null,points:PricePoint[],days:nu
 export function priceStreak(points:PricePoint[]){const usable=points.filter(point=>point.price>0);if(usable.length<2)return null;let length=0,direction=0;for(let i=usable.length-1;i>0;i--){const step=Math.sign(usable[i].price-usable[i-1].price);if(!step)break;if(!direction)direction=step;if(step!==direction)break;length++}return length?{direction:direction as 1|-1,length}:null}
 // Ordinary least-squares slope over the window, expressed in dollars per week.
 export function trendSlope(points:PricePoint[],days:number){const window=windowPoints(points,days);if(window.length<3)return null;const times=window.map(point=>Date.parse(`${point.date}T00:00:00Z`)/86_400_000),prices=window.map(point=>point.price),n=window.length;const meanT=times.reduce((a,b)=>a+b,0)/n,meanP=prices.reduce((a,b)=>a+b,0)/n;let num=0,den=0;for(let i=0;i<n;i++){num+=(times[i]-meanT)*(prices[i]-meanP);den+=(times[i]-meanT)**2}return den?(num/den)*7:null}
+// Median market observation over the trailing window.
+export function windowMedian(points:PricePoint[],days:number){const prices=windowPoints(points,days).map(point=>point.price);if(prices.length<2)return null;return quantileOf([...prices].sort((a,b)=>a-b),.5)}
+// Transparent weighted blend: 90D median (.5), 30D median (.3), current median listing (.2), renormalized over available components. Null when no component exists.
+export function modeledFairValue(points:PricePoint[],midPrice:number|null){
+ const components:[number|null,number][]=[[windowMedian(points,90),.5],[windowMedian(points,30),.3],[midPrice!=null&&midPrice>0?midPrice:null,.2]];
+ const usable=components.filter((entry):entry is [number,number]=>entry[0]!=null);
+ if(!usable.length)return null;
+ const totalWeight=usable.reduce((sum,[,weight])=>sum+weight,0);
+ return usable.reduce((sum,[value,weight])=>sum+value*weight,0)/totalWeight;
+}
+// Units sold in the last 30 days of buckets vs the 30 days before that.
+export function demandTrend(buckets:SalesBucket[]){
+ const recent=salesWindow(buckets,30).quantity,prior=salesWindow(buckets,60).quantity-recent;
+ if(!recent&&!prior)return null;
+ const change=prior?((recent-prior)/prior)*100:100;
+ return {recent,prior,change,label:change>15?"rising":change<-15?"cooling":"holding"} as const;
+}
 // Sales aggregation over the trailing N days of buckets, using the latest bucket as "now".
 export function salesWindow(buckets:SalesBucket[],days:number){if(!buckets.length)return{quantity:0,low:null as number|null,high:null as number|null,lowWithShipping:null as number|null,highWithShipping:null as number|null};const end=new Date(`${buckets.at(-1)!.date}T00:00:00Z`),start=new Date(end);start.setUTCDate(start.getUTCDate()-days);const inWindow=buckets.filter(bucket=>new Date(`${bucket.date}T00:00:00Z`)>=start);const pick=(values:(number|null)[],reducer:(a:number,b:number)=>number)=>{const usable=values.filter((value):value is number=>value!=null);return usable.length?usable.reduce((a,b)=>reducer(a,b)):null};return{quantity:inWindow.reduce((sum,bucket)=>sum+bucket.quantity,0),low:pick(inWindow.map(b=>b.low),Math.min),high:pick(inWindow.map(b=>b.high),Math.max),lowWithShipping:pick(inWindow.map(b=>b.lowWithShipping),Math.min),highWithShipping:pick(inWindow.map(b=>b.highWithShipping),Math.max)}}
 

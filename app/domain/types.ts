@@ -142,6 +142,25 @@ export type DetailPeerContext = {
   count: number;
 };
 
+export type PullRateConfig = {
+  games: Record<string, { default: Record<string, number>; sets: Record<string, Record<string, number>> }>;
+};
+
+export type CardPullRate = {
+  packsPerHit: number;
+  packsPerCard: number;
+  packPrice: number | null;
+  costPerCard: number | null;
+};
+
+export type RarityPullRate = {
+  rarity: string;
+  cardCount: number;
+  packsPerHit: number;
+  costPerHit: number | null;
+  averageMarket: number | null;
+};
+
 export type CatalogDetailBase = {
   kind: CatalogKind;
   productId: number;
@@ -171,6 +190,7 @@ export type CardDetail = CatalogDetailBase & {
   printing: string;
   marketPrice: number;
   setPeerContext: DetailPeerContext | null;
+  pullRate: CardPullRate | null;
 };
 
 export type SealedDetail = CatalogDetailBase & {
@@ -183,6 +203,7 @@ export type SealedDetail = CatalogDetailBase & {
   packPrice: number | null;
   chaseCards: Card[];
   relatedSealed: SealedProduct[];
+  pullRates: RarityPullRate[];
 };
 
 export type CatalogDetail = CardDetail | SealedDetail;

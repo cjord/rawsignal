@@ -1,4 +1,4 @@
-import type { Card, CatalogDetailEnrichment, DetailMetadataField, DetailPriceVariant, DetailSource, PriceHistory, PricePoint, SealedProduct } from "./types";
+import type { Card, CatalogDetailEnrichment, DetailMetadataField, DetailPriceVariant, DetailSource, PriceHistory, PricePoint, PullRateConfig, SealedProduct } from "./types";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -95,4 +95,17 @@ export function parseCatalogDetailEnrichments(value:unknown):CatalogDetailEnrich
   const source=item.source as Record<string,unknown>;for(const key of ["categoryId","groupId","imageCount"] as const)if(source[key]!==null&&!finite(source[key]))throw new TypeError("Invalid detail source number");for(const key of ["setAbbreviation","publishedOn","modifiedOn","presaleNote","sourceUpdatedAt"] as const)if(source[key]!==null&&!string(source[key]))throw new TypeError("Invalid detail source text");if(source.isPresale!==null&&typeof source.isPresale!=="boolean")throw new TypeError("Invalid presale state");
   return {kind:item.kind,productId:item.productId as number,metadata,priceVariants,source:item.source as DetailSource};
  });
+}
+
+export function parsePullRateConfig(value:unknown):PullRateConfig{
+ if(!record(value)||!record(value.games))throw new TypeError("Invalid pull-rate config");
+ const games:PullRateConfig["games"]={};
+ for(const [game,entry] of Object.entries(value.games)){
+  if(!record(entry))throw new TypeError("Invalid pull-rate game entry");
+  const rates=(table:unknown,label:string)=>{if(table==null)return{};if(!record(table))throw new TypeError(`Invalid pull-rate ${label}`);const out:Record<string,number>={};for(const [rarity,packs] of Object.entries(table)){if(!finite(packs)||packs<=0)throw new TypeError(`Invalid pull rate for ${rarity}`);out[rarity]=packs}return out};
+  const sets:Record<string,Record<string,number>>={};
+  if(entry.sets!=null){if(!record(entry.sets))throw new TypeError("Invalid pull-rate sets");for(const [set,table] of Object.entries(entry.sets))sets[set]=rates(table,`set ${set}`)}
+  games[game]={default:rates(entry.default,"default"),sets};
+ }
+ return {games};
 }
