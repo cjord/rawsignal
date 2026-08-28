@@ -601,6 +601,22 @@ lost the Graded Market section (first rotation: 44/45 updated, verified renderin
 Remaining detail-parity gaps on D1 pages: pull rates and the fair-value peer anchor
 (feed-only inputs) — small follow-up slice alongside peer accumulation.
 
+**H3 metrics page — LANDED 2026-08-28** on `rawsignal.cards/metrics`. Data layer:
+migration 0004 + `db/metrics-ingestion.ts` window-function rollups (four equal-weighted
+indexes + two game medians), cron `metrics` action after each day's live run, adapter
+job for backfills. Page: overview tiles (tracked value from current prices; movement
+from the per-game index series), four index cards, Pokémon-100 vs Riftbound-50 base-100
+comparison (PriceChart gained an additive overlay series), set leaderboard (SQL medians,
+momentum from stored per-card changes), breadth tiles; explicit no-database state
+(verified on dev). Hard-won data-quality rule: **a rollup date qualifies only when it
+observes ≥75% of the best-covered date's count** — sparse backfill dates understate even
+top-N indexes (first attempts showed +137% 7D artifacts); the honest series is weekly
+full-coverage snapshots then daily from live (verified smooth: Pokémon-100 817→1,223
+over 3 months, members=100 throughout). Backfill mode deletes each series before
+recomputing so stricter rules never leave stale rows. Also fixed en route: PriceChart
+extreme markers crashed when an overlay held the scale extreme; the catalog API's
+readiness guard needed >= (retried batches stamp more rows than they count).
+
 **Custom domain live 2026-08-28:** the user registered `rawsignal.cards` and routed it to
 the staging Worker — verified serving the full current stack (database feeds, D1 detail
 pages) over Cloudflare. The production-promotion hostname blocker is resolved; the

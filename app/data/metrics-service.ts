@@ -53,9 +53,12 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined): Promis
   const sealedRows = totals.filter(row => row.kind === "sealed");
   const gameLabel: Record<string, string> = { pokemon: "Pokémon", riftbound: "Riftbound", onepiece: "One Piece" };
   const usd = (cents: number) => `$${Math.round(cents / 100).toLocaleString()}`;
+  // Movement follows the per-game top-N index series: sparse backfill dates cover shifting
+  // card populations, which skews a median but barely moves a top-of-market index (dense
+  // history concentrates in exactly those cards). Medians stay materialized for later use.
   const overview: MetricsOverviewRow[] = [
-    { key: "pokemon-singles", label: "Pokémon singles", trackedValue: (total("pokemon", "single")?.totalCents ?? 0) / 100, products: total("pokemon", "single")?.products ?? 0, ...changes(series["median:pokemon-singles"] ?? []), breakdown: null },
-    { key: "riftbound-singles", label: "Riftbound singles", trackedValue: (total("riftbound", "single")?.totalCents ?? 0) / 100, products: total("riftbound", "single")?.products ?? 0, ...changes(series["median:riftbound-singles"] ?? []), breakdown: null },
+    { key: "pokemon-singles", label: "Pokémon singles", trackedValue: (total("pokemon", "single")?.totalCents ?? 0) / 100, products: total("pokemon", "single")?.products ?? 0, ...changes(series["index:pokemon-cards"] ?? []), breakdown: null },
+    { key: "riftbound-singles", label: "Riftbound singles", trackedValue: (total("riftbound", "single")?.totalCents ?? 0) / 100, products: total("riftbound", "single")?.products ?? 0, ...changes(series["index:riftbound-cards"] ?? []), breakdown: null },
     { key: "sealed", label: "Sealed (all games)", trackedValue: sealedRows.reduce((sum, row) => sum + row.totalCents, 0) / 100, products: sealedRows.reduce((sum, row) => sum + row.products, 0), ...changes(series["index:sealed"] ?? []), breakdown: sealedRows.map(row => `${gameLabel[row.game] ?? row.game} ${usd(row.totalCents)}`).join(" · ") || null },
   ];
 

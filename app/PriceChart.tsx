@@ -13,7 +13,8 @@ export default function PriceChart({points,volumes,overlay,large=false,label="ma
  const values=chartPoints.map(point=>point.price),times=chartPoints.map(point=>Date.parse(`${point.date}T00:00:00Z`)),timeSpan=times.at(-1)!-times[0]||1;
  // An optional second series (e.g. the base-100 comparison) shares the scale and time axis.
  const overlayShown=(overlay??[]).map(point=>({price:point.price,time:Date.parse(`${point.date}T00:00:00Z`)})).filter(point=>point.time>=times[0]&&point.time<=times.at(-1)!);
- const min=Math.min(...values,...overlayShown.map(point=>point.price)),max=Math.max(...values,...overlayShown.map(point=>point.price)),span=max-min||1;
+ const mainMin=Math.min(...values),mainMax=Math.max(...values);
+ const min=Math.min(mainMin,...overlayShown.map(point=>point.price)),max=Math.max(mainMax,...overlayShown.map(point=>point.price)),span=max-min||1;
  const xy=chartPoints.map((point,index)=>({x:((times[index]-times[0])/timeSpan)*240,y:70-((point.price-min)/span)*62})),active=hovered==null?null:{...chartPoints[hovered],...xy[hovered]};
  const first=values[0],last=values.at(-1)!,delta=first?((last-first)/first)*100:null,deltaTone=delta==null||delta===0?"":delta>0?"up":"down";
  const midDate=chartPoints[Math.floor(chartPoints.length/2)].date,line=xy.map(point=>`${point.x},${point.y}`).join(" ");
@@ -25,7 +26,8 @@ export default function PriceChart({points,volumes,overlay,large=false,label="ma
  // ellipses; markers and the cursor tooltip render as HTML positioned by percentage instead.
  const pctX=(x:number)=>`${((x/240)*100).toFixed(2)}%`,pctY=(y:number)=>`${((y/76)*100).toFixed(2)}%`;
  const tipEdge=active==null?"center":active.x<45?"left":active.x>195?"right":"center";
- const minIndex=values.indexOf(min),maxIndex=values.indexOf(max);
+ // Extreme markers belong to the main series; the scale may be stretched by the overlay.
+ const minIndex=values.indexOf(mainMin),maxIndex=values.indexOf(mainMax);
  // Detail-page overlay only: trailing 30-day mean computed over the full series so short ranges stay anchored.
  const maLine=large&&chartPoints.length>7?chartPoints.map((point,index)=>{
   const end=Date.parse(`${point.date}T00:00:00Z`),start=end-30*86400000;
@@ -44,7 +46,7 @@ export default function PriceChart({points,volumes,overlay,large=false,label="ma
    <polyline points={line}/>
    {active&&<line className="chart-cursor" x1={active.x} x2={active.x} y1="2" y2="74"/>}
   </svg>
-  {max>min&&<><span className="chart-dot chart-dot-extreme" style={{left:pctX(xy[maxIndex].x),top:pctY(xy[maxIndex].y)}} title={`Range high ${formatUsd(max)}`} aria-hidden="true"/><span className="chart-dot chart-dot-extreme" style={{left:pctX(xy[minIndex].x),top:pctY(xy[minIndex].y)}} title={`Range low ${formatUsd(min)}`} aria-hidden="true"/></>}
+  {mainMax>mainMin&&<><span className="chart-dot chart-dot-extreme" style={{left:pctX(xy[maxIndex].x),top:pctY(xy[maxIndex].y)}} title={`Range high ${formatUsd(mainMax)}`} aria-hidden="true"/><span className="chart-dot chart-dot-extreme" style={{left:pctX(xy[minIndex].x),top:pctY(xy[minIndex].y)}} title={`Range low ${formatUsd(mainMin)}`} aria-hidden="true"/></>}
   <span className="chart-dot chart-dot-end" style={{left:pctX(xy.at(-1)!.x),top:pctY(xy.at(-1)!.y)}} aria-hidden="true"/>
   {active&&<span className="chart-dot chart-dot-active" style={{left:pctX(active.x),top:pctY(active.y)}} aria-hidden="true"/>}
   {active&&<div className={`chart-tip edge-${tipEdge}${active.y<20?" flip-below":""}`} style={{left:pctX(active.x),top:pctY(active.y)}} aria-hidden="true"><b>{formatUsd(active.price)}</b><span>{formatUtcDate(active.date,true)}{activeQuantity!=null&&` · ${activeQuantity} sold`}</span></div>}

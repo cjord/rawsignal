@@ -25,18 +25,21 @@ export const METRIC_SERIES: SeriesDef[] = [
 ];
 
 // SQLite window functions compute each date's ranked prices in one pass; the median is the
-// mean of the middle one or two ranked values.
+// mean of the middle one or two ranked values. Dates must observe at least 75% of the
+// best-covered date's count — a sparse date understates even a top-N index because part of
+// the true top was simply not observed that day.
 function seriesSql(def: SeriesDef, dateFilter: string) {
   const ranked = `select o.observed_date d, o.market_cents v,
       row_number() over (partition by o.observed_date order by o.market_cents desc) rn,
       count(*) over (partition by o.observed_date) total
     from price_observations o join catalog_products p on p.product_id=o.product_id
     where ${def.where}${dateFilter}`;
+  const covered = `select d, v, rn, total, max(total) over () as maxTotal from (${ranked})`;
   const filter = def.select === "index"
-    ? `rn <= ${def.topN} and total >= ${def.floor}`
-    : `total >= ${def.floor} and (rn = (total + 1) / 2 or rn = total / 2 + 1)`;
+    ? `rn <= ${def.topN} and total >= ${def.floor} and total >= 0.75 * maxTotal`
+    : `total >= ${def.floor} and total >= 0.75 * maxTotal and (rn = (total + 1) / 2 or rn = total / 2 + 1)`;
   return `insert into market_daily_metrics (series, observed_date, value_cents, members)
-    select ?, d, cast(round(avg(v)) as integer), ${def.select === "index" ? "count(*)" : "max(total)"} from (${ranked}) where ${filter} group by d
+    select ?, d, cast(round(avg(v)) as integer), ${def.select === "index" ? "count(*)" : "max(total)"} from (${covered}) where ${filter} group by d
     on conflict(series, observed_date) do update set value_cents=excluded.value_cents, members=excluded.members`;
 }
 
@@ -50,6 +53,9 @@ export async function runMetricsRollup(db: D1DatabaseLike, options: { mode: "dai
   try {
     let rowsWritten = 0;
     for (const def of series) {
+      // A backfill recomputes qualification from scratch: rows from previously qualifying
+      // dates must not survive a stricter pass.
+      if (options.mode === "backfill") await db.prepare("delete from market_daily_metrics where series=?").bind(def.key).run();
       await db.prepare(seriesSql(def, dateFilter)).bind(def.key).run();
       const count = await db.prepare("select count(*) as n from market_daily_metrics where series=?").bind(def.key).first<{ n: number }>();
       rowsWritten += count?.n ?? 0;
