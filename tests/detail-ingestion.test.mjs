@@ -78,3 +78,18 @@ test("ingested details reach the D1 detail adapter with peers of both kinds",asy
   const unscoped=createD1CatalogRepository(db);
   assert.equal((await unscoped.getDetail("single",1))?.kind,"single");
 });
+
+test("a threaded pull-rate config surfaces on D1-served singles and sealed details",async()=>{
+  const db=await seededDb();
+  await runDetailIngestionBatch(db,chunkPaths,fetchChunk,{batchSize:10,sourceUpdatedAt:"2026-08-27T12:00:00Z"});
+  const config={games:{pokemon:{default:{"Illustration Rare":4},sets:{}}}};
+  const repository=createD1CatalogRepository(db,undefined,config);
+  const single=await repository.getDetail("single",1);
+  assert.deepEqual(single?.pullRate,{packsPerHit:4,packsPerCard:4,packPrice:null,costPerCard:null});
+  const sealedDetail=await repository.getDetail("sealed",2);
+  assert.equal(sealedDetail?.pullRates.length,1);
+  assert.equal(sealedDetail?.pullRates[0].packsPerHit,4);
+  // Without the config the tiles stay absent, matching the feed-only behavior.
+  const bare=await createD1CatalogRepository(db).getDetail("single",1);
+  assert.equal(bare?.pullRate,null);
+});

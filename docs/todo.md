@@ -609,8 +609,14 @@ uses. No migration, no cron action, no seeding — the live daily run's observat
 the accumulation, and the backfilled history is deeper than the 1-obs/day file, so
 anchors activate immediately where the feed accumulator was still counting toward 14.
 Verified on staging: "Set-rarity anchored" renders in the fair-value panel on
-`source:"d1"` pages. D1 detail-parity gap remaining: pull rates only (static config —
-tiny follow-up).
+`source:"d1"` pages.
+
+**pull-rates parity follow-up — LANDED 2026-08-28.** The curated `pull-rates.json`
+config threads from `load-detail.ts` (isolate-cached asset fetch) into
+`createD1CatalogRepository(db, runId?, pullRateConfig?)`, restoring the hero Pull-rate
+tile on singles and the Pull rates section on sealed for D1-served pages. **D1 detail
+parity is now complete** — enrichments, related products, graded, peer anchor, and pull
+rates all match the feed path.
 
 **product_details slice — LANDED 2026-08-28.** Checkpointed chunk runner
 `db/detail-ingestion.ts` (cursor = enrichment chunk file; FK-filtered against

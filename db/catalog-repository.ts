@@ -1,4 +1,4 @@
-import type { Card, CatalogDetailEnrichment, DetailMetadataField, DetailPriceVariant, MarketSignal, SealedProduct } from "../app/domain/types.ts";
+import type { Card, CatalogDetailEnrichment, DetailMetadataField, DetailPriceVariant, MarketSignal, PullRateConfig, SealedProduct } from "../app/domain/types.ts";
 import { createMemoryCatalogRepository, type CatalogRepository } from "../app/data/catalog-repository.ts";
 import type { CatalogDerived, SealedCatalogQuery, SinglesCatalogQuery } from "../app/data/catalog-query.ts";
 import { readGradedCard } from "./graded-ingestion.ts";
@@ -132,7 +132,7 @@ async function loadDerived(db: D1DatabaseLike, kind: "single" | "sealed", game: 
   return derived;
 }
 
-export function createD1CatalogRepository(db: D1DatabaseLike, ingestionRunId?: string): CatalogRepository {
+export function createD1CatalogRepository(db: D1DatabaseLike, ingestionRunId?: string, pullRateConfig?: PullRateConfig): CatalogRepository {
   const productRows = async (kind: "single" | "sealed", game: string) => {
     const sql = ingestionRunId ? `${productsSql} and p.ingestion_run_id=?` : productsSql;
     const statement = db.prepare(sql).bind(...(ingestionRunId ? [kind, game, ingestionRunId] : [kind, game]));
@@ -166,7 +166,7 @@ export function createD1CatalogRepository(db: D1DatabaseLike, ingestionRunId?: s
       const graded=kind==="single"?await readGradedCard(db,productId):null;
       const peerAnchor=kind==="single"?await readPeerAnchor(db,row.game,row.setName,row.rarity):null;
       const anchorKey=`${row.game}|${row.setName}|${row.rarity}`;
-      return createMemoryCatalogRepository(cards,sealed,enrichments,undefined,graded?{[String(productId)]:graded}:undefined,peerAnchor?{[anchorKey]:peerAnchor}:undefined).getDetail(kind,productId,market);
+      return createMemoryCatalogRepository(cards,sealed,enrichments,pullRateConfig,graded?{[String(productId)]:graded}:undefined,peerAnchor?{[anchorKey]:peerAnchor}:undefined).getDetail(kind,productId,market);
     },
   };
 }
