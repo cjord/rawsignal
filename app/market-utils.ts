@@ -12,5 +12,3 @@ export function nearestChange(points:PricePoint[],days:number){return changeAtCu
 export function rangeStats(points:PricePoint[],days:number){return extremaWithin(normalizePricePoints(points),days)}
 
 export async function mapWithConcurrency<T,R>(items:T[],limit:number,worker:(item:T)=>Promise<R>){const results=new Array<R>(items.length),cursor={value:0};await Promise.all(Array.from({length:Math.min(limit,items.length)},async()=>{while(cursor.value<items.length){const index=cursor.value++;results[index]=await worker(items[index])}}));return results}
-
-export function positionRowPopover(row:HTMLElement,selector:string){const popup=row.querySelector<HTMLElement>(selector);if(!popup)return;const rect=row.getBoundingClientRect(),height=Math.max(popup.scrollHeight,320);row.dataset.popupPlace=rect.top>=height+12?"above":"below"}

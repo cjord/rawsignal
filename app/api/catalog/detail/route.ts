@@ -1,6 +1,6 @@
 import {NextResponse} from "next/server";
-import type {CatalogKind} from "../../../domain/types";
-import {loadCatalogDetail} from "../../../data/load-detail";
+import type {CatalogKind} from "../../../domain/types.ts";
+import {loadCatalogDetail} from "../../../data/load-detail.ts";
 
 export async function GET(request:Request){
  const url=new URL(request.url),kind=url.searchParams.get("kind") as CatalogKind|null,id=url.searchParams.get("productId")??"",market=url.searchParams.get("market")??undefined;
