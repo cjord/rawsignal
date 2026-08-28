@@ -565,15 +565,18 @@ export default function Home() {
   useEffect(() => {
     storeMarket(mode === "singles" ? game : sealedState.market);
   }, [mode, game, sealedState.market]);
-  // On landing without an explicit market in the URL, restore the remembered one. The
-  // LANDING search is captured during render: by the time this effect runs, the URL-sync
-  // effect has already stamped the default market into location.search.
-  const [landingSearch] = useState(() => (typeof location === "undefined" ? "" : location.search));
+  // On landing without an explicit market in the URL, restore the remembered one. Both
+  // inputs are captured during render: by the time this effect runs, the URL-sync effect
+  // has stamped the default market into location.search AND the persistence effect above
+  // has overwritten the stored value with that same default.
+  const [landing] = useState(() => ({
+    search: typeof location === "undefined" ? "" : location.search,
+    stored: readStoredMarket(),
+  }));
   useEffect(() => {
-    const params = new URLSearchParams(landingSearch);
-    if (params.has("market")) return;
-    const stored = readStoredMarket();
-    if (!stored) return;
+    const params = new URLSearchParams(landing.search);
+    const stored = landing.stored;
+    if (params.has("market") || !stored) return;
     if (params.get("mode") === "sealed") {
       setSealedState((current) => ({ ...current, market: stored }));
       setSealedRevision((value) => value + 1);
