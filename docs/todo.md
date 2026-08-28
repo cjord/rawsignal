@@ -552,6 +552,33 @@ bundled feeds; **no Cron Trigger/Queue/Workflow/production route is active** (AG
 decision reversal to make explicitly at review, plus an AGENTS.md edit (which I will propose
 for approval first, per our rule).
 
+**Phase 4 progress (2026-08-27, user-authorized; Workers Paid active):** Gate 0 cleared —
+wrangler auth verified, `Bash(npx wrangler:*)` allow rule added, `STAGING_JOB_TOKEN`
+rotated into `.secrets/staging-job-token`. Migration 0002 applied to staging D1; staging
+Worker redeployed on the v71 build. Full backfill running via a locked local driver
+(`daily-market:2026-08-27` then history). History throughput approved and landed: adapter
+cap 20→60 per batch with six concurrent TCGplayer fetches (paid-plan subrequest budget) —
+~7-9h drops to ~1.5-2h. Guard cron approved and implemented: `scheduled()` in
+`worker/index.ts` → `runScheduledIngestionTick` advances one checkpointed batch per tick
+(daily until the deployed snapshot is fully ingested; history only *continues* an
+operator-started backfill; else no-op); prepare script emits `triggers.crons` only for
+staging with `--cron`/`RAW_SIGNAL_STAGING_CRON`, production always cleared. **Cron
+activation + the AGENTS.md line-93 rewrite wait until backfill + parity pass.** Known gap
+carried forward: `product_details` has no ingestion path (detail pages fall back to feeds);
+live TCGCSV fetch inside the Worker (true redeploy-free daily data) is the next slice —
+until it lands, each staging deploy is ingested exactly once and the guard cron then idles.
+
+**Phase 4 milestones (2026-08-27 evening):** backfill complete — catalog 16,898/16,898
+(174 batches), history 15,981/15,981 in ~88 min (267 batches; 98.3% with data, 84.9%
+exact coverage); both readiness markers published and staging serves
+`source:"database"` for catalog and sealed. **Parity passed** (all six cases, records +
+facets identical) against the local feed build — byte-equivalent to the Sites snapshot,
+which was used because **Sites production returned 401 site-wide at check time** (user
+to confirm visibility). **Guard cron activated** on staging (`*/2 * * * *`, version
+7678b432) with the approved AGENTS.md line-93 rewrite applied. Remaining G1 slices:
+live TCGCSV fetch in the Worker (redeploy-free daily data), graded rotation, peer
+accumulation, `product_details` ingestion, then the production Worker/D1/cutover gates.
+
 **Phased plan (runbook: docs/cloudflare-cutover.md):**
 1. **Gate 0 — authorization** (blocks everything): your Wrangler login, `STAGING_JOB_TOKEN`,
    and explicit written go-ahead for Cloudflare mutations.
@@ -577,6 +604,113 @@ for approval first, per our rule).
 starts without the Gate 0 items.
 
 ---
+
+## H. Second batch (added 2026-08-27, from user review of v71)
+
+**Implemented same day (no clarification needed):** ⓘ info-hint raised to sit slightly
+above the baseline; filter summaries list every selected set by full name as individually
+clearable chips (singles + sealed); Pokémon `Cases` excluded from the related-sealed top
+12 (data layer, wholesale outliers); `SegmentedView` sizes its grid from `--view-count`
+so the 2-option Medium/Text toggle no longer reserves four slots; the sub-1000px in-flow
+row expansion now restates the hover-card anatomy (surface-raised card, blue-tinted
+border, panel radius, stacked history panel, 2-col metric tiles); TCGplayer button moved
+to the hero's top-right on the kicker row; hero art tilts toward the cursor (see
+design-baseline exception); printing chip removed from the primary price (kicker already
+names it); card-details expander slides open via `interpolate-size` progressive
+enhancement.
+
+### H1. Production font-size regression — RESOLVED 2026-08-27
+
+**Actual root cause (confirmed):** `next/font/google` under vinext baked absolute local
+cache paths (`C:/Users/.../Test Project/.vinext/fonts/...`) into the production server
+bundle's `@font-face` rules, so every deployed build ever shipped rendered the Arial
+metric fallbacks instead of Geist — `Geist Mono Fallback` is size-adjusted to 134.59%,
+which made deployed mono numerals visibly larger/heavier at identical CSS values. Fixed
+by self-hosting: woff2 files in `public/fonts/`, hand-owned `app/styles/fonts.css`
+(declarations + fallbacks + `--font-sans`/`--font-mono` on `:root`), `next/font` removed
+from the layout, and a css-architecture test forbidding absolute paths in font CSS.
+Verified on staging: `document.fonts` loads Geist/Geist Mono, `.position` renders
+12.5px Geist Mono identical to dev. **Ship to Sites via the next package** — Sites
+production has the same bug until then. The hypotheses below are superseded (kept for
+the record):
+
+*(original analysis)*
+
+**Symptom.** On the live Sites deployment, "a lot of fonts displayed are a bit too
+large" compared with pre-v70.
+
+**Analysis.** v70's A1 type ramp changed the root from fixed px sizes to
+`html{font-size:100%}` with rem tokens, plus `html[data-font-size="large"]{font-size:108%}`.
+Two candidate causes, in likelihood order:
+1. **A stored Large preference now scales everything.** `raw-signal-font-size=large` in
+   the production domain's localStorage (set any time in the past) used to enlarge only a
+   whitelist of annotation text; since A1 it scales the entire page by 108%. Same stored
+   value, much bigger visual effect.
+2. **Browser font-size setting now applies.** Chrome's Appearance → Font size (or OS
+   accessibility text scaling routed through it) scales rem but never scaled the old px
+   values. Any setting above Medium (16px) enlarges the whole site post-A1.
+
+**Verify (user, on the production site):** ⚙ settings → Font size — if it shows Large,
+switch to Default (cause 1 confirmed). Otherwise check the browser's font-size setting
+(cause 2).
+
+**Planned fix by cause (apply after confirmation):**
+- Cause 1: recalibrate Large from 108% → ~104–105% (it now multiplies everything, so the
+  old calibration overshoots), and keep Default untouched.
+- Cause 2: pin `html{font-size:16px}` so the app's own two-step control is the only
+  scale, documenting the trade-off (site no longer follows browser font preferences);
+  or accept browser scaling as intended accessibility behavior and close as
+  works-as-designed.
+
+### H2. Peer-context metrics: richer comparisons (design direction wanted)
+
+Today: "Average Showcase cards in Vendetta: $243 across 55 others · this card sits
+103.8% above that average." Candidate upgrades, roughly ordered by value:
+1. **Median alongside (or instead of) mean** — TCG cohorts are chase-skewed; the mean
+   overstates the center. Cheap: peers are already in memory.
+2. **Cohort rank + percentile** — "#3 of 55 Showcase cards in Vendetta · top 5%". More
+   intuitive than %-above-average; data already at hand.
+3. **Peer momentum comparison** — cohort median 30D change vs this card's ("peers +2.1%
+   · this card +12.9%") — needs per-peer history, feasible from D1 after G1 or the
+   peer-anchor accumulation feed.
+4. **Distribution strip** — a tiny quartile/box strip with a marker for this card;
+   reuses the range-position visual language.
+5. **Nearest peers** — the cards directly above/below in cohort price, linked.
+**Decided at review (2026-08-27): build 2 (rank + percentile), 4 (distribution strip),
+and 3 (peer momentum compare — lands with the D1-backed API since it needs per-peer
+history). Median-alongside-mean and nearest-peers were not selected.** Layout (one line
+vs tile block) stays an implementation call within the design baseline.
+
+### H3. Metrics page (research + plan for review)
+
+**Goal.** A `/metrics` page: per-market totals, cross-market comparisons (Riftbound vs
+Pokémon, sealed vs singles), set-level comparisons, a top-100/200 index for cards and
+sealed, and momentum indicators.
+
+**What the data supports today.** Feeds give a full daily snapshot (prices for ~16.9k
+products) — aggregates per market/set are computable at build time. Time series need
+history: per-product `/api/history` is too chatty for page-level aggregates, but the D1
+`price_observations` table (Phase 4 backfill, ~90 days × ~16k products) supports SQL
+aggregation directly.
+
+**Proposed architecture (post-G1 alignment):**
+1. `/api/metrics` on the Worker computing from D1: daily aggregate series per market/set
+   (sum of market prices as tracked-market value, median price, advance/decline counts,
+   new-high/new-low counts) plus index series.
+2. A generator-precomputed `data/metrics.json` fallback (current-day snapshot + limited
+   series accrued per deploy) so the page also works on Sites feed-only.
+3. Client page sections: market overview tiles (tracked value, 7/30/90D change per
+   market) → index charts (RS-100 Cards / RS-100 Sealed) → Riftbound vs Pokémon
+   normalized comparison (base-100) → set leaderboard table (value, median, momentum) →
+   momentum dashboard (advance/decline, % above 30D average, new 90D highs/lows).
+
+**Decided at review (2026-08-27):** index methodology is **equal-weighted** (top-100 by
+market price, rebalanced daily); the page **ships staging D1-backed first** via
+`/api/metrics`, with the Sites fallback feed following later. Defaults adopted unless
+revisited at build review: index series backfilled from D1 observations; "total market"
+shows singles and sealed with a per-mode breakdown and One Piece sealed included in the
+comparisons; chart needs (multi-series overlay for the Riftbound-vs-Pokémon base-100
+view) sized during implementation.
 
 ## Decisions — resolved at review (2026-08-27)
 

@@ -35,11 +35,12 @@ Defined in `app/styles/tokens.css` (dimensions/motion/stacking) and `app/globals
 - Casing: UPPERCASE + letter-spacing (.07–.12em) + `--gray` is the kicker/label voice.
   Headings and body are sentence case; proper nouns (game, set, product names) are
   Title Case via `formatGameName`/feed data — never raw keys like "riftbound" in copy.
-- Current state: sizes are hardcoded px with an 8–13px annotation range, and the
-  `data-font-size="large"` setting is a whitelist of overrides in globals.css.
-  **Planned replacement (todo A1, decided):** a rem token ramp scaled from the root with a
-  ~10.5px floor at Default, two steps (Default/Large). Until A1 lands: do not add any new
-  font-size below 9.5px, and prefer an existing nearby size over a new value.
+- Sizes come from the rem token ramp in `app/styles/tokens.css` (`--text-2xs` … `--text-lg`,
+  ~10.5px floor at Default) with two root-driven steps: `html{font-size:100%}` and
+  `html[data-font-size="large"]{font-size:108%}`. Never add a raw px font-size — pick the
+  nearest token, and only extend the ramp deliberately.
+- Font files are self-hosted (`public/fonts/` + `app/styles/fonts.css`), never loaded via
+  `next/font` — the vinext loader bakes absolute local cache paths into production builds.
 
 ## Component anatomy
 
@@ -79,6 +80,11 @@ Defined in `app/styles/tokens.css` (dimensions/motion/stacking) and `app/globals
   `--hover-lift` and `--popover-lift` are pinned to 0 and stay that way.
 - Press feedback (`:active`) may compress ≤1% scale; selected-state emphasis (e.g. the
   view-toggle's active icon) is allowed — the ban is on *hover* movement.
+- **Deliberate exception (2026-08-27, user-requested):** the detail-hero card art tilts
+  toward the cursor (rotateX/Y ≤ ~6°, mouse pointers only) as an interactive flourish.
+  It is not a hover lift, appears nowhere else, and is disabled under reduced motion.
+- The card-details expander animates open via `interpolate-size`/`::details-content`
+  (progressive enhancement — unsupported browsers open instantly).
 - Sliding indicators (view toggle, signal tabs, price basis) animate `transform` with
   `--ease-standard`-family curves and must no-op under reduced motion.
 - Charts: crosshair + cursor tooltip on pointer move; markers are HTML dots positioned by
