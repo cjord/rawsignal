@@ -7,6 +7,7 @@ import MarketRow from "./leaderboard/MarketRow";
 import ProductIdentity from "./leaderboard/ProductIdentity";
 import {historyTargetKey,loadPriceHistoryBatch,type HistoryTarget} from "./data/usePriceHistoryBatch";
 import {formatPercent,formatRarity,formatUsd} from "./domain/formatters";
+import {cardFavorite,sealedFavorite} from "./state/favorites";
 import type {Card,PriceHistory,SealedProduct} from "./domain/types";
 
 type TableView="medium"|"text";
@@ -63,7 +64,7 @@ export function ChaseCardsSection({cards,packPrice,setName}:{cards:Card[];packPr
    const cardHistory=history[historyTargetKey({productId:card.productId,printing:card.printing})];
    const multiple=packPrice!=null&&packPrice>0?Math.round(card.marketPrice/packPrice):null;
    return <MarketRow className="leader-row" key={card.productId} href={`/cards/${card.productId}`} label={`View ${card.name} details`}
-    popover={<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={card.image} alt={`${card.name} card`} label={`${card.name} price history`}><HistoryPanel title="Near Mint market history" subtitle={cardHistory?.variant??card.printing} points={cardHistory?.points??[]} metrics={historyMetrics(card.marketPrice,cardHistory)}/></HistoryPopover>}>
+    popover={<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={card.image} alt={`${card.name} card`} favorite={cardFavorite(card)} label={`${card.name} price history`}><HistoryPanel title="Near Mint market history" subtitle={cardHistory?.variant??card.printing} points={cardHistory?.points??[]} metrics={historyMetrics(card.marketPrice,cardHistory)}/></HistoryPopover>}>
     <span className="position">{String(index+1).padStart(2,"0")}</span>
     <ProductIdentity className="identity" image={card.image} alt="" title={card.name} meta={`${card.number} · ${formatRarity(card.rarity)} · ${card.printing}${multiple!=null&&multiple>1?` · ≈${multiple}× pack`:""}`}/>
     <RowCells set={card.set} setNote={String(card.year)} market={card.marketPrice} mid={card.midPrice} history={cardHistory}/>
@@ -84,7 +85,7 @@ export function RelatedSealedSection({products,setName,market}:{products:SealedP
   <div className={`rows view-${view}`} role="rowgroup">{visible.map((product,index)=>{
    const productHistory=history[historyTargetKey({productId:product.productId,printing:"Sealed",sealed:true})];
    return <MarketRow className="leader-row" key={product.productId} href={`/sealed/${product.productId}${market?`?market=${market}`:""}`} label={`View ${product.name} details`}
-    popover={<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={product.image} alt={`${product.name} product`} label={`${product.name} price history`}><HistoryPanel title="Sealed market history" subtitle="Unopened" points={productHistory?.points??[]} metrics={historyMetrics(product.marketPrice,productHistory)}/></HistoryPopover>}>
+    popover={<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={product.image} alt={`${product.name} product`} favorite={sealedFavorite(product)} label={`${product.name} price history`}><HistoryPanel title="Sealed market history" subtitle="Unopened" points={productHistory?.points??[]} metrics={historyMetrics(product.marketPrice,productHistory)}/></HistoryPopover>}>
     <span className="position">{String((page-1)*perPage+index+1).padStart(2,"0")}</span>
     <ProductIdentity className="identity" image={product.image} alt="" title={product.name} meta={product.category}/>
     <RowCells set={product.set} setNote={product.msrp!=null?`MSRP ${usd(product.msrp)}`:null} market={product.marketPrice} mid={product.midPrice} history={productHistory}/>

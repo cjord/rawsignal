@@ -438,4 +438,19 @@ button on all detail pages (muted secondary style). Deferred: the "vs S&P 500" l
 needs a real benchmark data source (2026 index values unavailable offline; a free feed
 like stooq can be wired when wanted). Fix en route: `/data/*` fall-through now guards a
 missing ASSETS binding (dev-workerd 500 that blocked Playwright), and missing-table
-noise is silenced in dev. Gate: 143/143 node, lint, 4/4 Playwright.
+noise is silenced in dev. Gate: 143/143 node, lint, 4/4 Playwright. Committed `9f200ac`
+(GitHub only by user decision — production deploy + migration 0005 deliberately held; the
+staging sandbox carries the build).
+
+**Phase B landed (2026-08-28, dev-verified):** device-local favorites
+(`app/state/favorites.ts` pure store + `useFavorites` tab-synced hook, tolerant parsing
+tested) with stars on detail pages (next to the TCGplayer button), a ★ Favorites filter
+toggle beside the signal tabs (singles), and "☆ Top 10 → Buy List" on hot boards. The
+`/buylist` page (TopBar link added): checkable card-show list with per-item captured
+prices ("as of" stamped), paid-price inputs, and a scoreboard (acquired count, list
+market value, acquired-at-market vs actually-paid with over/under delta) — verified end
+to end on dev (star → list → acquire → "$83.70 under market"). Scope note: row-level
+stars on leaderboard rows wait for a styling pass with visual verification (the dense
+row overlays shouldn't ship blind); sealed products star from their detail pages
+meanwhile. Entries store section/game so a later price-refresh action can re-fetch the
+right feeds. Gate: 146/146 node (three new favorites tests), lint, 4/4 Playwright.

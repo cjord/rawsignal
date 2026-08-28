@@ -1,0 +1,55 @@
+/* Buy list (audit Phase B): mobile-first — this page's home is a phone at a card show. */
+.buylist-page .detail-section>header{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.buylist-sort{margin-left:auto;display:inline-flex;align-items:center;gap:8px;font-size:var(--text-2xs);color:var(--gray);text-transform:uppercase;letter-spacing:.07em;font-weight:800}
+.buylist-sort select{height:36px;padding:0 28px 0 10px;border:1px solid var(--line);border-radius:8px;background:var(--control);color:var(--text)}
+.buylist-totals .detail-metric b.up{color:#29b878}
+.buylist-totals .detail-metric b.down{color:#e05454}
+
+.buylist-rows{list-style:none;margin:0;padding:0}
+.buylist-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto auto;align-items:center;gap:10px;padding:10px 2px;border-top:1px solid var(--line)}
+.buylist-row:first-child{border-top:0}
+.buylist-row.acquired .buylist-identity b{text-decoration:line-through;color:var(--gray)}
+
+.buylist-check{display:inline-flex}
+.buylist-check input{width:22px;height:22px;accent-color:var(--blue);cursor:pointer}
+
+.buylist-identity{min-width:0;text-decoration:none;color:inherit}
+.buylist-identity b{display:block;font-size:var(--text-base);font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.buylist-identity span{display:block;color:var(--gray);font-size:var(--text-xs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.buylist-identity:hover b{color:var(--blue);text-decoration:underline;text-underline-offset:3px}
+
+.buylist-price{text-align:right}
+.buylist-price b{display:block;font:800 var(--text-base) var(--font-mono)}
+.buylist-price small{display:block;color:var(--gray);font-size:var(--text-2xs)}
+
+.buylist-paid{display:inline-flex;flex-direction:column;gap:2px}
+.buylist-paid span{font-size:var(--text-2xs);color:var(--gray);text-transform:uppercase;letter-spacing:.06em;font-weight:800}
+.buylist-paid input{width:76px;height:34px;padding:0 8px;border:1px solid var(--line);border-radius:8px;background:var(--control);color:var(--text);font:700 var(--text-sm) var(--font-mono)}
+.buylist-paid input:focus-visible{outline:3px solid color-mix(in srgb,var(--blue) 42%,transparent);border-color:var(--blue)}
+
+.buylist-remove{border:0;background:none;color:var(--blue);font-size:1.05rem;cursor:pointer;padding:6px}
+.buylist-remove:hover{color:#e05454}
+
+.favorite-star{display:inline-flex;align-items:center;justify-content:center;min-width:46px;min-height:46px;border:1px solid var(--line);border-radius:12px;background:var(--control);color:var(--text);font-size:1.15rem;cursor:pointer;transition:border-color .15s,background .15s}
+.favorite-star:hover{background:var(--control-hover);border-color:color-mix(in srgb,var(--blue) 45%,var(--line))}
+.favorite-star.active{color:#e8b93e;border-color:color-mix(in srgb,#e8b93e 55%,var(--line))}
+.favorite-star:focus-visible{outline:3px solid color-mix(in srgb,var(--blue) 42%,transparent)}
+
+.hot-add-button{display:inline-flex;align-items:center;gap:6px;margin-left:8px;padding:5px 10px;border:1px solid var(--line);border-radius:8px;background:var(--control);color:var(--text);font:750 var(--text-2xs) var(--font-sans);cursor:pointer}
+.hot-add-button:hover{background:var(--control-hover);border-color:color-mix(in srgb,var(--blue) 45%,var(--line))}
+.hot-add-button:disabled{opacity:.55;cursor:default}
+
+@media(max-width:640px){
+ .buylist-row{grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:auto auto;row-gap:6px}
+ .buylist-identity{grid-column:2}
+ .buylist-price{grid-column:3}
+ .buylist-check{grid-row:1 / span 2}
+ .buylist-paid{grid-column:2;grid-row:2;flex-direction:row;align-items:center;gap:6px}
+ .buylist-remove{grid-column:3;grid-row:2;justify-self:end}
+}
+.favorites-toggle.active{color:#e8b93e;border-color:color-mix(in srgb,#e8b93e 55%,var(--line))}
+.signal-navigation .hot-add-button{align-self:center}
+@media(max-width:620px){.signal-navigation .hot-add-button{width:100%;justify-content:center;min-height:38px}}
+/* Popover star (user decision 2026-08-28): compact, pinned to the hover card's corner —
+   rows stay clean and the star appears exactly when a product is being inspected. */
+.popover-star{position:absolute;top:8px;right:8px;z-index:7;min-width:32px;min-height:32px;font-size:.95rem;border-radius:9px;background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(3px)}

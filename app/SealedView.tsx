@@ -10,6 +10,7 @@ import {
 } from "./MarketUI";
 import SealedFilters from "./SealedFilters";
 import { SignalBadge } from "./SignalControls";
+import { sealedFavorite } from "./state/favorites";
 import {
   marketSignal,
   type SignalSide,
@@ -799,6 +800,7 @@ export default function SealedView({
                 image={product.image}
                 alt={`${product.name} product`}
                 badge={signal && <SignalBadge signal={signal} />}
+                favorite={sealedFavorite(product)}
                 label={`${product.name} price history`}
               >
                 {rowDetails(product, result, h)}

@@ -39,6 +39,8 @@ import { useMarketQueryState } from "./state/useMarketQueryState";
 import { useCatalogPage } from "./data/useCatalogPage";
 import { useFreshness } from "./data/useFreshness";
 import InfoHint from "./InfoHint";
+import { cardFavorite, favoriteKey } from "./state/favorites";
+import { useFavorites } from "./state/useFavorites";
 import {
   HOT_BOARD_LIMIT,
   filterSinglesCandidates,
@@ -233,6 +235,7 @@ function HoverCard({
       image={card.image}
       alt={`${card.name} card`}
       badge={signal && <SignalBadge signal={signal} />}
+      favorite={cardFavorite(card)}
       label={`${card.name} price history`}
     >
       <HistoryPanel
@@ -266,6 +269,8 @@ export default function Home() {
   const [signalView, setSignalView] = useState<SignalSide>("leaderboard"),
     [strictness, setStrictness] = useState<SignalStrictness>("balanced");
   const freshIso = useFreshness(index.sourceUpdatedAt);
+  const favorites = useFavorites();
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [minPrice, setMinPrice] = useState(""),
     [maxPrice, setMaxPrice] = useState(""),
     [selectedSets, setSelectedSets] = useState<string[]>([]),
@@ -408,9 +413,17 @@ export default function Home() {
     () => buildCatalogDerived(cards, history, persistedSignals, signalFor),
     [cards, history, signalView, strictness, persistedSignals],
   );
+  const favoriteSingleIds = useMemo(
+    () => new Set(favorites.entries.filter((entry) => entry.kind === "single").map((entry) => entry.productId)),
+    [favorites.entries],
+  );
+  const scopedCards = useMemo(
+    () => (favoritesOnly ? cards.filter((card) => favoriteSingleIds.has(card.productId)) : cards),
+    [cards, favoritesOnly, favoriteSingleIds],
+  );
   const eligible = useMemo(
     () =>
-      filterSinglesCandidates(cards, {
+      filterSinglesCandidates(scopedCards, {
         market: game,
         sections: selectedRarities,
         query,
@@ -418,12 +431,12 @@ export default function Home() {
         minPrice,
         maxPrice,
       }),
-    [cards, game, selectedRarities, query, selectedSets, minPrice, maxPrice],
+    [scopedCards, game, selectedRarities, query, selectedSets, minPrice, maxPrice],
   );
   const catalogResult = useMemo(
     () =>
       querySinglesCatalog(
-        cards,
+        scopedCards,
         {
           market: game,
           sections: selectedRarities,
@@ -445,7 +458,7 @@ export default function Home() {
         derived,
       ),
     [
-      cards,
+      scopedCards,
       game,
       selectedRarities,
       query,
@@ -718,6 +731,42 @@ export default function Home() {
       </div>
       <div className="signal-navigation">
         <SignalTabs value={signalView} onChange={changeSignalView} />
+        {mode === "singles" && (
+          <button
+            type="button"
+            className={`hot-add-button favorites-toggle ${favoritesOnly ? "active" : ""}`}
+            aria-pressed={favoritesOnly}
+            onClick={() => { setFavoritesOnly((value) => !value); setPage(1); }}
+          >
+            {favoritesOnly ? "★" : "☆"} Favorites{favoriteSingleIds.size ? ` (${favoriteSingleIds.size})` : ""}
+          </button>
+        )}
+        {mode === "singles" && signalView !== "leaderboard" && (
+          <button
+            type="button"
+            className="hot-add-button"
+            onClick={() => {
+              const scored = [...catalogResult.allItems]
+                .sort((a, b) => (derived[b.productId]?.signal?.score ?? 0) - (derived[a.productId]?.signal?.score ?? 0))
+                .slice(0, 10);
+              favorites.addMany(scored.map((card) => ({
+                key: favoriteKey("single", card.productId),
+                kind: "single" as const,
+                game: card.game,
+                productId: card.productId,
+                name: card.name,
+                set: card.set,
+                number: card.number,
+                section: card.section,
+                image: card.image || null,
+                price: card.marketPrice,
+                addedAt: new Date().toISOString(),
+              })));
+            }}
+          >
+            ☆ Top 10 → Buy List
+          </button>
+        )}
       </div>
       {mode === "singles" ? (
         <MarketLeaderboard
