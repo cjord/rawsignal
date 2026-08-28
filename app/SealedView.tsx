@@ -617,7 +617,7 @@ export default function SealedView({
           kickerClassName="kicker"
           title={
             signalView === "leaderboard"
-              ? <>{isScalping && <em className="scalping-flag">Scalping</em>}{formatGameName(game)} Sealed</>
+              ? <>{isScalping && <em className="scalping-flag">Scalping </em>}{formatGameName(game)} Sealed</>
               : `${formatGameName(game)} ${signalView === "buy" ? "Hot Buys" : "Hot Sells"}`
           }
           description={

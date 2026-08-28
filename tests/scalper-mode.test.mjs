@@ -74,5 +74,6 @@ test("scalper mode swaps the 30D range for closing profit columns; regular hides
   assert.match(sealed, /showProfit=\{isScalping\}/);
   assert.match(sealed, /isScalping && \(profitMin \|\| profitMax\)/);
   assert.match(sealed, /sealed-market-strip\$\{isScalping \? " is-scalper" : ""\}/);
-  assert.match(sealed, /className="scalping-flag">Scalping</);
+  // The trailing space is deliberate: it keeps the accessible name "Scalping X Sealed".
+  assert.match(sealed, /className="scalping-flag">Scalping <\/em>/);
 });

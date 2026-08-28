@@ -663,6 +663,14 @@ the riftbound feed taxonomy (Decks / Boosters / Booster boxes / Gift boxes / Col
 bundles) all normalized to "Other"; a shared alias resolver (`canonicalSealedType`)
 maps them onto the canonical buckets and also powers the metrics deep links.
 
+**Staging review sweep (2026-08-28, agent-driven):** all recent rounds verified in the
+browser — rows/stars/popover tiles, large-view chip row, favorites on both modes,
+sealed regular vs scalper surfaces, metrics movers (90D live, history 200s), category
+leaderboard, riftbound type buckets, 375px overflow-free. Two findings: the scalping
+title's space was CSS margin (fixed — real text space now, accessible name reads
+"Scalping X Sealed"), and staging's only console errors are the deliberately tolerated
+`/data/japanese-promos.json` 404s (section fills on production's first live run).
+
 **Favorites in the signal slider (2026-08-28, user request):** the standalone
 favorites toggle is gone; **★ Favorites** is the slider's fourth entry on both singles
 and sealed — gold slider (`tone-favorites`, dark text for contrast), mutually exclusive
