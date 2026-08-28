@@ -1,6 +1,8 @@
 "use client";
 /* eslint-disable react-hooks/exhaustive-deps -- keyed effects synchronize remote sealed data and history */
 import { useEffect, useMemo, useRef, useState } from "react";
+import index from "../tcg-index.json";
+import { useFreshness } from "./data/useFreshness";
 import HistoryPanel, { movementTone } from "./HistoryPanel";
 import {
   SegmentedView,
@@ -112,6 +114,7 @@ const ascendingSealedSorts = new Set<SortKey>(["name", "set"]);
 const usd = (value: number | null) => formatUsd(value, "N/A");
 const pct = (value: number | null) => formatPercent(value, "N/A");
 const productKey = (product: Product) => product.productId;
+const updatedLabel = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 export default function SealedView({
   signalView = "leaderboard",
@@ -197,6 +200,7 @@ export default function SealedView({
     status: historyStatus,
     request: requestHistory,
   } = usePriceHistoryBatch();
+  const freshIso = useFreshness(index.sourceUpdatedAt);
   // The Favorites slider entry scopes sealed the same way singles scope (page.tsx):
   // device-local favorite ids narrow the catalog before querying.
   const favorites = useFavorites();
@@ -591,6 +595,7 @@ export default function SealedView({
               <span className="sealed-count-line">
                 <strong>{metrics.count.toLocaleString()}</strong> products · {usd(metrics.market)} combined market
               </span>
+              <span className="sealed-updated">Updated {updatedLabel(freshIso)}</span>
               <div className="price-basis" aria-label="Price basis">
                 <i aria-hidden="true" />
                 <button

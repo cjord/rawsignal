@@ -269,14 +269,15 @@
   .market-navigation{margin-bottom:10px}
   .signal-navigation.market-navigation{margin-bottom:10px}
   .controls>.multi-select,.sealed-toolbar>.multi-select{position:relative;min-width:180px}
-  .controls>.multi-select>summary,.sealed-toolbar>.multi-select>summary{display:flex;height:56px;flex-direction:column;justify-content:center;gap:3px;padding:8px 13px;border:1px solid var(--line);border-radius:12px;background:var(--control);cursor:pointer;list-style:none;transition:border-color .16s,background-color .16s}
+  .controls>.multi-select>summary,.sealed-toolbar>.multi-select>summary{display:flex;height:56px;box-sizing:border-box;flex-direction:column;justify-content:center;gap:3px;padding:8px 13px;border:1px solid var(--line);border-radius:12px;background:var(--control);cursor:pointer;list-style:none;transition:border-color .16s,background-color .16s}
   .controls>.multi-select>summary::-webkit-details-marker,.sealed-toolbar>.multi-select>summary::-webkit-details-marker{display:none}
   .controls>.multi-select>summary:hover,.sealed-toolbar>.multi-select>summary:hover{border-color:color-mix(in srgb,var(--blue) 45%,var(--line));background:var(--control-hover)}
   .controls>.multi-select[open]>summary,.sealed-toolbar>.multi-select[open]>summary{border-color:var(--blue);box-shadow:0 0 0 3px color-mix(in srgb,var(--blue) 15%,transparent)}
   .controls>.multi-select .multi-select-label,.sealed-toolbar>.multi-select .multi-select-label{font-size:var(--text-2xs);font-weight:850;letter-spacing:.08em;text-transform:uppercase;color:var(--gray)}
   .controls>.multi-select .multi-select-control,.sealed-toolbar>.multi-select .multi-select-control{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
   .controls>.multi-select .multi-select-control b,.sealed-toolbar>.multi-select .multi-select-control b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--text-sm)}
-  .controls>.multi-select .multi-select-control i,.sealed-toolbar>.multi-select .multi-select-control i{color:var(--gray);font-style:normal;transition:transform .18s,color .16s}
+  /* Same chevron treatment as the Filters button's .filter-chevron. */
+  .controls>.multi-select .multi-select-control i,.sealed-toolbar>.multi-select .multi-select-control i{color:var(--gray);font:800 1rem/1 var(--font-sans);font-style:normal;transition:transform .2s,color .16s}
   .controls>.multi-select[open] .multi-select-control i,.sealed-toolbar>.multi-select[open] .multi-select-control i{transform:rotate(180deg);color:var(--blue)}
   /* The panel's "All …" button reads as label + hint, not one run-together string. */
   .multi-select-panel>button.all{display:flex;align-items:baseline;gap:9px}
@@ -308,6 +309,7 @@
   .sealed-aside{display:flex;flex-direction:column;align-items:flex-end;gap:9px}
   .sealed-count-line{color:var(--gray);font-size:var(--text-xs);white-space:nowrap}
   .sealed-count-line strong{color:var(--text);font:800 var(--text-md) var(--font-mono)}
+  .sealed-updated{margin-top:-6px;color:var(--gray);font-size:var(--text-xs);white-space:nowrap}
   @media(max-width:620px){.sealed-aside{align-items:flex-start}.pagination-row{justify-content:center}}
   /* The control rows gain the relocated selector as a fourth column on wide screens and
      their own row on narrow ones (the existing max-900/620 stacking keeps working). */

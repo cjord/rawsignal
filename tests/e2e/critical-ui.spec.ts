@@ -67,10 +67,15 @@ test("enables Scalper features without navigating away from Singles",async({page
  await expect(page.getByRole("button",{name:"Singles",exact:true})).toHaveAttribute("aria-pressed","true");
 
  await page.getByRole("button",{name:"Sealed",exact:true}).click();
- await expect(page).toHaveURL(/market=scalping/);
- await expect(page.getByRole("tab",{name:"Obey Products"})).toHaveAttribute("aria-selected","true");
+ // Scalper mode never changes the market by itself — it only unlocks Obey Products.
+ await expect(page).toHaveURL(/market=pokemon/);
+ await expect(page.getByRole("tab",{name:"Obey Products"})).toHaveCount(1);
  await expect(page.locator(".sale-scenario")).toBeVisible();
  await expect(page.locator(".sale-scenario summary")).toHaveCount(0);
+
+ await page.getByRole("tab",{name:"Obey Products"}).click();
+ await expect(page).toHaveURL(/market=scalping/);
+ await expect(page.getByRole("tab",{name:"Obey Products"})).toHaveAttribute("aria-selected","true");
  await page.getByLabel("Shipping cost").fill("5");
  await page.getByLabel("Include sales tax").check();
  await page.getByLabel("Profitable products only").check();

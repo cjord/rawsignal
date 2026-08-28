@@ -583,7 +583,6 @@ export default function Home() {
     } else if (stored !== "onepiece") {
       switchGame(stored);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-time landing restore
   }, []);
   const changeSort = (next: SortKey) => {
     setDirection((current) =>
@@ -611,17 +610,10 @@ export default function Home() {
         localStorage.getItem("raw-signal-scalper-mode") === "scalper"
           ? "scalper"
           : "regular";
+    // Scalper mode never changes the market by itself (user rule 2026-08-28): it only
+    // unlocks the Obey Products entry. A URL that explicitly says market=scalping keeps
+    // it via the normal query parse.
     setScalperMode(saved);
-    if (saved === "scalper") {
-      setSealedState((current) => ({
-        ...current,
-        market: "scalping",
-        productTypes: [],
-        sets: [],
-        page: 1,
-      }));
-      setSealedRevision((value) => value + 1);
-    }
   }, []);
   const changeStrictness = (value: SignalStrictness) => {
     setStrictness(value);
@@ -631,15 +623,11 @@ export default function Home() {
   const changeScalperMode = (next: ScalperMode) => {
     setScalperMode(next);
     localStorage.setItem("raw-signal-scalper-mode", next);
+    // Enabling scalper keeps the current market — it only unlocks Obey Products.
+    // Disabling it leaves the curated market (if selected) and resets the scenario.
     setSealedState((current) =>
       next === "scalper"
-        ? {
-            ...current,
-            market: "scalping",
-            productTypes: [],
-            sets: [],
-            page: 1,
-          }
+        ? { ...current, page: 1 }
         : {
             ...current,
             market:
@@ -695,11 +683,9 @@ export default function Home() {
     } else
       setSealedState((current) => ({
         ...current,
-        ...(scalperMode === "scalper"
-          ? { market: "scalping" as const, productTypes: [], sets: [] }
-          : game !== current.market
-            ? { market: game as SealedMarket, productTypes: [], sets: [] }
-            : {}),
+        ...(game !== current.market
+          ? { market: game as SealedMarket, productTypes: [], sets: [] }
+          : {}),
         signal: signalView,
         strictness,
         // Market action is the default lens (audit C5): profit-vs-MSRP only covers the
@@ -858,20 +844,18 @@ export default function Home() {
               aside={
                 <span className="section-aside">
                   {signalView === "leaderboard"
-                    ? <>
-                        <span>{total.toLocaleString()} cards · {(game === "all" ? index.totals.pokemon + index.totals.riftbound : index.totals[game]).toLocaleString()} ranked in {game === "all" ? "all markets" : formatGameName(game)}</span>
-                        <span>Updated {updatedLabel(freshIso)}</span>
-                      </>
-                    : `Top ${total.toLocaleString()} by signal score · ${strictness[0].toUpperCase() + strictness.slice(1)} strictness (change in ⚙) · Updated ${updatedLabel(freshIso)}`}
-                  {signalCoverage && ` · ${signalCoverage}`}
-                  {signalView !== "leaderboard" && (
-                    <InfoHint label="How signals work">
-                      Signals score proximity to a 30/90-day price extreme, the size of the
-                      swing it would retrace, and history depth. Buys additionally require
-                      the price to have bounced off its low and to not be falling this week.
-                      The board lists every qualifying card, strongest signals first.
-                    </InfoHint>
-                  )}
+                    ? <span>{total.toLocaleString()} cards · {(game === "all" ? index.totals.pokemon + index.totals.riftbound : index.totals[game]).toLocaleString()} ranked in {game === "all" ? "all markets" : formatGameName(game)}</span>
+                    : <span>
+                        Top {total.toLocaleString()} by signal score · {strictness[0].toUpperCase() + strictness.slice(1)} strictness (change in ⚙)
+                        {signalCoverage && ` · ${signalCoverage}`}
+                        <InfoHint label="How signals work">
+                          Signals score proximity to a 30/90-day price extreme, the size of the
+                          swing it would retrace, and history depth. Buys additionally require
+                          the price to have bounced off its low and to not be falling this week.
+                          The board lists every qualifying card, strongest signals first.
+                        </InfoHint>
+                      </span>}
+                  <span>Updated {updatedLabel(freshIso)}</span>
                 </span>
               }
             />
