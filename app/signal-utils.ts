@@ -7,12 +7,20 @@ const pct=(value:number)=>`${value.toFixed(1)}%`;
 const quantile=(sorted:number[],q:number)=>{if(!sorted.length)return 0;const i=(sorted.length-1)*q,lo=Math.floor(i),hi=Math.ceil(i);return sorted[lo]+(sorted[hi]-sorted[lo])*(i-lo)};
 const windowPrices=(points:PricePoint[],days:number)=>{if(!points.length)return[];const end=new Date(`${points.at(-1)!.date}T00:00:00Z`),start=new Date(end);start.setUTCDate(start.getUTCDate()-days);return points.filter(p=>new Date(`${p.date}T00:00:00Z`)>=start&&p.price>0).map(p=>p.price)};
 
-export type SignalExclusionCode="missing-current-price"|"insufficient-history"|"awaiting-stabilization"|"outside-adaptive-cutoff"|"below-minimum-score";
+export type SignalExclusionCode="missing-current-price"|"insufficient-history"|"insufficient-liquidity"|"awaiting-stabilization"|"outside-adaptive-cutoff"|"below-minimum-score";
+export type SignalLiquidity={sales7:number|null;sales30:number|null};
+// Hot boards require real transaction backing (user decision 2026-08-28): at least 5
+// completed sales in 30 days AND one in the last 7 — a signal on a card nobody trades has
+// no confidence behind it. Unknown counts pass (absence of data is not proof of illiquidity).
+export const LIQUIDITY_FLOOR={sales30:5,sales7:1} as const;
 export type SignalEvaluation={eligible:true;signal:MarketSignal}|{eligible:false;signal:null;code:SignalExclusionCode;detail:string;confidence?:SignalConfidence;distance?:number;cutoff?:number;score?:number};
 
-export function evaluateMarketSignal(points:PricePoint[],side:"buy"|"sell",strictness:SignalStrictness,currentOverride?:number|null):SignalEvaluation{
+export function evaluateMarketSignal(points:PricePoint[],side:"buy"|"sell",strictness:SignalStrictness,currentOverride?:number|null,liquidity?:SignalLiquidity|null):SignalEvaluation{
  const sorted=[...points].filter(p=>p.price>0).sort((a,b)=>a.date.localeCompare(b.date));
  const current=currentOverride??sorted.at(-1)?.price;if(!current||!Number.isFinite(current))return{eligible:false,signal:null,code:"missing-current-price",detail:"No positive current market price is available."};
+ if(liquidity&&liquidity.sales30!=null&&(liquidity.sales30<LIQUIDITY_FLOOR.sales30||(liquidity.sales7??0)<LIQUIDITY_FLOOR.sales7)){
+  return{eligible:false,signal:null,code:"insufficient-liquidity",detail:`${liquidity.sales30} completed sale${liquidity.sales30===1?"":"s"} in 30 days${liquidity.sales7!=null?` (${liquidity.sales7} in 7)`:""}; boards require ${LIQUIDITY_FLOOR.sales30}/30D and ${LIQUIDITY_FLOOR.sales7}/7D.`};
+ }
  const p30=windowPrices(sorted,30),p90=windowPrices(sorted,90),all=sorted.map(p=>p.price);
  const enough90=p90.length>=12,enough30=p30.length>=5,confidence:SignalConfidence=enough90&&all.length>=30?"high":enough30?"medium":"low";
  const robustRange=(prices:number[])=>{if(prices.length<2)return 0;const s=[...prices].sort((a,b)=>a-b),median=quantile(s,.5);return median?((quantile(s,.9)-quantile(s,.1))/median)*100:0};
@@ -38,4 +46,4 @@ export function evaluateMarketSignal(points:PricePoint[],side:"buy"|"sell",stric
  return{eligible:true,signal:{side,score,confidence,reason,detail:`${pct(swing)} ${side==="buy"?"below":"above"} the opposite ${period} extreme · ${pct(cutoff)} ${strictness} cutoff`,distance:best.distance,cutoff}};
 }
 
-export function marketSignal(points:PricePoint[],side:"buy"|"sell",strictness:SignalStrictness,currentOverride?:number|null):MarketSignal|null{return evaluateMarketSignal(points,side,strictness,currentOverride).signal}
+export function marketSignal(points:PricePoint[],side:"buy"|"sell",strictness:SignalStrictness,currentOverride?:number|null,liquidity?:SignalLiquidity|null):MarketSignal|null{return evaluateMarketSignal(points,side,strictness,currentOverride,liquidity).signal}

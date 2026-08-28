@@ -111,6 +111,10 @@ export const marketMetrics = sqliteTable("market_metrics", {
   high30Cents: integer("high_30_cents"),
   historicLowCents: integer("historic_low_cents"),
   historicHighCents: integer("historic_high_cents"),
+  // Completed-sale counts from the TCGplayer history buckets (audit liquidity gate):
+  // written when a history fetch carries them, preserved across sales-less daily upserts.
+  sales7: integer("sales_7"),
+  sales30: integer("sales_30"),
   updatedAt: text("updated_at").notNull(),
 }, (table) => [
   primaryKey({ columns: [table.productId, table.variant, table.condition] }),

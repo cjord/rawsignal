@@ -85,3 +85,7 @@
 .metrics-index-card.is-accumulating .detail-unavailable{margin:6px 0 4px;font-size:var(--text-xs)}
 .metrics-index-card>header .metrics-seg-small{margin-left:auto}
 .metrics-index-card>header .metrics-seg-small+.metrics-index-value{margin-left:10px}
+.metrics-sp-line{display:block;margin-top:10px;padding-top:8px;border-top:1px solid var(--line);color:var(--gray);font-size:var(--text-2xs)}
+.metrics-sp-line em{font:750 var(--text-2xs) var(--font-mono);font-style:normal}
+.metrics-sp-line em.up{color:#29b878}
+.metrics-sp-line em.down{color:#e05454}

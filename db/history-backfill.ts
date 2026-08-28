@@ -40,7 +40,7 @@ export async function runHistoryBackfillBatch(db: D1DatabaseLike, targets: Histo
       const variant = history.variant ?? (target.sealed ? "Sealed" : target.printing), condition = history.condition ?? (target.sealed ? "Unopened" : "Near Mint");
       if (history.points.length) {
         await upsertHistory(db, target.productId, variant, condition, history.points, startedAt);
-        await persistDerivedHistory(db, target.productId, variant, condition, target.currentPrice, history.points, history.coverage, startedAt);
+        await persistDerivedHistory(db, target.productId, variant, condition, target.currentPrice, history.points, history.coverage, startedAt, history.sales);
         historiesWithData++; if (history.coverage === "exact") exactCoverage++;
       }
       written++;

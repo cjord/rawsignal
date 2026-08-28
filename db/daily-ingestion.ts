@@ -1,11 +1,13 @@
+import { salesWindow } from "../app/domain/detail-metrics.ts";
 import { deriveHistoryMetrics } from "../app/domain/history-metrics.ts";
 import type { Card, CatalogDetailEnrichment, PriceHistory, PricePoint, SealedProduct, SignalStrictness } from "../app/domain/types.ts";
-import { marketSignal } from "../app/signal-utils.ts";
+import { marketSignal, type SignalLiquidity } from "../app/signal-utils.ts";
 import {
   completeIngestion,
   checkpointIngestion,
   deleteMarketSignal,
   failIngestion,
+  readMarketLiquidity,
   readRefreshCursor,
   startIngestion,
   upsertCard,
@@ -63,14 +65,20 @@ async function storedHistory(db: D1DatabaseLike, productId: number, variant: str
   return rows.map(row => ({ date: row.observedDate, price: row.marketCents / 100 }));
 }
 
-export async function persistDerivedHistory(db: D1DatabaseLike, productId: number, variant: string, condition: string, currentPrice: number, points: PricePoint[], coverage: PriceHistory["coverage"], updatedAt: string) {
+export async function persistDerivedHistory(db: D1DatabaseLike, productId: number, variant: string, condition: string, currentPrice: number, points: PricePoint[], coverage: PriceHistory["coverage"], updatedAt: string, sales?: PriceHistory["sales"]) {
   const asOfDate = points.at(-1)?.date ?? updatedAt.slice(0, 10);
   const metrics = deriveHistoryMetrics(points);
   const history: PriceHistory = { points, variant, condition, coverage, ...metrics };
-  await upsertMarketMetrics(db, productId, variant, condition, asOfDate, history, updatedAt);
+  // Liquidity for the signal gate (user decision 2026-08-28): counts come from this
+  // fetch's completed-sale buckets when the caller has them (history jobs); a sales-less
+  // daily pass gates against the last counts a history run stored.
+  const liquidity: SignalLiquidity | null = sales?.buckets
+    ? { sales7: salesWindow(sales.buckets, 7).quantity, sales30: salesWindow(sales.buckets, 30).quantity }
+    : ((await readMarketLiquidity(db, productId, variant, condition)) ?? null);
+  await upsertMarketMetrics(db, productId, variant, condition, asOfDate, history, updatedAt, sales?.buckets ? { sales7: liquidity?.sales7 ?? null, sales30: liquidity?.sales30 ?? null } : undefined);
   let signalsWritten = 0;
   for (const strictness of strictnesses) for (const side of ["buy", "sell"] as const) {
-    const signal = marketSignal(points, side, strictness, currentPrice);
+    const signal = marketSignal(points, side, strictness, currentPrice, liquidity);
     if (signal) {
       await upsertMarketSignal(db, productId, strictness, signal, asOfDate, history.coverage, points.at(-1)?.date ?? asOfDate);
       signalsWritten++;

@@ -10,6 +10,18 @@ test("falling knives are not buys: no bounce or a 7-day freefall waits for stabi
  assert.ok(marketSignal(series([10,12,14,16,18,20]),"sell","balanced"));
 });
 test("strictness presets widen qualification without excluding low confidence labels",()=>{const points=series([10,12,11,10.2]),conservative=marketSignal(points,"buy","conservative"),aggressive=marketSignal(points,"buy","aggressive");assert.ok(!conservative||aggressive);assert.equal(aggressive?.confidence,"low")});
+test("illiquid cards are excluded from both boards; unknown counts pass",()=>{
+ const rising=series([10,12,14,16,18,20]);
+ // Below the 5/30D floor: no sell signal even at a fresh high.
+ assert.equal(evaluateMarketSignal(rising,"sell","balanced",undefined,{sales7:1,sales30:3}).code,"insufficient-liquidity");
+ // 30D volume fine but a dead week fails the 1/7D floor.
+ assert.equal(evaluateMarketSignal(rising,"sell","balanced",undefined,{sales7:0,sales30:12}).code,"insufficient-liquidity");
+ // At the floors, and with unknown counts, the signal evaluates normally.
+ assert.ok(evaluateMarketSignal(rising,"sell","balanced",undefined,{sales7:1,sales30:5}).eligible);
+ assert.ok(evaluateMarketSignal(rising,"sell","balanced",undefined,{sales7:null,sales30:null}).eligible);
+ assert.ok(evaluateMarketSignal(rising,"sell","balanced").eligible);
+});
+
 test("signal evaluation explains each non-qualification path",()=>{
  assert.equal(evaluateMarketSignal([],"buy","balanced").code,"missing-current-price");
  assert.equal(evaluateMarketSignal(series([10]),"buy","balanced",10).code,"insufficient-history");

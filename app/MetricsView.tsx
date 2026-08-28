@@ -45,19 +45,33 @@ function ChangeTiles({change7,change30,change90}:{change7:number|null;change30:n
 // Per-game median series pair with their index (audit N3): the index tracks the top of
 // the market, the median tracks the typical card — divergence between them is a signal.
 const MEDIAN_FOR:Record<string,string>={"index:pokemon-cards":"median:pokemon-singles","index:riftbound-cards":"median:riftbound-singles"};
+const BENCHMARK_KEY="benchmark:sp500";
 
-function IndexCard({seriesKey,points,medianPoints}:{seriesKey:string;points:PricePoint[];medianPoints?:PricePoint[]}){
+const rebaseSeries=(points:PricePoint[],from:string):PricePoint[]=>{
+ const start=points.find(point=>point.date>=from);
+ if(!start||start.price<=0)return [];
+ return points.filter(point=>point.date>=from).map(point=>({date:point.date,price:(point.price/start.price)*100}));
+};
+
+function IndexCard({seriesKey,points,medianPoints,benchmark}:{seriesKey:string;points:PricePoint[];medianPoints?:PricePoint[];benchmark?:PricePoint[]}){
  const meta=INDEX_META[seriesKey];
- const [view,setView]=useState<"index"|"median">("index");
+ const [view,setView]=useState<"index"|"median"|"sp">("index");
  const hasMedian=Boolean(medianPoints&&medianPoints.length>1);
- const shown=view==="median"&&hasMedian?medianPoints as PricePoint[]:points;
+ const hasBenchmark=Boolean(benchmark&&benchmark.length>1&&points.length>1);
+ const options=[["index","Index"] as const,...(hasMedian?[["median","Median"] as const]:[]),...(hasBenchmark?[["sp","vs S&P"] as const]:[])];
+ const active=view==="median"&&!hasMedian?"index":view==="sp"&&!hasBenchmark?"index":view;
+ const shown=active==="median"?medianPoints as PricePoint[]:points;
  const latest=shown.at(-1),deltas=changesOf(shown);
  const accumulating=points.length<=1;
+ const from=active==="sp"?[points[0]?.date??"",(benchmark as PricePoint[])[0]?.date??""].sort().at(-1)??"":"";
+ const spBase=active==="sp"?rebaseSeries(points,from):[];
+ const spOverlay=active==="sp"?rebaseSeries(benchmark as PricePoint[],from):[];
  return <div className={`metrics-index-card ${accumulating?"is-accumulating":""}`}><header><b>{meta.title}</b>
-  {hasMedian&&!accumulating&&<div className="metrics-seg metrics-seg-small" role="tablist" aria-label={`${meta.title} series`}>{(["index","median"] as const).map(item=><button key={item} type="button" role="tab" aria-selected={view===item} className={view===item?"active":""} onClick={()=>setView(item)}>{item==="index"?"Index":"Median"}</button>)}</div>}
-  {latest&&<span className="metrics-index-value">{formatUsd(latest.price)}</span>}</header>
-  {shown.length>1?<><PriceChart points={shown} label={`${meta.title} ${view}`}/><ChangeTiles {...deltas}/></>:<p className="detail-unavailable">History accumulating — one rolled-up day so far; the line grows daily.</p>}
-  <p className="detail-note">{view==="median"&&hasMedian?"Median tracked card price each day — the typical card, where the index tracks the top of the market.":meta.note}</p></div>;
+  {options.length>1&&!accumulating&&<div className="metrics-seg metrics-seg-small" role="tablist" aria-label={`${meta.title} series`}>{options.map(([key,label])=><button key={key} type="button" role="tab" aria-selected={active===key} className={active===key?"active":""} onClick={()=>setView(key)}>{label}</button>)}</div>}
+  {latest&&active!=="sp"&&<span className="metrics-index-value">{formatUsd(latest.price)}</span>}</header>
+  {active==="sp"?(spBase.length>1&&spOverlay.length>1?<><div className="metrics-legend"><span className="legend-pokemon">{meta.title}</span><span className="legend-riftbound">S&amp;P 500 (SPY)</span></div><PriceChart points={spBase} overlay={spOverlay} label={`${meta.title} vs S&P`}/></>:<p className="detail-unavailable">The comparison needs overlapping history for both series.</p>)
+  :shown.length>1?<><PriceChart points={shown} label={`${meta.title} ${active}`}/><ChangeTiles {...deltas}/></>:<p className="detail-unavailable">History accumulating — one rolled-up day so far; the line grows daily.</p>}
+  <p className="detail-note">{active==="sp"?"Both series rebased to 100 at the first shared date. S&P 500 via the SPY ETF (Alpha Vantage) — index points, not dollars.":active==="median"&&hasMedian?"Median tracked card price each day — the typical card, where the index tracks the top of the market.":meta.note}</p></div>;
 }
 
 function EraTable({eras}:{eras:MetricsEraRow[]}){
@@ -200,7 +214,7 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
    </div>
    <section className="detail-section"><header><span>Tracked market</span><h2>Overview<InfoHint label="About tracked value">Tracked value sums current market prices across every tracked product — coverage, not capitalization. Movement follows each scope&apos;s equal-weighted index series.</InfoHint></h2></header>
     <div className="metrics-market-grid">
-     {scoped&&scoped.combined&&<div className="metrics-market-card metrics-market-all"><header><b>{mode==="singles"?"All singles":"All sealed"}</b></header><div className="metrics-market-value">{compactUsd(scoped.combined.trackedValue)}</div><span className="metrics-market-sub">{scoped.combined.products.toLocaleString()} products</span><ChangeTiles change7={scoped.combined.change7} change30={scoped.combined.change30} change90={scoped.combined.change90}/></div>}
+     {scoped&&scoped.combined&&<div className="metrics-market-card metrics-market-all"><header><b>{mode==="singles"?"All singles":"All sealed"}</b></header><div className="metrics-market-value">{compactUsd(scoped.combined.trackedValue)}</div><span className="metrics-market-sub">{scoped.combined.products.toLocaleString()} products</span><ChangeTiles change7={scoped.combined.change7} change30={scoped.combined.change30} change90={scoped.combined.change90}/>{(()=>{const sp=(series[BENCHMARK_KEY]?.length??0)>1?changesOf(series[BENCHMARK_KEY]):null;return sp?<span className="metrics-sp-line">vs S&amp;P 500 (SPY): market <em className={tone(scoped.combined.change90)??""}>{pct(scoped.combined.change90)}</em> · S&amp;P <em className={tone(sp.change90)??""}>{pct(sp.change90)}</em> over 90D</span>:null})()}</div>}
      {scoped?.overview.map(row=><div className="metrics-market-card" key={row.key}><header><b>{row.label}</b></header><div className="metrics-market-value">{compactUsd(row.trackedValue)}</div><span className="metrics-market-sub">{row.products.toLocaleString()} products</span><ChangeTiles change7={row.change7} change30={row.change30} change90={row.change90}/></div>)}
     </div></section>
    <section className="detail-section"><header><span>Movers</span><h2>Top movers<InfoHint label="About movers">Largest price changes over the selected window among products worth at least $10 (singles) or $20 (sealed) before and after the move. Extreme swings that typically reflect listing turnover rather than market movement are excluded. Links open the product&apos;s detail page.</InfoHint></h2>
@@ -218,7 +232,7 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
      <div className="detail-metric"><small>Tracked products</small><b>{scoped.momentum.tracked.toLocaleString()}</b><span>{mode==="singles"?"Singles":"Sealed"} with current prices and stored metrics</span></div>
     </div></>}</section>
    <section className="detail-section"><header><span>Equal-weighted indexes</span><h2>Indexes<InfoHint label="About the indexes">Each index is the mean of that day&apos;s top prices in its scope, rebalanced daily. Days observing too little of the market are excluded, which is why some series start later than others.</InfoHint></h2></header>
-    <div className="metrics-index-grid">{visibleIndexKeys(mode,market).map(key=><IndexCard key={key} seriesKey={key} points={series[key]??[]} medianPoints={MEDIAN_FOR[key]?series[MEDIAN_FOR[key]]:undefined}/>)}</div></section>
+    <div className="metrics-index-grid">{visibleIndexKeys(mode,market).map(key=><IndexCard key={key} seriesKey={key} points={series[key]??[]} medianPoints={MEDIAN_FOR[key]?series[MEDIAN_FOR[key]]:undefined} benchmark={series[BENCHMARK_KEY]}/>)}</div></section>
    {compareKeys&&<section className="detail-section"><header><span>Cross-market</span><h2>Pokémon vs Riftbound</h2></header>
     {pokemonBase.length>1&&riftboundBase.length>1?<><div className="metrics-legend"><span className="legend-pokemon">{INDEX_META[compareKeys[0]].title}</span><span className="legend-riftbound">{INDEX_META[compareKeys[1]].title}</span></div><PriceChart points={pokemonBase} overlay={riftboundBase} label="base-100 comparison"/><p className="detail-note">Each game&apos;s equal-weighted index rebased to 100 at the first shared rollup date. Values are index points, not dollars.</p></>:<p className="detail-unavailable">The comparison needs rolled-up history for both games.</p>}</section>}
    {mode==="singles"&&(market==="all"||market==="pokemon")&&(payload.eras?.length??0)>0&&<section className="detail-section"><header><span>Pokémon by era</span><h2>Era performance<InfoHint label="About eras">Every tracked Pokémon set folded into its collector era (prefix first, release year otherwise). 30D momentum is the tracked-value-weighted mean of member sets&apos; median card changes — big sets move the era, minor sets don&apos;t swamp it.</InfoHint></h2></header><EraTable eras={payload.eras??[]}/></section>}

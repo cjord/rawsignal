@@ -1,4 +1,5 @@
 import { fetchTcgplayerHistory } from "../app/data/tcgplayer-history-client.ts";
+import { runBenchmarkIngestion } from "../db/benchmark-ingestion.ts";
 import { runDetailIngestionBatch } from "../db/detail-ingestion.ts";
 import { runGradedRotationBatch } from "../db/graded-ingestion.ts";
 import { runHistoryBackfillBatch } from "../db/history-backfill.ts";
@@ -70,7 +71,12 @@ export async function runScheduledIngestionTick(env: StagingJobEnv): Promise<{ a
   }
   if (action === "metrics") {
     const result = await runMetricsRollup(env.DB, { mode: "daily" });
-    return { action, detail: `${result.series} series, ${result.seriesRows} rows` };
+    // One Alpha Vantage call rides the daily metrics tick; a missing key skips silently
+    // and a failed fetch never fails the rollup.
+    const benchmark = env.ALPHAVANTAGE_API_KEY
+      ? await runBenchmarkIngestion(env.DB, env.ALPHAVANTAGE_API_KEY).catch(() => null)
+      : null;
+    return { action, detail: `${result.series} series, ${result.seriesRows} rows${benchmark?.done ? `, S&P ${benchmark.rows}d` : ""}` };
   }
   const snapshot = await loadStagingSnapshot(syntheticRequest, env.ASSETS, deploySnapshotUpdatedAt);
   const targets = historyTargets(snapshot);

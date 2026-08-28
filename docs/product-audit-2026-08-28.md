@@ -586,3 +586,17 @@ fee") and the honesty note that gem-rate risk is not priced in — shown only wh
 has ≥2 real sales and a raw price exists. PriceCharting inquiry + paid sources remain
 parked with the spend decision; Phase G (accounts/alerts/portfolio) stays deliberately
 later. Gate: 153/153 node, lint, 4/4 Playwright.
+
+**Liquidity gate + S&P benchmark landed (2026-08-28, user decisions, gated):**
+(1) Hot boards now require real transaction backing — **≥5 completed sales/30D AND
+≥1/7D**, both sides, new `insufficient-liquidity` exclusion. Counts come from the
+TCGplayer buckets the ingestion already fetches: migration `0006` adds
+`sales_7`/`sales_30` to market_metrics (written by history runs, preserved across
+sales-less daily upserts, read back for daily gating); unknown counts pass — absence of
+data is not proof of illiquidity. (2) **S&P 500 benchmark** via Alpha Vantage's SPY
+daily series (labeled as the proxy everywhere): one call rides the daily metrics tick,
+key-gated (`ALPHAVANTAGE_API_KEY` Worker secret — key to be provided), rows land as the
+`benchmark:sp500` series; rate-limit Note bodies are reported, never written. UI: the
+combined overview card gains a "vs S&P 500 (SPY)" 90D comparison line and every index
+card gains a **"vs S&P"** view — both series rebased to 100 at the first shared date.
+Gate: 156/156 node, lint, 4/4 Playwright.

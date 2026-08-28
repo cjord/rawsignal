@@ -94,17 +94,21 @@ export async function upsertHistory(db:D1DatabaseLike,productId:number,variant:s
   }
 }
 
-export async function upsertMarketMetrics(db:D1DatabaseLike,productId:number,variant:string,condition:string,asOfDate:string,history:PriceHistory,updatedAt:string){
+export async function upsertMarketMetrics(db:D1DatabaseLike,productId:number,variant:string,condition:string,asOfDate:string,history:PriceHistory,updatedAt:string,liquidity?:{sales7:number|null;sales30:number|null}){
+  // Sales counts persist only when the fetch carried them (history jobs); a sales-less
+  // daily upsert preserves the last-known counts instead of erasing them.
   await db.prepare(`insert into market_metrics (product_id,variant,condition,as_of_date,coverage,
-    change_7_bps,change_30_bps,change_90_bps,low_30_cents,high_30_cents,historic_low_cents,historic_high_cents,updated_at)
-    values (?,?,?,?,?,?,?,?,?,?,?,?,?) on conflict(product_id,variant,condition) do update set
+    change_7_bps,change_30_bps,change_90_bps,low_30_cents,high_30_cents,historic_low_cents,historic_high_cents,sales_7,sales_30,updated_at)
+    values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) on conflict(product_id,variant,condition) do update set
     as_of_date=excluded.as_of_date,coverage=excluded.coverage,change_7_bps=excluded.change_7_bps,
     change_30_bps=excluded.change_30_bps,change_90_bps=excluded.change_90_bps,
     low_30_cents=excluded.low_30_cents,high_30_cents=excluded.high_30_cents,
     historic_low_cents=excluded.historic_low_cents,historic_high_cents=excluded.historic_high_cents,
+    sales_7=coalesce(excluded.sales_7,market_metrics.sales_7),sales_30=coalesce(excluded.sales_30,market_metrics.sales_30),
     updated_at=excluded.updated_at`).bind(productId,variant,condition,asOfDate,history.coverage,
       toBasisPoints(history.change7),toBasisPoints(history.change30),toBasisPoints(history.change90),
-      toCents(history.low30),toCents(history.high30),toCents(history.historyLow),toCents(history.historyHigh),updatedAt).run();
+      toCents(history.low30),toCents(history.high30),toCents(history.historyLow),toCents(history.historyHigh),
+      liquidity?.sales7??null,liquidity?.sales30??null,updatedAt).run();
 }
 
 export async function upsertMarketSignal(db:D1DatabaseLike,productId:number,strictness:SignalStrictness,signal:MarketSignal,asOfDate:string,coverage:PriceHistory["coverage"]="none",observationDate=asOfDate){
@@ -145,6 +149,11 @@ export async function checkpointIngestion(db:D1DatabaseLike,id:string,refreshKey
 export async function readRefreshCursor(db:D1DatabaseLike,key:string){
   return db.prepare(`select r.cursor,r.ingestion_run_id as ingestionRunId,i.stats_json as statsJson
     from refresh_state r left join ingestion_runs i on i.id=r.ingestion_run_id where r.key=?`).bind(key).first<{cursor:string|null;ingestionRunId:string|null;statsJson:string|null}>();
+}
+
+export async function readMarketLiquidity(db:D1DatabaseLike,productId:number,variant:string,condition:string){
+  return db.prepare("select sales_7 as sales7, sales_30 as sales30 from market_metrics where product_id=? and variant=? and condition=?")
+    .bind(productId,variant,condition).first<{sales7:number|null;sales30:number|null}>();
 }
 
 export async function publishedIngestion(db:D1DatabaseLike,refreshKey="daily-market"){

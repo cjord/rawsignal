@@ -115,12 +115,16 @@ test("history backfill checkpoints and only publishes signal readiness after com
   const targets=[...[card,secondCard].map(item=>({productId:item.productId,printing:item.printing,currentPrice:item.marketPrice})),{productId:999,printing:"Holofoil",currentPrice:5}];
   const points=Array.from({length:31},(_,day)=>({date:new Date(Date.UTC(2026,6,26+day)).toISOString().slice(0,10),price:10+day/10}));
   const fetchedIds=[];
-  const fetchHistory=async target=>{fetchedIds.push(target.productId);return{points,variant:target.printing,condition:"Near Mint",coverage:"exact",change7:null,change30:null,change90:null,low30:null,high30:null,historyLow:null,historyHigh:null}};
+  const sales={windowDays:90,totalQuantity:10,totalTransactions:8,buckets:[{date:points.at(-1).date,quantity:10,low:9,high:11,lowWithShipping:null,highWithShipping:null}]};
+  const fetchHistory=async target=>{fetchedIds.push(target.productId);return{points,variant:target.printing,condition:"Near Mint",coverage:"exact",change7:null,change30:null,change90:null,low30:null,high30:null,historyLow:null,historyHigh:null,sales}};
   const first=await runHistoryBackfillBatch(db,targets,fetchHistory,{batchSize:1,sourceUpdatedAt:"2026-08-25",now:new Date("2026-08-25T13:00:00Z")});
   assert.equal(first.done,false);assert.equal(await publishedIngestion(db,"history-signals"),null);
   const second=await runHistoryBackfillBatch(db,targets,fetchHistory,{batchSize:2,sourceUpdatedAt:"2026-08-25",now:new Date("2026-08-25T14:00:00Z")});
   assert.equal(second.done,true);assert.equal(second.skippedMissingCatalog,1);
   assert.equal(fetchedIds.includes(999),false);
   assert.equal((await publishedIngestion(db,"history-signals")).recordsWritten,3);
+  // Completed-sale counts from the fetch's buckets persisted for the liquidity gate.
+  const liquidity=database.prepare("select sales_7 as sales7, sales_30 as sales30 from market_metrics where product_id=1").get();
+  assert.deepEqual({...liquidity},{sales7:10,sales30:10});
   database.close();
 });

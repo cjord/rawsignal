@@ -13,6 +13,7 @@ import { runDetailIngestionBatch } from "../db/detail-ingestion.ts";
 import { runGradedRotationBatch, type GradedRotationDeps } from "../db/graded-ingestion.ts";
 import { runHistoryBackfillBatch, type HistoryBackfillTarget } from "../db/history-backfill.ts";
 import { runLiveDailyIngestionBatch, type LiveSyncDeps, type TcgcsvClient } from "../db/live-ingestion.ts";
+import { runBenchmarkIngestion } from "../db/benchmark-ingestion.ts";
 import { runMetricsRollup } from "../db/metrics-ingestion.ts";
 import type { D1DatabaseLike } from "../db/repository.ts";
 
@@ -43,6 +44,7 @@ export type StagingJobEnv = {
   ENVIRONMENT?: string;
   STAGING_JOB_TOKEN?: string;
   POKEMONPRICETRACKER_API_KEY?: string;
+  ALPHAVANTAGE_API_KEY?: string;
   CF_VERSION_METADATA?: { id: string; tag: string; timestamp: string };
 };
 
@@ -144,7 +146,12 @@ export async function handleStagingJob(request: Request, env: StagingJobEnv): Pr
     if (input.job === "metrics") {
       const mode = input.batchSize === 0 ? "daily" : "backfill";
       const result = await runMetricsRollup(env.DB, { mode });
-      return json({ job: "metrics", result });
+      // The S&P benchmark rides the metrics cadence: one Alpha Vantage call per run,
+      // skipped entirely when no key is configured.
+      const benchmark = env.ALPHAVANTAGE_API_KEY
+        ? await runBenchmarkIngestion(env.DB, env.ALPHAVANTAGE_API_KEY).catch(error => ({ series: "benchmark:sp500", rows: 0, note: error instanceof Error ? error.message : "failed", done: false }))
+        : null;
+      return json({ job: "metrics", result: { ...result, benchmark } });
     }
     if (input.job === "details") {
       const requested = typeof input.batchSize === "number" ? input.batchSize : 4;
