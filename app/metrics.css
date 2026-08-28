@@ -1,13 +1,16 @@
-.metrics-head{margin-bottom:18px}
-.metrics-head .kicker{color:var(--gray);font-size:var(--text-2xs);font-weight:850;letter-spacing:.1em;text-transform:uppercase}
-.metrics-head h1{margin:8px 0 6px;font-size:clamp(1.625rem,3.4vw,2.375rem);letter-spacing:-.045em;line-height:1.05}
-.metrics-head .detail-note{margin-top:4px}
+/* Shared top chrome (visual pass 2026-08-28): the metrics page wears the main page's
+   masthead + product toggle, and the market scope rides the signal-tab slider. The
+   slider CSS reads --view-count (always 3 on the main page) so 4-tab sealed fits. */
+.signal-tabs{grid-template-columns:repeat(var(--view-count,3),1fr)}
+.signal-slider{width:calc((100% - 8px - (var(--view-count,3) - 1) * 3px) / var(--view-count,3))}
+.metrics-market-tabs{min-width:360px}
+@media(max-width:620px){.metrics-market-tabs{min-width:0;width:100%}}
+.metrics-rollup-note{margin:0 0 18px;text-align:center}
 
-/* Scope controls: mode + market, one visual language with the movers window switch. */
-.metrics-scope{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px}
+/* The movers window switch keeps the compact segmented control. */
 .metrics-seg{display:inline-flex;padding:3px;border:1px solid var(--line);border-radius:10px;background:var(--control)}
-.metrics-seg button{appearance:none;border:0;background:none;color:var(--gray);font:750 var(--text-2xs) var(--font-mono);text-transform:uppercase;letter-spacing:.06em;padding:6px 12px;border-radius:7px;cursor:pointer}
-.metrics-seg button:hover{color:var(--text)}
+.metrics-seg button{appearance:none;border:0;background:none;color:var(--gray);font:750 var(--text-2xs) var(--font-mono);text-transform:uppercase;letter-spacing:.06em;padding:6px 12px;border-radius:7px;cursor:pointer;transition:color .15s,background-color .15s}
+.metrics-seg button:hover{color:var(--text);background:var(--control-hover)}
 .metrics-seg button.active{background:var(--bg);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
 .metrics-seg-small{margin-left:auto}
 .metrics-page .detail-section>header{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
@@ -15,7 +18,8 @@
 
 /* Overview: one card per market with the change windows as proper tone tiles. */
 .metrics-market-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
-.metrics-market-card{min-width:0;padding:15px 16px;border:1px solid var(--line);border-radius:12px;background:var(--control)}
+.metrics-market-card{min-width:0;padding:15px 16px;border:1px solid var(--line);border-radius:12px;background:var(--control);transition:border-color .16s,background-color .16s}
+.metrics-market-card:hover{border-color:color-mix(in srgb,var(--blue) 42%,var(--line));background:var(--control-hover)}
 .metrics-market-card>header b{font-size:var(--text-sm);font-weight:800}
 .metrics-market-all{border-color:var(--text)}
 .metrics-market-value{font:800 var(--text-lg) var(--font-mono);margin-top:6px}
@@ -27,31 +31,56 @@
 .metrics-window-tile b.up,.metrics-chip.up,.metrics-ratio-head em.up{color:#29b878}
 .metrics-window-tile b.down,.metrics-chip.down,.metrics-ratio-head em.down{color:#e05454}
 
-/* Movers: two ranked lists, rows linking to detail pages. */
+/* Movers: two leaderboard-style row tables with images, hover popovers, and stars. */
 .metrics-movers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-.metrics-mover-list{min-width:0;border:1px solid var(--line);border-radius:12px;background:var(--control);padding:13px 14px}
+.metrics-mover-list{min-width:0;border:1px solid var(--line);border-radius:12px;background:var(--control);padding:13px 14px;transition:border-color .16s}
+.metrics-mover-list:hover{border-color:color-mix(in srgb,var(--blue) 30%,var(--line))}
 .metrics-mover-list h3{margin:0 0 8px;font-size:var(--text-2xs);font-weight:850;letter-spacing:.08em;text-transform:uppercase;color:var(--gray)}
-.metrics-mover-list ol{list-style:none;margin:0;padding:0}
-.metrics-mover-list li{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
-.metrics-mover-list li:first-child{border-top:0}
-.metrics-mover-list a{flex:1;min-width:0;text-decoration:none;color:inherit}
-.metrics-mover-list a b{display:block;font-size:var(--text-xs);font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.metrics-mover-list a span{display:block;color:var(--gray);font-size:var(--text-2xs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.metrics-mover-list a:hover b{color:var(--blue);text-decoration:underline;text-underline-offset:3px}
-.metrics-mover-price{font:750 var(--text-2xs) var(--font-mono);color:var(--gray)}
+.metrics-mover-head{display:grid;grid-template-columns:30px minmax(0,1fr) 84px 72px;column-gap:10px;padding:4px 6px 8px;color:#96979c;font-size:var(--text-2xs);font-weight:800;text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--line)}
+.metrics-mover-head span{min-width:0;white-space:nowrap}
+.metrics-mover-rows .market-row-shell+.market-row-shell .metrics-mover-row{border-top:1px solid var(--line)}
+.metrics-mover-row{display:grid;grid-template-columns:30px minmax(0,1fr) 84px 72px;column-gap:10px;align-items:center;position:relative;padding:7px 6px;border-radius:9px;transition:background-color .15s}
+.metrics-mover-row:hover,.market-row-shell[open]>.metrics-mover-row{background:var(--control-hover)}
+.metrics-mover-row .mover-star{position:relative;z-index:5;display:flex}
+.metrics-mover-row .mover-star .favorite-star{min-width:28px;min-height:28px;font-size:1rem;border-radius:8px;background:transparent;border-color:transparent}
+.metrics-mover-row .mover-star .favorite-star:hover{border-color:var(--line);background:var(--control)}
+.metrics-mover-row .identity>.deferred-image{width:34px;height:46px;flex:0 0 34px}
+.metrics-mover-row .identity b{font-size:var(--text-xs)}
+.metrics-mover-row .identity small{font-size:var(--text-2xs)!important}
+.metrics-mover-price{font:750 var(--text-xs) var(--font-mono);color:var(--text)}
 .metrics-chip{font:750 var(--text-2xs) var(--font-mono);white-space:nowrap}
+/* The hover popover drops below its row, edge-aligned to its column so it stays on-page. */
+@media (hover:hover) and (pointer:fine) and (min-width:1000px){
+ .metrics-movers .hover-card{top:calc(100% + 6px);bottom:auto;transform:none;width:min(540px,calc(100vw - 40px));z-index:30}
+ .metrics-movers .metrics-mover-list:first-child .hover-card{left:0;right:auto}
+ .metrics-movers .metrics-mover-list:last-child .hover-card{left:auto;right:0}
+}
 
-/* Breadth: advancer share bars ahead of the count tiles. */
-.metrics-ratio{margin-bottom:12px}
-.metrics-ratio-head{display:flex;justify-content:space-between;gap:10px;margin-bottom:5px;font-size:var(--text-2xs);color:var(--gray)}
-.metrics-ratio-head em{font-style:normal;font-weight:750;font-family:var(--font-mono)}
-.metrics-ratio-bar{height:8px;border-radius:4px;background:#e05454;overflow:hidden}
-.metrics-ratio-bar span{display:block;height:100%;background:#29b878}
+/* Breadth: each window is a card — share headline, counts with direction arrows, net
+   figure, and a thicker advance/decline bar with a 50% reference tick. */
+.metrics-ratio-stack{display:grid;gap:10px}
+.metrics-ratio{padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--control);transition:border-color .16s}
+.metrics-ratio:hover{border-color:color-mix(in srgb,var(--blue) 35%,var(--line))}
+.metrics-ratio-head{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px 14px;margin-bottom:9px;font-size:var(--text-2xs);color:var(--gray)}
+.metrics-ratio-label{font-weight:850;letter-spacing:.08em;text-transform:uppercase}
+.metrics-ratio-share{font:800 var(--text-md) var(--font-mono)}
+.metrics-ratio-share.up{color:#29b878}
+.metrics-ratio-share.down{color:#e05454}
+.metrics-ratio-counts{display:inline-flex;gap:12px;margin-left:auto}
+.metrics-ratio-counts em{font-style:normal;font-weight:750;font-family:var(--font-mono)}
+.metrics-ratio-counts em.up{color:#29b878}
+.metrics-ratio-counts em.down{color:#e05454}
+.metrics-ratio-net{padding-left:12px;border-left:1px solid var(--line)}
+.metrics-ratio-bar{position:relative;height:10px;border-radius:6px;background:color-mix(in srgb,#e05454 62%,var(--control))}
+.metrics-ratio-bar>span{position:absolute;inset:0 auto 0 0;border-radius:6px 0 0 6px;background:#29b878}
+.metrics-ratio-bar>i{position:absolute;left:50%;top:-4px;bottom:-4px;width:2px;border-radius:1px;background:color-mix(in srgb,var(--gray) 55%,transparent)}
 .metrics-breadth-tiles{margin-top:14px}
+.metrics-breadth-tiles .detail-metric>span{display:block;margin-top:3px;color:var(--gray);font-size:var(--text-2xs)}
 
 /* Index cards. */
 .metrics-index-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-.metrics-index-card{min-width:0;padding:15px 16px;border:1px solid var(--line);border-radius:12px;background:var(--control)}
+.metrics-index-card{min-width:0;padding:15px 16px;border:1px solid var(--line);border-radius:12px;background:var(--control);transition:border-color .16s,background-color .16s}
+.metrics-index-card:hover{border-color:color-mix(in srgb,var(--blue) 42%,var(--line));background:var(--control-hover)}
 .metrics-index-card>header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
 .metrics-index-card>header b{font-size:var(--text-md)}
 .metrics-index-value{font:800 var(--text-lg) var(--font-mono)}
@@ -64,8 +93,12 @@
 .metrics-table th button:hover{color:var(--text)}
 .metrics-table .sort-mark{color:var(--gray);font-size:.6rem}
 .metrics-table .sort-mark.active{color:var(--text)}
-.metrics-table tbody tr:hover{background:var(--control)}
+.metrics-table tbody tr{transition:background-color .12s}
+.metrics-table tbody tr:hover{background:var(--control-hover)}
 .metrics-page .detail-variants-table tbody th a:hover{color:var(--blue);text-decoration:underline;text-underline-offset:3px}
+/* Flat hover feedback on the stat tiles too — border tint only, tone washes untouched. */
+.metrics-page .detail-metric{transition:border-color .16s}
+.metrics-page .detail-metric:hover{border-color:color-mix(in srgb,var(--blue) 35%,var(--line))}
 
 .metrics-legend{display:flex;gap:16px;margin-bottom:8px;font-size:var(--text-2xs);font-weight:800;text-transform:uppercase;letter-spacing:.07em}
 .metrics-legend span{display:inline-flex;align-items:center;gap:6px;color:var(--gray)}

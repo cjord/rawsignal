@@ -1,18 +1,38 @@
 "use client";
 /* eslint-disable react-hooks/set-state-in-effect -- scope and the strictness preference hydrate from the URL and storage after mount */
-import {useEffect,useMemo,useState} from "react";
+import {useEffect,useMemo,useState,type CSSProperties} from "react";
 import InfoHint from "./InfoHint";
 import PriceChart from "./PriceChart";
 import TopBar from "./TopBar";
+import HistoryPanel,{movementTone,type HistoryMetric} from "./HistoryPanel";
+import {SegmentedView} from "./MarketUI";
+import FavoriteStar from "./FavoriteStar";
+import MarketRow from "./leaderboard/MarketRow";
+import HistoryPopover from "./leaderboard/HistoryPopover";
+import ProductIdentity from "./leaderboard/ProductIdentity";
+import {favoriteKey,type FavoriteEntry} from "./state/favorites";
+import {historyTargetKey,loadPriceHistoryBatch,type HistoryTarget} from "./data/usePriceHistoryBatch";
 import {deriveHistoryMetrics} from "./domain/history-metrics";
 import {POKEMON_ERAS,eraLabel} from "./domain/eras";
 import {formatGameName,formatPercent,formatUsd} from "./domain/formatters";
-import type {PricePoint,SignalStrictness} from "./domain/types";
+import type {PriceHistory,PricePoint,SignalStrictness} from "./domain/types";
 import type {MetricsCategoryRow,MetricsEraRow,MetricsMover,MetricsPayload,MetricsSetRow} from "./data/metrics-service";
 
 type Mode="singles"|"sealed";
 type Market="all"|"pokemon"|"riftbound"|"onepiece";
 const MODE_MARKETS:Record<Mode,Market[]>={singles:["all","pokemon","riftbound"],sealed:["all","pokemon","riftbound","onepiece"]};
+const MODE_VIEWS:[{key:Mode;label:string;icon:string},{key:Mode;label:string;icon:string}]=[{key:"singles",label:"Singles",icon:"◫"},{key:"sealed",label:"Sealed",icon:"▣"}];
+
+// The market scope wears the main page's signal-tab slider (visual pass 2026-08-28); the
+// slider CSS reads --view-count so 3-tab singles and 4-tab sealed both fit.
+function MarketTabs({mode,market,onChange}:{mode:Mode;market:Market;onChange:(market:Market)=>void}){
+ const options=MODE_MARKETS[mode];
+ const selected=Math.max(0,options.indexOf(market));
+ return <div className="signal-tabs metrics-market-tabs" role="tablist" aria-label="Market scope" style={{"--selected-index":selected,"--view-count":options.length} as CSSProperties}>
+  <i className="signal-slider" aria-hidden="true"/>
+  {options.map(item=><button key={item} type="button" role="tab" aria-selected={market===item} className={market===item?"active":""} onClick={()=>onChange(item)}>{item==="all"?"All":formatGameName(item)}</button>)}
+ </div>;
+}
 
 const pct=(value:number|null)=>value==null?"N/A":formatPercent(value);
 const tone=(value:number|null)=>value==null||value===0?undefined:value<0?"down":"up";
@@ -136,20 +156,76 @@ function CategoryTable({categories}:{categories:MetricsCategoryRow[]}){
  </tbody></table></div>;
 }
 
-function MoverList({title,movers,empty}:{title:string;movers:MetricsMover[];empty:string}){
+const moverTarget=(mover:MetricsMover):HistoryTarget=>mover.kind==="single"?{productId:mover.productId,printing:mover.printing}:{productId:mover.productId,printing:"Sealed",sealed:true};
+const moverFavorite=(mover:MetricsMover):FavoriteEntry=>({key:favoriteKey(mover.kind,mover.productId),kind:mover.kind,game:mover.game,productId:mover.productId,name:mover.name,set:mover.set,number:null,section:null,image:mover.image||null,price:mover.price,addedAt:""});
+const moverMetrics=(mover:MetricsMover,history?:PriceHistory):HistoryMetric[]=>{
+ const movement=(label:string,value:number|null|undefined):HistoryMetric=>({label,value:value===undefined?"…":pct(value??null),tone:movementTone(value)});
+ return [
+  {label:"Market",value:formatUsd(mover.price)},
+  {label:"30D low",value:formatUsd(history?.low30??null)},
+  {label:"30D high",value:formatUsd(history?.high30??null)},
+  {label:"Hist low",value:formatUsd(history?.historyLow??null)},
+  {label:"Median",value:formatUsd(mover.mid)},
+  movement("7 day",history?.change7),
+  movement("30 day",history?.change30),
+  movement("90 day",history?.change90),
+ ];
+};
+
+// Same one-shot batch load the detail-page tables use: the visible movers request their
+// history once per scope/window change and the popovers fill in as it lands.
+function useMoverHistory(targets:HistoryTarget[]){
+ const [history,setHistory]=useState<Record<string,PriceHistory>>({});
+ const key=targets.map(historyTargetKey).join(",");
+ useEffect(()=>{
+  if(!targets.length)return;
+  const controller=new AbortController();
+  loadPriceHistoryBatch(targets,controller.signal)
+   .then(entries=>setHistory(current=>{const next={...current};for(const entry of entries)next[historyTargetKey(entry.target)]=entry.history;return next}))
+   .catch(()=>{});
+  return()=>controller.abort();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- targets identity is captured by the serialized key
+ },[key]);
+ return history;
+}
+
+function MoverTable({title,movers,history,empty}:{title:string;movers:MetricsMover[];history:Record<string,PriceHistory>;empty:string}){
  return <div className="metrics-mover-list"><h3>{title}</h3>
-  {movers.length?<ol>{movers.map(mover=><li key={`${mover.window}:${mover.productId}`}>
-   <a href={mover.kind==="single"?`/cards/${mover.productId}`:`/sealed/${mover.productId}`}><b>{mover.name}</b><span>{mover.set} · {formatGameName(mover.game)}</span></a>
-   <span className="metrics-mover-price">{formatUsd(mover.price)}</span>
-   <span className={`metrics-chip ${tone(mover.change)??""}`}>{pct(mover.change)}</span>
-  </li>)}</ol>:<p className="detail-unavailable">{empty}</p>}
+  {movers.length?<>
+   <div className="metrics-mover-head" aria-hidden="true"><span/><span>Name</span><span>Market Price</span><span>% Change</span></div>
+   <div className="metrics-mover-rows">{movers.map(mover=>{
+    const h=history[historyTargetKey(moverTarget(mover))];
+    return <MarketRow className="metrics-mover-row" key={`${mover.window}:${mover.kind}:${mover.productId}`} href={mover.kind==="single"?`/cards/${mover.productId}`:`/sealed/${mover.productId}`} label={`View ${mover.name} details`}
+     popover={<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={mover.image} alt={`${mover.name} ${mover.kind==="single"?"card":"product"}`} label={`${mover.name} price history`}>
+      <HistoryPanel title={mover.kind==="single"?"Near Mint market history":"Sealed market history"} subtitle={mover.kind==="single"?mover.printing:"Unopened"} points={h?.points??[]} metrics={moverMetrics(mover,h)}/>
+     </HistoryPopover>}>
+     <span className="mover-star"><FavoriteStar entry={moverFavorite(mover)}/></span>
+     <ProductIdentity className="identity mover-identity" image={mover.image} alt="" title={mover.name} meta={`${mover.set} · ${formatGameName(mover.game)}`}/>
+     <span className="metrics-mover-price">{formatUsd(mover.price)}</span>
+     <span className={`metrics-chip ${tone(mover.change)??""}`}>{pct(mover.change)}</span>
+    </MarketRow>;
+   })}</div>
+  </>:<p className="detail-unavailable">{empty}</p>}
  </div>;
 }
 
 function RatioBar({label,advancers,decliners}:{label:string;advancers:number;decliners:number}){
- const total=advancers+decliners,share=total?Math.round(advancers/total*100):50;
- return <div className="metrics-ratio"><div className="metrics-ratio-head"><span>{label}</span><span><em className="up">{advancers.toLocaleString()} up</em> · <em className="down">{decliners.toLocaleString()} down</em></span></div>
-  <div className="metrics-ratio-bar" role="img" aria-label={`${label}: ${advancers} advancers, ${decliners} decliners`}><span style={{width:`${share}%`}}/></div>
+ const total=advancers+decliners;
+ const share=total?Math.round(advancers/total*100):null;
+ const net=advancers-decliners;
+ return <div className="metrics-ratio">
+  <div className="metrics-ratio-head">
+   <span className="metrics-ratio-label">{label}</span>
+   {share!=null&&<b className={`metrics-ratio-share ${share>=50?"up":"down"}`}>{share}% advancing</b>}
+   <span className="metrics-ratio-counts">
+    <em className="up">▲ {advancers.toLocaleString()}</em>
+    <em className="down">▼ {decliners.toLocaleString()}</em>
+    <em className={`metrics-ratio-net ${net>=0?"up":"down"}`}>{net>=0?"+":""}{net.toLocaleString()} net</em>
+   </span>
+  </div>
+  <div className="metrics-ratio-bar" role="img" aria-label={`${label}: ${advancers.toLocaleString()} advancers, ${decliners.toLocaleString()} decliners${share!=null?` — ${share}% advancing`:""}`}>
+   <span style={{width:`${share??50}%`}}/><i aria-hidden="true"/>
+  </div>
  </div>;
 }
 
@@ -192,6 +268,8 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
   const categories=mode==="sealed"?payload.sealedCategories.filter(row=>market==="all"||row.game===market):[];
   return {overview,combined,momentum,gainers,decliners,sets,categories};
  },[payload,series,kind,mode,market,moversWindow]);
+ const moverTargets=useMemo(()=>scoped?[...scoped.gainers,...scoped.decliners].map(moverTarget):[],[scoped]);
+ const moverHistory=useMoverHistory(moverTargets);
 
  const compareKeys=market==="all"?[indexKey(mode,"pokemon"),indexKey(mode,"riftbound")]:null;
  const comparePokemon=compareKeys?series[compareKeys[0]]??[]:[];
@@ -204,38 +282,44 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
  };
  const pokemonBase=rebase(comparePokemon),riftboundBase=rebase(compareRiftbound);
 
- return <main className="detail-page metrics-page"><TopBar className="detail-topbar" active="metrics" strictness={strictness} onStrictness={changeStrictness}/>
+ return <main className="detail-page metrics-page"><TopBar active="metrics" strictness={strictness} onStrictness={changeStrictness}/>
+  <header className="masthead" id="top">
+   <p className="kicker">Daily TCG market intelligence</p>
+   <h1>The card market, <span>without the noise.</span></h1>
+  </header>
+  {payload&&<>
+   <div className="product-navigation"><SegmentedView value={mode} options={MODE_VIEWS} label="Product type" className="product-toggle" onChange={(next:Mode)=>setScope(next,market)}/></div>
+   <div className="signal-navigation metrics-market-nav"><MarketTabs mode={mode} market={market} onChange={next=>setScope(mode,next)}/></div>
+  </>}
   <article className="detail-content">
-   <header className="metrics-head"><span className="kicker">Market metrics</span><h1>The market, measured.</h1>{payload&&<p className="detail-note">Rolled up {payload.rolledUpAt.slice(0,10)} from daily TCGCSV market data · equal-weighted indexes, rebalanced daily · informational, not financial advice.</p>}</header>
    {!payload?<section className="detail-section"><header><span>Unavailable</span><h2>Metrics need the database</h2></header><p className="detail-unavailable">This page reads the daily market rollups in the database-backed deployment. The local development server and feed-only deployments have no rollup data, so nothing is estimated here — visit the published site instead.</p></section>:<>
-   <div className="metrics-scope" role="group" aria-label="Metrics scope">
-    <div className="metrics-seg" role="tablist" aria-label="Mode">{(["singles","sealed"] as const).map(item=><button key={item} type="button" role="tab" aria-selected={mode===item} className={mode===item?"active":""} onClick={()=>setScope(item,market)}>{item==="singles"?"Singles":"Sealed"}</button>)}</div>
-    <div className="metrics-seg" role="tablist" aria-label="Market">{MODE_MARKETS[mode].map(item=><button key={item} type="button" role="tab" aria-selected={market===item} className={market===item?"active":""} onClick={()=>setScope(mode,item)}>{item==="all"?"All":formatGameName(item)}</button>)}</div>
-   </div>
+   <p className="detail-note metrics-rollup-note">Rolled up {payload.rolledUpAt.slice(0,10)} from daily TCGCSV market data · equal-weighted indexes, rebalanced daily · informational, not financial advice.</p>
    <section className="detail-section"><header><span>Tracked market</span><h2>Overview<InfoHint label="About tracked value">Tracked value sums current market prices across every tracked product — coverage, not capitalization. Movement follows each scope&apos;s equal-weighted index series.</InfoHint></h2></header>
     <div className="metrics-market-grid">
      {scoped&&scoped.combined&&<div className="metrics-market-card metrics-market-all"><header><b>{mode==="singles"?"All singles":"All sealed"}</b></header><div className="metrics-market-value">{compactUsd(scoped.combined.trackedValue)}</div><span className="metrics-market-sub">{scoped.combined.products.toLocaleString()} products</span><ChangeTiles change7={scoped.combined.change7} change30={scoped.combined.change30} change90={scoped.combined.change90}/>{(()=>{const sp=(series[BENCHMARK_KEY]?.length??0)>1?changesOf(series[BENCHMARK_KEY]):null;return sp?<span className="metrics-sp-line">vs S&amp;P 500 (SPY): market <em className={tone(scoped.combined.change90)??""}>{pct(scoped.combined.change90)}</em> · S&amp;P <em className={tone(sp.change90)??""}>{pct(sp.change90)}</em> over 90D</span>:null})()}</div>}
      {scoped?.overview.map(row=><div className="metrics-market-card" key={row.key}><header><b>{row.label}</b></header><div className="metrics-market-value">{compactUsd(row.trackedValue)}</div><span className="metrics-market-sub">{row.products.toLocaleString()} products</span><ChangeTiles change7={row.change7} change30={row.change30} change90={row.change90}/></div>)}
     </div></section>
-   <section className="detail-section"><header><span>Movers</span><h2>Top movers<InfoHint label="About movers">Largest price changes over the selected window among products worth at least $10 (singles) or $20 (sealed) before and after the move. Extreme swings that typically reflect listing turnover rather than market movement are excluded. Links open the product&apos;s detail page.</InfoHint></h2>
+   <section className="detail-section"><header><span>Movers</span><h2>Top Movers<InfoHint label="About movers">Largest price changes over the selected window among products worth at least $10 (singles) or $20 (sealed) before and after the move. Extreme swings that typically reflect listing turnover rather than market movement are excluded. Rows open the product&apos;s detail page; hover for its price history.</InfoHint></h2>
     <div className="metrics-seg metrics-seg-small" role="tablist" aria-label="Movers window">{(["7d","30d"] as const).map(item=><button key={item} type="button" role="tab" aria-selected={moversWindow===item} className={moversWindow===item?"active":""} onClick={()=>setMoversWindow(item)}>{item==="7d"?"7D":"30D"}</button>)}</div></header>
     <div className="metrics-movers">
-     <MoverList title="Gainers" movers={scoped?.gainers??[]} empty="No qualifying gainers in this window."/>
-     <MoverList title="Decliners" movers={scoped?.decliners??[]} empty="No qualifying decliners in this window."/>
+     <MoverTable title="Gainers" movers={scoped?.gainers??[]} history={moverHistory} empty="No qualifying gainers in this window."/>
+     <MoverTable title="Decliners" movers={scoped?.decliners??[]} history={moverHistory} empty="No qualifying decliners in this window."/>
     </div></section>
    <section className="detail-section"><header><span>Breadth</span><h2>Momentum<InfoHint label="About breadth">Advancers and decliners count tracked products whose price moved over each window. Broad moves are sturdier than narrow ones; all-time marks compare today&apos;s price against each product&apos;s stored history.</InfoHint></h2></header>
-    {scoped&&<><RatioBar label="7 days" advancers={scoped.momentum.advancers7} decliners={scoped.momentum.decliners7}/>
-    <RatioBar label="30 days" advancers={scoped.momentum.advancers30} decliners={scoped.momentum.decliners30}/>
+    {scoped&&<><div className="metrics-ratio-stack">
+     <RatioBar label="7 days" advancers={scoped.momentum.advancers7} decliners={scoped.momentum.decliners7}/>
+     <RatioBar label="30 days" advancers={scoped.momentum.advancers30} decliners={scoped.momentum.decliners30}/>
+    </div>
     <div className="detail-history-grid metrics-breadth-tiles">
-     <div className="detail-metric"><small>At all-time high</small><b>{scoped.momentum.atHistoricHigh.toLocaleString()}</b></div>
-     <div className="detail-metric"><small>At all-time low</small><b>{scoped.momentum.atHistoricLow.toLocaleString()}</b></div>
+     <div className="detail-metric"><small>At all-time high</small><b className={scoped.momentum.atHistoricHigh>0?"up":undefined}>{scoped.momentum.atHistoricHigh.toLocaleString()}</b>{scoped.momentum.tracked>0&&<span>{Math.round(scoped.momentum.atHistoricHigh/scoped.momentum.tracked*100)}% of tracked</span>}</div>
+     <div className="detail-metric"><small>At all-time low</small><b className={scoped.momentum.atHistoricLow>0?"down":undefined}>{scoped.momentum.atHistoricLow.toLocaleString()}</b>{scoped.momentum.tracked>0&&<span>{Math.round(scoped.momentum.atHistoricLow/scoped.momentum.tracked*100)}% of tracked</span>}</div>
      <div className="detail-metric"><small>Tracked products</small><b>{scoped.momentum.tracked.toLocaleString()}</b><span>{mode==="singles"?"Singles":"Sealed"} with current prices and stored metrics</span></div>
     </div></>}</section>
    <section className="detail-section"><header><span>Equal-weighted indexes</span><h2>Indexes<InfoHint label="About the indexes">Each index is the mean of that day&apos;s top prices in its scope, rebalanced daily. Days observing too little of the market are excluded, which is why some series start later than others.</InfoHint></h2></header>
     <div className="metrics-index-grid">{visibleIndexKeys(mode,market).map(key=><IndexCard key={key} seriesKey={key} points={series[key]??[]} medianPoints={MEDIAN_FOR[key]?series[MEDIAN_FOR[key]]:undefined} benchmark={series[BENCHMARK_KEY]}/>)}</div></section>
    {compareKeys&&<section className="detail-section"><header><span>Cross-market</span><h2>Pokémon vs Riftbound</h2></header>
     {pokemonBase.length>1&&riftboundBase.length>1?<><div className="metrics-legend"><span className="legend-pokemon">{INDEX_META[compareKeys[0]].title}</span><span className="legend-riftbound">{INDEX_META[compareKeys[1]].title}</span></div><PriceChart points={pokemonBase} overlay={riftboundBase} label="base-100 comparison"/><p className="detail-note">Each game&apos;s equal-weighted index rebased to 100 at the first shared rollup date. Values are index points, not dollars.</p></>:<p className="detail-unavailable">The comparison needs rolled-up history for both games.</p>}</section>}
-   {mode==="singles"&&(market==="all"||market==="pokemon")&&(payload.eras?.length??0)>0&&<section className="detail-section"><header><span>Pokémon by era</span><h2>Era performance<InfoHint label="About eras">Every tracked Pokémon set folded into its collector era (prefix first, release year otherwise). 30D momentum is the tracked-value-weighted mean of member sets&apos; median card changes — big sets move the era, minor sets don&apos;t swamp it.</InfoHint></h2></header><EraTable eras={payload.eras??[]}/></section>}
+   {mode==="singles"&&market==="pokemon"&&(payload.eras?.length??0)>0&&<section className="detail-section"><header><span>Pokémon by era</span><h2>Era performance<InfoHint label="About eras">Every tracked Pokémon set folded into its collector era (prefix first, release year otherwise). 30D momentum is the tracked-value-weighted mean of member sets&apos; median card changes — big sets move the era, minor sets don&apos;t swamp it.</InfoHint></h2></header><EraTable eras={payload.eras??[]}/></section>}
    {mode==="singles"?<section className="detail-section"><header><span>By set</span><h2>Set leaderboard<InfoHint label="About the leaderboard">Top sets by tracked singles value. 30D momentum is the median of member cards&apos; 30-day changes; Sealed 30D is the same for the set&apos;s sealed products — a gap between them flags rotation between the two markets. Pack EV is the expected chase-card value of one booster from community pull-rate estimates times current singles prices (bulk excluded); the multiple compares it against the cheapest live pack price — above 1× means ripping beats buying the singles at these prices. Set names link to the filtered leaderboard.</InfoHint></h2></header><SetTable sets={scoped?.sets??[]}/></section>
    :<section className="detail-section"><header><span>By category</span><h2>Category leaderboard<InfoHint label="About the leaderboard">Sealed products grouped by category. The median is the middle product price in the category; 30D momentum is the median of member products&apos; 30-day changes.</InfoHint></h2></header><CategoryTable categories={scoped?.categories??[]}/></section>}
    </>}

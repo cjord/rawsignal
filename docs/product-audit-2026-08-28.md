@@ -615,3 +615,18 @@ performance limit — audit C2 superseded): the stabilization + liquidity gates 
 curating and the board paginates. The footer states the data-updated date (C1
 follow-through). Two items queued in docs/todo.md §I: mobile large-image view + tap
 model, and view-mode persistence across list surfaces.
+
+**Visual pass round 2 — metrics page (2026-08-28, user review of staging):** the page
+now wears the main page's top chrome — masthead, Singles/Sealed product toggle, and the
+market scope (All/Pokémon/Riftbound, +One Piece in sealed) restyled as the signal-tab
+slider (the slider CSS generalized to read `--view-count`, so 3- and 4-tab layouts both
+fit). Top Movers rebuilt as leaderboard-style row tables: product images, a
+Name/Market Price/% Change header, favorite star left of the image, whole-row hover
+highlight, and the same hover history popover as the leaderboards (movers payload gained
+`printing`/`image`/`mid`; the visible movers batch-load history like the detail-page
+tables; popovers drop below the row, edge-aligned per column). Momentum redesigned:
+each window is a card with a "% advancing" headline, ▲/▼ counts, a net figure, and a
+thicker bar with a 50% reference tick; the all-time-high/low tiles are tone-washed and
+state their share of tracked products. Flat hover feedback added across market cards,
+index cards, stat tiles, table rows, and segmented buttons. The Pokémon era table now
+renders only on the Pokémon scope.

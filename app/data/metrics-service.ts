@@ -27,7 +27,7 @@ export type MetricsSetRow = { set: string; game: string; trackedValue: number; m
 export type MetricsCategoryRow = { category: string; game: string; trackedValue: number; medianPrice: number; products: number; change30: number | null };
 export type MetricsEraRow = { era: string; trackedValue: number; cards: number; sets: number; change30: number | null };
 export type MetricsMomentumRow = { game: string; kind: "single" | "sealed"; tracked: number; advancers7: number; decliners7: number; advancers30: number; decliners30: number; atHistoricHigh: number; atHistoricLow: number };
-export type MetricsMover = { productId: number; name: string; set: string; game: string; kind: "single" | "sealed"; price: number; change: number; window: "7d" | "30d"; direction: "up" | "down" };
+export type MetricsMover = { productId: number; name: string; set: string; game: string; kind: "single" | "sealed"; printing: string; image: string | null; price: number; mid: number | null; change: number; window: "7d" | "30d"; direction: "up" | "down" };
 export type MetricsPayload = {
   generatedAt: string;
   rolledUpAt: string;
@@ -55,7 +55,7 @@ type TotalsRow = { game: string; kind: "single" | "sealed"; totalCents: number; 
 type SetRow = { setName: string; game: string; totalCents: number; cards: number; medianCents: number; change30Bps: number | null };
 type CategoryRow = { category: string; game: string; totalCents: number; products: number; medianCents: number; change30Bps: number | null };
 type MomentumRow = { game: string; kind: "single" | "sealed"; tracked: number; advancers7: number; decliners7: number; advancers30: number; decliners30: number; atHigh: number; atLow: number };
-type MoverRow = { productId: number; name: string; setName: string; game: string; kind: "single" | "sealed"; cents: number; changeBps: number; win: "7d" | "30d"; direction: "up" | "down" };
+type MoverRow = { productId: number; name: string; setName: string; game: string; kind: "single" | "sealed"; printing: string | null; image: string | null; cents: number; midCents: number | null; changeBps: number; win: "7d" | "30d"; direction: "up" | "down" };
 
 const gameLabel: Record<string, string> = { pokemon: "Pokémon", riftbound: "Riftbound", onepiece: "One Piece" };
 
@@ -265,7 +265,8 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options
   // Moves beyond 4x (7D) / 6x (30D) in either direction are excluded for the same reason:
   // at those magnitudes the "move" is listing turnover, not the market repricing a product.
   const moverRows = (await db.prepare(`with eligible as (
-      select p.product_id productId, p.name, p.set_name setName, p.game, p.kind, cp.market_cents cents,
+      select p.product_id productId, p.name, p.set_name setName, p.game, p.kind, p.image_url image,
+        mm.variant printing, cp.market_cents cents, cp.median_cents midCents,
         mm.change_7_bps c7, mm.change_30_bps c30,
         case when p.kind='sealed' then 2000 else 1000 end floorCents
       from catalog_products p
@@ -279,14 +280,16 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options
       select *, row_number() over (partition by game, kind order by c30 desc) up, row_number() over (partition by game, kind order by c30 asc) down
       from eligible where c30 is not null and c30 != 0 and c30 between -8333 and 50000 and cents / (1.0 + c30 / 10000.0) >= floorCents
     )
-    select productId, name, setName, game, kind, cents, c7 as changeBps, '7d' as win, case when up <= 8 and c7 > 0 then 'up' else 'down' end as direction
+    select productId, name, setName, game, kind, printing, image, cents, midCents, c7 as changeBps, '7d' as win, case when up <= 8 and c7 > 0 then 'up' else 'down' end as direction
       from sevens where (up <= 8 and c7 > 0) or (down <= 8 and c7 < 0)
     union all
-    select productId, name, setName, game, kind, cents, c30, '30d', case when up <= 8 and c30 > 0 then 'up' else 'down' end
+    select productId, name, setName, game, kind, printing, image, cents, midCents, c30, '30d', case when up <= 8 and c30 > 0 then 'up' else 'down' end
       from thirties where (up <= 8 and c30 > 0) or (down <= 8 and c30 < 0)`).bind().all<MoverRow>()).results ?? [];
   const movers: MetricsMover[] = moverRows.map(row => ({
     productId: row.productId, name: row.name, set: row.setName, game: row.game, kind: row.kind,
-    price: row.cents / 100, change: row.changeBps / 100, window: row.win, direction: row.direction,
+    printing: row.printing ?? (row.kind === "sealed" ? "Sealed" : "Normal"), image: row.image ?? null,
+    price: row.cents / 100, mid: row.midCents == null ? null : row.midCents / 100,
+    change: row.changeBps / 100, window: row.win, direction: row.direction,
   }));
 
   return { generatedAt: new Date().toISOString(), rolledUpAt: published.lastSuccessAt, series, overview, sets, sealedCategories, eras, momentum, movers };
