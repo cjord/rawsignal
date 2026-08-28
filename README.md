@@ -63,7 +63,7 @@ See [Data ingestion](docs/data-ingestion.md), [Data sources](docs/data-sources.m
 
 ## Architecture
 
-The React 19 and TypeScript application is built with vinext for a Cloudflare Worker runtime. OpenAI Sites is the current host and supplies the logical D1 binding declared in `.openai/hosting.json`.
+The React 19 and TypeScript application is built with vinext for a Cloudflare Worker runtime and published as a Cloudflare Worker (the D1-backed staging Worker serves as production). OpenAI Sites hosting is dormant; `.openai/hosting.json` is preserved as the rollback path.
 
 ```text
 TCGCSV and approved MSRP sources
@@ -108,17 +108,23 @@ Migrations are additive by default. Do not perform a destructive production migr
 
 ## Deployment
 
-Raw Signal is currently published through OpenAI Sites. `.openai/hosting.json` contains the existing opaque project ID and logical `DB` binding; do not replace or invent either value.
+Raw Signal is published as a Cloudflare Worker: `raw-signal-staging` at
+`https://raw-signal-staging.raw-signal-watch.workers.dev`, backed by the migrated
+`raw-signal-staging` D1 database and a `*/2` guard Cron Trigger (decision 2026-08-27;
+a dedicated production Worker and hostname are a later, explicitly approved step).
 
 The release sequence is:
 
-1. run `npm run check`;
+1. run `npm run check` (dev server stopped);
 2. commit and push the exact validated source;
-3. package the matching vinext output with the Sites packaging helper;
-4. save and deploy that exact version;
-5. wait for the production deployment to succeed.
+3. `RAW_SIGNAL_D1_DATABASE_ID=<staging D1 UUID> npm run cloudflare:prepare:staging -- --cron "*/2 * * * *"`;
+4. inspect `dist/server/wrangler.staging.json`, then `npx wrangler deploy --config dist/server/wrangler.staging.json`;
+5. verify the deployed URL responds and report the version ID.
 
-The accepted future direction is a direct Cloudflare Worker with D1 and Cron Triggers. Generated feeds remain available until database counts, nullability, histories, and signals pass parity checks and the D1 cutover is approved.
+OpenAI Sites hosting is dormant but revivable: `.openai/hosting.json` keeps the existing
+opaque project ID and logical `DB` binding — do not replace or invent either value.
+Generated feeds remain bundled as the emergency fallback the APIs use whenever the D1
+readiness markers are absent.
 
 The staged migration procedure, rollback boundaries, and catalog-parity gate are documented in [Cloudflare cutover](docs/cloudflare-cutover.md). Cron remains disabled until a staging ingestion adapter has completed successfully and database-backed API parity is proven.
 

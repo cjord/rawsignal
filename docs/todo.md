@@ -593,12 +593,15 @@ accumulation, `product_details` ingestion, then the production Worker/D1/cutover
    the feed script into the same run (deeper history than the 1-obs/day file it replaces).
    Decision: plain Cron + checkpointed jobs (free tier, proven) vs paid Workflows
    (resumability/monitoring) — recommend starting with Cron + existing checkpoints.
-5. **Cutover**: production route/domain decision — keep OpenAI Sites as the frontend with
-   Cloudflare serving `/api/*`, or move hosting entirely to the Worker (it already serves
-   the app). Recommend full move only after 3–4 run clean for a week; Sites tarball remains
-   the rollback.
-6. **Decommission the manual loop**: the v-N tarball packaging cadence drops to
-   frontend-only changes; feeds stay as the emergency fallback path.
+5. **Cutover — DECIDED 2026-08-27 (user):** hosting moved entirely to the Worker. The
+   environments of record are the local dev server (port 3000) and the published Cloudflare
+   deployment — the staging Worker URL serves as production until a dedicated production
+   Worker + hostname are approved. OpenAI Sites is dormant (no more vN tarballs; the Sites
+   project and `.openai/hosting.json` are preserved as the rollback path, revivable only on
+   explicit request). AGENTS.md hosting/deployment sections rewritten accordingly.
+6. **Decommission the manual loop — DONE with 5:** the v-N tarball packaging cadence ends;
+   publishing = gate → prepare staging config (`--cron`) → `wrangler deploy`; feeds stay
+   bundled as the emergency fallback path.
 
 **Effort/risk.** Large; spans sessions; every mutation step gated on you. Nothing here
 starts without the Gate 0 items.
@@ -630,9 +633,9 @@ by self-hosting: woff2 files in `public/fonts/`, hand-owned `app/styles/fonts.cs
 (declarations + fallbacks + `--font-sans`/`--font-mono` on `:root`), `next/font` removed
 from the layout, and a css-architecture test forbidding absolute paths in font CSS.
 Verified on staging: `document.fonts` loads Geist/Geist Mono, `.position` renders
-12.5px Geist Mono identical to dev. **Ship to Sites via the next package** — Sites
-production has the same bug until then. The hypotheses below are superseded (kept for
-the record):
+12.5px Geist Mono identical to dev. The fix is live on the published Worker deployment;
+the dormant Sites project keeps the bug until revived with a fresh package. The
+hypotheses below are superseded (kept for the record):
 
 *(original analysis)*
 
@@ -773,5 +776,5 @@ view) sized during implementation.
   the detail page root (curl the HTML on Sites to read real cold-start numbers). F1(3)
   (per-product summary chunks) stays parked until those numbers justify it; F1(4) is G1.
 - **Phase 4:** G1 (after the UI phases, gated on Gate 0 authorization).
-- Each phase ends with the full gate (`npm run check`, dev server stopped first) and a
-  packaged vN handoff if you want it deployed.
+- Each phase ends with the full gate (`npm run check`, dev server stopped first) and, on
+  request, a Worker deploy (vN tarball handoffs retired 2026-08-27 with the hosting move).

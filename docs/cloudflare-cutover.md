@@ -1,6 +1,6 @@
 # Cloudflare cutover runbook
 
-OpenAI Sites remains the production host until the direct Cloudflare deployment passes every gate below. The first direct deployment must use a separate staging Worker and D1 database. Do not reuse production data, enable Cron, or change the production hostname during preparation.
+Status 2026-08-27: the staging Worker is the published deployment of record (backfill complete, parity passed, guard Cron live) and OpenAI Sites hosting is dormant as the rollback path. The gates below were followed for staging and remain the checklist for promoting a dedicated production Worker, D1 database, and custom hostname — that promotion is still a separate, explicitly approved step. Do not reuse production data or change hostnames during preparation.
 
 ## Environment boundaries
 

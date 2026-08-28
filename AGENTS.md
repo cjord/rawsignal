@@ -2,7 +2,7 @@
 
 ## Project overview
 
-Raw Signal is a mobile-friendly trading-card market dashboard for raw singles and sealed products. It currently covers Pokémon and Riftbound singles plus Pokémon, Riftbound, and selected One Piece sealed products. Magic: The Gathering support is intentionally paused. The application is a React 19 + TypeScript site built with vinext and deployed through OpenAI Sites on Cloudflare.
+Raw Signal is a mobile-friendly trading-card market dashboard for raw singles and sealed products. It currently covers Pokémon and Riftbound singles plus Pokémon, Riftbound, and selected One Piece sealed products. Magic: The Gathering support is intentionally paused. The application is a React 19 + TypeScript site built with vinext, developed against the local dev server on port 3000 and published as a Cloudflare Worker.
 
 Keep the product focused on clear market intelligence: sortable leaderboards, historical price movement, Hot Buy/Hot Sell signals, responsive card views, and transparent data provenance. Missing source data must display as unavailable rather than being estimated silently.
 
@@ -78,11 +78,10 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 
 ## Hosting and environment policy
 
-- OpenAI Sites is the default environment for ongoing development, testing, previews, and production publishing. Preserve the Sites-compatible vinext build and the logical bindings in `.openai/hosting.json`.
-- Continue to keep direct Cloudflare compatibility in the shared source, migrations, repository interfaces, Worker entry point, and deployment-preparation scripts. Do not introduce a Sites-only application fork or a separate Cloudflare UI implementation.
-- Deploy to direct Cloudflare only when the user explicitly requests a Cloudflare deployment in the active task. A linked Cloudflare account, an available Wrangler login, or a general request to publish the website does not authorize a Cloudflare deploy.
+- The environments of record (2026-08-27, user decision) are the local dev server (`npm run dev`, port 3000) and the published Cloudflare Worker deployment at `https://raw-signal-staging.raw-signal-watch.workers.dev` — the staging Worker serves as production until a dedicated production Worker and hostname are approved.
+- OpenAI Sites hosting is dormant: do not package `site-package-vN.tar.gz` handoffs or publish through Sites unless the user explicitly revives it. Preserve `.openai/hosting.json` (opaque `project_id` included) and the Sites-compatible vinext build as the rollback path — no Cloudflare-only application fork.
 - Unless explicitly authorized, do not create or mutate direct-Cloudflare Workers, D1 databases, routes, schedules, secrets, Workflows, Queues, or production bindings. Read-only inspection is acceptable when needed for planning or diagnosis.
-- A normal request to publish or deploy Raw Signal means publish through the existing OpenAI Sites project. If the target is ambiguous and direct Cloudflare would materially change external state, keep Sites as the target or ask for clarification.
+- A normal request to publish or deploy Raw Signal means deploying the Cloudflare Worker: run the full gate, then `npm run cloudflare:prepare:staging -- --cron "*/2 * * * *"` with the staging D1 UUID and `npx wrangler deploy --config dist/server/wrangler.staging.json`. Deploy only when the user asks in the active task — a linked account or an available Wrangler login does not authorize one.
 
 ### Current direct-Cloudflare capability
 
@@ -92,7 +91,7 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - Catalog and history ingestion have been proven with bounded live batches. The D1 bootstrap and history backfill are incomplete, so staging public APIs intentionally retain the bundled-feed fallback until atomic readiness markers exist.
 - The staging Worker runs a guard Cron Trigger (`*/2`, enabled 2026-08-27 via `--cron` in the deployment prep) that advances checkpointed ingestion only when work is due; no Queue, Workflow, production Worker route, production D1 database, or custom production hostname is active. Full database-backed catalog/signal parity passed 2026-08-27 against the feed snapshot (all six representative categories, `source:"database"`); Sites production itself returned 401 at check time, so the baseline was the identical local feed build.
 - The paid-plan continuation is the staging guard Cron (live); the next slices are live TCGCSV fetch in the Worker, graded rotation, and peer accumulation — implement or deploy each only after a specific user request.
-- Before any future Cloudflare production cutover, complete staging backfills, prove API and UI parity against Sites, create backups, validate rollback, obtain approval for the production hostname, and keep Sites available as the rollback target.
+- Before promoting a dedicated production Worker/D1/hostname, prove parity against the currently published deployment, create D1 exports and a Time Travel bookmark, validate rollback, and obtain approval for the production hostname. The dormant Sites project remains a secondary rollback path.
 
 ## Data rules
 
@@ -181,15 +180,13 @@ Review generated counts, market validation, duplicates, and diffs before committ
 
 ## Deployment
 
-- This repository's current production and default deployment target is OpenAI Sites because `.openai/hosting.json` is present.
-- Build and test before publishing.
-- Commit and push the exact validated source state before saving a Site version.
-- Package deployments with the Sites packaging helper; never commit the resulting archive.
-- Reuse the existing Sites project and source branch. Do not create a new Site or alter the stored project ID.
-- Prefer the existing private deployment workflow and poll until it succeeds or fails.
-- Publishing is an external action: do it only when the user asks to publish/deploy or when the active site-building workflow explicitly requires deployment.
-- Do not deploy the direct Cloudflare staging or production targets unless the user specifically requests Cloudflare deployment. Sites publication does not imply Cloudflare publication.
-- After publishing, report the production URL and the user-visible changes. Do not expose credentials, repository tokens, or internal deployment IDs.
+- The deployment target is the Cloudflare Worker (the staging Worker serves as production; see Hosting and environment policy). OpenAI Sites is dormant — if the user revives it: package with the Sites helper, never commit the archive, reuse the existing Site project without altering the stored project ID.
+- Build and test before publishing: the full gate (`npm run check`, dev server stopped) must be green.
+- Commit and push the exact validated source state before deploying.
+- Deploy via the prepared config: `npm run cloudflare:prepare:staging -- --cron "*/2 * * * *"` (staging D1 UUID in `RAW_SIGNAL_D1_DATABASE_ID`), inspect it, then `npx wrangler deploy --config dist/server/wrangler.staging.json`.
+- Publishing is an external action: do it only when the user asks to publish/deploy or when the active workflow explicitly requires deployment.
+- After publishing, verify the deployed URL responds and report the version ID and user-visible changes. Do not expose credentials, repository tokens, or internal deployment IDs.
+- A same-day redeploy preserves ingestion checkpoints; the guard cron ingests each new deploy's feed snapshot once at the next midnight-UTC re-key.
 
 ## Change checklist
 
