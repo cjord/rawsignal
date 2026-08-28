@@ -48,7 +48,8 @@ export function createMemoryCatalogRepository(cards: Card[], sealedProducts: Sea
         const peers=uniqueCards.filter(item=>item.game===card.game&&item.set===card.set&&(item.rarity===card.rarity||item.section===card.section)),rank=marketRank(card.marketPrice,peers.map(item=>item.marketPrice));
         const rarityPeers=uniqueCards.filter(item=>item.game===card.game&&item.rarity===card.rarity&&item.productId!==card.productId);
         const setRarityPeers=rarityPeers.filter(item=>item.set===card.set);
-        const cardRelatedSealed=uniqueSealed.filter(item=>item.game===card.game&&item.set===card.set).sort((a,b)=>(b.marketPrice??-1)-(a.marketPrice??-1)).slice(0,12);
+        // Pokémon cases are wholesale-priced outliers that crowd out every consumer product in a market-sorted top 12.
+        const cardRelatedSealed=uniqueSealed.filter(item=>item.game===card.game&&item.set===card.set&&!(item.game==="pokemon"&&item.category==="Cases")).sort((a,b)=>(b.marketPrice??-1)-(a.marketPrice??-1)).slice(0,12);
         const resolvedRate=pullRateFor(pullRateConfig,card.game,card.set,card);
         const tierCount=resolvedRate?uniqueCards.filter(item=>item.set===card.set&&(resolvedRate.bySection?item.section===card.section:item.rarity===card.rarity)).length:0;
         const cardPackPrice=resolvedRate!=null?packPriceForSet(card.set):null;

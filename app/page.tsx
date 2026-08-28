@@ -625,13 +625,11 @@ export default function Home() {
           },
         }
       : null,
-    selectedSets.length
-      ? {
-          key: "sets",
-          label: `${selectedSets.length} Set${selectedSets.length === 1 ? "" : "s"}`,
-          clear: () => setSelectedSets([]),
-        }
-      : null,
+    ...selectedSets.map((set) => ({
+      key: `set:${set}`,
+      label: set,
+      clear: () => setSelectedSets(selectedSets.filter((value) => value !== set)),
+    })),
     movement.up7
       ? {
           key: "up7",

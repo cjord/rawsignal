@@ -134,6 +134,8 @@
 }
 
 @media (max-width: 999px) {
+  /* In-flow expansion: below the hover-positioning breakpoint the styled popover chrome
+     never applies, so the panel restates the hover-card anatomy as an inline card. */
   .market-row-shell[open] .hover-card,
   .market-row-shell[open] .sealed-hover-card {
     display: grid !important;
@@ -144,6 +146,11 @@
     transform: none !important;
     margin-top: 8px;
     box-shadow: none !important;
+    padding: 14px;
+    gap: 12px;
+    border: 1px solid color-mix(in srgb, var(--blue) 40%, var(--line));
+    border-radius: var(--panel-radius);
+    background: var(--surface-raised);
   }
 
   .market-row-shell[open] .hover-card-art,
@@ -153,6 +160,20 @@
 
   .market-row-shell[open] .history-panel {
     display: flex !important;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .market-row-shell[open] .history-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .market-row-shell[open] .history-stats > span {
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--soft);
   }
 
   .view-large .market-row-shell[open] .hover-card {
@@ -190,6 +211,11 @@
     transform: none !important;
     margin-top: 8px;
     box-shadow: none !important;
+    padding: 14px;
+    gap: 12px;
+    border: 1px solid color-mix(in srgb, var(--blue) 40%, var(--line));
+    border-radius: var(--panel-radius);
+    background: var(--surface-raised);
   }
 
   .market-row-shell[open] .hover-card-art,
@@ -199,6 +225,20 @@
 
   .market-row-shell[open] .history-panel {
     display: flex !important;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .market-row-shell[open] .history-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .market-row-shell[open] .history-stats > span {
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--soft);
   }
 
   .view-large .market-row-shell[open] .hover-card .history-panel {

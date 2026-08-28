@@ -418,13 +418,11 @@ export default function SealedView({
           clear: () => setSelectedTypes([]),
         }
       : null,
-    selectedSets.length
-      ? {
-          key: "sets",
-          label: `${selectedSets.length} Set${selectedSets.length === 1 ? "" : "s"}`,
-          clear: () => setSelectedSets([]),
-        }
-      : null,
+    ...selectedSets.map((set) => ({
+      key: `set:${set}`,
+      label: set,
+      clear: () => setSelectedSets(selectedSets.filter((value) => value !== set)),
+    })),
     marketMin || marketMax
       ? {
           key: "market",
