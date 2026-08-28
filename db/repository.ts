@@ -63,13 +63,25 @@ export async function upsertSealedProduct(db:D1DatabaseLike,product:SealedProduc
   ]);
 }
 
-export async function upsertProductDetail(db:D1DatabaseLike,detail:CatalogDetailEnrichment){
- const source=detail.source;
- await db.prepare(`insert into product_details (product_id,category_id,group_id,set_abbreviation,published_on,modified_on,image_count,is_presale,presale_note,metadata_json,price_variants_json,source_updated_at)
+const productDetailSql=`insert into product_details (product_id,category_id,group_id,set_abbreviation,published_on,modified_on,image_count,is_presale,presale_note,metadata_json,price_variants_json,source_updated_at)
    values (?,?,?,?,?,?,?,?,?,?,?,?) on conflict(product_id) do update set category_id=excluded.category_id,group_id=excluded.group_id,
    set_abbreviation=excluded.set_abbreviation,published_on=excluded.published_on,modified_on=excluded.modified_on,image_count=excluded.image_count,
    is_presale=excluded.is_presale,presale_note=excluded.presale_note,metadata_json=excluded.metadata_json,price_variants_json=excluded.price_variants_json,
-   source_updated_at=excluded.source_updated_at`).bind(detail.productId,source.categoryId,source.groupId,source.setAbbreviation,source.publishedOn,source.modifiedOn,source.imageCount,source.isPresale==null?null:Number(source.isPresale),source.presaleNote,JSON.stringify(detail.metadata),JSON.stringify(detail.priceVariants),source.sourceUpdatedAt).run();
+   source_updated_at=excluded.source_updated_at`;
+
+const productDetailStatement=(db:D1DatabaseLike,detail:CatalogDetailEnrichment)=>{
+ const source=detail.source;
+ return db.prepare(productDetailSql).bind(detail.productId,source.categoryId,source.groupId,source.setAbbreviation,source.publishedOn,source.modifiedOn,source.imageCount,source.isPresale==null?null:Number(source.isPresale),source.presaleNote,JSON.stringify(detail.metadata),JSON.stringify(detail.priceVariants),source.sourceUpdatedAt);
+};
+
+export async function upsertProductDetail(db:D1DatabaseLike,detail:CatalogDetailEnrichment){
+ await productDetailStatement(db,detail).run();
+}
+
+export async function upsertProductDetails(db:D1DatabaseLike,details:CatalogDetailEnrichment[]){
+ for(let offset=0;offset<details.length;offset+=40){
+  await db.batch(details.slice(offset,offset+40).map(detail=>productDetailStatement(db,detail)));
+ }
 }
 
 export async function upsertHistory(db:D1DatabaseLike,productId:number,variant:string,condition:string,points:PricePoint[],fetchedAt:string,source="tcgplayer"){

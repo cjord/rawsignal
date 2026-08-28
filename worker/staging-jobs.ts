@@ -3,6 +3,7 @@ import type { Card, SealedProduct } from "../app/domain/types.ts";
 import { fetchTcgplayerHistory } from "../app/data/tcgplayer-history-client.ts";
 import { allowedRarities } from "../app/state/market-query.ts";
 import { runDailyMarketIngestionBatch, type DailyCatalogSnapshot } from "../db/daily-ingestion.ts";
+import { runDetailIngestionBatch } from "../db/detail-ingestion.ts";
 import { runHistoryBackfillBatch, type HistoryBackfillTarget } from "../db/history-backfill.ts";
 import type { D1DatabaseLike } from "../db/repository.ts";
 
@@ -42,6 +43,19 @@ async function load<T>(request: Request, assets: AssetsBinding, filename: string
   return parse(await response.json());
 }
 
+async function loadAsset(request: Request, assets: AssetsBinding, path: string): Promise<unknown> {
+  const response = await assets.fetch(new Request(new URL(path, request.url), { headers: { Accept: "application/json" } }));
+  if (!response.ok) throw new Error(`Staging source ${path} unavailable: ${response.status}`);
+  return response.json();
+}
+
+// The detail manifest maps `${kind}:${productId}` to its enrichment chunk; the sorted unique
+// chunk list is the detail-ingestion cursor space (stable for a given deploy).
+export async function loadDetailChunkPaths(request: Request, assets: AssetsBinding): Promise<string[]> {
+  const manifest = await loadAsset(request, assets, "/data/detail-manifest.json") as Record<string, string>;
+  return [...new Set(Object.values(manifest))].sort();
+}
+
 export async function loadStagingSnapshot(request: Request, assets: AssetsBinding, sourceUpdatedAt = new Date().toISOString()): Promise<DailyCatalogSnapshot> {
   const sections = [...new Set([...allowedRarities.pokemon, ...allowedRarities.riftbound])];
   const [cards, sealed] = await Promise.all([
@@ -68,8 +82,15 @@ export async function handleStagingJob(request: Request, env: StagingJobEnv): Pr
   let input: { job?: unknown; batchSize?: unknown };
   try { input = await request.json() as typeof input; }
   catch { return json({ error: "Invalid JSON" }, 400); }
-  const snapshot = await loadStagingSnapshot(request, env.ASSETS, env.CF_VERSION_METADATA?.timestamp);
+  const sourceUpdatedAt = env.CF_VERSION_METADATA?.timestamp ?? new Date().toISOString();
   try {
+    if (input.job === "details") {
+      const requested = typeof input.batchSize === "number" ? input.batchSize : 4;
+      const chunkPaths = await loadDetailChunkPaths(request, env.ASSETS);
+      const result = await runDetailIngestionBatch(env.DB, chunkPaths, path => loadAsset(request, env.ASSETS, path), { batchSize: requested, sourceUpdatedAt });
+      return json({ job: "details", result });
+    }
+    const snapshot = await loadStagingSnapshot(request, env.ASSETS, sourceUpdatedAt);
     if (input.job === "daily") {
       const requested = typeof input.batchSize === "number" ? input.batchSize : 50;
       const batchSize = Math.max(1, Math.min(maxDailyBatchSize, Math.floor(requested)));
@@ -87,7 +108,7 @@ export async function handleStagingJob(request: Request, env: StagingJobEnv): Pr
       });
       return json({ job: "history", result });
     }
-    return json({ error: "Job must be daily or history" }, 400);
+    return json({ error: "Job must be daily, history, or details" }, 400);
   } catch (error) {
     console.error(JSON.stringify({ event: "staging_job_failed", job: input.job, message: error instanceof Error ? error.message : "Unknown failure" }));
     return json({ error: "Staging job failed" }, 500);

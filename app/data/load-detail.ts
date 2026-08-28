@@ -26,7 +26,12 @@ function cachedRepository(key:string,build:()=>Promise<CatalogRepository>){
 
 export async function loadCatalogDetail(kind:CatalogKind,productId:number,market:string|undefined,origin:string):Promise<CatalogDetail|null>{
  const db=env.DB as unknown as D1DatabaseLike|undefined;
- if(db&&productId>0)try{const started=performance.now();const published=await publishedIngestion(db);if(published){const repositoryMs=performance.now()-started,queryStarted=performance.now();const detail=await createD1CatalogRepository(db,published.runId).getDetail(kind,productId,market);if(detail){recordTiming(detail,"d1",repositoryMs,performance.now()-queryStarted,false);return detail}}}catch{/* Retain the generated detail snapshot while D1 is incomplete. */}
+ // Detail reads are unscoped by run: upserts re-stamp ingestion_run_id in place, so pinning
+ // to the published run would exclude every product an in-progress re-ingestion has touched.
+ if(db&&productId>0)try{const started=performance.now();const published=await publishedIngestion(db);if(published){const repositoryMs=performance.now()-started,queryStarted=performance.now();const detail=await createD1CatalogRepository(db).getDetail(kind,productId,market);if(detail){recordTiming(detail,"d1",repositoryMs,performance.now()-queryStarted,false);return detail}}}catch(error){
+  // Retain the generated detail snapshot while D1 is incomplete — but say why it fell back.
+  console.error(JSON.stringify({event:"d1_detail_failed",kind,productId,message:error instanceof Error?error.message:"Unknown failure"}));
+ }
  const assets=(env as unknown as {ASSETS?:{fetch(input:RequestInfo|URL,init?:RequestInit):Promise<Response>}}).ASSETS;
  const fetcher:FetchLike=assets?assets.fetch.bind(assets):fetch;
  if(kind==="sealed"&&market==="scalping")try{

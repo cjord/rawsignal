@@ -577,7 +577,19 @@ which was used because **Sites production returned 401 site-wide at check time**
 to confirm visibility). **Guard cron activated** on staging (`*/2 * * * *`, version
 7678b432) with the approved AGENTS.md line-93 rewrite applied. Remaining G1 slices:
 live TCGCSV fetch in the Worker (redeploy-free daily data), graded rotation, peer
-accumulation, `product_details` ingestion, then the production Worker/D1/cutover gates.
+accumulation, then the production Worker/D1/cutover gates.
+
+**product_details slice — LANDED 2026-08-28.** Checkpointed chunk runner
+`db/detail-ingestion.ts` (cursor = enrichment chunk file; FK-filtered against
+`catalog_products`; batched upserts), staging job `details`, guard-cron action `details`
+(after each snapshot's catalog run; decision-tested). All 223 chunks ingested: 16,898
+detail rows, 22 FK skips. Detail pages now serve `source:"d1"` for singles and sealed
+(~350–530ms detail query vs the ~2.1s cold feed-repository build). Two D1 adapter bugs
+fixed en route: detail loads are no longer pinned to the published run id (in-progress
+re-ingestion re-stamps `ingestion_run_id` and was excluding re-ingested products —
+the real cause of the persistent feed fallback), and `getDetail` loads peers of both
+kinds (singles need related sealed, sealed need chase cards). The silent D1-fallback
+catch now logs `d1_detail_failed`.
 
 **Phased plan (runbook: docs/cloudflare-cutover.md):**
 1. **Gate 0 — authorization** (blocks everything): your Wrangler login, `STAGING_JOB_TOKEN`,
