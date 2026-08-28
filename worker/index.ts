@@ -1,7 +1,8 @@
 /** Cloudflare Worker entry point for Raw Signal. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
-import { handleStagingJob } from "./staging-jobs.ts";
+import { runScheduledIngestionTick } from "./scheduled-ingestion.ts";
+import { handleStagingJob, type StagingJobEnv } from "./staging-jobs.ts";
 
 interface Env {
   ASSETS: Fetcher;
@@ -48,6 +49,15 @@ const worker = {
     }
 
     return handler.fetch(request, env, ctx);
+  },
+
+  // Guard cron (docs/todo.md G1): each tick advances at most one checkpointed ingestion
+  // batch and no-ops when nothing is due. Config controls whether a trigger exists at all —
+  // scripts/cloudflare/prepare-deployment.mjs only emits crons for staging, on request.
+  async scheduled(controller: { scheduledTime: number; cron: string }, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(runScheduledIngestionTick(env as unknown as StagingJobEnv)
+      .then(result => console.log(JSON.stringify({ event: "scheduled_tick", cron: controller.cron, ...result })))
+      .catch(error => console.error(JSON.stringify({ event: "scheduled_tick_failed", cron: controller.cron, message: error instanceof Error ? error.message : "Unknown failure" }))));
   },
 };
 

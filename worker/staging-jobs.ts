@@ -51,7 +51,7 @@ export async function loadStagingSnapshot(request: Request, assets: AssetsBindin
   return { cards, sealed, source: "bundled-feed", sourceUpdatedAt, schemaVersion: 1 };
 }
 
-function historyTargets(snapshot: DailyCatalogSnapshot): HistoryBackfillTarget[] {
+export function historyTargets(snapshot: DailyCatalogSnapshot): HistoryBackfillTarget[] {
   return [
     ...snapshot.cards.map(card => ({ productId: card.productId, printing: card.printing, currentPrice: card.marketPrice })),
     ...snapshot.sealed.filter(product => product.marketPrice != null).map(product => ({ productId: product.productId, printing: "Sealed", sealed: true, currentPrice: product.marketPrice! })),
@@ -77,7 +77,9 @@ export async function handleStagingJob(request: Request, env: StagingJobEnv): Pr
     }
     if (input.job === "history") {
       const requested = typeof input.batchSize === "number" ? input.batchSize : 10;
-      const batchSize = Math.max(1, Math.min(20, Math.floor(requested)));
+      // 60 targets × ~2 external fetches stays under the paid plan's 1000-subrequest limit;
+      // the binding-call budget (~12 D1 ops per target) is the tighter ceiling.
+      const batchSize = Math.max(1, Math.min(60, Math.floor(requested)));
       const targets = historyTargets(snapshot);
       const result = await runHistoryBackfillBatch(env.DB, targets, target => fetchTcgplayerHistory(target.productId, target.printing, Boolean(target.sealed)), {
         batchSize,

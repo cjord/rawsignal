@@ -1,6 +1,11 @@
 import type { PriceHistory } from "../app/domain/types.ts";
+import { mapWithConcurrency } from "../app/market-utils.ts";
 import { persistDerivedHistory } from "./daily-ingestion.ts";
 import { checkpointIngestion, completeIngestion, failIngestion, readRefreshCursor, startIngestion, upsertHistory, type D1DatabaseLike } from "./repository.ts";
+
+// Workers allow six simultaneous outbound connections; history fetches are independent, so
+// run them concurrently and keep the D1 writes sequential in target order.
+const FETCH_CONCURRENCY = 6;
 
 export type HistoryBackfillTarget = {
   productId: number;
@@ -22,8 +27,8 @@ export async function runHistoryBackfillBatch(db: D1DatabaseLike, targets: Histo
   const batch = targets.slice(cursor, cursor + batchSize);
   let written = cursor, historiesWithData = priorStats.historiesWithData ?? 0, exactCoverage = priorStats.exactCoverage ?? 0;
   try {
-    for (const target of batch) {
-      const history = await fetchHistory(target);
+    const fetched = await mapWithConcurrency(batch, FETCH_CONCURRENCY, async target => ({ target, history: await fetchHistory(target) }));
+    for (const { target, history } of fetched) {
       const variant = history.variant ?? (target.sealed ? "Sealed" : target.printing), condition = history.condition ?? (target.sealed ? "Unopened" : "Near Mint");
       if (history.points.length) {
         await upsertHistory(db, target.productId, variant, condition, history.points, startedAt);

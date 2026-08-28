@@ -26,7 +26,7 @@ Record the returned D1 UUIDs in the deployment environment or secret manager, no
 
 ## 2. Build and generate a staging config
 
-The vinext build produces the base Worker configuration. The preparation script converts it into an environment-specific config, binds static assets as `ASSETS`, selects the isolated D1 database, and explicitly clears all Cron triggers.
+The vinext build produces the base Worker configuration. The preparation script converts it into an environment-specific config, binds static assets as `ASSETS`, selects the isolated D1 database, and clears all Cron triggers unless staging explicitly opts in (`--cron "*/2 * * * *"` or `RAW_SIGNAL_STAGING_CRON`); production never carries a schedule from this script. The Worker's `scheduled()` handler is a guard tick: it advances at most one checkpointed catalog batch when the deployed feed snapshot has not been fully ingested, continues an operator-started history backfill, and otherwise no-ops.
 
 ```powershell
 npm run check

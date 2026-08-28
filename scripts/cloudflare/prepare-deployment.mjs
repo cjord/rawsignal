@@ -5,7 +5,7 @@ import {pathToFileURL} from "node:url";
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const clone=value=>structuredClone(value);
 
-export function prepareDeploymentConfig(base,{environment,databaseId,databaseName,workerName,route}){
+export function prepareDeploymentConfig(base,{environment,databaseId,databaseName,workerName,route,cron}){
  if(environment!=="staging"&&environment!=="production")throw new Error("Environment must be staging or production");
  if(!uuid.test(databaseId??""))throw new Error("A valid Cloudflare D1 database UUID is required");
  if(!databaseName?.trim()||!workerName?.trim())throw new Error("Database and Worker names are required");
@@ -19,7 +19,9 @@ export function prepareDeploymentConfig(base,{environment,databaseId,databaseNam
  config.images={binding:"IMAGES"};
  config.version_metadata={binding:"CF_VERSION_METADATA"};
  config.vars={...(config.vars??{}),ENVIRONMENT:environment};
- config.triggers={};
+ // Only staging may carry a schedule, and only when explicitly requested (--cron / env);
+ // production never inherits one — its schedule is a separate cutover decision.
+ config.triggers=environment==="staging"&&cron?.trim()?{crons:[cron.trim()]}:{};
  config.observability={...(config.observability??{}),enabled:true};
  if(environment==="production")config.routes=[{pattern:route.trim(),custom_domain:true}];else delete config.routes;
  return config;
@@ -38,6 +40,7 @@ async function main(){
  const config=prepareDeploymentConfig(JSON.parse(await fs.readFile(basePath,"utf8")),{
   environment,databaseId,databaseName:option("database-name")??defaults.databaseName,
   workerName:option("worker-name")??defaults.workerName,route:option("route"),
+  cron:option("cron")??process.env.RAW_SIGNAL_STAGING_CRON,
  });
  await fs.mkdir(path.dirname(outPath),{recursive:true});await fs.writeFile(outPath,`${JSON.stringify(config,null,2)}\n`);
  console.log(outPath);
