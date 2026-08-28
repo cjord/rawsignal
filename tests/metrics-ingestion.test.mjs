@@ -3,7 +3,8 @@ import {readFile,readdir} from "node:fs/promises";
 import {DatabaseSync} from "node:sqlite";
 import test from "node:test";
 import {METRIC_SERIES,metricsBackfillStatements,readMetricSeries,runMetricsRollup} from "../db/metrics-ingestion.ts";
-import {publishedIngestion,startIngestion,upsertCard,upsertHistory} from "../db/repository.ts";
+import {publishedIngestion,startIngestion,upsertCard,upsertHistory,upsertSealedProduct} from "../db/repository.ts";
+import {loadMetricsPayload} from "../app/data/metrics-service.ts";
 
 class LocalStatement{
   constructor(statement){this.statement=statement;this.values=[]}
@@ -83,6 +84,22 @@ test("backfill statements are literal SQL that a bind-less runner can execute",a
   assert.deepEqual((await readMetricSeries(db))["index:test"],[{date:day(1),value:75,members:2}]);
   // The full production list generates two statements per series, all literal.
   assert.equal(metricsBackfillStatements().length,METRIC_SERIES.length*2);
+});
+
+test("the metrics payload prices per-set pack EV from pull rates and live pack prices",async()=>{
+  const db=new LocalD1(await migratedDatabase());
+  await startIngestion(db,"live-daily:seed","tcgcsv-live","2026-08-28T00:00:00Z",{});
+  for(const [id,market] of [[1,100],[2,50]])await upsertCard(db,card(id,market),"2026-08-28T00:00:00Z","live-daily:seed");
+  await upsertSealedProduct(db,{game:"pokemon",productId:9,name:"Fixture Booster Pack",set:"Fixture Set",category:"Booster Packs",image:null,url:"https://example.com/pack",msrp:null,marketPrice:4,midPrice:4.5,profit:null,profitPct:null,msrpSource:null},"2026-08-28T00:00:00Z","live-daily:seed");
+  for(const [id,price] of [[1,100],[2,50]])await upsertHistory(db,id,"Holofoil","Near Mint",[{date:day(1),price}],"now");
+  await runMetricsRollup(db,{mode:"backfill",series:testSeries});
+  const pullRates={note:"",sources:[],games:{pokemon:{default:{"Illustration Rare":8},sets:{}}}};
+  const payload=await loadMetricsPayload(db,{pullRates});
+  const set=payload.sets.find(row=>row.set==="Fixture Set");
+  // Tier average (100+50)/2=75 at 1-in-8 packs → EV $9.375 against a $4 live pack.
+  assert.equal(set.packEv,9.375);
+  assert.equal(set.packPrice,4);
+  assert.equal(set.evRatio,9.375/4);
 });
 
 test("even cohorts take the mean of the two middle ranks as the median",async()=>{

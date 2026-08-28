@@ -4,6 +4,7 @@ import {useEffect,useMemo,useRef,useState} from "react";
 import DeferredImage from "./DeferredImage";
 import FavoriteStar from "./FavoriteStar";
 import InfoHint from "./InfoHint";
+import {evRatio,packChaseEv} from "./domain/pack-ev";
 import {favoriteKey} from "./state/favorites";
 import PriceChart from "./PriceChart";
 import SaleScenario from "./SaleScenario";
@@ -125,11 +126,19 @@ function GradedMarketSection({graded,current}:{graded:GradedCardData|null;curren
 
 function PullRatesSection({detail}:{detail:SealedDetail}){
  if(!detail.pullRates.length)return null;
+ // Chase EV per pack (audit Phase C): what one pack's tracked chase slots are worth at
+ // current singles prices, against the live single-pack price.
+ const ev=packChaseEv(detail.pullRates),ratio=evRatio(ev,detail.packPrice);
  return <section className="detail-section"><header><span>Pack odds</span><h2>Pull rates</h2></header>
+  {ev!=null&&<div className="detail-history-grid detail-ev-grid">
+   <div className="detail-metric"><small>Chase EV per pack</small><b>{formatUsd(ev)}</b><span>Tracked chase slots only — bulk excluded</span></div>
+   {detail.packPrice!=null&&<div className="detail-metric"><small>Pack price</small><b>{formatUsd(detail.packPrice)}</b><span>Cheapest live single pack</span></div>}
+   {ratio!=null&&<div className="detail-metric"><small>EV ratio</small><b className={ratio>=1?"up":"down"}>{ratio.toFixed(2)}×</b><span>{ratio>=1?"Ripping beats buying the singles at these prices":"Buying singles beats ripping at these prices"}</span></div>}
+  </div>}
   <div className="detail-table-scroll"><table className="detail-variants-table"><thead><tr><th scope="col">Rarity</th><th scope="col">Cards in set</th><th scope="col">Any hit</th><th scope="col">Specific card</th><th scope="col">Cost per hit</th><th scope="col">Avg market</th></tr></thead><tbody>
   {detail.pullRates.map(row=><tr key={row.rarity}><th scope="row">{row.rarity}</th><td>{row.cardCount}</td><td>1 in {row.packsPerHit}</td><td>1 in ~{Math.round(row.packsPerHit*row.cardCount).toLocaleString()}</td><td>{formatUsd(row.costPerHit,"N/A")}</td><td>{formatUsd(row.averageMarket,"N/A")}</td></tr>)}
   </tbody></table></div>
-  <p className="detail-note">Community-measured pull-rate estimates{detail.packPrice!=null?` · costs use the ${formatUsd(detail.packPrice)} single-pack market price`:""}.<InfoHint label="About pull-rate accuracy">Odds vary by product and print run; treat community-measured rates as approximations, not guarantees.</InfoHint></p>
+  <p className="detail-note">Community-measured pull-rate estimates{detail.packPrice!=null?` · costs use the ${formatUsd(detail.packPrice)} single-pack market price`:""}.<InfoHint label="About pull-rate accuracy">Odds vary by product and print run; treat community-measured rates as approximations, not guarantees. Chase EV multiplies each tier&apos;s average tracked price by its hit odds — it excludes bulk commons, so it is a floor on pack value, not the whole story.</InfoHint></p>
  </section>;
 }
 

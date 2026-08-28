@@ -55,3 +55,4 @@
 .pricecharting-button{border-color:var(--line);background:var(--control);box-shadow:none;font-weight:750}
 .pricecharting-button:hover{background:var(--control-hover);box-shadow:none}
 @media(max-width:620px){.detail-actions{flex-wrap:wrap}.pricecharting-button,.detail-actions .tcgplayer-button{min-height:40px;padding:0 13px;font-size:var(--text-sm)}}
+.detail-ev-grid{margin-bottom:14px}

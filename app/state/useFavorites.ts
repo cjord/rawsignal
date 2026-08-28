@@ -1,5 +1,4 @@
 "use client";
-/* eslint-disable react-hooks/set-state-in-effect -- the store hydrates from localStorage after mount */
 import {useEffect,useState} from "react";
 import {BUYLIST_KEY,FAVORITES_KEY,addFavorites,parseBuyStates,parseFavorites,toggleFavorite,type BuyState,type FavoriteEntry} from "./favorites";
 

@@ -66,7 +66,7 @@ const compare=(a:number|string|null,b:number|string|null,direction:"asc"|"desc")
  return direction==="asc"?order:-order;
 };
 
-type SetColumn="set"|"trackedValue"|"medianPrice"|"cards"|"change30";
+type SetColumn="set"|"trackedValue"|"medianPrice"|"cards"|"change30"|"sealedChange30"|"evRatio";
 function SetTable({sets}:{sets:MetricsSetRow[]}){
  const {sort,direction,onSort}=useSort<SetColumn>("trackedValue");
  const rows=useMemo(()=>[...sets].sort((a,b)=>compare(a[sort],b[sort],direction)),[sets,sort,direction]);
@@ -77,8 +77,10 @@ function SetTable({sets}:{sets:MetricsSetRow[]}){
   <SortTh label="Median card" column="medianPrice" sort={sort} direction={direction} onSort={onSort}/>
   <SortTh label="Cards" column="cards" sort={sort} direction={direction} onSort={onSort}/>
   <SortTh label="30D momentum" column="change30" sort={sort} direction={direction} onSort={onSort}/>
+  <SortTh label="Sealed 30D" column="sealedChange30" sort={sort} direction={direction} onSort={onSort}/>
+  <SortTh label="Pack EV" column="evRatio" sort={sort} direction={direction} onSort={onSort}/>
  </tr></thead><tbody>
-  {rows.map(row=><tr key={`${row.game}:${row.set}`}><th scope="row"><a href={`/?mode=singles&market=${row.game}&rarity=all&sets=${encodeURIComponent(row.set)}`}>{row.set}</a></th><td>{formatGameName(row.game)}</td><td>{compactUsd(row.trackedValue)}</td><td>{formatUsd(row.medianPrice)}</td><td>{row.cards.toLocaleString()}</td><td><span className={`metrics-chip ${tone(row.change30)??""}`}>{pct(row.change30)}</span></td></tr>)}
+  {rows.map(row=><tr key={`${row.game}:${row.set}`}><th scope="row"><a href={`/?mode=singles&market=${row.game}&rarity=all&sets=${encodeURIComponent(row.set)}`}>{row.set}</a></th><td>{formatGameName(row.game)}</td><td>{compactUsd(row.trackedValue)}</td><td>{formatUsd(row.medianPrice)}</td><td>{row.cards.toLocaleString()}</td><td><span className={`metrics-chip ${tone(row.change30)??""}`}>{pct(row.change30)}</span></td><td><span className={`metrics-chip ${tone(row.sealedChange30)??""}`}>{pct(row.sealedChange30)}</span></td><td>{row.packEv!=null?<span className="metrics-ev">{formatUsd(row.packEv)}{row.evRatio!=null&&<em className={`metrics-chip ${row.evRatio>=1?"up":"down"}`}>{row.evRatio.toFixed(2)}×</em>}</span>:"N/A"}</td></tr>)}
  </tbody></table></div>;
 }
 
@@ -197,7 +199,7 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
     <div className="metrics-index-grid">{visibleIndexKeys(mode,market).map(key=><IndexCard key={key} seriesKey={key} points={series[key]??[]}/>)}</div></section>
    {compareKeys&&<section className="detail-section"><header><span>Cross-market</span><h2>Pokémon vs Riftbound</h2></header>
     {pokemonBase.length>1&&riftboundBase.length>1?<><div className="metrics-legend"><span className="legend-pokemon">{INDEX_META[compareKeys[0]].title}</span><span className="legend-riftbound">{INDEX_META[compareKeys[1]].title}</span></div><PriceChart points={pokemonBase} overlay={riftboundBase} label="base-100 comparison"/><p className="detail-note">Each game&apos;s equal-weighted index rebased to 100 at the first shared rollup date. Values are index points, not dollars.</p></>:<p className="detail-unavailable">The comparison needs rolled-up history for both games.</p>}</section>}
-   {mode==="singles"?<section className="detail-section"><header><span>By set</span><h2>Set leaderboard<InfoHint label="About the leaderboard">Top sets by tracked singles value. The median is the middle card price in the set; 30D momentum is the median of member cards&apos; 30-day changes. Set names link to the filtered leaderboard.</InfoHint></h2></header><SetTable sets={scoped?.sets??[]}/></section>
+   {mode==="singles"?<section className="detail-section"><header><span>By set</span><h2>Set leaderboard<InfoHint label="About the leaderboard">Top sets by tracked singles value. 30D momentum is the median of member cards&apos; 30-day changes; Sealed 30D is the same for the set&apos;s sealed products — a gap between them flags rotation between the two markets. Pack EV is the expected chase-card value of one booster from community pull-rate estimates times current singles prices (bulk excluded); the multiple compares it against the cheapest live pack price — above 1× means ripping beats buying the singles at these prices. Set names link to the filtered leaderboard.</InfoHint></h2></header><SetTable sets={scoped?.sets??[]}/></section>
    :<section className="detail-section"><header><span>By category</span><h2>Category leaderboard<InfoHint label="About the leaderboard">Sealed products grouped by category. The median is the middle product price in the category; 30D momentum is the median of member products&apos; 30-day changes.</InfoHint></h2></header><CategoryTable categories={scoped?.categories??[]}/></section>}
    </>}
   </article></main>;

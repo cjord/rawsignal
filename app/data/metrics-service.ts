@@ -1,5 +1,7 @@
 import { deriveHistoryMetrics } from "../domain/history-metrics.ts";
-import type { PricePoint } from "../domain/types.ts";
+import { evRatio, packChaseEv } from "../domain/pack-ev.ts";
+import type { PricePoint, PullRateConfig } from "../domain/types.ts";
+import { pullRateFor } from "./catalog-repository.ts";
 import { readMetricSeries, type MetricPoint } from "../../db/metrics-ingestion.ts";
 import { publishedIngestion, type D1DatabaseLike } from "../../db/repository.ts";
 
@@ -20,7 +22,7 @@ export type MetricsOverviewRow = {
   change30: number | null;
   change90: number | null;
 };
-export type MetricsSetRow = { set: string; game: string; trackedValue: number; medianPrice: number; cards: number; change30: number | null };
+export type MetricsSetRow = { set: string; game: string; trackedValue: number; medianPrice: number; cards: number; change30: number | null; sealedChange30: number | null; packPrice: number | null; packEv: number | null; evRatio: number | null };
 export type MetricsCategoryRow = { category: string; game: string; trackedValue: number; medianPrice: number; products: number; change30: number | null };
 export type MetricsMomentumRow = { game: string; kind: "single" | "sealed"; tracked: number; advancers7: number; decliners7: number; advancers30: number; decliners30: number; atHistoricHigh: number; atHistoricLow: number };
 export type MetricsMover = { productId: number; name: string; set: string; game: string; kind: "single" | "sealed"; price: number; change: number; window: "7d" | "30d"; direction: "up" | "down" };
@@ -54,7 +56,7 @@ type MoverRow = { productId: number; name: string; setName: string; game: string
 
 const gameLabel: Record<string, string> = { pokemon: "Pokémon", riftbound: "Riftbound", onepiece: "One Piece" };
 
-export async function loadMetricsPayload(db: D1DatabaseLike | undefined): Promise<MetricsPayload | null> {
+export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options: { pullRates?: PullRateConfig } = {}): Promise<MetricsPayload | null> {
   if (!db) return null;
   const published = await publishedIngestion(db, "metrics-rollup").catch(() => null);
   if (!published) return null;
@@ -106,7 +108,58 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined): Promis
       from medians m
     )
     select setName, game, totalCents, cards, medianCents, change30Bps from sized where gameRank <= 30 order by totalCents desc`).bind().all<SetRow>()).results ?? [];
-  const sets: MetricsSetRow[] = setRows.map(row => ({ set: row.setName, game: row.game, trackedValue: row.totalCents / 100, medianPrice: row.medianCents / 100, cards: row.cards, change30: row.change30Bps == null ? null : row.change30Bps / 100 }));
+
+  // Sealed-vs-singles divergence (audit H2): each set's sealed products' median 30D change,
+  // read the same middle-rank way as the singles momentum above.
+  const sealedSetRows = (await db.prepare(`with momentum as (
+      select p.set_name setName, mm.change_30_bps b,
+        row_number() over (partition by p.set_name order by mm.change_30_bps) rn,
+        count(*) over (partition by p.set_name) total
+      from catalog_products p ${metricsJoin}
+      where p.kind='sealed' and mm.change_30_bps is not null
+    ) select setName, avg(b) as change30Bps from momentum where rn=(total+1)/2 or rn=total/2+1 group by setName`).bind().all<{ setName: string; change30Bps: number | null }>()).results ?? [];
+  const sealedChangeBySet = new Map(sealedSetRows.map(row => [row.setName, row.change30Bps]));
+
+  // Pack EV (audit Phase C / H1): the cheapest live booster-pack price per set, and per-set
+  // tier averages resolved through the same curated pull-rate rules the detail pages use.
+  // Sparse rarity buckets are fine — the EV sums only tiers the config actually prices.
+  const packRows = (await db.prepare(`select p.set_name setName, min(cp.market_cents) packCents
+      from catalog_products p join current_prices cp on cp.product_id=p.product_id
+      where p.kind='sealed' and p.product_type='Booster Packs' and cp.market_cents > 0
+      group by p.set_name`).bind().all<{ setName: string; packCents: number }>()).results ?? [];
+  const packPriceBySet = new Map(packRows.map(row => [row.setName, row.packCents / 100]));
+  const evBySet = new Map<string, number | null>();
+  if (options.pullRates) {
+    const tierRows = (await db.prepare(`select p.set_name setName, p.game, p.rarity, p.section, avg(cp.market_cents) avgCents, count(*) n
+        from catalog_products p join current_prices cp on cp.product_id=p.product_id
+        where p.kind='single' and cp.market_cents is not null
+        group by p.set_name, p.game, p.rarity, p.section`).bind().all<{ setName: string; game: string; rarity: string; section: string | null; avgCents: number; n: number }>()).results ?? [];
+    const tiersBySet = new Map<string, Map<string, { packsPerHit: number; weighted: number; count: number }>>();
+    for (const row of tierRows) {
+      const resolved = pullRateFor(options.pullRates, row.game, row.setName, { rarity: row.rarity, section: row.section ?? undefined });
+      if (!resolved) continue;
+      const tiers = tiersBySet.get(row.setName) ?? new Map();
+      const tier = tiers.get(resolved.key) ?? { packsPerHit: resolved.packsPerHit, weighted: 0, count: 0 };
+      tier.weighted += (row.avgCents / 100) * row.n;
+      tier.count += row.n;
+      tiers.set(resolved.key, tier);
+      tiersBySet.set(row.setName, tiers);
+    }
+    for (const [setName, tiers] of tiersBySet) {
+      evBySet.set(setName, packChaseEv([...tiers.values()].map(tier => ({ packsPerHit: tier.packsPerHit, averageMarket: tier.count ? tier.weighted / tier.count : null }))));
+    }
+  }
+
+  const sets: MetricsSetRow[] = setRows.map(row => {
+    const packPrice = packPriceBySet.get(row.setName) ?? null;
+    const packEv = evBySet.get(row.setName) ?? null;
+    return {
+      set: row.setName, game: row.game, trackedValue: row.totalCents / 100, medianPrice: row.medianCents / 100,
+      cards: row.cards, change30: row.change30Bps == null ? null : row.change30Bps / 100,
+      sealedChange30: (sealedChangeBySet.get(row.setName) ?? null) == null ? null : (sealedChangeBySet.get(row.setName) as number) / 100,
+      packPrice, packEv, evRatio: evRatio(packEv, packPrice),
+    };
+  });
 
   // Sealed groups by product category — sets barely exist as a sealed concept.
   const categoryRows = (await db.prepare(`with ranked as (

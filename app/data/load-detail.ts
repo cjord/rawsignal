@@ -30,6 +30,13 @@ function cachedPullRates(origin:string,fetcher:FetchLike){
  return config;
 }
 
+// The metrics payload prices pack EV from the same curated config (audit Phase C); assets
+// resolve by path, so a fixed placeholder origin serves every caller without a request URL.
+export function loadPullRateConfig():Promise<PullRateConfig|undefined>{
+ const assets=(env as unknown as {ASSETS?:{fetch(input:RequestInfo|URL,init?:RequestInit):Promise<Response>}}).ASSETS;
+ return cachedPullRates("https://assets.internal",assets?assets.fetch.bind(assets):fetch);
+}
+
 // Generated feeds only change per deploy, so repositories are cached for the isolate's
 // lifetime; a failed build is evicted so the next request can retry.
 const feedRepositories=new Map<string,Promise<CatalogRepository>>();

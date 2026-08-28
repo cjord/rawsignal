@@ -78,3 +78,5 @@
 @media(max-width:1100px){.metrics-index-grid{gap:12px}.metrics-market-grid{gap:12px}}
 @media(max-width:900px){.metrics-index-grid{grid-template-columns:1fr}.metrics-movers{grid-template-columns:1fr}.metrics-seg-small{margin-left:0}}
 @media(max-width:640px){.metrics-market-grid{grid-template-columns:1fr}.metrics-window-tiles{gap:6px}.metrics-index-card .sparkline{height:100px}}
+.metrics-ev{display:inline-flex;align-items:center;gap:6px;font:750 var(--text-2xs) var(--font-mono)}
+.metrics-ev em{font-style:normal}

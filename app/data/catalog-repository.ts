@@ -24,7 +24,8 @@ function peerAverage(label:string,prices:(number|null)[],current:number|null=nul
 
 // Curated community-measured packs-per-hit. Config keys may be a rarity string or a section
 // slug; the section wins when both match (tiers like Riftbound's Showcase share one rarity).
-function pullRateFor(config:PullRateConfig|undefined,game:string,set:string,card:{rarity:string;section?:string}){
+// Exported so the metrics payload prices set-level pack EV with the same resolution rules.
+export function pullRateFor(config:PullRateConfig|undefined,game:string,set:string,card:{rarity:string;section?:string}){
  const entry=config?.games[game];if(!entry)return null;
  for(const table of [entry.sets[set],entry.default]){
   if(!table)continue;

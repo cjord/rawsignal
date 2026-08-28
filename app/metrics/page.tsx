@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import type { Metadata } from "next";
 import MetricsView from "../MetricsView";
+import { loadPullRateConfig } from "../data/load-detail";
 import { loadMetricsPayload } from "../data/metrics-service";
 import type { D1DatabaseLike } from "../../db/repository";
 
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
 
 export default async function MetricsRoute() {
   let payload = null;
-  try { payload = await loadMetricsPayload(env.DB as unknown as D1DatabaseLike | undefined); }
+  try { payload = await loadMetricsPayload(env.DB as unknown as D1DatabaseLike | undefined, { pullRates: await loadPullRateConfig() }); }
   catch { /* The view renders its explicit unavailable state. */ }
   return <MetricsView payload={payload} />;
 }

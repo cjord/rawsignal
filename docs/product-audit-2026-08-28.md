@@ -454,3 +454,21 @@ stars on leaderboard rows wait for a styling pass with visual verification (the 
 row overlays shouldn't ship blind); sealed products star from their detail pages
 meanwhile. Entries store section/game so a later price-refresh action can re-fetch the
 right feeds. Gate: 146/146 node (three new favorites tests), lint, 4/4 Playwright.
+Follow-up landed same day (user direction): row favoriting lives in the hover popovers —
+a compact backdrop-blurred star pinned to the hover card's corner, wired on leaderboard,
+sealed, chase-card, and related-sealed rows; click-through verified on dev (toggles
+without navigating). Committed `bf3604b` (GitHub only; production still holds).
+
+**Phase C in progress (2026-08-28, gated, uncommitted):** the EV core is built.
+`app/domain/pack-ev.ts` (pure, tested): chase EV per pack = Σ tiers (average tracked
+tier price ÷ packs per hit), explicitly a floor (bulk excluded); EV ratio vs the
+cheapest live single-pack price. Sealed detail pages show an EV strip above the
+pull-rate table ("Chase EV per pack · Pack price · EV ratio" with rip-vs-buy verdict).
+The metrics payload prices per-set EV server-side (same `pullRateFor` resolution the
+detail pages use, weighted per-set tier averages from D1, `loadPullRateConfig()` asset
+loader) and the set leaderboard gains sortable **Sealed 30D** (H2 divergence — sealed
+median momentum beside singles momentum) and **Pack EV** ($ + ratio chip) columns, ⓘ
+updated. Integration-tested end to end on a seeded database (EV $9.375 vs $4 pack →
+2.34×). Gate: 149/149 node, lint, 4/4 Playwright. Remaining in Phase C: MSRP-coverage
+expansion + sealed default-sort switch (C5), per-display case math (N5), EV chip on
+sealed table rows, and 2–3 pull-rate set overrides (N4).
