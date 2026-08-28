@@ -11,7 +11,7 @@ export type MarketQueryState=SinglesQueryState|SealedQueryState;
 export type HistoryWriteMode="replace"|"push"|"skip";
 
 export const defaultRarities:Record<SinglesGame,string[]>={pokemon:["illustration-rares","special-illustration-rares"],riftbound:["overnumbered"]};
-export const allowedRarities:Record<SinglesGame,string[]>={pokemon:["illustration-rares","special-illustration-rares","promos","ultra-rares","double-rares","secret-hyper-rares","shiny-radiant-rares","vintage"],riftbound:["rares","epics","alt-arts","overnumbered","signatures"]};
+export const allowedRarities:Record<SinglesGame,string[]>={pokemon:["illustration-rares","special-illustration-rares","promos","ultra-rares","double-rares","secret-hyper-rares","shiny-radiant-rares","vintage","japanese-promos"],riftbound:["rares","epics","alt-arts","overnumbered","signatures"]};
 const singlesViews:SinglesView[]=["large","medium","text","full"],sealedViews:SealedView[]=["medium","text","full"];
 const singlesSorts:SinglesSort[]=["name","signal","set","market","low","high","change7","change30"],sealedSorts:SealedSort[]=["name","signal","set","msrp","market","profit","profitPct"];
 const signals:SignalSide[]=["leaderboard","buy","sell"],strictnesses:SignalStrictness[]=["conservative","balanced","aggressive"];

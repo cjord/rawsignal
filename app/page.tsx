@@ -309,9 +309,14 @@ export default function Home() {
     });
   };
   const { urlReady, writeUrl } = useMarketQueryState(restoreQuery);
-  const rarityOptions = index.rarities[game].filter(
-      (option) => option.key !== "all",
-    ),
+  // The generated index only knows sections its sync has produced; staged sections
+  // (Japanese promos, audit Phase E) inject here until the next feed regeneration.
+  const rarityOptions = [
+      ...index.rarities[game],
+      ...(game === "pokemon" && !index.rarities.pokemon.some((option) => option.key === "japanese-promos")
+        ? [{ key: "japanese-promos", label: "Japanese Promos" }]
+        : []),
+    ].filter((option) => option.key !== "all"),
     allRarities =
       !selectedRarities.length ||
       selectedRarities.length === rarityOptions.length,

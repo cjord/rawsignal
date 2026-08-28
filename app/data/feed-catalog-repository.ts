@@ -5,10 +5,13 @@ import { createMemoryCatalogRepository, type CatalogRepository } from "./catalog
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
-async function loadJson<T>(url: URL, parse: (value: unknown) => T[], fetcher: FetchLike) {
+async function loadJson<T>(url: URL, parse: (value: unknown) => T[], fetcher: FetchLike, optional = false) {
   // Cloudflare's static-assets binding expects a Request. Passing a URL plus a
   // browser-only cache mode works with global fetch but fails on ASSETS.fetch.
   const response = await fetcher(new Request(url, { headers: { Accept: "application/json" } }));
+  // A missing optional feed is a staged section that has not materialized in this
+  // deployment yet (audit Phase E) — contribute nothing instead of failing the catalog.
+  if (optional && response.status === 404) return [] as T[];
   if (!response.ok) throw new Error(`Catalog source unavailable: ${response.status}`);
   return parse(await response.json());
 }
@@ -18,7 +21,7 @@ async function loadValue(url:URL,fetcher:FetchLike){const response=await fetcher
 export async function createFeedCatalogRepository(origin: string, fetcher: FetchLike = fetch): Promise<CatalogRepository> {
   const base = new URL(origin), cardSections = [...allowedRarities.pokemon, ...allowedRarities.riftbound];
   const [cardGroups, sealedGroups, pullRates, graded, peerAnchors] = await Promise.all([
-    Promise.all([...new Set(cardSections)].map(section => loadJson(new URL(`/data/${section}.json`, base), parseCards, fetcher))),
+    Promise.all([...new Set(cardSections)].map(section => loadJson(new URL(`/data/${section}.json`, base), parseCards, fetcher, true))),
     Promise.all(["pokemon", "riftbound", "onepiece"].map(market => loadJson(new URL(`/data/sealed-${market}.json`, base), parseSealedProducts, fetcher))),
     loadValue(new URL("/data/pull-rates.json", base), fetcher).then(parsePullRateConfig).catch(() => undefined),
     loadValue(new URL("/data/graded-prices.json", base), fetcher).then(parseGradedPriceFeed).catch(() => undefined),

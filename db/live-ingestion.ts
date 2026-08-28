@@ -23,10 +23,15 @@ export type LiveSyncDeps = {
   loadBundledSealed(market: "riftbound" | "onepiece"): Promise<SealedProduct[]>;
 };
 
-type WorkEntry = { type: "tcgcsv"; categoryId: number; game: "pokemon" | "riftbound"; group: TcgcsvGroup } | { type: "bundled"; market: "riftbound" | "onepiece" };
+type WorkEntry = { type: "tcgcsv"; categoryId: number; game: "pokemon" | "riftbound"; group: TcgcsvGroup; fixedSection?: [string, string] } | { type: "bundled"; market: "riftbound" | "onepiece" };
 type LiveStats = { recordsWritten?: number; duplicateDecisions?: number; rejected?: Record<string, number> };
 
 const categories = [{ id: 3, game: "pokemon" as const }, { id: 89, game: "riftbound" as const }];
+// Japanese Pokémon (TCGCSV category 85, audit Phase E): only the promo groups for now —
+// the stated priority — as one fixed section; the full JP catalog is a later decision.
+export const JAPANESE_CATEGORY_ID = 85;
+export const JAPANESE_PROMOS_SECTION: [string, string] = ["japanese-promos", "Japanese Promos"];
+const japanesePromoGroup = (group: TcgcsvGroup) => /promo/i.test(group.name);
 const parseStats = (value: string | null | undefined): LiveStats => { try { return value ? JSON.parse(value) as LiveStats : {}; } catch { return {}; } };
 const parseCursor = (value: string | null | undefined) => { const match = /^(\d+):(\d+)$/.exec(value ?? ""); return match ? { group: Number(match[1]), offset: Number(match[2]) } : { group: 0, offset: 0 }; };
 
@@ -37,6 +42,9 @@ async function buildWorkList(client: TcgcsvClient, now: Date): Promise<WorkEntry
     groups.sort((a, b) => a.groupId - b.groupId);
     for (const group of groups) entries.push({ type: "tcgcsv", categoryId: category.id, game: category.game, group });
   }
+  const japaneseGroups = (await client.groups(JAPANESE_CATEGORY_ID)).filter(group => japanesePromoGroup(group) && new Date(group.publishedOn) <= now);
+  japaneseGroups.sort((a, b) => a.groupId - b.groupId);
+  for (const group of japaneseGroups) entries.push({ type: "tcgcsv", categoryId: JAPANESE_CATEGORY_ID, game: "pokemon", group, fixedSection: JAPANESE_PROMOS_SECTION });
   entries.push({ type: "bundled", market: "riftbound" }, { type: "bundled", market: "onepiece" });
   return entries;
 }
@@ -44,9 +52,12 @@ async function buildWorkList(client: TcgcsvClient, now: Date): Promise<WorkEntry
 async function loadEntryRecords(entry: WorkEntry, deps: LiveSyncDeps, msrp: () => Promise<Map<number, unknown>>, curatedRiftbound: () => Promise<Map<number, SealedProduct>>, rejected: Record<string, number>): Promise<(Card | SealedProduct)[]> {
   if (entry.type === "bundled") return deps.loadBundledSealed(entry.market);
   const [products, prices] = await Promise.all([deps.client.products(entry.categoryId, entry.group.groupId), deps.client.prices(entry.categoryId, entry.group.groupId)]);
-  const normalized = normalizeSinglesGroup({ game: entry.game, group: entry.group, products, prices }) as { cards: Card[]; rejected: Record<string, number> };
+  const normalized = normalizeSinglesGroup({ game: entry.game, group: entry.group, products, prices, fixedSection: entry.fixedSection ?? null }) as { cards: Card[]; rejected: Record<string, number> };
   for (const [reason, count] of Object.entries(normalized.rejected)) rejected[reason] = (rejected[reason] ?? 0) + count;
   const records: (Card | SealedProduct)[] = [...normalized.cards].sort((a, b) => a.productId - b.productId);
+  // Fixed-section categories (Japanese promos) contribute singles only — their sealed
+  // products are out of scope and must not slip into the English sealed catalog.
+  if (entry.fixedSection) return records;
   const pricesByProduct = new Map<number, Record<string, unknown>[]>();
   for (const row of prices) { const id = Number(row.productId); const rows = pricesByProduct.get(id) ?? []; rows.push(row); pricesByProduct.set(id, rows); }
   // Sealed normalizes from the same group walk as singles. Pokémon MSRPs come from the

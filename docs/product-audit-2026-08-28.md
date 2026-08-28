@@ -558,4 +558,20 @@ and accumulating cards render compact (H5). Detail pages show a **liquidity chip
 beside the market price (H3 v1): "N sold/30D" from TCGplayer completed-sale buckets,
 amber "Thin market" under 5 — unknown volume shows nothing rather than a guess.
 Deferred from Phase D: the leaderboard-page era filter (filter-system surgery, queued
-with the row-star styling pass). Gate: 153/153 node, lint, 4/4 Playwright.
+with the row-star styling pass). Gate: 153/153 node, lint, 4/4 Playwright. Committed
+`096a933`.
+
+**Phase E landed (2026-08-28, gated):** Japanese promos as a staged section.
+`normalizeSinglesGroup` accepts a fixed section (rarity falls back to "Promo" — JP
+listings often omit it); the live work list walks TCGCSV category 85's promo groups
+(~22, the stated priority slice) into section `japanese-promos` under Pokémon, singles
+only (JP sealed-shaped listings are guarded out of the English sealed catalog); the
+local sync gains the same category+filter+section config for feed regeneration. UI:
+"Japanese Promos" joins the Pokémon rarity dropdown (placement decision: rarity section,
+not a TopBar market — revisitable), injected until the next feed regeneration.
+**Staged-rollout hardening** this exposed: a section feed that has not materialized
+404s — both the client batch loader and the server feed repository now treat a missing
+optional section as empty instead of failing every other section. Production ingests
+the JP groups on its next daily live run; until then the section shows an honest empty
+state. Liquidity flags (Phase D's chip) apply to JP detail pages automatically. Gate:
+153/153 node, lint, 4/4 Playwright.

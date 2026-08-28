@@ -6,7 +6,10 @@ export type CatalogStatus="idle"|"loading"|"success"|"empty"|"error";
 type Options<T>={enabled?:boolean;sources:string[];parse:(value:unknown)=>T[];keyOf?:(item:T)=>string|number};
 
 export async function loadCatalogSources<T>(sources:string[],parse:(value:unknown)=>T[],signal:AbortSignal,fetcher:typeof fetch=fetch){
- const groups=await Promise.all(sources.map(async source=>{const response=await fetcher(source,{signal});if(!response.ok)throw new Error(`Catalog request failed: ${response.status}`);return parse(await response.json())}));
+ // A 404 means the section has not materialized in this deployment yet (a staged rollout,
+ // e.g. Japanese promos before their first ingestion run) — contribute nothing rather than
+ // failing every other section in the batch. Other failures still surface.
+ const groups=await Promise.all(sources.map(async source=>{const response=await fetcher(source,{signal});if(response.status===404)return [] as T[];if(!response.ok)throw new Error(`Catalog request failed: ${response.status}`);return parse(await response.json())}));
  return groups.flat();
 }
 

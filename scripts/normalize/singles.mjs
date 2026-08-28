@@ -31,15 +31,17 @@ function preferredPrices(prices) {
   return byId;
 }
 
-export function normalizeSinglesGroup({ game, group, products, prices, previous = new Map() }) {
+export function normalizeSinglesGroup({ game, group, products, prices, previous = new Map(), fixedSection = null }) {
   const cards = [], rejected = {}, labels = new Map(), priceById = preferredPrices(prices);
   const reject = reason => rejected[reason] = (rejected[reason] ?? 0) + 1;
   const year = new Date(group.publishedOn).getFullYear();
   for (const product of products) {
-    const price = priceById.get(Number(product.productId)), rarity = extended(product, "Rarity"), number = extended(product, "Number");
+    // Fixed-section groups (Japanese promos, audit Phase E) take every priced card in the
+    // group regardless of rarity taxonomy; Japanese listings often omit the Rarity field.
+    const price = priceById.get(Number(product.productId)), rarity = extended(product, "Rarity") || (fixedSection ? "Promo" : ""), number = extended(product, "Number");
     if (!price) { reject("missing-market-price"); continue; }
     if (!rarity || !number) { reject("missing-card-metadata"); continue; }
-    const selected = game === "pokemon" ? pokemonSection(rarity, year) : riftboundSection(product.name, rarity);
+    const selected = fixedSection ?? (game === "pokemon" ? pokemonSection(rarity, year) : riftboundSection(product.name, rarity));
     if (!selected) { reject("unsupported-rarity"); continue; }
     const [section, label] = selected, prior = previous.get(`${game}:${product.productId}`);
     labels.set(section, label);

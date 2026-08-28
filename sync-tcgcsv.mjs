@@ -4,9 +4,15 @@ import { publishCatalogSnapshot } from "./scripts/io/last-good.mjs";
 import { normalizeSinglesGroup } from "./scripts/normalize/singles.mjs";
 import { ingestionManifest, validateCatalogSnapshot } from "./scripts/validate/catalog.mjs";
 
-const categories = [{ id: 3, game: "pokemon" }, { id: 89, game: "riftbound" }];
+// Category 85 is Japanese Pokémon (audit Phase E): only promo groups, as one fixed
+// section — the stated priority slice; the full JP catalog is a later decision.
+const categories = [
+  { id: 3, game: "pokemon" },
+  { id: 89, game: "riftbound" },
+  { id: 85, game: "pokemon", groupFilter: group => /promo/i.test(group.name), fixedSection: ["japanese-promos", "Japanese Promos"] },
+];
 const order = {
-  pokemon: ["illustration-rares", "special-illustration-rares", "promos", "ultra-rares", "double-rares", "secret-hyper-rares", "shiny-radiant-rares", "vintage"],
+  pokemon: ["illustration-rares", "special-illustration-rares", "promos", "ultra-rares", "double-rares", "secret-hyper-rares", "shiny-radiant-rares", "vintage", "japanese-promos"],
   riftbound: ["rares", "epics", "alt-arts", "overnumbered", "signatures"],
 };
 const addCounts = (target, source) => { for (const [key, value] of Object.entries(source)) target[key] = (target[key] ?? 0) + value; };
@@ -28,10 +34,10 @@ const records = new Map(), rarityLabels = { pokemon: new Map(), riftbound: new M
 const rejected = {}, duplicateDecisions = [];
 
 for (const category of categories) {
-  const groups = (await client.groups(category.id)).filter(group => new Date(group.publishedOn) <= today);
+  const groups = (await client.groups(category.id)).filter(group => new Date(group.publishedOn) <= today && (!category.groupFilter || category.groupFilter(group)));
   for (const [index, group] of groups.entries()) {
     const [products, prices] = await Promise.all([client.products(category.id, group.groupId), client.prices(category.id, group.groupId)]);
-    const normalized = normalizeSinglesGroup({ game: category.game, group, products, prices, previous });
+    const normalized = normalizeSinglesGroup({ game: category.game, group, products, prices, previous, fixedSection: category.fixedSection ?? null });
     addCounts(rejected, normalized.rejected);
     for (const [section, label] of normalized.labels) rarityLabels[category.game].set(section, label);
     for (const card of normalized.cards) {

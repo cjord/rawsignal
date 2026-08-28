@@ -30,6 +30,7 @@ const rarity=value=>[{name:"Rarity",value},{name:"Number",value:"1/1"}];
 const groupA={groupId:10,name:"Fixture Set",publishedOn:"2026-01-01T00:00:00Z"};
 const groupB={groupId:11,name:"Promo Reprints",publishedOn:"2026-02-01T00:00:00Z"};
 const groupR={groupId:90,name:"Rift Set",publishedOn:"2026-03-01T00:00:00Z"};
+const groupJ={groupId:200,name:"SV-P Promotional Cards",publishedOn:"2026-04-01T00:00:00Z"};
 const fixtures={
   "3:10":{
     products:[
@@ -57,10 +58,22 @@ const fixtures={
       {productId:401,marketPrice:85,lowPrice:80,midPrice:86,highPrice:95,subTypeName:"Normal"},
     ],
   },
+  // Japanese promos (category 85): rarity is often absent — the fixed section takes the
+  // card anyway; sealed-shaped JP listings must never reach the English sealed catalog.
+  "85:200":{
+    products:[
+      {productId:601,name:"Victini - 288/SV-P",imageUrl:"",url:"https://example.com/jp",extendedData:[{name:"Number",value:"288/SV-P"}]},
+      {productId:602,name:"Japanese Booster Box",imageUrl:"",url:"",extendedData:[]},
+    ],
+    prices:[
+      {productId:601,marketPrice:487,lowPrice:450,midPrice:490,highPrice:520,subTypeName:"Normal"},
+      {productId:602,marketPrice:90,lowPrice:85,midPrice:92,highPrice:99,subTypeName:"Normal"},
+    ],
+  },
 };
 const deps={
   client:{
-    async groups(categoryId){return categoryId===3?[groupA,groupB]:[groupR]},
+    async groups(categoryId){return categoryId===3?[groupA,groupB]:categoryId===89?[groupR]:[groupJ]},
     async products(categoryId,groupId){return fixtures[`${categoryId}:${groupId}`].products},
     async prices(categoryId,groupId){return fixtures[`${categoryId}:${groupId}`].prices},
   },
@@ -79,8 +92,8 @@ test("live ingestion walks groups with a record cursor and publishes once comple
   assert.equal(await publishedIngestion(db,"daily-market"),null);
   const second=await runLiveDailyIngestionBatch(db,deps,{...options,batchSize:100});
   // Group A card+promo+sealed, promo reprint (dedup), riftbound card+walked sealed,
-  // bundled riftbound duplicate (dedup), bundled onepiece.
-  assert.deepEqual({cursor:second.cursor,done:second.done,written:second.recordsWritten,duplicates:second.duplicateDecisions},{cursor:"5:0",done:true,written:6,duplicates:2});
+  // japanese promo card, bundled riftbound duplicate (dedup), bundled onepiece.
+  assert.deepEqual({cursor:second.cursor,done:second.done,written:second.recordsWritten,duplicates:second.duplicateDecisions},{cursor:"6:0",done:true,written:7,duplicates:2});
   const published=await publishedIngestion(db,"daily-market");
   assert.equal(published?.runId,"live-daily:2026-08-28");
   assert.equal(published?.sourceUpdatedAt,"2026-08-28T20:00:00Z");
@@ -96,6 +109,11 @@ test("live ingestion walks groups with a record cursor and publishes once comple
     from catalog_products p join current_prices cp on cp.product_id=p.product_id join sealed_details sd on sd.product_id=p.product_id
     where p.product_id=401`).bind().first();
   assert.deepEqual({...rift},{productType:"Booster boxes",marketCents:8500,msrpCents:9000});
+  // The Japanese promo landed in its fixed section with the rarity fallback; the JP
+  // sealed-shaped listing stayed out of the catalog entirely.
+  const jp=await db.prepare("select section, rarity from catalog_products where product_id=601").bind().first();
+  assert.deepEqual({...jp},{section:"japanese-promos",rarity:"Promo"});
+  assert.equal(await db.prepare("select count(*) as n from catalog_products where product_id=602").bind().first().then(row=>row.n),0);
   const runs=await db.prepare("select count(distinct ingestion_run_id) as n from catalog_products").bind().first();
   assert.equal(runs.n,1);
 });
