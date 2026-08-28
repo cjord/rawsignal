@@ -1,6 +1,7 @@
 /** Cloudflare Worker entry point for Raw Signal. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
+import { handleLiveFeed } from "./live-feeds.ts";
 import { runScheduledIngestionTick } from "./scheduled-ingestion.ts";
 import { handleStagingJob, type StagingJobEnv } from "./staging-jobs.ts";
 
@@ -37,6 +38,14 @@ const worker = {
 
     const stagingJob = await handleStagingJob(request, env);
     if (stagingJob) return stagingJob;
+
+    if (url.pathname.startsWith("/data/")) {
+      const liveFeed = await handleLiveFeed(request, env as unknown as StagingJobEnv);
+      if (liveFeed) return liveFeed;
+      // run_worker_first routes /data/* through here, so non-intercepted paths (detail
+      // chunks, manifests, configs) are served from the static assets explicitly.
+      return env.ASSETS.fetch(request);
+    }
 
     if (url.pathname === "/_vinext/image") {
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];

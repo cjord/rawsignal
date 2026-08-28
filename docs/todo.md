@@ -601,6 +601,18 @@ lost the Graded Market section (first rotation: 44/45 updated, verified renderin
 Remaining detail-parity gaps on D1 pages: pull rates and the fair-value peer anchor
 (feed-only inputs) — small follow-up slice alongside peer accumulation.
 
+**live leaderboard feeds — LANDED 2026-08-28.** The UI-to-API question resolved with a
+far lighter design: `worker/live-feeds.ts` serves the exact `/data/<section>.json` and
+`/data/sealed-<market>.json` URLs the leaderboard already loads, from current D1 rows
+(same shapes/ordering as the sync scripts, `X-Raw-Signal-Source: database` header),
+requiring `assets.run_worker_first:["/data/*"]` with an explicit `ASSETS.fetch`
+fall-through for non-intercepted paths (detail chunks, manifests, configs, scalping).
+Zero UI change; dev/Playwright (no DB or no marker) fall through to static assets; the
+Worker-side ingestion reads assets via the binding directly so the live sync never
+consumes its own output. **The leaderboard now shows live data** — the full
+server-paginated /api/catalog switch is no longer a prerequisite for freshness and stays
+optional. Verified: leaderboard renders from database feeds on staging.
+
 **peer accumulation slice — LANDED 2026-08-28.** Derive-on-read instead of a second
 accumulator: `db/peer-anchors.ts` computes the set-rarity cohort's daily averages
 directly from `price_observations` (primary printing, Near Mint, 180-day window) and

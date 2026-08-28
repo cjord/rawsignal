@@ -104,13 +104,14 @@ function toSignal(row: MetricRow): MarketSignal | null {
   };
 }
 
-const productsSql = `select p.product_id as productId,p.kind,p.game,p.section,p.name,p.set_name as setName,
+const productsSqlBase = `select p.product_id as productId,p.kind,p.game,p.section,p.name,p.set_name as setName,
   p.release_year as releaseYear,p.rarity,p.card_number as cardNumber,p.printing,p.product_type as productType,
   p.image_url as imageUrl,p.source_url as sourceUrl,cp.market_cents as marketCents,
   cp.listing_low_cents as listingLowCents,cp.median_cents as medianCents,cp.listing_high_cents as listingHighCents,
   sd.msrp_cents as msrpCents,sd.msrp_source as msrpSource
   from catalog_products p left join current_prices cp on cp.product_id=p.product_id
-  left join sealed_details sd on sd.product_id=p.product_id where p.kind=? and p.game=?`;
+  left join sealed_details sd on sd.product_id=p.product_id`;
+const productsSql = `${productsSqlBase} where p.kind=? and p.game=?`;
 
 async function loadDerived(db: D1DatabaseLike, kind: "single" | "sealed", game: string, options: SinglesCatalogQuery | SealedCatalogQuery) {
   const side = options.signal === "leaderboard" ? "buy" : options.signal;
@@ -130,6 +131,21 @@ async function loadDerived(db: D1DatabaseLike, kind: "single" | "sealed", game: 
     signal: options.signal === "leaderboard" ? null : toSignal(row),
   };
   return derived;
+}
+
+// Live feed readers: the leaderboard UI loads /data/<section>.json and /data/sealed-<market>.json
+// as plain arrays; these produce the same shapes from current D1 rows (market desc, name asc —
+// the sync scripts' ordering) so the Worker can serve fresh data on the bundled feeds' URLs.
+export async function readSectionFeed(db: D1DatabaseLike, sections: string[]): Promise<Card[]> {
+  const rows = (await db.prepare(`${productsSqlBase} where p.kind='single' and p.section in (${sections.map(() => "?").join(",")}) and cp.market_cents is not null
+    order by cp.market_cents desc, p.name asc`).bind(...sections).all<ProductRow>()).results ?? [];
+  return rows.map(toCard).filter((card): card is Card => card !== null);
+}
+
+export async function readSealedFeed(db: D1DatabaseLike, game: string): Promise<SealedProduct[]> {
+  const rows = (await db.prepare(`${productsSqlBase} where p.kind='sealed' and p.game=?
+    order by (case when cp.market_cents is null then -1 else cp.market_cents end) desc, p.name asc`).bind(game).all<ProductRow>()).results ?? [];
+  return rows.map(toSealed).filter((product): product is SealedProduct => product !== null);
 }
 
 export function createD1CatalogRepository(db: D1DatabaseLike, ingestionRunId?: string, pullRateConfig?: PullRateConfig): CatalogRepository {

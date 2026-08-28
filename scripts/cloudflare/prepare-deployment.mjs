@@ -15,7 +15,9 @@ export function prepareDeploymentConfig(base,{environment,databaseId,databaseNam
  config.workers_dev=environment==="staging";
  config.preview_urls=true;
  config.d1_databases=[{...sourceDb,binding:"DB",database_name:databaseName,database_id:databaseId,migrations_dir:"../../drizzle"}];
- config.assets={...(config.assets??{}),directory:"../client",binding:"ASSETS"};
+ // /data/* runs through the Worker so live-feed URLs can serve database rows; the handler
+ // falls through to ASSETS.fetch for everything it does not intercept.
+ config.assets={...(config.assets??{}),directory:"../client",binding:"ASSETS",run_worker_first:["/data/*"]};
  config.images={binding:"IMAGES"};
  config.version_metadata={binding:"CF_VERSION_METADATA"};
  config.vars={...(config.vars??{}),ENVIRONMENT:environment};
