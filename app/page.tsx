@@ -671,6 +671,10 @@ export default function Home() {
   };
   const changeMode = (value: "singles" | "sealed") => {
     if (value === "singles") {
+      // The selected market follows the mode switch where it exists on both sides;
+      // One Piece and the curated scalping list fall back to the current singles market.
+      const carried = sealedState.market;
+      if (carried !== "scalping" && carried !== "onepiece" && carried !== game) switchGame(carried);
       setSort(signalView === "leaderboard" ? "market" : "signal");
       setDirection("desc");
       setPage(1);
@@ -679,7 +683,9 @@ export default function Home() {
         ...current,
         ...(scalperMode === "scalper"
           ? { market: "scalping" as const, productTypes: [], sets: [] }
-          : {}),
+          : game !== current.market
+            ? { market: game as SealedMarket, productTypes: [], sets: [] }
+            : {}),
         signal: signalView,
         strictness,
         // Market action is the default lens (audit C5): profit-vs-MSRP only covers the
