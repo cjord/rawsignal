@@ -133,9 +133,11 @@
   }
 }
 
-@media (max-width: 999px) {
-  /* In-flow expansion: below the hover-positioning breakpoint the styled popover chrome
-     never applies, so the panel restates the hover-card anatomy as an inline card. */
+/* In-flow expansion applies in two contexts sharing one body: narrow viewports (below
+   the hover-positioning breakpoint) and touch/coarse pointers at any width. The styled
+   popover chrome never applies there, so the panel restates the hover-card anatomy as
+   an inline card. Rules that are narrow-only stay in the residual block below. */
+@media (max-width: 999px), (hover: none), (pointer: coarse) {
   .market-row-shell[open] .hover-card,
   .market-row-shell[open] .sealed-hover-card {
     display: grid !important;
@@ -176,11 +178,6 @@
     background: var(--soft);
   }
 
-  .view-large .market-row-shell[open] .hover-card {
-    max-height: none !important;
-    overflow: visible !important;
-  }
-
   .view-large .market-row-shell[open] .hover-card .history-panel {
     display: flex !important;
     flex-direction: column !important;
@@ -189,6 +186,13 @@
 
   .view-large .market-row-shell[open] .hover-card .history-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 999px) {
+  .view-large .market-row-shell[open] .hover-card {
+    max-height: none !important;
+    overflow: visible !important;
   }
 
   .market-row-shell[open] .touch-hint {
@@ -197,57 +201,6 @@
 
   .sealed-full-card {
     grid-template-columns: 160px minmax(0, 1fr);
-  }
-}
-
-@media (hover: none), (pointer: coarse) {
-  .market-row-shell[open] .hover-card,
-  .market-row-shell[open] .sealed-hover-card {
-    display: grid !important;
-    position: static !important;
-    width: 100% !important;
-    max-width: none !important;
-    grid-template-columns: 1fr !important;
-    transform: none !important;
-    margin-top: 8px;
-    box-shadow: none !important;
-    padding: 14px;
-    gap: 12px;
-    border: 1px solid color-mix(in srgb, var(--blue) 40%, var(--line));
-    border-radius: var(--panel-radius);
-    background: var(--surface-raised);
-  }
-
-  .market-row-shell[open] .hover-card-art,
-  .market-row-shell[open] .sealed-hover-identity {
-    display: none !important;
-  }
-
-  .market-row-shell[open] .history-panel {
-    display: flex !important;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .market-row-shell[open] .history-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-  }
-
-  .market-row-shell[open] .history-stats > span {
-    padding: 8px 10px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: var(--soft);
-  }
-
-  .view-large .market-row-shell[open] .hover-card .history-panel {
-    flex-direction: column !important;
-    min-width: 0;
-  }
-
-  .view-large .market-row-shell[open] .hover-card .history-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
 

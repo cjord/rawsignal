@@ -1,8 +1,6 @@
 /* Shared top chrome (visual pass 2026-08-28): the metrics page wears the main page's
    masthead + product toggle, and the market scope rides the signal-tab slider. The
-   slider CSS reads --view-count (always 3 on the main page) so 4-tab sealed fits. */
-.signal-tabs{grid-template-columns:repeat(var(--view-count,3),1fr)}
-.signal-slider{width:calc((100% - 8px - (var(--view-count,3) - 1) * 3px) / var(--view-count,3))}
+   generic --view-count grid/slider math lives with the slider in market-views.css. */
 .metrics-market-tabs{min-width:360px}
 @media(max-width:620px){.metrics-market-tabs{min-width:0;width:100%}}
 .metrics-rollup-note{margin:0 0 18px;text-align:center}
