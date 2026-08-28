@@ -148,11 +148,14 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options
         count(*) over (partition by p.set_name) total
       from catalog_products p join market_metrics mm on mm.product_id=p.product_id and mm.variant=p.printing
       where p.kind='single' and mm.change_30_bps is not null
+    ), setChange as (
+      -- Aggregated once and joined: a correlated subselect against a window CTE re-evaluates
+      -- the whole window per outer row in SQLite, which turned this payload pathological.
+      select set_name, avg(b) as change30Bps from momentum where rn=(total+1)/2 or rn=total/2+1 group by set_name
     ), sized as (
-      select m.set_name as setName, m.game, m.totalCents, m.cards, m.medianCents,
-        (select avg(b) from momentum mo where mo.set_name=m.set_name and (mo.rn=(mo.total+1)/2 or mo.rn=mo.total/2+1)) as change30Bps,
+      select m.set_name as setName, m.game, m.totalCents, m.cards, m.medianCents, c.change30Bps,
         row_number() over (partition by m.game order by m.totalCents desc) as gameRank
-      from medians m
+      from medians m left join setChange c on c.set_name=m.set_name
     )
     select setName, game, totalCents, cards, medianCents, change30Bps from sized where gameRank <= 30 order by totalCents desc`).bind().all<SetRow>()).results ?? [];
 
@@ -197,10 +200,12 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options
         count(*) over (partition by p.game, p.product_type) total
       from catalog_products p ${metricsJoin}
       where p.kind='sealed' and mm.change_30_bps is not null
+    ), categoryChange as (
+      select game, category, avg(b) as change30Bps from momentum where rn=(total+1)/2 or rn=total/2+1 group by game, category
     )
-    select m.category, m.game, m.totalCents, m.products, m.medianCents,
-      (select avg(b) from momentum mo where mo.game=m.game and mo.category=m.category and (mo.rn=(mo.total+1)/2 or mo.rn=mo.total/2+1)) as change30Bps
-    from medians m order by m.totalCents desc`).bind().all<CategoryRow>()).results ?? [];
+    select m.category, m.game, m.totalCents, m.products, m.medianCents, c.change30Bps
+    from medians m left join categoryChange c on c.game=m.game and c.category=m.category
+    order by m.totalCents desc`).bind().all<CategoryRow>()).results ?? [];
   const sealedCategories: MetricsCategoryRow[] = categoryRows.map(row => ({ category: row.category, game: row.game, trackedValue: row.totalCents / 100, medianPrice: row.medianCents / 100, products: row.products, change30: row.change30Bps == null ? null : row.change30Bps / 100 }));
 
   // Era performance (audit R2 / Phase D): every Pokémon set's totals and 30D median fold
@@ -216,10 +221,11 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options
         count(*) over (partition by p.set_name) total
       from catalog_products p join market_metrics mm on mm.product_id=p.product_id and mm.variant=p.printing
       where p.kind='single' and p.game='pokemon' and mm.change_30_bps is not null
+    ), setChange as (
+      select setName, avg(b) as change30Bps from momentum where rn=(total+1)/2 or rn=total/2+1 group by setName
     )
-    select t.setName, t.year, t.totalCents, t.cards,
-      (select avg(b) from momentum mo where mo.setName=t.setName and (mo.rn=(mo.total+1)/2 or mo.rn=mo.total/2+1)) as change30Bps
-    from totals t`).bind().all<{ setName: string; year: number | null; totalCents: number; cards: number; change30Bps: number | null }>()).results ?? [];
+    select t.setName, t.year, t.totalCents, t.cards, c.change30Bps
+    from totals t left join setChange c on c.setName=t.setName`).bind().all<{ setName: string; year: number | null; totalCents: number; cards: number; change30Bps: number | null }>()).results ?? [];
   const eraFold = new Map<string, { trackedValue: number; cards: number; sets: number; weighted: number; weight: number }>();
   for (const row of eraSetRows) {
     const era = pokemonEra(row.setName, row.year);
