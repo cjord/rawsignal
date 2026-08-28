@@ -10,6 +10,7 @@ import { createTcgcsvClient } from "../scripts/clients/tcgcsv.mjs";
 import { fetchJson } from "../scripts/clients/http-json.mjs";
 import { runDailyMarketIngestionBatch, type DailyCatalogSnapshot } from "../db/daily-ingestion.ts";
 import { runDetailIngestionBatch } from "../db/detail-ingestion.ts";
+import { runGradedRotationBatch, type GradedRotationDeps } from "../db/graded-ingestion.ts";
 import { runHistoryBackfillBatch, type HistoryBackfillTarget } from "../db/history-backfill.ts";
 import { runLiveDailyIngestionBatch, type LiveSyncDeps, type TcgcsvClient } from "../db/live-ingestion.ts";
 import type { D1DatabaseLike } from "../db/repository.ts";
@@ -40,8 +41,24 @@ export type StagingJobEnv = {
   DB: D1DatabaseLike;
   ENVIRONMENT?: string;
   STAGING_JOB_TOKEN?: string;
+  POKEMONPRICETRACKER_API_KEY?: string;
   CF_VERSION_METADATA?: { id: string; tag: string; timestamp: string };
 };
+
+export function gradedRotationDeps(apiKey: string): GradedRotationDeps {
+  return {
+    async fetchCard(productId) {
+      const response = await fetch(`https://www.pokemonpricetracker.com/api/v2/cards?tcgPlayerId=${productId}&includeEbay=true`, { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } });
+      const header = (name: string) => { const value = Number(response.headers.get(name)); return Number.isFinite(value) ? value : null; };
+      return {
+        status: response.status,
+        creditsConsumed: header("x-api-calls-consumed"),
+        dailyRemaining: header("x-ratelimit-daily-remaining"),
+        payload: response.ok ? await response.json().catch(() => null) : null,
+      };
+    },
+  };
+}
 
 const path = "/__ops/staging-jobs";
 // A catalog record can issue several D1 operations while refreshing derived metrics.
@@ -117,6 +134,12 @@ export async function handleStagingJob(request: Request, env: StagingJobEnv): Pr
       const result = await runLiveDailyIngestionBatch(env.DB, liveSyncDeps(request, env.ASSETS), { sourceUpdatedAt: probed, batchSize: requested });
       return json({ job: "live", result });
     }
+    if (input.job === "graded") {
+      if (!env.POKEMONPRICETRACKER_API_KEY) return json({ error: "Graded rotation key is not configured" }, 503);
+      const budget = typeof input.batchSize === "number" ? input.batchSize : 90;
+      const result = await runGradedRotationBatch(env.DB, gradedRotationDeps(env.POKEMONPRICETRACKER_API_KEY), { budget });
+      return json({ job: "graded", result });
+    }
     if (input.job === "details") {
       const requested = typeof input.batchSize === "number" ? input.batchSize : 4;
       const chunkPaths = await loadDetailChunkPaths(request, env.ASSETS);
@@ -141,7 +164,7 @@ export async function handleStagingJob(request: Request, env: StagingJobEnv): Pr
       });
       return json({ job: "history", result });
     }
-    return json({ error: "Job must be live, daily, history, or details" }, 400);
+    return json({ error: "Job must be live, daily, history, details, or graded" }, 400);
   } catch (error) {
     console.error(JSON.stringify({ event: "staging_job_failed", job: input.job, message: error instanceof Error ? error.message : "Unknown failure" }));
     return json({ error: "Staging job failed" }, 500);

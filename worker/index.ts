@@ -9,6 +9,7 @@ interface Env {
   DB: D1Database;
   ENVIRONMENT?: string;
   STAGING_JOB_TOKEN?: string;
+  POKEMONPRICETRACKER_API_KEY?: string;
   CF_VERSION_METADATA?: { id: string; tag: string; timestamp: string };
   IMAGES: {
     input(stream: ReadableStream): {

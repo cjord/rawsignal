@@ -1,6 +1,7 @@
 import type { Card, CatalogDetailEnrichment, DetailMetadataField, DetailPriceVariant, MarketSignal, SealedProduct } from "../app/domain/types.ts";
 import { createMemoryCatalogRepository, type CatalogRepository } from "../app/data/catalog-repository.ts";
 import type { CatalogDerived, SealedCatalogQuery, SinglesCatalogQuery } from "../app/data/catalog-query.ts";
+import { readGradedCard } from "./graded-ingestion.ts";
 import type { D1DatabaseLike } from "./repository.ts";
 
 type ProductRow = {
@@ -161,7 +162,8 @@ export function createD1CatalogRepository(db: D1DatabaseLike, ingestionRunId?: s
       // Detail pages need peers of BOTH kinds: singles render related sealed, sealed render chase cards.
       const peerRows=[...await productRows("single",row.game),...await productRows("sealed",row.game)],cards=peerRows.map(toCard).filter((item):item is Card=>item!==null),sealed=peerRows.map(toSealed).filter((item):item is SealedProduct=>item!==null),detailRow=await db.prepare(`select category_id as categoryId,group_id as groupId,set_abbreviation as setAbbreviation,published_on as publishedOn,modified_on as modifiedOn,image_count as imageCount,is_presale as isPresale,presale_note as presaleNote,metadata_json as metadataJson,price_variants_json as priceVariantsJson,source_updated_at as sourceUpdatedAt from product_details where product_id=?`).bind(productId).first<DetailRow>();
       let enrichments:CatalogDetailEnrichment[]=[];if(detailRow)try{enrichments=[{kind,productId,metadata:JSON.parse(detailRow.metadataJson) as DetailMetadataField[],priceVariants:JSON.parse(detailRow.priceVariantsJson) as DetailPriceVariant[],source:{categoryId:detailRow.categoryId,groupId:detailRow.groupId,setAbbreviation:detailRow.setAbbreviation,publishedOn:detailRow.publishedOn,modifiedOn:detailRow.modifiedOn,imageCount:detailRow.imageCount,isPresale:detailRow.isPresale==null?null:Boolean(detailRow.isPresale),presaleNote:detailRow.presaleNote,sourceUpdatedAt:detailRow.sourceUpdatedAt}}]}catch{/* Invalid optional detail JSON must not hide the core catalog record. */}
-      return createMemoryCatalogRepository(cards,sealed,enrichments).getDetail(kind,productId,market);
+      const graded=kind==="single"?await readGradedCard(db,productId):null;
+      return createMemoryCatalogRepository(cards,sealed,enrichments,undefined,graded?{[String(productId)]:graded}:undefined).getDetail(kind,productId,market);
     },
   };
 }

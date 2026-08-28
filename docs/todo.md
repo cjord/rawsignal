@@ -579,6 +579,28 @@ to confirm visibility). **Guard cron activated** on staging (`*/2 * * * *`, vers
 live TCGCSV fetch in the Worker (redeploy-free daily data), graded rotation, peer
 accumulation, then the production Worker/D1/cutover gates.
 
+**live TCGCSV fetch slice — LANDED 2026-08-28.** `db/live-ingestion.ts`: checkpointed
+group walk (cursor = group:record), one walk feeding singles + Pokémon-sealed normalizers
+(same pure scripts/normalize modules as the local sync) with published-MSRP lookup;
+curated riftbound/onepiece sealed feeds ride as bundled pseudo-groups; sync duplicate
+rules enforced via per-run DB reads; a 10k minimum-record threshold blocks truncated
+publishes. The `last-updated.txt` probe timestamp is the snapshot identity — the cron's
+`live` action (replacing the bundled `daily`) ingests each TCGCSV publish exactly once.
+**Daily data no longer needs deploys.** Known edge: a same-date TCGCSV re-publish spins
+cheap re-completions until midnight (documented, monitoring will show it). NOTE: the
+leaderboard UI still reads bundled feeds client-side — live data reaches /api/catalog,
+detail pages, and signals; switching the UI to the API is its own slice.
+
+**graded rotation slice — LANDED 2026-08-28.** Migration 0003 adds `graded_prices`;
+`db/graded-ingestion.ts` rotates the stalest of the top-400 Pokémon singles on 90
+credits/day (2/card) against PokemonPriceTracker, honoring the API's rate headers, with
+last-good retention. Cron action `graded` runs once daily after live+details when the
+`POKEMONPRICETRACKER_API_KEY` secret is configured; adapter job `graded` for manual runs.
+The D1 detail path now reads graded rows — fixing the regression where D1-served pages
+lost the Graded Market section (first rotation: 44/45 updated, verified rendering).
+Remaining detail-parity gaps on D1 pages: pull rates and the fair-value peer anchor
+(feed-only inputs) — small follow-up slice alongside peer accumulation.
+
 **product_details slice — LANDED 2026-08-28.** Checkpointed chunk runner
 `db/detail-ingestion.ts` (cursor = enrichment chunk file; FK-filtered against
 `catalog_products`; batched upserts), staging job `details`, guard-cron action `details`

@@ -141,6 +141,14 @@ export const marketSignals = sqliteTable("market_signals", {
   index("idx_market_signals_rank").on(table.side, table.strictness, table.score),
 ]);
 
+export const gradedPrices = sqliteTable("graded_prices", {
+  productId: integer("product_id").primaryKey().references(() => catalogProducts.productId, { onDelete: "cascade" }),
+  gradesJson: text("grades_json").notNull().default("{}"),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  index("idx_graded_prices_updated").on(table.updatedAt),
+]);
+
 export const refreshState = sqliteTable("refresh_state", {
   key: text("key").primaryKey(),
   lastSuccessAt: text("last_success_at"),

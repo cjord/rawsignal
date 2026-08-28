@@ -1,10 +1,11 @@
 import { fetchTcgplayerHistory } from "../app/data/tcgplayer-history-client.ts";
 import { runDetailIngestionBatch } from "../db/detail-ingestion.ts";
+import { runGradedRotationBatch } from "../db/graded-ingestion.ts";
 import { runHistoryBackfillBatch } from "../db/history-backfill.ts";
 import { runLiveDailyIngestionBatch } from "../db/live-ingestion.ts";
 import { publishedIngestion, readRefreshCursor } from "../db/repository.ts";
 import { decideScheduledAction, type ScheduledAction } from "./scheduled-decision.ts";
-import { historyTargets, liveSyncDeps, loadDetailChunkPaths, loadStagingSnapshot, probeTcgcsvUpdatedAt, type StagingJobEnv } from "./staging-jobs.ts";
+import { gradedRotationDeps, historyTargets, liveSyncDeps, loadDetailChunkPaths, loadStagingSnapshot, probeTcgcsvUpdatedAt, type StagingJobEnv } from "./staging-jobs.ts";
 
 // The assets binding routes by pathname; the host of this synthetic request is irrelevant.
 const assetsBase = "https://raw-signal.internal/";
@@ -19,9 +20,10 @@ export async function runScheduledIngestionTick(env: StagingJobEnv): Promise<{ a
   if (!env.DB) return { action: "idle", detail: "No database binding" };
   const deploySnapshotUpdatedAt = env.CF_VERSION_METADATA?.timestamp ?? new Date().toISOString();
   const today = new Date().toISOString().slice(0, 10);
-  const [live, details, historyCheckpoint, historyPublished] = await Promise.all([
+  const [live, details, graded, historyCheckpoint, historyPublished] = await Promise.all([
     publishedIngestion(env.DB, "daily-market"),
     publishedIngestion(env.DB, "product-details"),
+    publishedIngestion(env.DB, "graded-rotation"),
     readRefreshCursor(env.DB, "history-backfill"),
     publishedIngestion(env.DB, "history-signals"),
   ]);
@@ -41,6 +43,9 @@ export async function runScheduledIngestionTick(env: StagingJobEnv): Promise<{ a
     detailsPublishedUpdatedAt: details?.sourceUpdatedAt ?? null,
     detailsPublishedRunId: details?.runId ?? null,
     detailsTodayRunId: `product-details:${today}`,
+    gradedKeyConfigured: Boolean(env.POKEMONPRICETRACKER_API_KEY),
+    gradedPublishedRunId: graded?.runId ?? null,
+    gradedTodayRunId: `graded-rotation:${today}`,
     historyCheckpointRunId: historyCheckpoint?.ingestionRunId ?? null,
     historyPublishedRunId: historyPublished?.runId ?? null,
   });
@@ -54,6 +59,10 @@ export async function runScheduledIngestionTick(env: StagingJobEnv): Promise<{ a
     const chunkPaths = await loadDetailChunkPaths(syntheticRequest, env.ASSETS);
     const result = await runDetailIngestionBatch(env.DB, chunkPaths, path => fetchAssetJson(env.ASSETS, path), { batchSize: 4, sourceUpdatedAt: deploySnapshotUpdatedAt });
     return { action, detail: `${result.cursor}/${result.total}${result.done ? " done" : ""}` };
+  }
+  if (action === "graded") {
+    const result = await runGradedRotationBatch(env.DB, gradedRotationDeps(env.POKEMONPRICETRACKER_API_KEY!), { budget: 90 });
+    return { action, detail: `${result.updated}/${result.targets} updated, ~${result.spent} credits${result.stopped ? ` (${result.stopped})` : ""}` };
   }
   const snapshot = await loadStagingSnapshot(syntheticRequest, env.ASSETS, deploySnapshotUpdatedAt);
   const targets = historyTargets(snapshot);
