@@ -2,10 +2,37 @@ import { parseCards, parseSealedProducts } from "../app/domain/contracts.ts";
 import type { Card, SealedProduct } from "../app/domain/types.ts";
 import { fetchTcgplayerHistory } from "../app/data/tcgplayer-history-client.ts";
 import { allowedRarities } from "../app/state/market-query.ts";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore -- shared clients stay in the .mjs modules the local sync scripts use
+import { createTcgcsvClient } from "../scripts/clients/tcgcsv.mjs";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import { fetchJson } from "../scripts/clients/http-json.mjs";
 import { runDailyMarketIngestionBatch, type DailyCatalogSnapshot } from "../db/daily-ingestion.ts";
 import { runDetailIngestionBatch } from "../db/detail-ingestion.ts";
 import { runHistoryBackfillBatch, type HistoryBackfillTarget } from "../db/history-backfill.ts";
+import { runLiveDailyIngestionBatch, type LiveSyncDeps, type TcgcsvClient } from "../db/live-ingestion.ts";
 import type { D1DatabaseLike } from "../db/repository.ts";
+
+const probeUserAgent = "RawSignal/7.0 (+validated daily market ingestion)";
+
+// TCGCSV publishes ~20:00 UTC daily; the probe timestamp is the live snapshot's identity.
+export async function probeTcgcsvUpdatedAt(fetcher: typeof fetch = fetch): Promise<string> {
+  const response = await fetcher("https://tcgcsv.com/last-updated.txt", { headers: { "User-Agent": probeUserAgent } });
+  if (!response.ok) throw new Error(`TCGCSV last-updated probe failed: ${response.status}`);
+  return (await response.text()).trim();
+}
+
+export function liveSyncDeps(request: Request, assets: AssetsBinding): LiveSyncDeps {
+  return {
+    client: createTcgcsvClient() as TcgcsvClient,
+    async fetchMsrp() {
+      const tracker = await fetchJson("https://tcg-price-tracker.shizukaziye.workers.dev/data/data.json", { headers: { "User-Agent": "RawSignal/7.0" } }) as { items?: Record<string, unknown>[] };
+      return new Map((tracker.items ?? []).filter(item => item.matched && Number(item.msrp) > 0).map(item => [Number(item.productId ?? item.id), item]));
+    },
+    loadBundledSealed: market => load(request, assets, `sealed-${market}.json`, parseSealedProducts) as Promise<SealedProduct[]>,
+  };
+}
 
 type AssetsBinding = { fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> };
 export type StagingJobEnv = {
@@ -84,6 +111,12 @@ export async function handleStagingJob(request: Request, env: StagingJobEnv): Pr
   catch { return json({ error: "Invalid JSON" }, 400); }
   const sourceUpdatedAt = env.CF_VERSION_METADATA?.timestamp ?? new Date().toISOString();
   try {
+    if (input.job === "live") {
+      const requested = typeof input.batchSize === "number" ? input.batchSize : 80;
+      const probed = await probeTcgcsvUpdatedAt();
+      const result = await runLiveDailyIngestionBatch(env.DB, liveSyncDeps(request, env.ASSETS), { sourceUpdatedAt: probed, batchSize: requested });
+      return json({ job: "live", result });
+    }
     if (input.job === "details") {
       const requested = typeof input.batchSize === "number" ? input.batchSize : 4;
       const chunkPaths = await loadDetailChunkPaths(request, env.ASSETS);
@@ -108,7 +141,7 @@ export async function handleStagingJob(request: Request, env: StagingJobEnv): Pr
       });
       return json({ job: "history", result });
     }
-    return json({ error: "Job must be daily, history, or details" }, 400);
+    return json({ error: "Job must be live, daily, history, or details" }, 400);
   } catch (error) {
     console.error(JSON.stringify({ event: "staging_job_failed", job: input.job, message: error instanceof Error ? error.message : "Unknown failure" }));
     return json({ error: "Staging job failed" }, 500);

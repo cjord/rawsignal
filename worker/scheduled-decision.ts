@@ -1,33 +1,34 @@
-export type ScheduledAction = "daily" | "details" | "history" | "idle";
+export type ScheduledAction = "live" | "details" | "history" | "idle";
 
-// Guard-cron policy (docs/todo.md G1, approved 2026-08-27): every tick advances at most one
-// checkpointed batch, and only when work is genuinely due.
-// - Daily catalog: due only while BOTH hold — the deployed feed snapshot has not been fully
-//   ingested (each deploy is observed exactly once; identical feeds are never re-observed on
-//   later days, which would fabricate flat history) AND today's date-keyed run is not already
-//   complete (the batch runner cannot advance a finished run, so a same-day redeploy waits
-//   for the midnight re-key instead of spinning no-op completions until then).
-// - Details: follow the same once-per-snapshot rule, but only after the snapshot's catalog
-//   ingestion completed — product_details rows carry a foreign key to catalog_products.
+// Guard-cron policy (docs/todo.md G1): every tick advances at most one checkpointed batch,
+// and only when work is genuinely due.
+// - Live daily (replaces the bundled-feed daily action, 2026-08-28): the TCGCSV
+//   last-updated probe timestamp is the snapshot identity — each upstream publish is
+//   ingested exactly once (probe ≠ published source timestamp), and at most one live run
+//   completes per day (a same-day re-publish waits for the midnight re-key). The tick skips
+//   the probe entirely once today's run is complete; probeUpdatedAt is null on probe failure,
+//   which simply retries next tick.
+// - Details: bundled enrichment chunks are keyed to the deploy snapshot — ingested once per
+//   deploy, at most once per day; the FK filter inside the runner handles catalog drift.
 // - History: the cron only CONTINUES a backfill that an operator started via the staging
 //   adapter (checkpoint exists, run not completed); it never starts one on its own.
 export function decideScheduledAction(input: {
-  snapshotUpdatedAt: string;
-  dailyPublishedUpdatedAt: string | null;
-  dailyPublishedRunId: string | null;
-  dailyTodayRunId: string;
+  probeUpdatedAt: string | null;
+  livePublishedUpdatedAt: string | null;
+  livePublishedRunId: string | null;
+  liveTodayRunId: string;
+  deploySnapshotUpdatedAt: string;
   detailsPublishedUpdatedAt: string | null;
   detailsPublishedRunId: string | null;
   detailsTodayRunId: string;
   historyCheckpointRunId: string | null;
   historyPublishedRunId: string | null;
 }): ScheduledAction {
-  const snapshotIngested = input.dailyPublishedUpdatedAt === input.snapshotUpdatedAt;
-  const todayRunCompleted = input.dailyPublishedRunId === input.dailyTodayRunId;
-  if (!snapshotIngested && !todayRunCompleted) return "daily";
-  const detailsIngested = input.detailsPublishedUpdatedAt === input.snapshotUpdatedAt;
+  const liveTodayCompleted = input.livePublishedRunId === input.liveTodayRunId;
+  if (!liveTodayCompleted && input.probeUpdatedAt != null && input.probeUpdatedAt !== input.livePublishedUpdatedAt) return "live";
+  const detailsIngested = input.detailsPublishedUpdatedAt === input.deploySnapshotUpdatedAt;
   const detailsTodayCompleted = input.detailsPublishedRunId === input.detailsTodayRunId;
-  if (snapshotIngested && !detailsIngested && !detailsTodayCompleted) return "details";
+  if (!detailsIngested && !detailsTodayCompleted) return "details";
   if (input.historyCheckpointRunId && input.historyCheckpointRunId !== input.historyPublishedRunId) return "history";
   return "idle";
 }

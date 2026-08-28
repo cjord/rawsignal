@@ -84,7 +84,7 @@ async function persistDerived(db: D1DatabaseLike, productId: number, variant: st
   return persistDerivedHistory(db, productId, variant, condition, currentPrice, points, "exact", updatedAt);
 }
 
-async function persistRecord(db: D1DatabaseLike, record: Card | SealedProduct, observedAt: string, asOfDate: string, runId: string) {
+export async function persistRecord(db: D1DatabaseLike, record: Card | SealedProduct, observedAt: string, asOfDate: string, runId: string) {
   if ("printing" in record) {
     await upsertCard(db, record, observedAt, runId);
     await upsertHistory(db, record.productId, record.printing, "Near Mint", [{ date: asOfDate, price: record.marketPrice }], observedAt, "tcgcsv-daily");
