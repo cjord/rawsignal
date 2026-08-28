@@ -19,6 +19,18 @@ test("loads design tokens before legacy and component-owned styles", async () =>
   }
 });
 
+test("self-hosts Geist fonts with site-relative URLs", async () => {
+  const [layout, fonts] = await Promise.all([read("../app/layout.tsx"), read("../app/styles/fonts.css")]);
+  // next/font/google under vinext bakes absolute local cache paths into production builds,
+  // so deployed sites silently rendered the Arial metric fallbacks instead of Geist.
+  assert.doesNotMatch(layout, /from "next\/font/);
+  assert.match(layout, /styles\/fonts\.css/);
+  assert.match(fonts, /url\(\/fonts\/geist-/);
+  assert.doesNotMatch(fonts, /url\([A-Za-z]:\//);
+  assert.match(fonts, /--font-sans:'Geist','Geist Fallback'/);
+  assert.match(fonts, /--font-mono:'Geist Mono','Geist Mono Fallback'/);
+});
+
 test("centralizes shared dimensions, motion, focus, and stacking tokens", async () => {
   const tokens = await read("../app/styles/tokens.css");
   for (const name of [
