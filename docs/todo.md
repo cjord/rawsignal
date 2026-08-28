@@ -601,6 +601,17 @@ lost the Graded Market section (first rotation: 44/45 updated, verified renderin
 Remaining detail-parity gaps on D1 pages: pull rates and the fair-value peer anchor
 (feed-only inputs) — small follow-up slice alongside peer accumulation.
 
+**peer accumulation slice — LANDED 2026-08-28.** Derive-on-read instead of a second
+accumulator: `db/peer-anchors.ts` computes the set-rarity cohort's daily averages
+directly from `price_observations` (primary printing, Near Mint, 180-day window) and
+summarizes them through the same pure `scripts/details/peer-history.mjs` the feed script
+uses. No migration, no cron action, no seeding — the live daily run's observations ARE
+the accumulation, and the backfilled history is deeper than the 1-obs/day file, so
+anchors activate immediately where the feed accumulator was still counting toward 14.
+Verified on staging: "Set-rarity anchored" renders in the fair-value panel on
+`source:"d1"` pages. D1 detail-parity gap remaining: pull rates only (static config —
+tiny follow-up).
+
 **product_details slice — LANDED 2026-08-28.** Checkpointed chunk runner
 `db/detail-ingestion.ts` (cursor = enrichment chunk file; FK-filtered against
 `catalog_products`; batched upserts), staging job `details`, guard-cron action `details`
