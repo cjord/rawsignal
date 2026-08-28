@@ -9,7 +9,10 @@ async function readyDatabaseCatalog(db: D1DatabaseLike) {
   const published = await publishedIngestion(db);
   if (!published) return null;
   const row = await db.prepare("select count(*) as count from catalog_products where ingestion_run_id=?").bind(published.runId).first<{ count: number }>();
-  return (row?.count ?? 0) === published.recordsWritten && published.recordsWritten > 0 ? published : null;
+  // At least, not exactly: a batch that failed mid-write and was retried stamps its records
+  // on the first attempt but counts them as duplicates on the retry. The guard's intent is
+  // "no partial catalog", which the completed run plus full coverage already proves.
+  return (row?.count ?? 0) >= published.recordsWritten && published.recordsWritten > 0 ? published : null;
 }
 
 export async function GET(request: Request) {

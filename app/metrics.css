@@ -1,0 +1,26 @@
+.metrics-head{margin-bottom:22px}
+.metrics-head .kicker{color:var(--gray);font-size:var(--text-2xs);font-weight:850;letter-spacing:.1em;text-transform:uppercase}
+.metrics-head h1{margin:8px 0 6px;font-size:clamp(1.625rem,3.4vw,2.375rem);letter-spacing:-.045em;line-height:1.05}
+.metrics-head .detail-note{margin-top:4px}
+.metrics-overview{grid-template-columns:repeat(3,minmax(0,1fr))}
+.metrics-overview .detail-metric{min-height:104px}
+.metrics-changes{display:flex;gap:10px;margin-top:6px}
+.metrics-changes em{font:750 var(--text-2xs) var(--font-mono);font-style:normal;color:var(--gray)}
+.metrics-changes em.up{color:#29b878}
+.metrics-changes em.down{color:#e05454}
+.metrics-index-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.metrics-index-card{min-width:0;padding:15px 16px;border:1px solid var(--line);border-radius:12px;background:var(--control)}
+.metrics-index-card>header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
+.metrics-index-card>header b{font-size:var(--text-md)}
+.metrics-index-value{font:800 var(--text-lg) var(--font-mono)}
+.metrics-index-card .chart-wrap{width:100%}
+.metrics-index-card .sparkline{width:100%!important;height:120px}
+.metrics-page .detail-variants-table tbody th a:hover{color:var(--blue);text-decoration:underline;text-underline-offset:3px}
+.metrics-legend{display:flex;gap:16px;margin-bottom:8px;font-size:var(--text-2xs);font-weight:800;text-transform:uppercase;letter-spacing:.07em}
+.metrics-legend span{display:inline-flex;align-items:center;gap:6px;color:var(--gray)}
+.metrics-legend span::before{content:"";width:14px;height:3px;border-radius:2px}
+.legend-pokemon::before{background:var(--blue)}
+.legend-riftbound::before{background:var(--purple)}
+.metrics-page .detail-section .chart-canvas{min-height:180px}
+.metrics-page .detail-section>.chart-wrap .sparkline,.metrics-page .metrics-legend+.chart-wrap .sparkline{width:100%!important;height:190px}
+@media(max-width:900px){.metrics-overview{grid-template-columns:1fr}.metrics-index-grid{grid-template-columns:1fr}}

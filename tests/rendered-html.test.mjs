@@ -215,6 +215,24 @@ test("tucks explanatory copy behind info hints and warms detail routes on popove
   assert.match(detail, /data-server-timing/);
 });
 
+test("the metrics page is database-honest and reachable from the top bar", async () => {
+  const [topBar, page, view, service, chart] = await Promise.all([
+    readFile(new URL("../app/TopBar.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/metrics/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/MetricsView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/data/metrics-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/PriceChart.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(topBar, /key:"metrics",label:"Metrics",href:"\/metrics"/);
+  assert.match(page, /loadMetricsPayload/);
+  // No estimates without rollup data: the view carries an explicit unavailable state.
+  assert.match(view, /Metrics need the database/);
+  assert.match(service, /publishedIngestion\(db, "metrics-rollup"\)/);
+  // The base-100 comparison rides an additive overlay series sharing scale and time axis.
+  assert.match(chart, /overlay\?: PricePoint\[\]|overlay\?:PricePoint\[\]/);
+  assert.match(chart, /className="chart-overlay"/);
+});
+
 test("keeps Magic support paused across active application surfaces", async () => {
   const [page, sealed, layout, sync, rawIndex, queryState] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),

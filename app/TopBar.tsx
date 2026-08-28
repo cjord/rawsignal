@@ -9,6 +9,7 @@ const marketLinks=[
  {key:"pokemon",label:"Pokémon",href:"/?mode=singles&market=pokemon"},
  {key:"riftbound",label:"Riftbound",href:"/?mode=singles&market=riftbound"},
  {key:"sealed",label:"Sealed",href:"/?mode=sealed"},
+ {key:"metrics",label:"Metrics",href:"/metrics"},
 ] as const;
 export type TopBarActive=(typeof marketLinks)[number]["key"]|null;
 

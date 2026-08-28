@@ -5,12 +5,15 @@ import type {PricePoint} from "./domain/types";
 
 const rangeLabel=(days:7|30|90|365)=>days===365?"1Y":`${days}D`;
 
-export default function PriceChart({points,volumes,large=false,label="market"}:{points:PricePoint[];volumes?:{date:string;quantity:number}[];large?:boolean;label?:string}){
+export default function PriceChart({points,volumes,overlay,large=false,label="market"}:{points:PricePoint[];volumes?:{date:string;quantity:number}[];overlay?:PricePoint[];large?:boolean;label?:string}){
  const gradientId=useId().replace(/:/g,""),[hovered,setHovered]=useState<number|null>(null),[range,setRange]=useState<7|30|90|365>(30);
  if(points.length<2)return <span className="no-chart">History unavailable</span>;
  const cutoff=new Date(`${points.at(-1)!.date}T00:00:00Z`);cutoff.setUTCDate(cutoff.getUTCDate()-range);
  const shown=points.filter(point=>new Date(`${point.date}T00:00:00Z`)>=cutoff),chartPoints=shown.length>1?shown:points;
- const values=chartPoints.map(point=>point.price),times=chartPoints.map(point=>Date.parse(`${point.date}T00:00:00Z`)),min=Math.min(...values),max=Math.max(...values),span=max-min||1,timeSpan=times.at(-1)!-times[0]||1;
+ const values=chartPoints.map(point=>point.price),times=chartPoints.map(point=>Date.parse(`${point.date}T00:00:00Z`)),timeSpan=times.at(-1)!-times[0]||1;
+ // An optional second series (e.g. the base-100 comparison) shares the scale and time axis.
+ const overlayShown=(overlay??[]).map(point=>({price:point.price,time:Date.parse(`${point.date}T00:00:00Z`)})).filter(point=>point.time>=times[0]&&point.time<=times.at(-1)!);
+ const min=Math.min(...values,...overlayShown.map(point=>point.price)),max=Math.max(...values,...overlayShown.map(point=>point.price)),span=max-min||1;
  const xy=chartPoints.map((point,index)=>({x:((times[index]-times[0])/timeSpan)*240,y:70-((point.price-min)/span)*62})),active=hovered==null?null:{...chartPoints[hovered],...xy[hovered]};
  const first=values[0],last=values.at(-1)!,delta=first?((last-first)/first)*100:null,deltaTone=delta==null||delta===0?"":delta>0?"up":"down";
  const midDate=chartPoints[Math.floor(chartPoints.length/2)].date,line=xy.map(point=>`${point.x},${point.y}`).join(" ");
@@ -37,6 +40,7 @@ export default function PriceChart({points,volumes,large=false,label="market"}:{
    <polygon className="chart-area" fill={`url(#chart-fill-${gradientId})`} points={`${xy[0].x},76 ${line} ${xy.at(-1)!.x},76`}/>
    {maxQuantity>0&&shownVolumes.map(bucket=><rect key={bucket.date} className="chart-volume" x={Math.max(0,Math.min(240-barWidth,((bucket.time-times[0])/timeSpan)*240-barWidth/2))} y={76-(bucket.quantity/maxQuantity)*15-1} width={barWidth} height={(bucket.quantity/maxQuantity)*15+1}/>)}
    {maLine&&<polyline className="chart-ma" points={maLine}/>}
+   {overlayShown.length>1&&<polyline className="chart-overlay" points={overlayShown.map(point=>`${(((point.time-times[0])/timeSpan)*240).toFixed(2)},${(70-((point.price-min)/span)*62).toFixed(2)}`).join(" ")}/>}
    <polyline points={line}/>
    {active&&<line className="chart-cursor" x1={active.x} x2={active.x} y1="2" y2="74"/>}
   </svg>
