@@ -258,3 +258,7 @@
   }
   .sealed-change-cell b{font:700 var(--text-sm) var(--font-mono)}
   .scalping-flag{font-style:normal;color:#e05454;margin-right:.35em}
+
+  /* Favorites as the slider's fourth entry: gold, with dark text for contrast. */
+  .signal-tabs.tone-favorites{--signal-color:#e8b93e}
+  .signal-tabs.tone-favorites button.active{color:#241b05;text-shadow:none}

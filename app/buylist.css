@@ -47,6 +47,5 @@
  .buylist-paid{grid-column:2;grid-row:2;flex-direction:row;align-items:center;gap:6px}
  .buylist-remove{grid-column:3;grid-row:2;justify-self:end}
 }
-.favorites-toggle.active{color:#e8b93e;border-color:color-mix(in srgb,#e8b93e 55%,var(--line))}
 .signal-navigation .hot-add-button{align-self:center}
 @media(max-width:620px){.signal-navigation .hot-add-button{width:100%;justify-content:center;min-height:38px}}

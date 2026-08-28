@@ -662,3 +662,11 @@ subselects). (5) Riftbound sealed product types were invisible in the type filte
 the riftbound feed taxonomy (Decks / Boosters / Booster boxes / Gift boxes / Collector
 bundles) all normalized to "Other"; a shared alias resolver (`canonicalSealedType`)
 maps them onto the canonical buckets and also powers the metrics deep links.
+
+**Favorites in the signal slider (2026-08-28, user request):** the standalone
+favorites toggle is gone; **★ Favorites** is the slider's fourth entry on both singles
+and sealed — gold slider (`tone-favorites`, dark text for contrast), mutually exclusive
+with the signal views (activating it lands on leaderboard ordering with the filter on;
+picking any signal tab clears it). Sealed gains the favorites filter for the first time
+(device-local sealed favorite ids scope the catalog before querying, mirroring
+singles).

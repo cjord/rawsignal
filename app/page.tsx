@@ -602,9 +602,21 @@ export default function Home() {
     setSealedState(next);
   };
   const changeSignalView = (value: SignalSide) => {
+    setFavoritesOnly(false);
     setSignalView(value);
     if (mode === "singles") {
       setSort(value === "leaderboard" ? "market" : "signal");
+      setDirection("desc");
+      setPage(1);
+    }
+  };
+  // Favorites is the slider's fourth entry: a leaderboard-format filter, so activating
+  // it always lands on the leaderboard ordering with the flag on.
+  const activateFavorites = () => {
+    setFavoritesOnly(true);
+    setSignalView("leaderboard");
+    if (mode === "singles") {
+      setSort("market");
       setDirection("desc");
       setPage(1);
     }
@@ -737,17 +749,12 @@ export default function Home() {
         />
       </div>
       <div className="signal-navigation">
-        <SignalTabs value={signalView} onChange={changeSignalView} />
-        {mode === "singles" && (
-          <button
-            type="button"
-            className={`hot-add-button favorites-toggle ${favoritesOnly ? "active" : ""}`}
-            aria-pressed={favoritesOnly}
-            onClick={() => { setFavoritesOnly((value) => !value); setPage(1); }}
-          >
-            {favoritesOnly ? "★" : "☆"} Favorites{favoriteSingleIds.size ? ` (${favoriteSingleIds.size})` : ""}
-          </button>
-        )}
+        <SignalTabs
+          value={signalView}
+          onChange={changeSignalView}
+          favoritesActive={favoritesOnly}
+          onFavorites={activateFavorites}
+        />
         {mode === "singles" && signalView !== "leaderboard" && (
           <button
             type="button"
@@ -1047,6 +1054,7 @@ export default function Home() {
           signalView={signalView}
           strictness={strictness}
           scalperEnabled={scalperMode === "scalper"}
+          favoritesOnly={favoritesOnly}
           initialState={sealedState}
           onQueryChange={updateSealedState}
         />

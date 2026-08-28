@@ -12,6 +12,7 @@ import SealedFilters from "./SealedFilters";
 import { SignalBadge } from "./SignalControls";
 import FavoriteStar from "./FavoriteStar";
 import { sealedFavorite } from "./state/favorites";
+import { useFavorites } from "./state/useFavorites";
 import {
   marketSignal,
   type SignalSide,
@@ -116,12 +117,14 @@ export default function SealedView({
   signalView = "leaderboard",
   strictness = "balanced",
   scalperEnabled = false,
+  favoritesOnly = false,
   initialState,
   onQueryChange,
 }: {
   signalView?: SignalSide;
   strictness?: SignalStrictness;
   scalperEnabled?: boolean;
+  favoritesOnly?: boolean;
   initialState: SealedQueryState;
   onQueryChange: (state: SealedQueryState) => void;
 }) {
@@ -198,6 +201,17 @@ export default function SealedView({
     status: historyStatus,
     request: requestHistory,
   } = usePriceHistoryBatch();
+  // The Favorites slider entry scopes sealed the same way singles scope (page.tsx):
+  // device-local favorite ids narrow the catalog before querying.
+  const favorites = useFavorites();
+  const favoriteSealedIds = useMemo(
+    () => new Set(favorites.entries.filter((entry) => entry.kind === "sealed").map((entry) => entry.productId)),
+    [favorites.entries],
+  );
+  const scopedProducts = useMemo(
+    () => (favoritesOnly ? products.filter((product) => favoriteSealedIds.has(product.productId)) : products),
+    [products, favoritesOnly, favoriteSealedIds],
+  );
   const persistedSignals = usePersistedSignals({
     kind: "sealed",
     market: game,
@@ -285,9 +299,9 @@ export default function SealedView({
             calculate(product).value,
           );
   const derived = useMemo(
-    () => buildCatalogDerived(products, history, persistedSignals, signalFor),
+    () => buildCatalogDerived(scopedProducts, history, persistedSignals, signalFor),
     [
-      products,
+      scopedProducts,
       history,
       signalView,
       strictness,
@@ -302,7 +316,7 @@ export default function SealedView({
   const catalogResult = useMemo(
     () =>
       querySealedCatalog(
-        products,
+        scopedProducts,
         {
           market: game,
           productTypes: selectedTypes,
@@ -325,7 +339,7 @@ export default function SealedView({
         derived,
       ),
     [
-      products,
+      scopedProducts,
       game,
       selectedTypes,
       query,
