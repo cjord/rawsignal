@@ -299,8 +299,12 @@
   .pagination-row .per-page-control{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:8px}
   .per-page-control>span{color:var(--gray);font-size:var(--text-2xs);font-weight:850;letter-spacing:.08em;text-transform:uppercase}
   .per-page-control select{min-height:38px;padding:0 30px 0 10px;border:1px solid var(--line);border-radius:9px;background:var(--control);color:var(--text);font-weight:700}
-  /* The header aside stacks its two data lines, both right-aligned. */
-  .section-aside{display:flex;flex-direction:column;align-items:flex-end;gap:3px;text-align:right}
+  /* The header aside stacks its two data lines, both right-aligned. Block-level inner
+     spans, not flex on the container: globals' higher-specificity `.section-heading>span`
+     display rules would override a flex container here. */
+  .section-aside{text-align:right}
+  .section-aside>span{display:block}
+  .section-aside>span+span{margin-top:3px}
   .sealed-aside{display:flex;flex-direction:column;align-items:flex-end;gap:9px}
   .sealed-count-line{color:var(--gray);font-size:var(--text-xs);white-space:nowrap}
   .sealed-count-line strong{color:var(--text);font:800 var(--text-md) var(--font-mono)}

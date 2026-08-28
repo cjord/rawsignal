@@ -853,9 +853,9 @@ export default function Home() {
                   {signalView === "leaderboard"
                     ? <>
                         <span>{total.toLocaleString()} cards · {(game === "all" ? index.totals.pokemon + index.totals.riftbound : index.totals[game]).toLocaleString()} ranked in {game === "all" ? "all markets" : formatGameName(game)}</span>
-                        <span>updated {updatedLabel(freshIso)}</span>
+                        <span>Updated {updatedLabel(freshIso)}</span>
                       </>
-                    : `Top ${total.toLocaleString()} by signal score · ${strictness[0].toUpperCase() + strictness.slice(1)} strictness (change in ⚙) · updated ${updatedLabel(freshIso)}`}
+                    : `Top ${total.toLocaleString()} by signal score · ${strictness[0].toUpperCase() + strictness.slice(1)} strictness (change in ⚙) · Updated ${updatedLabel(freshIso)}`}
                   {signalCoverage && ` · ${signalCoverage}`}
                   {signalView !== "leaderboard" && (
                     <InfoHint label="How signals work">
