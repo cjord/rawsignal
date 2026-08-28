@@ -30,6 +30,24 @@ export async function loadPriceHistoryBatch(targets:HistoryTarget[],signal:Abort
  });
 }
 
+// One-shot batch load for static target sets (detail-page tables, metrics movers):
+// fetch once per serialized target list and fill entries in as they land, keyed by
+// historyTargetKey so singles and sealed targets never collide.
+export function useHistoryOnce(targets:HistoryTarget[]){
+ const [history,setHistory]=useState<Record<string,PriceHistory>>({});
+ const key=targets.map(historyTargetKey).join(",");
+ useEffect(()=>{
+  if(!targets.length)return;
+  const controller=new AbortController();
+  loadPriceHistoryBatch(targets,controller.signal)
+   .then(entries=>setHistory(current=>{const next={...current};for(const entry of entries)next[historyTargetKey(entry.target)]=entry.history;return next}))
+   .catch(()=>{});
+  return()=>controller.abort();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- targets identity is captured by the serialized key
+ },[key]);
+ return history;
+}
+
 export function usePriceHistoryBatch(){
  const [history,setHistory]=useState<Record<number,PriceHistory>>({}),historyRef=useRef<Record<number,PriceHistory>>({}),[status,setStatus]=useState<HistoryStatus>("idle"),[failedCount,setFailedCount]=useState(0),loadedRef=useRef(new Set<string>()),controllerRef=useRef<AbortController|null>(null),requestRef=useRef(0),lastTargetsRef=useRef<HistoryTarget[]>([]);
  const request=useCallback(async(targets:HistoryTarget[])=>{

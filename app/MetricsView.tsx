@@ -6,14 +6,14 @@ import MarketTabs from "./MarketTabs";
 import {readStoredMarket,storeMarket} from "./state/market-memory";
 import PriceChart from "./PriceChart";
 import TopBar from "./TopBar";
-import HistoryPanel,{movementTone,type HistoryMetric} from "./HistoryPanel";
+import HistoryPanel,{standardHistoryMetrics,type HistoryMetric} from "./HistoryPanel";
 import {SegmentedView} from "./MarketUI";
 import FavoriteStar from "./FavoriteStar";
 import MarketRow from "./leaderboard/MarketRow";
 import HistoryPopover from "./leaderboard/HistoryPopover";
 import ProductIdentity from "./leaderboard/ProductIdentity";
 import {favoriteKey,type FavoriteEntry} from "./state/favorites";
-import {historyTargetKey,loadPriceHistoryBatch,type HistoryTarget} from "./data/usePriceHistoryBatch";
+import {historyTargetKey,useHistoryOnce,type HistoryTarget} from "./data/usePriceHistoryBatch";
 import {canonicalSealedType} from "./data/catalog-query";
 import {deriveHistoryMetrics} from "./domain/history-metrics";
 import {POKEMON_ERAS,eraLabel} from "./domain/eras";
@@ -168,36 +168,7 @@ function CategoryTable({categories}:{categories:MetricsCategoryRow[]}){
 
 const moverTarget=(mover:MetricsMover):HistoryTarget=>mover.kind==="single"?{productId:mover.productId,printing:mover.printing}:{productId:mover.productId,printing:"Sealed",sealed:true};
 const moverFavorite=(mover:MetricsMover):FavoriteEntry=>({key:favoriteKey(mover.kind,mover.productId),kind:mover.kind,game:mover.game,productId:mover.productId,name:mover.name,set:mover.set,number:null,section:null,image:mover.image||null,price:mover.price,addedAt:""});
-const moverMetrics=(mover:MetricsMover,history?:PriceHistory):HistoryMetric[]=>{
- const movement=(label:string,value:number|null|undefined):HistoryMetric=>({label,value:value===undefined?"…":pct(value??null),tone:movementTone(value)});
- return [
-  {label:"Market",value:formatUsd(mover.price)},
-  {label:"30D low",value:formatUsd(history?.low30??null)},
-  {label:"30D high",value:formatUsd(history?.high30??null)},
-  {label:"Hist low",value:formatUsd(history?.historyLow??null)},
-  {label:"Median",value:formatUsd(mover.mid)},
-  movement("7 day",history?.change7),
-  movement("30 day",history?.change30),
-  movement("90 day",history?.change90),
- ];
-};
-
-// Same one-shot batch load the detail-page tables use: the visible movers request their
-// history once per scope/window change and the popovers fill in as it lands.
-function useMoverHistory(targets:HistoryTarget[]){
- const [history,setHistory]=useState<Record<string,PriceHistory>>({});
- const key=targets.map(historyTargetKey).join(",");
- useEffect(()=>{
-  if(!targets.length)return;
-  const controller=new AbortController();
-  loadPriceHistoryBatch(targets,controller.signal)
-   .then(entries=>setHistory(current=>{const next={...current};for(const entry of entries)next[historyTargetKey(entry.target)]=entry.history;return next}))
-   .catch(()=>{});
-  return()=>controller.abort();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- targets identity is captured by the serialized key
- },[key]);
- return history;
-}
+const moverMetrics=(mover:MetricsMover,history?:PriceHistory):HistoryMetric[]=>standardHistoryMetrics(mover.price,mover.mid,history,"N/A");
 
 function MoverTable({title,movers,history,empty}:{title:string;movers:MetricsMover[];history:Record<string,PriceHistory>;empty:string}){
  return <div className="metrics-mover-list"><h3>{title}</h3>
@@ -245,7 +216,8 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
  const [market,setMarket]=useState<Market>("all");
  const [moversWindow,setMoversWindow]=useState<"7d"|"30d"|"90d">("7d");
  useEffect(()=>{
-  const saved=localStorage.getItem("raw-signal-strictness");
+  let saved:string|null=null;
+  try{saved=localStorage.getItem("raw-signal-strictness")}catch{/* Storage unavailable; the default applies. */}
   if(saved==="conservative"||saved==="aggressive")setStrictness(saved);
   const params=new URLSearchParams(location.search);
   const nextMode=params.get("mode")==="sealed"?"sealed":"singles";
@@ -281,7 +253,7 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
   return {overview,combined,momentum,gainers,decliners,sets,categories};
  },[payload,series,kind,mode,market,moversWindow]);
  const moverTargets=useMemo(()=>scoped?[...scoped.gainers,...scoped.decliners].map(moverTarget):[],[scoped]);
- const moverHistory=useMoverHistory(moverTargets);
+ const moverHistory=useHistoryOnce(moverTargets);
 
  const compareKeys=market==="all"?[indexKey(mode,"pokemon"),indexKey(mode,"riftbound")]:null;
  const comparePokemon=compareKeys?series[compareKeys[0]]??[]:[];

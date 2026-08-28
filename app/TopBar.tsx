@@ -25,7 +25,7 @@ export default function TopBar({active=null,actions,strictness,onStrictness,scal
  useEffect(()=>{
   setTheme(document.documentElement.dataset.theme==="light"?"light":"dark");
   setFontSize(document.documentElement.dataset.fontSize==="large"?"large":"default");
-  if(localStorage.getItem("raw-signal-scalper-mode")==="scalper")setLocalScalper("scalper");
+  try{if(localStorage.getItem("raw-signal-scalper-mode")==="scalper")setLocalScalper("scalper")}catch{/* Storage unavailable; regular mode. */}
  },[]);
  useEffect(()=>{
   if(!settingsOpen)return;
@@ -33,8 +33,8 @@ export default function TopBar({active=null,actions,strictness,onStrictness,scal
   window.addEventListener("pointerdown",close);
   return()=>window.removeEventListener("pointerdown",close);
  },[settingsOpen]);
- const toggleTheme=()=>setTheme(current=>{const next=current==="dark"?"light":"dark";document.documentElement.dataset.theme=next;localStorage.setItem("raw-signal-theme",next);return next});
- const changeFontSize=(next:"default"|"large")=>{setFontSize(next);document.documentElement.dataset.fontSize=next;localStorage.setItem("raw-signal-font-size",next)};
+ const toggleTheme=()=>setTheme(current=>{const next=current==="dark"?"light":"dark";document.documentElement.dataset.theme=next;try{localStorage.setItem("raw-signal-theme",next)}catch{/* Storage unavailable; applies for this visit only. */}return next});
+ const changeFontSize=(next:"default"|"large")=>{setFontSize(next);document.documentElement.dataset.fontSize=next;try{localStorage.setItem("raw-signal-font-size",next)}catch{/* Storage unavailable; applies for this visit only. */}};
  const scalper=scalperMode??localScalper;
  const changeScalper=(next:ScalperMode)=>{
   if(onScalperMode){onScalperMode(next);return}

@@ -9,7 +9,7 @@ import {
   SortToolbar,
   type Direction,
 } from "./MarketUI";
-import HistoryPanel, { movementTone, type HistoryMetric } from "./HistoryPanel";
+import HistoryPanel, { movementTone, standardHistoryMetrics } from "./HistoryPanel";
 import { normalized } from "./market-utils";
 import CardFilters, { type MovementFilters } from "./CardFilters";
 import TopBar from "./TopBar";
@@ -20,8 +20,9 @@ import {
   type SignalStrictness,
 } from "./signal-utils";
 import MultiSelectField from "./MultiSelectField";
+import PerPageSelect from "./PerPageSelect";
 import { parseCards } from "./domain/contracts";
-import { formatGameName, formatPercent, formatRarity, formatUsd } from "./domain/formatters";
+import { formatFullDate, formatGameName, formatPercent, formatRarity, formatUsd } from "./domain/formatters";
 import type {
   Card,
   PriceHistory,
@@ -43,7 +44,7 @@ import { useFreshness } from "./data/useFreshness";
 import InfoHint from "./InfoHint";
 import FavoriteStar from "./FavoriteStar";
 import { cardFavorite, favoriteKey } from "./state/favorites";
-import { useFavorites } from "./state/useFavorites";
+import { useFavoriteScope } from "./state/useFavorites";
 import {
   filterSinglesCandidates,
   querySinglesCatalog,
@@ -60,6 +61,8 @@ import {
 import MarketLeaderboard from "./leaderboard/MarketLeaderboard";
 import LeaderboardHeader from "./leaderboard/LeaderboardHeader";
 import LeaderboardControls from "./leaderboard/LeaderboardControls";
+import LeaderboardSearch from "./leaderboard/LeaderboardSearch";
+import { useSetGroups } from "./leaderboard/useSetGroups";
 import ActiveFilterSummary from "./leaderboard/ActiveFilterSummary";
 import { resultState, type LeaderboardModeModel } from "./leaderboard/types";
 import MarketRow from "./leaderboard/MarketRow";
@@ -97,11 +100,6 @@ const cardMeta = (card: Card) => {
 };
 const cardKey = (card: Card) => card.productId;
 
-const updatedLabel = (iso: string) => new Date(iso).toLocaleDateString("en-US", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-});
 const singlesModel: LeaderboardModeModel<View, SortKey> = {
   views: [
     { key: "large", label: "Large", icon: "▦" },
@@ -146,26 +144,8 @@ const sealedMarkets = [
 const scalpingMarket = { key: "scalping", label: "Obey Products" } as const;
 const signalSort = { label: "Signal", key: "signal" as SortKey };
 const ascendingSinglesSorts = new Set<SortKey>(["name", "set"]);
-const cardHistoryMetrics = (card: Card, history?: History): HistoryMetric[] => {
-  const movement = (
-    label: string,
-    value: number | null | undefined,
-  ): HistoryMetric => ({
-    label,
-    value: value === undefined ? "…" : pct(value ?? null),
-    tone: movementTone(value),
-  });
-  return [
-    { label: "Market", value: usd(card.marketPrice) },
-    { label: "30D low", value: usd(history?.low30 ?? null) },
-    { label: "30D high", value: usd(history?.high30 ?? null) },
-    { label: "Hist low", value: usd(history?.historyLow ?? null) },
-    { label: "Median", value: usd(card.midPrice) },
-    movement("7 day", history?.change7),
-    movement("30 day", history?.change30),
-    movement("90 day", history?.change90),
-  ];
-};
+const cardHistoryMetrics = (card: Card, history?: History) =>
+  standardHistoryMetrics(card.marketPrice, card.midPrice, history);
 function FullCard({
   card,
   history,
@@ -286,7 +266,6 @@ export default function Home() {
   const [signalView, setSignalView] = useState<SignalSide>("leaderboard"),
     [strictness, setStrictness] = useState<SignalStrictness>("balanced");
   const freshIso = useFreshness(index.sourceUpdatedAt);
-  const favorites = useFavorites();
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [minPrice, setMinPrice] = useState(""),
     [maxPrice, setMaxPrice] = useState(""),
@@ -438,21 +417,8 @@ export default function Home() {
     () => buildCatalogDerived(cards, history, persistedSignals, signalFor),
     [cards, history, signalView, strictness, persistedSignals],
   );
-  const favoriteSingleIds = useMemo(
-    () => new Set(favorites.entries.filter((entry) => entry.kind === "single").map((entry) => entry.productId)),
-    [favorites.entries],
-  );
-  // Set → market map for grouped filter options; headings only surface on the all scope
-  // (a single market yields one group, which renders flat).
-  const setGames = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const card of cards) map[card.set] = formatGameName(card.game);
-    return map;
-  }, [cards]);
-  const scopedCards = useMemo(
-    () => (favoritesOnly ? cards.filter((card) => favoriteSingleIds.has(card.productId)) : cards),
-    [cards, favoritesOnly, favoriteSingleIds],
-  );
+  const { favorites, scoped: scopedCards } = useFavoriteScope("single", cards, favoritesOnly);
+  const setGames = useSetGroups(cards);
   const eligible = useMemo(
     () =>
       filterSinglesCandidates(scopedCards, {
@@ -598,16 +564,18 @@ export default function Home() {
     };
   }, []);
   useEffect(() => {
-    const saved = localStorage.getItem("raw-signal-strictness");
+    let saved: string | null = null;
+    try { saved = localStorage.getItem("raw-signal-strictness"); } catch { /* Storage unavailable; the default applies. */ }
     if (saved === "conservative" || saved === "aggressive") setStrictness(saved);
   }, []);
   useEffect(() => {
+    let stored: string | null = null;
+    try { stored = localStorage.getItem("raw-signal-scalper-mode"); } catch { /* Storage unavailable; regular mode. */ }
     const params = new URLSearchParams(location.search),
       urlScalping =
         params.get("mode") === "sealed" && params.get("market") === "scalping",
       saved: ScalperMode =
-        urlScalping ||
-        localStorage.getItem("raw-signal-scalper-mode") === "scalper"
+        urlScalping || stored === "scalper"
           ? "scalper"
           : "regular";
     // Scalper mode never changes the market by itself (user rule 2026-08-28): it only
@@ -617,12 +585,12 @@ export default function Home() {
   }, []);
   const changeStrictness = (value: SignalStrictness) => {
     setStrictness(value);
-    localStorage.setItem("raw-signal-strictness", value);
+    try { localStorage.setItem("raw-signal-strictness", value); } catch { /* Storage unavailable; applies for this visit only. */ }
     setPage(1);
   };
   const changeScalperMode = (next: ScalperMode) => {
     setScalperMode(next);
-    localStorage.setItem("raw-signal-scalper-mode", next);
+    try { localStorage.setItem("raw-signal-scalper-mode", next); } catch { /* Storage unavailable; applies for this visit only. */ }
     // Enabling scalper keeps the current market — it only unlocks Obey Products.
     // Disabling it leaves the curated market (if selected) and resets the scenario.
     setSealedState((current) =>
@@ -855,24 +823,21 @@ export default function Home() {
                           The board lists every qualifying card, strongest signals first.
                         </InfoHint>
                       </span>}
-                  <span>Updated {updatedLabel(freshIso)}</span>
+                  <span>Updated {formatFullDate(freshIso)}</span>
                 </span>
               }
             />
           }
           controls={
             <LeaderboardControls className="controls">
-              <label>
-                <span>⌕</span>
-                <input
-                  value={query}
-                  onChange={(e) => {
-                    setQuery(e.target.value);
-                    setPage(1);
-                  }}
-                  placeholder="Search card, set, or number"
-                />
-              </label>
+              <LeaderboardSearch
+                value={query}
+                onChange={(value) => {
+                  setQuery(value);
+                  setPage(1);
+                }}
+                placeholder="Search card, set, or number"
+              />
               <MultiSelectField
                 label="Rarity"
                 options={rarityOptions.map((option) => ({
@@ -1050,22 +1015,14 @@ export default function Home() {
             label: singlesModel.paginationLabel,
           }}
           paginationAside={
-            <label className="per-page-control">
-              <span>Per page</span>
-              <select
-                aria-label="Cards per page"
-                value={perPage}
-                onChange={(e) => {
-                  setPerPage(Number(e.target.value));
-                  setPage(1);
-                }}
-              >
-                <option>20</option>
-                <option>30</option>
-                <option>40</option>
-                <option>50</option>
-              </select>
-            </label>
+            <PerPageSelect
+              label="Cards per page"
+              value={perPage}
+              onChange={(next) => {
+                setPerPage(next);
+                setPage(1);
+              }}
+            />
           }
         />
       ) : (
@@ -1141,7 +1098,7 @@ export default function Home() {
             TCGCSV
           </a>
           ; Near Mint market history from TCGplayer; sealed MSRP from publisher
-          sources. Data updated {updatedLabel(freshIso)}.
+          sources. Data updated {formatFullDate(freshIso)}.
         </p>
       </footer>
     </main>

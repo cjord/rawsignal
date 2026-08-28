@@ -29,6 +29,15 @@ export function formatUtcDate(value: string, includeYear = false) {
   });
 }
 
+// Local-timezone "Aug 28, 2026" for freshness lines ("Updated …", "Data updated …").
+export function formatFullDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export function formatRarity(value: string) {
   return value;
 }

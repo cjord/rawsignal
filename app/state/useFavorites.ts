@@ -1,5 +1,5 @@
 "use client";
-import {useEffect,useState} from "react";
+import {useEffect,useMemo,useState} from "react";
 import {BUYLIST_KEY,FAVORITES_KEY,addFavorites,parseBuyStates,parseFavorites,toggleFavorite,type BuyState,type FavoriteEntry} from "./favorites";
 
 // One in-memory store per tab so every star, filter chip, and the buy list stay in sync
@@ -24,6 +24,21 @@ const write = (nextEntries: FavoriteEntry[], nextStates: Record<string, BuyState
   } catch { /* Storage unavailable; state stays tab-local. */ }
   listeners.forEach(listener => listener());
 };
+
+// The Favorites slider entry scopes both leaderboards the same way: device-local
+// favorite ids for the kind narrow the catalog before querying.
+export function useFavoriteScope<T extends { productId: number }>(kind: "single" | "sealed", items: T[], favoritesOnly: boolean) {
+  const favorites = useFavorites();
+  const favoriteIds = useMemo(
+    () => new Set(favorites.entries.filter(entry => entry.kind === kind).map(entry => entry.productId)),
+    [favorites.entries, kind],
+  );
+  const scoped = useMemo(
+    () => (favoritesOnly ? items.filter(item => favoriteIds.has(item.productId)) : items),
+    [items, favoritesOnly, favoriteIds],
+  );
+  return { favorites, scoped };
+}
 
 export function useFavorites() {
   const [version, setVersion] = useState(0);

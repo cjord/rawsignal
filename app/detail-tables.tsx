@@ -1,12 +1,12 @@
 "use client";
-import {useEffect,useMemo,useState} from "react";
-import HistoryPanel,{movementTone,type HistoryMetric} from "./HistoryPanel";
+import {useMemo,useState} from "react";
+import HistoryPanel,{standardHistoryMetrics} from "./HistoryPanel";
 import {NumberedPagination,SegmentedView} from "./MarketUI";
 import HistoryPopover from "./leaderboard/HistoryPopover";
 import MarketRow from "./leaderboard/MarketRow";
 import ProductIdentity from "./leaderboard/ProductIdentity";
 import FavoriteStar from "./FavoriteStar";
-import {historyTargetKey,loadPriceHistoryBatch,type HistoryTarget} from "./data/usePriceHistoryBatch";
+import {historyTargetKey,useHistoryOnce} from "./data/usePriceHistoryBatch";
 import {formatPercent,formatRarity,formatUsd} from "./domain/formatters";
 import {cardFavorite,sealedFavorite} from "./state/favorites";
 import type {Card,PriceHistory,SealedProduct} from "./domain/types";
@@ -15,35 +15,7 @@ type TableView="medium"|"text";
 const tableViews:[{key:TableView;label:string;icon:string},{key:TableView;label:string;icon:string}]=[{key:"medium",label:"Medium",icon:"▤"},{key:"text",label:"Text",icon:"☷"}];
 const usd=(value:number|null)=>formatUsd(value);
 const pct=(value:number|null)=>formatPercent(value);
-
-function useDetailHistory(targets:HistoryTarget[]){
- const [history,setHistory]=useState<Record<string,PriceHistory>>({});
- const key=targets.map(historyTargetKey).join(",");
- useEffect(()=>{
-  if(!targets.length)return;
-  const controller=new AbortController();
-  loadPriceHistoryBatch(targets,controller.signal)
-   .then(entries=>setHistory(current=>{const next={...current};for(const entry of entries)next[historyTargetKey(entry.target)]=entry.history;return next}))
-   .catch(()=>{});
-  return()=>controller.abort();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- targets identity is captured by the serialized key
- },[key]);
- return history;
-}
-
-function historyMetrics(marketPrice:number|null,midPrice:number|null,history?:PriceHistory):HistoryMetric[]{
- const movement=(label:string,value:number|null|undefined):HistoryMetric=>({label,value:value===undefined?"…":pct(value??null),tone:movementTone(value)});
- return [
-  {label:"Market",value:usd(marketPrice)},
-  {label:"30D low",value:usd(history?.low30??null)},
-  {label:"30D high",value:usd(history?.high30??null)},
-  {label:"Hist low",value:usd(history?.historyLow??null)},
-  {label:"Median",value:usd(midPrice)},
-  movement("7 day",history?.change7),
-  movement("30 day",history?.change30),
-  movement("90 day",history?.change90),
- ];
-}
+const historyMetrics=standardHistoryMetrics;
 
 function TableHead({view,itemLabel}:{view:TableView;itemLabel:string}){
  return <div className={`table-head ${view}`} role="row"><span role="columnheader">Rank</span><span role="columnheader">{itemLabel}</span><span role="columnheader">Set</span><span role="columnheader">Market</span><span role="columnheader">30D Low</span><span role="columnheader">30D High</span><span role="columnheader">7D</span><span role="columnheader">30D</span><span aria-hidden="true"/></div>;
@@ -56,7 +28,7 @@ function RowCells({set,setNote,market,history}:{set:string;setNote:string|null;m
 export function ChaseCardsSection({cards,packPrice,setName}:{cards:Card[];packPrice:number|null;setName:string}){
  const [view,setView]=useState<TableView>("medium");
  const targets=useMemo(()=>cards.map(card=>({productId:card.productId,printing:card.printing})),[cards]);
- const history=useDetailHistory(targets);
+ const history=useHistoryOnce(targets);
  if(!cards.length)return null;
  return <section className="detail-section detail-market-table">
   <header><span>From this set</span><h2>Chase Cards</h2><SegmentedView className="detail-table-views" value={view} onChange={setView} options={tableViews} label="Chase card view"/></header>
@@ -79,7 +51,7 @@ export function ChaseCardsSection({cards,packPrice,setName}:{cards:Card[];packPr
 export function RelatedSealedSection({products,setName,market}:{products:SealedProduct[];setName:string;market?:string}){
  const [view,setView]=useState<TableView>("medium"),[page,setPage]=useState(1),perPage=10;
  const targets=useMemo(()=>products.map(product=>({productId:product.productId,printing:"Sealed",sealed:true})),[products]);
- const history=useDetailHistory(targets);
+ const history=useHistoryOnce(targets);
  if(!products.length)return null;
  const pages=Math.max(1,Math.ceil(products.length/perPage)),visible=products.slice((page-1)*perPage,page*perPage);
  return <section className="detail-section detail-market-table">

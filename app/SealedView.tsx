@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import index from "../tcg-index.json";
 import { useFreshness } from "./data/useFreshness";
-import HistoryPanel, { movementTone } from "./HistoryPanel";
+import HistoryPanel, { movementMetric, movementTone } from "./HistoryPanel";
 import {
   SegmentedView,
   SortableHeader,
@@ -14,16 +14,17 @@ import SealedFilters from "./SealedFilters";
 import { SignalBadge } from "./SignalControls";
 import FavoriteStar from "./FavoriteStar";
 import { sealedFavorite } from "./state/favorites";
-import { useFavorites } from "./state/useFavorites";
+import { useFavoriteScope } from "./state/useFavorites";
 import {
   marketSignal,
   type SignalSide,
   type SignalStrictness,
 } from "./signal-utils";
 import MultiSelectField from "./MultiSelectField";
+import PerPageSelect from "./PerPageSelect";
 import SaleScenario from "./SaleScenario";
 import { parseSealedProducts } from "./domain/contracts";
-import { formatGameName, formatPercent, formatUsd } from "./domain/formatters";
+import { formatFullDate, formatGameName, formatPercent, formatUsd } from "./domain/formatters";
 import type {
   PriceHistory,
   SealedMarket,
@@ -48,6 +49,8 @@ import {
 import MarketLeaderboard from "./leaderboard/MarketLeaderboard";
 import LeaderboardHeader from "./leaderboard/LeaderboardHeader";
 import LeaderboardControls from "./leaderboard/LeaderboardControls";
+import LeaderboardSearch from "./leaderboard/LeaderboardSearch";
+import { useSetGroups } from "./leaderboard/useSetGroups";
 import ActiveFilterSummary from "./leaderboard/ActiveFilterSummary";
 import { resultState, type LeaderboardModeModel } from "./leaderboard/types";
 import MarketRow from "./leaderboard/MarketRow";
@@ -114,7 +117,6 @@ const ascendingSealedSorts = new Set<SortKey>(["name", "set"]);
 const usd = (value: number | null) => formatUsd(value, "N/A");
 const pct = (value: number | null) => formatPercent(value, "N/A");
 const productKey = (product: Product) => product.productId;
-const updatedLabel = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 export default function SealedView({
   signalView = "leaderboard",
@@ -201,23 +203,8 @@ export default function SealedView({
     request: requestHistory,
   } = usePriceHistoryBatch();
   const freshIso = useFreshness(index.sourceUpdatedAt);
-  // The Favorites slider entry scopes sealed the same way singles scope (page.tsx):
-  // device-local favorite ids narrow the catalog before querying.
-  const favorites = useFavorites();
-  const favoriteSealedIds = useMemo(
-    () => new Set(favorites.entries.filter((entry) => entry.kind === "sealed").map((entry) => entry.productId)),
-    [favorites.entries],
-  );
-  const scopedProducts = useMemo(
-    () => (favoritesOnly ? products.filter((product) => favoriteSealedIds.has(product.productId)) : products),
-    [products, favoritesOnly, favoriteSealedIds],
-  );
-  // Set → market map so the sets filter clusters by game on the all/scalping scopes.
-  const setGames = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const product of products) map[product.set] = formatGameName(product.game);
-    return map;
-  }, [products]);
+  const { scoped: scopedProducts } = useFavoriteScope("sealed", products, favoritesOnly);
+  const setGames = useSetGroups(products);
   const persistedSignals = usePersistedSignals({
     kind: "sealed",
     market: game,
@@ -425,11 +412,8 @@ export default function SealedView({
     h?: History,
     large = false,
   ) => {
-    const movement = (label: string, value: number | null | undefined) => ({
-      label,
-      value: value === undefined ? "…" : pct(value ?? null),
-      tone: movementTone(value),
-    });
+    const movement = (label: string, value: number | null | undefined) =>
+      movementMetric(label, value, "N/A");
     return (
       <HistoryPanel
         title={h?.condition ?? "Sealed market history"}
@@ -595,7 +579,7 @@ export default function SealedView({
               <span className="sealed-count-line">
                 <strong>{metrics.count.toLocaleString()}</strong> products · {usd(metrics.market)} combined market
               </span>
-              <span className="sealed-updated">Updated {updatedLabel(freshIso)}</span>
+              <span className="sealed-updated">Updated {formatFullDate(freshIso)}</span>
               <div className="price-basis" aria-label="Price basis">
                 <i aria-hidden="true" />
                 <button
@@ -648,17 +632,15 @@ export default function SealedView({
       }
       controls={
         <LeaderboardControls className="sealed-toolbar">
-          <label className="sealed-toolbar-search">
-            <span>⌕</span>
-            <input
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setPage(1);
-              }}
-              placeholder="Search product, set, or type"
-            />
-          </label>
+          <LeaderboardSearch
+            className="sealed-toolbar-search"
+            value={query}
+            onChange={(value) => {
+              setQuery(value);
+              setPage(1);
+            }}
+            placeholder="Search product, set, or type"
+          />
           <MultiSelectField
             label="Product type"
             options={productTypes.map((type) => ({ key: type, label: type }))}
@@ -921,22 +903,14 @@ export default function SealedView({
         label: sealedModel.paginationLabel,
       }}
       paginationAside={
-        <label className="per-page-control">
-          <span>Per page</span>
-          <select
-            aria-label="Sealed products per page"
-            value={perPage}
-            onChange={(event) => {
-              setPerPage(Number(event.target.value));
-              setPage(1);
-            }}
-          >
-            <option>20</option>
-            <option>30</option>
-            <option>40</option>
-            <option>50</option>
-          </select>
-        </label>
+        <PerPageSelect
+          label="Sealed products per page"
+          value={perPage}
+          onChange={(next) => {
+            setPerPage(next);
+            setPage(1);
+          }}
+        />
       }
       footer={
         <p className="sealed-note">

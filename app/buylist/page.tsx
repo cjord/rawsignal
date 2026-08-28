@@ -51,9 +51,11 @@ export default function BuylistPage(){
  const [fullscreen,setFullscreen]=useState(false);
  const [size,setSize]=useState<TileSize>("large");
  useEffect(()=>{
-  const saved=localStorage.getItem("raw-signal-strictness");
-  if(saved==="conservative"||saved==="aggressive")setStrictness(saved);
-  if(localStorage.getItem("raw-signal-buylist-size")==="small")setSize("small");
+  try{
+   const saved=localStorage.getItem("raw-signal-strictness");
+   if(saved==="conservative"||saved==="aggressive")setStrictness(saved);
+   if(localStorage.getItem("raw-signal-buylist-size")==="small")setSize("small");
+  }catch{/* Storage unavailable; defaults apply. */}
  },[]);
  const changeStrictness=(value:SignalStrictness)=>{setStrictness(value);try{localStorage.setItem("raw-signal-strictness",value)}catch{/* Storage unavailable; page-local only. */}};
  const changeSize=(next:TileSize)=>{setSize(next);try{localStorage.setItem("raw-signal-buylist-size",next)}catch{/* Storage unavailable; page-local only. */}};
