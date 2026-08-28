@@ -908,6 +908,10 @@ Deferred to a later phase at the user's direction:
    Hot Sells and Singles/Sealed should keep the selected view mode (large/medium/text/full)
    instead of resetting per surface. Likely a localStorage device preference layered under
    the URL param (an explicit URL view still wins on shared links).
+3. **Sealed-detail sale scenario rework** (panel hidden 2026-08-28 pending this): move the
+   Sale Scenario section down to sit directly above the "Product overview" (Product
+   Details) section; render it **only in scalper mode**; and let a **purchase price be
+   entered manually** to replace the MSRP-derived total cost in the profit math.
 
 ## Decisions — resolved at review (2026-08-27)
 

@@ -128,12 +128,10 @@ export default function SealedView({
   initialState: SealedQueryState;
   onQueryChange: (state: SealedQueryState) => void;
 }) {
-  const [game, setGame] = useState<Game>(() =>
-      initialState.market === "scalping" && !scalperEnabled
-        ? "pokemon"
-        : initialState.market,
-    ),
-    [query, setQuery] = useState(initialState.query),
+  // The market comes from the page-level slider via initialState (the component remounts
+  // on every market change); a stale scalping URL without scalper mode falls back.
+  const game: Game = initialState.market === "scalping" && !scalperEnabled ? "pokemon" : initialState.market;
+  const [query, setQuery] = useState(initialState.query),
     [selectedSets, setSelectedSets] = useState<string[]>(initialState.sets),
     [selectedTypes, setSelectedTypes] = useState<string[]>(
       initialState.productTypes,
@@ -188,11 +186,9 @@ export default function SealedView({
     status: catalogStatus,
     reload: reloadCatalog,
   } = useCatalogPage({
-    sources: [
-      isScalpingMarket
-        ? "/data/sealed-scalping.json"
-        : `/data/sealed-${game}.json`,
-    ],
+    sources: game === "all"
+      ? ["pokemon", "riftbound", "onepiece"].map((market) => `/data/sealed-${market}.json`)
+      : [isScalpingMarket ? "/data/sealed-scalping.json" : `/data/sealed-${game}.json`],
     parse: parseSealedProducts,
     keyOf: productKey,
   });
@@ -556,60 +552,6 @@ export default function SealedView({
       className={`sealed-market${isScalping ? " is-scalper" : ""}`}
       id="sealed-market"
       historyStatus={historyStatus}
-      marketStrip={
-        <section className={`market-strip sealed-market-strip${isScalping ? " is-scalper" : ""}`}>
-          <label>
-            <span>Market</span>
-            <select
-              aria-label="Sealed market"
-              value={game}
-              onChange={(event) => {
-                setGame(event.target.value as Game);
-                setSelectedSets([]);
-                setSelectedTypes([]);
-                setPage(1);
-              }}
-            >
-              <option value="pokemon">Pokémon</option>
-              <option value="onepiece">One Piece</option>
-              <option value="riftbound">Riftbound</option>
-              {scalperEnabled && <option value="scalping">Obey Products</option>}
-            </select>
-          </label>
-          <MultiSelectField
-            label="Product type"
-            options={productTypes.map((type) => ({ key: type, label: type }))}
-            selected={selectedTypes}
-            onChange={(values) => {
-              setSelectedTypes(values);
-              setPage(1);
-            }}
-            allLabel="All product types"
-            searchable={false}
-          />
-          <div>
-            <span>Products available</span>
-            <strong>{metrics.count.toLocaleString()}</strong>
-            <small>{usd(metrics.market)} combined market</small>
-          </div>
-          <label>
-            <span>Products per page</span>
-            <select
-              aria-label="Sealed products per page"
-              value={perPage}
-              onChange={(event) => {
-                setPerPage(Number(event.target.value));
-                setPage(1);
-              }}
-            >
-              <option>20</option>
-              <option>30</option>
-              <option>40</option>
-              <option>50</option>
-            </select>
-          </label>
-        </section>
-      }
       header={
         <LeaderboardHeader
           className="sealed-summary"
@@ -639,20 +581,25 @@ export default function SealedView({
             />
           }
           aside={
-            <div className="price-basis" aria-label="Price basis">
-              <i aria-hidden="true" />
-              <button
-                className={basis === "market" ? "active" : ""}
-                onClick={() => setBasis("market")}
-              >
-                Market
-              </button>
-              <button
-                className={basis === "median" ? "active" : ""}
-                onClick={() => setBasis("median")}
-              >
-                Median
-              </button>
+            <div className="sealed-aside">
+              <span className="sealed-count-line">
+                <strong>{metrics.count.toLocaleString()}</strong> products · {usd(metrics.market)} combined market
+              </span>
+              <div className="price-basis" aria-label="Price basis">
+                <i aria-hidden="true" />
+                <button
+                  className={basis === "market" ? "active" : ""}
+                  onClick={() => setBasis("market")}
+                >
+                  Market
+                </button>
+                <button
+                  className={basis === "median" ? "active" : ""}
+                  onClick={() => setBasis("median")}
+                >
+                  Median
+                </button>
+              </div>
             </div>
           }
         />
@@ -701,6 +648,17 @@ export default function SealedView({
               placeholder="Search product, set, or type"
             />
           </label>
+          <MultiSelectField
+            label="Product type"
+            options={productTypes.map((type) => ({ key: type, label: type }))}
+            selected={selectedTypes}
+            onChange={(values) => {
+              setSelectedTypes(values);
+              setPage(1);
+            }}
+            allLabel="All product types"
+            searchable={false}
+          />
           <SealedFilters
             showProfit={isScalping}
             sets={sets}
@@ -950,6 +908,24 @@ export default function SealedView({
         onChange: setPage,
         label: sealedModel.paginationLabel,
       }}
+      paginationAside={
+        <label className="per-page-control">
+          <span>Per page</span>
+          <select
+            aria-label="Sealed products per page"
+            value={perPage}
+            onChange={(event) => {
+              setPerPage(Number(event.target.value));
+              setPage(1);
+            }}
+          >
+            <option>20</option>
+            <option>30</option>
+            <option>40</option>
+            <option>50</option>
+          </select>
+        </label>
+      }
       footer={
         <p className="sealed-note">
           {isScalping

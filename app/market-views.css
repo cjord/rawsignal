@@ -180,10 +180,9 @@
   .set-filter-tools .set-search{width:100%;box-sizing:border-box}.set-filter-tools .set-search input{flex:1;height:42px;padding:0;font-size:var(--text-md);line-height:42px}.set-filter-tools .set-search input::placeholder{color:var(--gray);opacity:.9}
   @media(max-width:620px){.sealed-market>.sealed-market-strip{margin-top:8px}.sealed-filter-panel>.sealed-range{padding:11px!important}}
 
-  /* Scalper mode shares the red signal language used by Hot Sells: the strip stays red
-     whichever market is selected (scalper rework 2026-08-28). */
-  .sealed-market-strip.is-scalper{border-color:color-mix(in srgb,#e05454 64%,var(--line));box-shadow:0 0 0 2px color-mix(in srgb,#e05454 14%,transparent),0 10px 30px color-mix(in srgb,#e05454 12%,transparent)}
-  .sealed-market-strip.is-scalper>label:first-child select{border-color:color-mix(in srgb,#e05454 68%,var(--line))!important;background-color:color-mix(in srgb,#e05454 10%,var(--control))!important;box-shadow:0 0 0 2px color-mix(in srgb,#e05454 12%,transparent)}
+  /* Scalper mode shares the red signal language used by Hot Sells: the market slider
+     glows red whichever market is selected (strip rework 2026-08-28). */
+  .market-tabs.is-scalper{--signal-color:#e05454;border-color:color-mix(in srgb,#e05454 45%,var(--line));box-shadow:0 0 0 2px color-mix(in srgb,#e05454 12%,transparent)}
   .sealed-market:has(.sale-scenario)>.sealed-summary{border-bottom-color:transparent}
   .scenario-checks label{align-items:center!important;padding:9px 12px!important;font-size:var(--text-xs);font-weight:650;line-height:1.2}
   .scenario-checks label>span{display:flex;align-items:center;min-height:20px}
@@ -263,3 +262,41 @@
   /* Favorites as the slider's fourth entry: gold, with dark text for contrast. */
   .signal-tabs.tone-favorites{--signal-color:#e8b93e}
   .signal-tabs.tone-favorites button.active{color:#241b05;text-shadow:none}
+
+  /* Strip rework 2026-08-28: the market scope is a slider row between the product and
+     signal navigation; rarity/type selectors join the control rows; per-page rides the
+     pagination; the ranked/available stats live in the section-heading asides. */
+  .market-navigation{margin-bottom:10px}
+  .signal-navigation.market-navigation{margin-bottom:10px}
+  .controls>.multi-select,.sealed-toolbar>.multi-select{position:relative;min-width:180px}
+  .controls>.multi-select>summary,.sealed-toolbar>.multi-select>summary{display:flex;height:56px;flex-direction:column;justify-content:center;gap:3px;padding:8px 13px;border:1px solid var(--line);border-radius:12px;background:var(--control);cursor:pointer;list-style:none;transition:border-color .16s,background-color .16s}
+  .controls>.multi-select>summary::-webkit-details-marker,.sealed-toolbar>.multi-select>summary::-webkit-details-marker{display:none}
+  .controls>.multi-select>summary:hover,.sealed-toolbar>.multi-select>summary:hover{border-color:color-mix(in srgb,var(--blue) 45%,var(--line));background:var(--control-hover)}
+  .controls>.multi-select[open]>summary,.sealed-toolbar>.multi-select[open]>summary{border-color:var(--blue);box-shadow:0 0 0 3px color-mix(in srgb,var(--blue) 15%,transparent)}
+  .controls>.multi-select .multi-select-label,.sealed-toolbar>.multi-select .multi-select-label{font-size:var(--text-2xs);font-weight:850;letter-spacing:.08em;text-transform:uppercase;color:var(--gray)}
+  .controls>.multi-select .multi-select-control,.sealed-toolbar>.multi-select .multi-select-control{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+  .controls>.multi-select .multi-select-control b,.sealed-toolbar>.multi-select .multi-select-control b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--text-sm)}
+  .controls>.multi-select .multi-select-control i,.sealed-toolbar>.multi-select .multi-select-control i{color:var(--gray);font-style:normal}
+  .pagination-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px 16px}
+  .pagination-row>nav{min-width:0}
+  .per-page-control{display:inline-flex;align-items:center;gap:8px}
+  .per-page-control>span{color:var(--gray);font-size:var(--text-2xs);font-weight:850;letter-spacing:.08em;text-transform:uppercase}
+  .per-page-control select{min-height:38px;padding:0 30px 0 10px;border:1px solid var(--line);border-radius:9px;background:var(--control);color:var(--text);font-weight:700}
+  .sealed-aside{display:flex;flex-direction:column;align-items:flex-end;gap:9px}
+  .sealed-count-line{color:var(--gray);font-size:var(--text-xs);white-space:nowrap}
+  .sealed-count-line strong{color:var(--text);font:800 var(--text-md) var(--font-mono)}
+  @media(max-width:620px){.sealed-aside{align-items:flex-start}.pagination-row{justify-content:center}}
+  /* The control rows gain the relocated selector as a fourth column on wide screens and
+     their own row on narrow ones (the existing max-900/620 stacking keeps working). */
+  @media(min-width:901px){
+    .controls{grid-template-columns:minmax(200px,1fr) auto auto auto!important}
+    .sealed-toolbar{grid-template-columns:minmax(200px,1fr) auto auto auto!important}
+  }
+  @media(max-width:900px){
+    .controls>.multi-select,.sealed-toolbar>.multi-select{grid-column:1;grid-row:2}
+    .controls .card-filters,.sealed-toolbar .card-filters{grid-row:3}
+    .controls .view-toggle,.sealed-toolbar .view-toggle{grid-row:1/span 3}
+  }
+  @media(max-width:620px){
+    .controls>.multi-select,.sealed-toolbar>.multi-select,.controls .card-filters,.sealed-toolbar .card-filters,.controls .view-toggle,.sealed-toolbar .view-toggle{grid-column:1;grid-row:auto}
+  }

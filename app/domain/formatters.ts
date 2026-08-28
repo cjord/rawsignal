@@ -39,6 +39,8 @@ const gameNames: Record<string, string> = {
   onepiece: "One Piece",
   // The curated in-print sealed list ("scalping" internally, for URL stability).
   scalping: "Obey Products",
+  // The cross-game scope (visual pass rework 2026-08-28).
+  all: "All Markets",
 };
 
 export function formatGameName(value: string) {

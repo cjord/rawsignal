@@ -1,7 +1,9 @@
 "use client";
 /* eslint-disable react-hooks/set-state-in-effect -- scope and the strictness preference hydrate from the URL and storage after mount */
-import {useEffect,useMemo,useState,type CSSProperties} from "react";
+import {useEffect,useMemo,useState} from "react";
 import InfoHint from "./InfoHint";
+import MarketTabs from "./MarketTabs";
+import {readStoredMarket,storeMarket} from "./state/market-memory";
 import PriceChart from "./PriceChart";
 import TopBar from "./TopBar";
 import HistoryPanel,{movementTone,type HistoryMetric} from "./HistoryPanel";
@@ -23,17 +25,7 @@ type Mode="singles"|"sealed";
 type Market="all"|"pokemon"|"riftbound"|"onepiece";
 const MODE_MARKETS:Record<Mode,Market[]>={singles:["all","pokemon","riftbound"],sealed:["all","pokemon","riftbound","onepiece"]};
 const MODE_VIEWS:[{key:Mode;label:string;icon:string},{key:Mode;label:string;icon:string}]=[{key:"singles",label:"Singles",icon:"◫"},{key:"sealed",label:"Sealed",icon:"▣"}];
-
-// The market scope wears the main page's signal-tab slider (visual pass 2026-08-28); the
-// slider CSS reads --view-count so 3-tab singles and 4-tab sealed both fit.
-function MarketTabs({mode,market,onChange}:{mode:Mode;market:Market;onChange:(market:Market)=>void}){
- const options=MODE_MARKETS[mode];
- const selected=Math.max(0,options.indexOf(market));
- return <div className="signal-tabs metrics-market-tabs" role="tablist" aria-label="Market scope" style={{"--selected-index":selected,"--view-count":options.length} as CSSProperties}>
-  <i className="signal-slider" aria-hidden="true"/>
-  {options.map(item=><button key={item} type="button" role="tab" aria-selected={market===item} className={market===item?"active":""} onClick={()=>onChange(item)}>{item==="all"?"All":formatGameName(item)}</button>)}
- </div>;
-}
+const marketTabOptions=(mode:Mode)=>MODE_MARKETS[mode].map(item=>({key:item,label:item==="all"?"All":formatGameName(item)}));
 
 const pct=(value:number|null)=>value==null?"N/A":formatPercent(value);
 const tone=(value:number|null)=>value==null||value===0?undefined:value<0?"down":"up";
@@ -257,18 +249,20 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
   if(saved==="conservative"||saved==="aggressive")setStrictness(saved);
   const params=new URLSearchParams(location.search);
   const nextMode=params.get("mode")==="sealed"?"sealed":"singles";
-  const requested=params.get("market")as Market|null;
+  // The URL wins; otherwise the market remembered from the other pages; else Pokémon.
+  const requested=(params.get("market")??readStoredMarket())as Market|null;
   setMode(nextMode);
-  setMarket(requested&&MODE_MARKETS[nextMode].includes(requested)?requested:"all");
+  setMarket(requested&&MODE_MARKETS[nextMode].includes(requested)?requested:"pokemon");
  },[]);
  const changeStrictness=(value:SignalStrictness)=>{setStrictness(value);try{localStorage.setItem("raw-signal-strictness",value)}catch{/* Storage unavailable; page-local only. */}};
  const setScope=(nextMode:Mode,nextMarket:Market)=>{
-  const resolved=MODE_MARKETS[nextMode].includes(nextMarket)?nextMarket:"all";
+  const resolved=MODE_MARKETS[nextMode].includes(nextMarket)?nextMarket:"pokemon";
   setMode(nextMode);setMarket(resolved);
+  storeMarket(resolved);
   const params=new URLSearchParams();
   if(nextMode!=="singles")params.set("mode",nextMode);
-  if(resolved!=="all")params.set("market",resolved);
-  history.replaceState(null,"",params.size?`/metrics?${params}`:"/metrics");
+  params.set("market",resolved);
+  history.replaceState(null,"",`/metrics?${params}`);
  };
 
  const kind=mode==="singles"?"single":"sealed";
@@ -307,7 +301,7 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
   </header>
   {payload&&<>
    <div className="product-navigation"><SegmentedView value={mode} options={MODE_VIEWS} label="Product type" className="product-toggle" onChange={(next:Mode)=>setScope(next,market)}/></div>
-   <div className="signal-navigation metrics-market-nav"><MarketTabs mode={mode} market={market} onChange={next=>setScope(mode,next)}/></div>
+   <div className="signal-navigation metrics-market-nav"><MarketTabs className="metrics-market-tabs" options={marketTabOptions(mode)} value={market} onChange={next=>setScope(mode,next as Market)}/></div>
   </>}
   <article className="detail-content">
    {!payload?<section className="detail-section"><header><span>Unavailable</span><h2>Metrics need the database</h2></header><p className="detail-unavailable">This page reads the daily market rollups in the database-backed deployment. The local development server and feed-only deployments have no rollup data, so nothing is estimated here — visit the published site instead.</p></section>:<>

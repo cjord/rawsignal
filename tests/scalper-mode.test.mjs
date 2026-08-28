@@ -58,22 +58,23 @@ test("Scalper controls are preference-driven and gated to Sealed rendering", asy
   assert.match(page, /setMode\(value\)/);
   assert.match(page, /scalperEnabled=\{scalperMode\s*===\s*"scalper"\}/);
   // The curated market keeps its internal "scalping" value (URL stability) under the
-  // user-facing "Obey Products" label; the option only exists in scalper mode.
-  assert.match(sealed, /scalperEnabled\s*&&\s*<option value="scalping">Obey Products<\/option>/);
+  // user-facing "Obey Products" label; the slider entry only exists in scalper mode.
+  assert.match(page, /const scalpingMarket = \{ key: "scalping", label: "Obey Products" \}/);
+  assert.match(page, /scalperMode === "scalper" \? \[scalpingMarket\] : \[\]/);
   assert.match(sealed, /beforeControls=\{\s*isScalping\s*\?\s*\(?\s*<SaleScenario/);
 });
 
 test("scalper mode swaps the 30D range for closing profit columns; regular hides profit", async () => {
-  const sealed = await text("../app/SealedView.tsx");
+  const [page, sealed] = await Promise.all([text("../app/page.tsx"), text("../app/SealedView.tsx")]);
   // Regular mirrors singles; scalper ends with Profit / Profit %.
   assert.match(sealed, /REGULAR_SORTS[\s\S]*?"low"[\s\S]*?"high"[\s\S]*?"change7"[\s\S]*?"change30"/);
   assert.match(sealed, /SCALPER_SORTS[\s\S]*?"change30"[\s\S]*?"profit"[\s\S]*?"profitPct"/);
   assert.doesNotMatch(sealed.slice(sealed.indexOf("SCALPER_SORTS")), /SCALPER_SORTS[\s\S]{0,600}"low"/);
-  // Profit tiles, filters, and chips are scalper-gated; the strip and summary flag the mode.
+  // Profit tiles, filters, and chips are scalper-gated; the market slider and summary flag the mode.
   assert.match(sealed, /\.\.\.\(isScalping\s*\?\s*\[\s*\{ label: "Profit"/);
   assert.match(sealed, /showProfit=\{isScalping\}/);
   assert.match(sealed, /isScalping && \(profitMin \|\| profitMax\)/);
-  assert.match(sealed, /sealed-market-strip\$\{isScalping \? " is-scalper" : ""\}/);
+  assert.match(page, /mode === "sealed" && scalperMode === "scalper" \? "is-scalper" : ""/);
   // The trailing space is deliberate: it keeps the accessible name "Scalping X Sealed".
   assert.match(sealed, /className="scalping-flag">Scalping <\/em>/);
 });

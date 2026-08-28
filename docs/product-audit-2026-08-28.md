@@ -671,6 +671,24 @@ title's space was CSS margin (fixed — real text space now, accessible name rea
 "Scalping X Sealed"), and staging's only console errors are the deliberately tolerated
 `/data/japanese-promos.json` 404s (section fills on production's first live run).
 
+**Market strip + navigation rework (2026-08-28, user spec):** the market selector is now
+a slider row (shared `MarketTabs`, the metrics component generalized) between the product
+and signal navigation, on singles (All/Pokémon/Riftbound) and sealed (+One Piece, +"Obey
+Products" in scalper mode — where the slider itself glows red, replacing the removed
+strip's cue). **"All" is a real cross-game scope** — analysis found no blockers: query
+layers skip the game filter, rarity options union both games, and persisted signals
+fan out per game and merge (readiness requires every game). Market choice persists across
+leaderboards/sealed/metrics via `raw-signal-market` (URL wins; default stays Pokémon —
+metrics' default moved from All to Pokémon accordingly). The market strips are gone:
+rarity/product-type selectors joined the control rows, per-page selects ride beside the
+pagination, "cards ranked" moved into the header aside ("721 cards · 13,435 ranked in
+Pokémon · updated …"), and sealed's product/combined-market stat sits above the basis
+toggle. TopBar links are now **Cards / Metrics / Buy List**, and the Regular/Scalper
+toggle lives in the ⚙ menu on every page. Sealed detail pages: flat hover feedback on
+metric tiles/tables/facts/signal cards, Title Case section headers ("Price History",
+"Pull Rates", …), and the Sale Scenario panel is hidden pending its queued rework
+(todo §I.3).
+
 **Favorites in the signal slider (2026-08-28, user request):** the standalone
 favorites toggle is gone; **★ Favorites** is the slider's fourth entry on both singles
 and sealed — gold slider (`tone-favorites`, dark text for contrast), mutually exclusive

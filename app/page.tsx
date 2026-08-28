@@ -25,10 +25,12 @@ import { formatGameName, formatPercent, formatRarity, formatUsd } from "./domain
 import type {
   Card,
   PriceHistory,
-  SealedGame,
-  SinglesGame,
+  SealedMarket,
+  SinglesMarket,
   SinglesView,
 } from "./domain/types";
+import MarketTabs from "./MarketTabs";
+import { readStoredMarket, storeMarket } from "./state/market-memory";
 import {
   defaultRarities,
   parseMarketQuery,
@@ -70,7 +72,7 @@ import {
   signalAwareSorts,
 } from "./leaderboard/mode-adapter";
 
-type Game = SinglesGame;
+type Game = SinglesMarket;
 type View = SinglesView;
 type SortKey =
   | "name"
@@ -127,6 +129,21 @@ const productViews: {
   { key: "singles", label: "Singles", icon: "◫" },
   { key: "sealed", label: "Sealed", icon: "▣" },
 ];
+// The market scope rides the signal-tab slider between the product and signal rows
+// (visual pass rework 2026-08-28). "Obey Products" (internally "scalping") joins the
+// sealed list only while scalper mode is on.
+const singlesMarkets = [
+  { key: "all", label: "All" },
+  { key: "pokemon", label: "Pokémon" },
+  { key: "riftbound", label: "Riftbound" },
+] as const;
+const sealedMarkets = [
+  { key: "all", label: "All" },
+  { key: "pokemon", label: "Pokémon" },
+  { key: "riftbound", label: "Riftbound" },
+  { key: "onepiece", label: "One Piece" },
+] as const;
+const scalpingMarket = { key: "scalping", label: "Obey Products" } as const;
 const signalSort = { label: "Signal", key: "signal" as SortKey };
 const ascendingSinglesSorts = new Set<SortKey>(["name", "set"]);
 const cardHistoryMetrics = (card: Card, history?: History): HistoryMetric[] => {
@@ -265,7 +282,7 @@ export default function Home() {
       () => parseMarketQuery("?mode=sealed") as SealedQueryState,
     ),
     [sealedRevision, setSealedRevision] = useState(0);
-  const lastRegularSealedMarket = useRef<SealedGame>("pokemon");
+  const lastRegularSealedMarket = useRef<Exclude<SealedMarket, "scalping">>("pokemon");
   const [signalView, setSignalView] = useState<SignalSide>("leaderboard"),
     [strictness, setStrictness] = useState<SignalStrictness>("balanced");
   const freshIso = useFreshness(index.sourceUpdatedAt);
@@ -311,12 +328,15 @@ export default function Home() {
   const { urlReady, writeUrl } = useMarketQueryState(restoreQuery);
   // The generated index only knows sections its sync has produced; staged sections
   // (Japanese promos, audit Phase E) inject here until the next feed regeneration.
-  const rarityOptions = [
-      ...index.rarities[game],
-      ...(game === "pokemon" && !index.rarities.pokemon.some((option) => option.key === "japanese-promos")
+  const gameRarityOptions = (target: "pokemon" | "riftbound") => [
+      ...index.rarities[target],
+      ...(target === "pokemon" && !index.rarities.pokemon.some((option) => option.key === "japanese-promos")
         ? [{ key: "japanese-promos", label: "Japanese Promos" }]
         : []),
-    ].filter((option) => option.key !== "all"),
+    ].filter((option) => option.key !== "all");
+  const rarityOptions = game === "all"
+      ? [...gameRarityOptions("pokemon"), ...gameRarityOptions("riftbound")]
+      : gameRarityOptions(game),
     allRarities =
       !selectedRarities.length ||
       selectedRarities.length === rarityOptions.length,
@@ -523,6 +543,34 @@ export default function Home() {
     setDirection("desc");
     setPage(1);
   };
+  // One market slider drives both modes; sealed changes remount SealedView with the new
+  // scope (same pattern as the scalper toggle) so its facets and URL state reset cleanly.
+  const changeMarket = (next: string) => {
+    if (mode === "singles") {
+      switchGame(next as Game);
+      return;
+    }
+    if (next !== "scalping") lastRegularSealedMarket.current = next as Exclude<SealedMarket, "scalping">;
+    setSealedState((current) => ({ ...current, market: next as SealedMarket, productTypes: [], sets: [], page: 1 }));
+    setSealedRevision((value) => value + 1);
+  };
+  // The chosen market follows the visitor across the leaderboards, sealed, and metrics.
+  useEffect(() => {
+    storeMarket(mode === "singles" ? game : sealedState.market);
+  }, [mode, game, sealedState.market]);
+  // On landing without an explicit market in the URL, restore the remembered one.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.has("market")) return;
+    const stored = readStoredMarket();
+    if (!stored) return;
+    if (params.get("mode") === "sealed") {
+      setSealedState((current) => ({ ...current, market: stored }));
+      setSealedRevision((value) => value + 1);
+    } else if (stored !== "onepiece") {
+      switchGame(stored);
+    }
+  }, []);
   const changeSort = (next: SortKey) => {
     setDirection((current) =>
       nextSortDirection(sort, current, next, ascendingSinglesSorts),
@@ -700,38 +748,11 @@ export default function Home() {
   return (
     <main>
       <TopBar
-        active={mode === "sealed" ? "sealed" : game}
+        active="cards"
         strictness={strictness}
         onStrictness={changeStrictness}
-        settingsExtra={
-          <>
-            <span className="settings-section-title">Sealed analysis</span>
-            <div
-              className={`scalper-mode-toggle is-${scalperMode}`}
-              role="group"
-              aria-label="Sealed analysis mode"
-            >
-              <i aria-hidden="true" />
-              <button
-                className={scalperMode === "regular" ? "active" : ""}
-                aria-pressed={scalperMode === "regular"}
-                onClick={() => changeScalperMode("regular")}
-              >
-                Regular
-              </button>
-              <button
-                className={scalperMode === "scalper" ? "active" : ""}
-                aria-pressed={scalperMode === "scalper"}
-                onClick={() => changeScalperMode("scalper")}
-              >
-                Scalper
-              </button>
-            </div>
-            <small className="scalper-mode-help">
-              Adds an in-print sealed market and optional sale assumptions.
-            </small>
-          </>
-        }
+        scalperMode={scalperMode}
+        onScalperMode={changeScalperMode}
       />
       <header className="masthead" id="top">
         <p className="kicker">Daily TCG market intelligence</p>
@@ -746,6 +767,15 @@ export default function Home() {
           label="Product type"
           className="product-toggle"
           onChange={changeMode}
+        />
+      </div>
+      <div className="signal-navigation market-navigation">
+        <MarketTabs
+          className={mode === "sealed" && scalperMode === "scalper" ? "is-scalper" : ""}
+          options={mode === "sealed" ? [...sealedMarkets, ...(scalperMode === "scalper" ? [scalpingMarket] : [])] : singlesMarkets}
+          value={mode === "sealed" ? sealedState.market : game}
+          onChange={changeMarket}
+          label={mode === "sealed" ? "Sealed market" : "Singles market"}
         />
       </div>
       <div className="signal-navigation">
@@ -787,61 +817,10 @@ export default function Home() {
           className="leaderboard"
           id="leaderboard"
           historyStatus={historyStatus}
-          marketStripPlacement="before"
-          marketStrip={
-            <section className="market-strip">
-              <label>
-                <span>Market</span>
-                <select
-                  aria-label="Singles market"
-                  value={game}
-                  onChange={(e) => switchGame(e.target.value as Game)}
-                >
-                  <option value="pokemon">Pokémon</option>
-                  <option value="riftbound">Riftbound</option>
-                </select>
-              </label>
-              <MultiSelectField
-                label="Rarity"
-                options={rarityOptions.map((option) => ({
-                  key: option.key,
-                  label: displayLabel(option.label),
-                }))}
-                selected={selectedRarities}
-                onChange={(values) => {
-                  setSelectedRarities(values);
-                  setPage(1);
-                }}
-                allLabel="All rarities"
-                searchable={false}
-              />
-              <div className="ranked-stat">
-                <span>Cards ranked</span>
-                <strong>{index.totals[game].toLocaleString()}</strong>
-                <small>total in {formatGameName(game)}</small>
-              </div>
-              <label>
-                <span>Cards per page</span>
-                <select
-                  aria-label="Cards per page"
-                  value={perPage}
-                  onChange={(e) => {
-                    setPerPage(Number(e.target.value));
-                    setPage(1);
-                  }}
-                >
-                  <option>20</option>
-                  <option>30</option>
-                  <option>40</option>
-                  <option>50</option>
-                </select>
-              </label>
-            </section>
-          }
           header={
             <LeaderboardHeader
               className="section-heading is-filtered"
-              kicker={`${formatGameName(game)} market ranking`}
+              kicker={game === "all" ? "Cross-market ranking" : `${formatGameName(game)} market ranking`}
               title={`${rarityLabel} ${signalView === "leaderboard" ? (selectedRarities.length > 1 && !allRarities ? "Leaderboards" : "Leaderboard") : signalView === "buy" ? "Hot Buys" : "Hot Sells"}`}
               summary={
                 <ActiveFilterSummary
@@ -859,7 +838,7 @@ export default function Home() {
               aside={
                 <span>
                   {signalView === "leaderboard"
-                    ? `${total.toLocaleString()} cards · updated ${updatedLabel(freshIso)}`
+                    ? `${total.toLocaleString()} cards · ${(game === "all" ? index.totals.pokemon + index.totals.riftbound : index.totals[game]).toLocaleString()} ranked in ${game === "all" ? "all markets" : formatGameName(game)} · updated ${updatedLabel(freshIso)}`
                     : `Top ${total.toLocaleString()} by signal score · ${strictness[0].toUpperCase() + strictness.slice(1)} strictness (change in ⚙) · updated ${updatedLabel(freshIso)}`}
                   {signalCoverage && ` · ${signalCoverage}`}
                   {signalView !== "leaderboard" && (
@@ -887,6 +866,20 @@ export default function Home() {
                   placeholder="Search card, set, or number"
                 />
               </label>
+              <MultiSelectField
+                label="Rarity"
+                options={rarityOptions.map((option) => ({
+                  key: option.key,
+                  label: displayLabel(option.label),
+                }))}
+                selected={selectedRarities}
+                onChange={(values) => {
+                  setSelectedRarities(values);
+                  setPage(1);
+                }}
+                allLabel="All rarities"
+                searchable={false}
+              />
               <CardFilters
                 sets={availableSets}
                 selectedSets={selectedSets}
@@ -1047,6 +1040,24 @@ export default function Home() {
             onChange: setPage,
             label: singlesModel.paginationLabel,
           }}
+          paginationAside={
+            <label className="per-page-control">
+              <span>Per page</span>
+              <select
+                aria-label="Cards per page"
+                value={perPage}
+                onChange={(e) => {
+                  setPerPage(Number(e.target.value));
+                  setPage(1);
+                }}
+              >
+                <option>20</option>
+                <option>30</option>
+                <option>40</option>
+                <option>50</option>
+              </select>
+            </label>
+          }
         />
       ) : (
         <SealedView

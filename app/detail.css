@@ -56,6 +56,18 @@
 .pricecharting-button:hover{background:var(--control-hover);box-shadow:none}
 @media(max-width:620px){.detail-actions{flex-wrap:wrap}.pricecharting-button,.detail-actions .tcgplayer-button{min-height:40px;padding:0 13px;font-size:var(--text-sm)}}
 .detail-ev-grid{margin-bottom:14px}
+/* Flat hover feedback on detail surfaces (visual pass 2026-08-28): border/background
+   tint only, matching the rest of the site — no lifts. */
+.detail-metric{transition:border-color .16s}
+.detail-metric:hover{border-color:color-mix(in srgb,var(--blue) 35%,var(--line))}
+.detail-variants-table tbody tr{transition:background-color .12s}
+.detail-variants-table tbody tr:hover{background:var(--control-hover)}
+.detail-facts>div,.detail-metadata>div{transition:background-color .12s}
+.detail-facts>div:hover,.detail-metadata>div:hover{background:var(--control-hover)}
+.detail-signal-card{transition:border-color .16s}
+.detail-signal-card:hover{border-color:color-mix(in srgb,var(--blue) 35%,var(--line))}
+.detail-signal-card.is-buy:hover{border-color:color-mix(in srgb,#29b878 60%,var(--line))}
+.detail-signal-card.is-sell:hover{border-color:color-mix(in srgb,#e05454 60%,var(--line))}
 /* Liquidity context beside the price (audit H3): sales volume qualifies every number. */
 .detail-liquidity{padding:6px 9px;border:1px solid var(--line);border-radius:99px;background:var(--control);color:var(--gray);font-size:var(--text-2xs);font-weight:750}
 .detail-liquidity.thin{border-color:color-mix(in srgb,#e0a534 55%,var(--line));background:color-mix(in srgb,#e0a534 12%,var(--surface));color:var(--text)}

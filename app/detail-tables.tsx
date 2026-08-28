@@ -59,7 +59,7 @@ export function ChaseCardsSection({cards,packPrice,setName}:{cards:Card[];packPr
  const history=useDetailHistory(targets);
  if(!cards.length)return null;
  return <section className="detail-section detail-market-table">
-  <header><span>From this set</span><h2>Chase cards</h2><SegmentedView className="detail-table-views" value={view} onChange={setView} options={tableViews} label="Chase card view"/></header>
+  <header><span>From this set</span><h2>Chase Cards</h2><SegmentedView className="detail-table-views" value={view} onChange={setView} options={tableViews} label="Chase card view"/></header>
   <p className="detail-note detail-table-note">{packPrice!=null?`Cards from ${setName} with a market price above the ${formatUsd(packPrice)} single-pack price.`:`The most valuable tracked cards from ${setName}.`}</p>
   <TableHead view={view} itemLabel="Card"/>
   <div className={`rows view-${view}`} role="rowgroup">{cards.map((card,index)=>{
@@ -83,7 +83,7 @@ export function RelatedSealedSection({products,setName,market}:{products:SealedP
  if(!products.length)return null;
  const pages=Math.max(1,Math.ceil(products.length/perPage)),visible=products.slice((page-1)*perPage,page*perPage);
  return <section className="detail-section detail-market-table">
-  <header><span>From this set</span><h2>More sealed from {setName}</h2><SegmentedView className="detail-table-views" value={view} onChange={setView} options={tableViews} label="Related sealed view"/></header>
+  <header><span>From this set</span><h2>More Sealed from {setName}</h2><SegmentedView className="detail-table-views" value={view} onChange={setView} options={tableViews} label="Related sealed view"/></header>
   <TableHead view={view} itemLabel="Product"/>
   <div className={`rows view-${view}`} role="rowgroup">{visible.map((product,index)=>{
    const productHistory=history[historyTargetKey({productId:product.productId,printing:"Sealed",sealed:true})];

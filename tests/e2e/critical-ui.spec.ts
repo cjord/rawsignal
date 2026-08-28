@@ -68,7 +68,7 @@ test("enables Scalper features without navigating away from Singles",async({page
 
  await page.getByRole("button",{name:"Sealed",exact:true}).click();
  await expect(page).toHaveURL(/market=scalping/);
- await expect(page.getByLabel("Sealed market",{exact:true})).toHaveValue("scalping");
+ await expect(page.getByRole("tab",{name:"Obey Products"})).toHaveAttribute("aria-selected","true");
  await expect(page.locator(".sale-scenario")).toBeVisible();
  await expect(page.locator(".sale-scenario summary")).toHaveCount(0);
  await page.getByLabel("Shipping cost").fill("5");
@@ -77,14 +77,15 @@ test("enables Scalper features without navigating away from Singles",async({page
  await expect(page.locator(".leader-filter-summary")).toContainText("Shipping: $5.00");
  await expect(page.locator(".leader-filter-summary")).toContainText("Sales Tax: 8%");
  await expect(page.locator(".leader-filter-summary")).toContainText("Profitable Only");
- await expect(page.getByText("Products available").locator("..").locator("strong")).not.toHaveText("0");
+ await expect(page.locator(".sealed-count-line strong")).not.toHaveText("0");
 
- await page.getByLabel("Sealed market",{exact:true}).selectOption("pokemon");
+ await page.getByRole("tab",{name:"Pokémon",exact:true}).click();
+ await expect(page).toHaveURL(/market=pokemon/);
  await expect(page.locator(".sale-scenario")).toBeVisible();
- await expect(page.getByLabel("Sealed market",{exact:true}).locator('option[value="scalping"]')).toHaveCount(1);
+ await expect(page.getByRole("tab",{name:"Obey Products"})).toHaveCount(1);
 
  await page.getByRole("button",{name:"Display settings"}).click();
  await page.getByRole("button",{name:"Regular",exact:true}).click();
- await expect(page.getByLabel("Sealed market",{exact:true}).locator('option[value="scalping"]')).toHaveCount(0);
+ await expect(page.getByRole("tab",{name:"Obey Products"})).toHaveCount(0);
  await expect(page).toHaveURL(/market=pokemon/);
 });

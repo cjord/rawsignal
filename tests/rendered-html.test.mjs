@@ -45,7 +45,7 @@ test("styles Scalper mode and its sale scenario as a distinct sealed state",asyn
   assert.match(css,/\.sealed-market:has\(\.sale-scenario\)>\.sealed-summary\{border-bottom-color:transparent\}/);
   // Scalper rework 2026-08-28: the strip is red whenever scalper mode is on (class-driven),
   // not only while the curated market option is the selection.
-  assert.match(css,/\.sealed-market-strip\.is-scalper\{[^}]*#e05454/);
+  assert.match(css,/\.market-tabs\.is-scalper\{[^}]*#e05454/);
   assert.match(css,/\.scenario-checks label>span\{display:flex;align-items:center/);
   assert.match(globals,/\.scalper-mode-toggle\.is-scalper i\{[^}]*#e05454/);
 });
@@ -73,7 +73,7 @@ test("characterizes Sealed defaults and guards the disabled Scalper fallback", a
   // The default lens is market action (audit C5): profit-vs-MSRP only covers the
   // MSRP-verified slice, so it is an opt-in sort rather than the landing order.
   assert.equal(defaults.mode,"sealed");assert.equal(defaults.market,"pokemon");assert.equal(defaults.sort,"market");assert.equal(defaults.direction,"desc");assert.equal(defaults.perPage,20);assert.equal(defaults.view,"medium");assert.equal(defaults.basis,"market");assert.equal(defaults.keepPct,100);assert.equal(defaults.taxOn,false);
-  assert.match(sealed, /useState<Game>\(\(\)\s*=>\s*initialState\.market\s*===\s*"scalping"\s*&&\s*!scalperEnabled\s*\?\s*"pokemon"\s*:\s*initialState\.market,?\s*\)/);
+  assert.match(sealed, /const game: Game = initialState\.market === "scalping" && !scalperEnabled \? "pokemon" : initialState\.market/);
   assert.match(sealed, /useState<SortKey>\(initialState\.sort\)/);
   assert.match(sealed, /onQueryChange\(\{\s*mode:\s*"sealed"/);
 });
@@ -90,10 +90,10 @@ test("keeps core controls and chart interactions accessible", async () => {
     readFile(new URL("../app/leaderboard/ActiveFilterSummary.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/TopBar.tsx", import.meta.url), "utf8"),
   ]);
-  for (const label of ["Singles market", "Cards per page"])
-    assert.match(page, new RegExp(`aria-label=\\"${label}\\"`));
-  for (const label of ["Sealed market", "Sealed products per page"])
-    assert.match(sealed, new RegExp(`aria-label=\\"${label}\\"`));
+  assert.match(page, /aria-label="Cards per page"/);
+  assert.match(page, /"Singles market"/);
+  assert.match(page, /"Sealed market"/);
+  assert.match(sealed, /aria-label="Sealed products per page"/);
   assert.match(page, /<MultiSelectField\s+label="Rarity"/);
   assert.match(sealed, /<MultiSelectField\s+label="Product type"/);
   assert.match(page, /viewLabel:\s*"Card view"/);
@@ -172,7 +172,7 @@ test("uses one non-navigational disclosure contract for Singles and Sealed",asyn
 
 test("uses shared sliding navigation and responsive signal evidence",async()=>{const [page,sealed,signals,filters,ui,css]=await Promise.all([readFile(new URL("../app/page.tsx",import.meta.url),"utf8"),readFile(new URL("../app/SealedView.tsx",import.meta.url),"utf8"),readFile(new URL("../app/SignalControls.tsx",import.meta.url),"utf8"),readFile(new URL("../app/CardFilters.tsx",import.meta.url),"utf8"),readFile(new URL("../app/MarketUI.tsx",import.meta.url),"utf8"),readStyles()]);assert.match(page,/className="product-toggle"/);assert.match(page,/setSort\(value\s*===\s*"leaderboard"\s*\?\s*"market"\s*:\s*"signal"\)/);assert.match(page,/className="signal-cell"/);assert.match(sealed,/className="sealed-signal-cell"/);assert.match(page,/signalSort/);assert.match(sealed,/sealedSignalSort/);assert.match(ui,/className=\{`view-toggle \$\{className\}`/);assert.match(signals,/className="signal-slider"/);assert.match(signals,/tone-\$\{selectedKey\}/);assert.doesNotMatch(filters,/filter-strictness|StrictnessControl/);assert.match(css,/\.signal-tabs\.tone-buy/);assert.match(css,/\.signal-tabs\.tone-sell/);assert.match(css,/\.product-toggle button,[\s\n]*\.signal-tabs button/);assert.match(css,/\.signal-navigation \{/);assert.match(css,/\.view-large \.identity \.signal-badge\{width:100%/);assert.match(css,/\.table-head\.has-signal/);assert.match(css,/\.sealed-head\.has-signal/);assert.match(sealed,/price-basis[\s\S]*<i aria-hidden="true"/)});
 
-test("normalizes rarity and sealed product selection",async()=>{const [page,sealed,sealedFilters,multi,checkboxes,range,css,pokemon,queryState]=await Promise.all([readFile(new URL("../app/page.tsx",import.meta.url),"utf8"),readFile(new URL("../app/SealedView.tsx",import.meta.url),"utf8"),readFile(new URL("../app/SealedFilters.tsx",import.meta.url),"utf8"),readFile(new URL("../app/MultiSelectField.tsx",import.meta.url),"utf8"),readFile(new URL("../app/filters/CheckboxGrid.tsx",import.meta.url),"utf8"),readFile(new URL("../app/filters/RangeFilter.tsx",import.meta.url),"utf8"),readFile(new URL("../app/market-views.css",import.meta.url),"utf8"),readFile(new URL("../public/data/sealed-pokemon.json",import.meta.url),"utf8"),readFile(new URL("../app/state/market-query.ts",import.meta.url),"utf8")]);assert.match(queryState,/pokemon:\["illustration-rares","special-illustration-rares"\]/);assert.match(queryState,/riftbound:\["overnumbered"\]/);assert.match(page,/searchable=\{false\}/);assert.match(page,/setSelectedSets\(\[\]\)/);assert.match(sealed,/setGame\(event\.target\.value as Game\);\s*setSelectedSets\(\[\]\);\s*setSelectedTypes\(\[\]\)/);assert.match(sealed,/label="Product type"/);const catalogQuery=await readFile(new URL("../app/data/catalog-query.ts",import.meta.url),"utf8");assert.match(catalogQuery,/Booster Boxes/);assert.doesNotMatch(catalogQuery,/Booster Boxes \/ Displays/);assert.match(sealed,/profitPctMin/);assert.ok(sealed.indexOf("sealed-market-strip")<sealed.indexOf("sealed-summary"));assert.match(sealedFilters,/searchLabel="Search sealed sets"/);assert.match(checkboxes,/allLabel="All sets"/);assert.match(sealedFilters,/Profit percentage/);assert.match(range,/min\|\|max\?"has-value"/);assert.match(multi,/toggleSelection\(selected,key,allKeys\)/);assert.match(multi,/searchable&&<label className="multi-search"/);assert.match(css,/\.multi-options label:has\(input:checked\),\.set-filters label:has\(input:checked\)/);assert.match(css,/\.sealed-filter-panel \.price-range\{grid-template-columns:minmax\(0,1fr\)/);assert.match(css,/\.sealed-filter-panel>\.sealed-range\.has-value/);assert.doesNotMatch(pokemon,/Attack of the Vine|Lorcana/i)});
+test("normalizes rarity and sealed product selection",async()=>{const [page,sealed,sealedFilters,multi,checkboxes,range,css,pokemon,queryState]=await Promise.all([readFile(new URL("../app/page.tsx",import.meta.url),"utf8"),readFile(new URL("../app/SealedView.tsx",import.meta.url),"utf8"),readFile(new URL("../app/SealedFilters.tsx",import.meta.url),"utf8"),readFile(new URL("../app/MultiSelectField.tsx",import.meta.url),"utf8"),readFile(new URL("../app/filters/CheckboxGrid.tsx",import.meta.url),"utf8"),readFile(new URL("../app/filters/RangeFilter.tsx",import.meta.url),"utf8"),readFile(new URL("../app/market-views.css",import.meta.url),"utf8"),readFile(new URL("../public/data/sealed-pokemon.json",import.meta.url),"utf8"),readFile(new URL("../app/state/market-query.ts",import.meta.url),"utf8")]);assert.match(queryState,/pokemon:\["illustration-rares","special-illustration-rares"\]/);assert.match(queryState,/riftbound:\["overnumbered"\]/);assert.match(page,/searchable=\{false\}/);assert.match(page,/setSelectedSets\(\[\]\)/);assert.match(page,/market: next as SealedMarket, productTypes: \[\], sets: \[\], page: 1/);assert.match(sealed,/label="Product type"/);const catalogQuery=await readFile(new URL("../app/data/catalog-query.ts",import.meta.url),"utf8");assert.match(catalogQuery,/Booster Boxes/);assert.doesNotMatch(catalogQuery,/Booster Boxes \/ Displays/);assert.match(sealed,/profitPctMin/);assert.doesNotMatch(sealed,/sealed-market-strip/);assert.match(sealedFilters,/searchLabel="Search sealed sets"/);assert.match(checkboxes,/allLabel="All sets"/);assert.match(sealedFilters,/Profit percentage/);assert.match(range,/min\|\|max\?"has-value"/);assert.match(multi,/toggleSelection\(selected,key,allKeys\)/);assert.match(multi,/searchable&&<label className="multi-search"/);assert.match(css,/\.multi-options label:has\(input:checked\),\.set-filters label:has\(input:checked\)/);assert.match(css,/\.sealed-filter-panel \.price-range\{grid-template-columns:minmax\(0,1fr\)/);assert.match(css,/\.sealed-filter-panel>\.sealed-range\.has-value/);assert.doesNotMatch(pokemon,/Attack of the Vine|Lorcana/i)});
 
 test("keeps sale-scenario filters expanded, unified, and removable from the summary",async()=>{const [scenario,sealed,sealedFilters,css]=await Promise.all([readFile(new URL("../app/SaleScenario.tsx",import.meta.url),"utf8"),readFile(new URL("../app/SealedView.tsx",import.meta.url),"utf8"),readFile(new URL("../app/SealedFilters.tsx",import.meta.url),"utf8"),readFile(new URL("../app/market-views.css",import.meta.url),"utf8")]);assert.match(scenario,/<section className=\{`sale-scenario/);assert.doesNotMatch(scenario,/<details|<summary/);assert.match(scenario,/movement-filters scenario-checks/);assert.ok(scenario.indexOf("Include sales tax")<scenario.indexOf("Profitable products only"));assert.doesNotMatch(sealedFilters,/profitableOnly|Profitability/);for(const label of ["Keep After Fees","Shipping:","Sales Tax:","Profitable Only"])assert.match(sealed,new RegExp(label));assert.match(sealed,/profitableOnly=\{profitableOnly\}\s+onProfitableOnly/);assert.match(css,/\.sale-scenario-controls\{display:grid;grid-template-columns:repeat\(5/);assert.match(css,/\.sale-scenario \.number-control input\[type=number\][^{]*\{[^}]*border:0/);assert.doesNotMatch(css,/\.sale-scenario>div\{[^}]*border-top/)});
 
@@ -249,7 +249,8 @@ test("keeps Magic support paused across active application surfaces", async () =
   for (const source of [page, sealed, layout]) {
     assert.doesNotMatch(source, /value="magic"|Magic: The Gathering/);
   }
-  assert.match(queryState, /params\.get\("market"\)==="riftbound"\?"riftbound":"pokemon"/);
+  // Singles markets are exactly pokemon/riftbound/all — no Magic entry point.
+  assert.match(queryState, /choice\(params\.get\("market"\),\["pokemon","riftbound","all"\] as const,"pokemon"\)/);
   assert.doesNotMatch(sync, /collect\(1,"magic"\)/);
   const index = JSON.parse(rawIndex);
   assert.equal(Object.hasOwn(index.rarities, "magic"), false);

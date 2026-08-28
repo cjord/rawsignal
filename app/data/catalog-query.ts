@@ -1,5 +1,5 @@
 import { fuzzyTextMatch } from "../market-utils.ts";
-import type { Card, MarketSignal, PriceHistory, SealedMarket, SealedProduct, SignalSide, SignalStrictness, SinglesGame } from "../domain/types.ts";
+import type { Card, MarketSignal, PriceHistory, SealedMarket, SealedProduct, SignalSide, SignalStrictness, SinglesMarket } from "../domain/types.ts";
 import type { Direction, SealedSort, SinglesSort } from "../state/market-query.ts";
 
 export type CatalogDerived = Pick<PriceHistory, "change7" | "change30" | "low30" | "high30"> & {
@@ -21,7 +21,7 @@ export type CatalogPage<T> = {
 };
 
 export type SinglesCatalogQuery = {
-  market: SinglesGame;
+  market: SinglesMarket;
   sections: string[];
   query: string;
   sets: string[];
@@ -164,7 +164,7 @@ function paginate<T>(items: T[], requestedPage: number, perPage: number, facets:
 }
 
 export function querySinglesCatalog(cards: Card[], options: SinglesCatalogQuery, derived: Record<number, CatalogDerived | undefined> = {}): CatalogPage<Card> {
-  const marketCards = cards.filter(card => card.game === options.market && (!options.sections.length || options.sections.includes(card.section)));
+  const marketCards = cards.filter(card => (options.market === "all" || card.game === options.market) && (!options.sections.length || options.sections.includes(card.section)));
   const facets = {
     sets: [...new Set(marketCards.map(card => card.set))].sort(),
     sections: [...new Set(marketCards.map(card => card.section))].sort(),
@@ -195,7 +195,7 @@ export function querySinglesCatalog(cards: Card[], options: SinglesCatalogQuery,
 
 export function filterSinglesCandidates(cards: Card[], options: SinglesCandidateQuery) {
   const min = finiteFilter(options.minPrice), max = finiteFilter(options.maxPrice);
-  return cards.filter(card => card.game === options.market
+  return cards.filter(card => (options.market === "all" || card.game === options.market)
     && (!options.sections.length || options.sections.includes(card.section))
     && fuzzyTextMatch(`${card.name} ${card.set} ${card.number} ${card.rarity} ${card.printing}`, options.query)
     && (!options.sets.length || options.sets.includes(card.set))
@@ -204,7 +204,8 @@ export function filterSinglesCandidates(cards: Card[], options: SinglesCandidate
 }
 
 export function querySealedCatalog(products: SealedProduct[], options: SealedCatalogQuery, derived: Record<number, CatalogDerived | undefined> = {}): CatalogPage<SealedProduct> {
-  const marketProducts = options.market === "scalping" ? products : products.filter(product => product.game === options.market);
+  // Scalping's curated allowlist mixes games; the "all" scope keeps every loaded market.
+  const marketProducts = options.market === "scalping" || options.market === "all" ? products : products.filter(product => product.game === options.market);
   const facets = {
     sets: [...new Set(marketProducts.map(product => product.set))].sort(),
     sections: [],
