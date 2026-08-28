@@ -56,6 +56,50 @@ type MoverRow = { productId: number; name: string; setName: string; game: string
 
 const gameLabel: Record<string, string> = { pokemon: "Pokémon", riftbound: "Riftbound", onepiece: "One Piece" };
 
+// Pack EV inputs (audit Phase C / H1): the cheapest live booster-pack price per set, and
+// per-set tier averages resolved through the same curated pull-rate rules the detail pages
+// use. Shared by the metrics payload and the /api/set-ev feed the sealed view reads.
+export async function loadSetEvData(db: D1DatabaseLike, pullRates?: PullRateConfig) {
+  const packRows = (await db.prepare(`select p.set_name setName, min(cp.market_cents) packCents
+      from catalog_products p join current_prices cp on cp.product_id=p.product_id
+      where p.kind='sealed' and p.product_type='Booster Packs' and cp.market_cents > 0
+      group by p.set_name`).bind().all<{ setName: string; packCents: number }>()).results ?? [];
+  const packPriceBySet = new Map(packRows.map(row => [row.setName, row.packCents / 100]));
+  const evBySet = new Map<string, number | null>();
+  if (pullRates) {
+    const tierRows = (await db.prepare(`select p.set_name setName, p.game, p.rarity, p.section, avg(cp.market_cents) avgCents, count(*) n
+        from catalog_products p join current_prices cp on cp.product_id=p.product_id
+        where p.kind='single' and cp.market_cents is not null
+        group by p.set_name, p.game, p.rarity, p.section`).bind().all<{ setName: string; game: string; rarity: string; section: string | null; avgCents: number; n: number }>()).results ?? [];
+    const tiersBySet = new Map<string, Map<string, { packsPerHit: number; weighted: number; count: number }>>();
+    for (const row of tierRows) {
+      const resolved = pullRateFor(pullRates, row.game, row.setName, { rarity: row.rarity, section: row.section ?? undefined });
+      if (!resolved) continue;
+      const tiers = tiersBySet.get(row.setName) ?? new Map();
+      const tier = tiers.get(resolved.key) ?? { packsPerHit: resolved.packsPerHit, weighted: 0, count: 0 };
+      tier.weighted += (row.avgCents / 100) * row.n;
+      tier.count += row.n;
+      tiers.set(resolved.key, tier);
+      tiersBySet.set(row.setName, tiers);
+    }
+    for (const [setName, tiers] of tiersBySet) {
+      evBySet.set(setName, packChaseEv([...tiers.values()].map(tier => ({ packsPerHit: tier.packsPerHit, averageMarket: tier.count ? tier.weighted / tier.count : null }))));
+    }
+  }
+  return { packPriceBySet, evBySet };
+}
+
+export type SetEvRow = { set: string; packPrice: number | null; packEv: number | null; evRatio: number | null };
+
+export async function loadSetEvRows(db: D1DatabaseLike, pullRates?: PullRateConfig): Promise<SetEvRow[]> {
+  const { packPriceBySet, evBySet } = await loadSetEvData(db, pullRates);
+  const sets = new Set([...packPriceBySet.keys(), ...evBySet.keys()]);
+  return [...sets].map(set => {
+    const packPrice = packPriceBySet.get(set) ?? null, packEv = evBySet.get(set) ?? null;
+    return { set, packPrice, packEv, evRatio: evRatio(packEv, packPrice) };
+  }).filter(row => row.packEv != null);
+}
+
 export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options: { pullRates?: PullRateConfig } = {}): Promise<MetricsPayload | null> {
   if (!db) return null;
   const published = await publishedIngestion(db, "metrics-rollup").catch(() => null);
@@ -120,35 +164,7 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options
     ) select setName, avg(b) as change30Bps from momentum where rn=(total+1)/2 or rn=total/2+1 group by setName`).bind().all<{ setName: string; change30Bps: number | null }>()).results ?? [];
   const sealedChangeBySet = new Map(sealedSetRows.map(row => [row.setName, row.change30Bps]));
 
-  // Pack EV (audit Phase C / H1): the cheapest live booster-pack price per set, and per-set
-  // tier averages resolved through the same curated pull-rate rules the detail pages use.
-  // Sparse rarity buckets are fine — the EV sums only tiers the config actually prices.
-  const packRows = (await db.prepare(`select p.set_name setName, min(cp.market_cents) packCents
-      from catalog_products p join current_prices cp on cp.product_id=p.product_id
-      where p.kind='sealed' and p.product_type='Booster Packs' and cp.market_cents > 0
-      group by p.set_name`).bind().all<{ setName: string; packCents: number }>()).results ?? [];
-  const packPriceBySet = new Map(packRows.map(row => [row.setName, row.packCents / 100]));
-  const evBySet = new Map<string, number | null>();
-  if (options.pullRates) {
-    const tierRows = (await db.prepare(`select p.set_name setName, p.game, p.rarity, p.section, avg(cp.market_cents) avgCents, count(*) n
-        from catalog_products p join current_prices cp on cp.product_id=p.product_id
-        where p.kind='single' and cp.market_cents is not null
-        group by p.set_name, p.game, p.rarity, p.section`).bind().all<{ setName: string; game: string; rarity: string; section: string | null; avgCents: number; n: number }>()).results ?? [];
-    const tiersBySet = new Map<string, Map<string, { packsPerHit: number; weighted: number; count: number }>>();
-    for (const row of tierRows) {
-      const resolved = pullRateFor(options.pullRates, row.game, row.setName, { rarity: row.rarity, section: row.section ?? undefined });
-      if (!resolved) continue;
-      const tiers = tiersBySet.get(row.setName) ?? new Map();
-      const tier = tiers.get(resolved.key) ?? { packsPerHit: resolved.packsPerHit, weighted: 0, count: 0 };
-      tier.weighted += (row.avgCents / 100) * row.n;
-      tier.count += row.n;
-      tiers.set(resolved.key, tier);
-      tiersBySet.set(row.setName, tiers);
-    }
-    for (const [setName, tiers] of tiersBySet) {
-      evBySet.set(setName, packChaseEv([...tiers.values()].map(tier => ({ packsPerHit: tier.packsPerHit, averageMarket: tier.count ? tier.weighted / tier.count : null }))));
-    }
-  }
+  const { packPriceBySet, evBySet } = await loadSetEvData(db, options.pullRates);
 
   const sets: MetricsSetRow[] = setRows.map(row => {
     const packPrice = packPriceBySet.get(row.setName) ?? null;

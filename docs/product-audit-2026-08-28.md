@@ -410,6 +410,37 @@ accounts. Each phase is independently shippable; decision points are flagged ⚑
 3. Portfolio (quantity + cost basis on favorites) — the #1 demanded feature overall,
    deliberately last because it depends on everything above being trustworthy.
 
+**Phase H — Box & Case EV calculator** *(added 2026-08-28, user; mockup provided)*
+An interactive full-EV calculator, distinct from the set-level chase EV shipped in
+Phase C: every rarity counts, not just chase tiers.
+1. **Math**: EV per pack = Σ over rarities (expected copies per pack × average market of
+   that rarity's cards in the set). Slot rarities (commons ~7×/pack, uncommons ~3×,
+   rares) use per-pack slot counts; hit rarities use 1 ÷ packs-per-hit — the existing
+   pull-rate config extends with a per-game **pack-structure table** (slots per rarity,
+   per-set overrides), replicable for Pokémon and Riftbound alike. EV per box = packs ×
+   EV per pack; case = units × box.
+2. **Controls** (per the mockup): market selector (Pokémon/Riftbound), set dropdown,
+   unit selector (single pack / box / case), editable packs-per-box (defaulted by
+   product type), box-price input prefilled from the live market price, and an
+   **ignore-bulk toggle** that zero-counts cards under ~$1 so the EV reflects only
+   money-relevant pulls.
+3. **Breakdown UI** (mockup-inspired): headline EV for the selected unit with per-pack
+   subline; a "where the value sits" per-rarity bar list — average card value, copies
+   per pack (or 1-in-N odds), priced coverage ("77/88 priced"), top card value, CHASE
+   badges; a "chase prints are X% of EV" stat; footnote stating the honesty mechanics.
+4. **Honesty mechanics** (adopted from the mockup's footnote): unpriced cards count as
+   zero — genuine bulk is honestly near-zero, but low coverage means a pool
+   *understates* its contribution, never overstates; show an implied-pack-size check
+   (Σ expected copies) so a mistuned structure is self-evident; everything labeled as
+   community-estimate-derived per the pull-rate data rules.
+5. **Data prerequisite** (the real work): commons/uncommons/plain rares are currently
+   rejected at ingestion ("unsupported-rarity" — 14,657 rejections/day), so full-EV
+   needs either (a) extending singles ingestion with a bulk-rarity tier for calculator
+   sets (larger catalog, one new section per game), or (b) launching with tracked tiers
+   plus zero-counted bulk and honest coverage labels, adding (a) later. Decide at build.
+6. Placement: its own page (e.g. `/ev`) linked from sealed detail pages and the metrics
+   set leaderboard's Pack EV column.
+
 Not scheduled (horizon): N10 full international sets beyond JP, CN Riftbound singles
 (no structured source), pop-report integration depth, N6–N9 polish items slot into
 whichever phase touches their surface.
@@ -469,6 +500,33 @@ detail pages use, weighted per-set tier averages from D1, `loadPullRateConfig()`
 loader) and the set leaderboard gains sortable **Sealed 30D** (H2 divergence — sealed
 median momentum beside singles momentum) and **Pack EV** ($ + ratio chip) columns, ⓘ
 updated. Integration-tested end to end on a seeded database (EV $9.375 vs $4 pack →
-2.34×). Gate: 149/149 node, lint, 4/4 Playwright. Remaining in Phase C: MSRP-coverage
-expansion + sealed default-sort switch (C5), per-display case math (N5), EV chip on
-sealed table rows, and 2–3 pull-rate set overrides (N4).
+2.34×). Gate: 149/149 node, lint, 4/4 Playwright. Committed `66e738a`.
+
+**Phase C remainder landed (2026-08-28, gated, uncommitted):** sealed default sort is now
+**market** (C5 — profit-vs-MSRP becomes an opt-in lens; parse default, mode-switch reset,
+and signal-view reset all updated, characterization test moved with the decision). Cases
+detail pages show **"Case vs unit"** (N5): the case's market price as a multiple of its
+matching unit product (name-minus-"Case" match in the same set; observed multiple only —
+never an assumed case size). Set chase EV now reaches the sealed view: `loadSetEvData`/
+`loadSetEvRows` extracted from the metrics payload, a small `/api/set-ev` feed (database-
+backed only, 503 elsewhere), and sealed hover cards gain a toned **"Set pack EV"** metric
+($ · ratio×). Gate: 150/150 node, lint, 4/4 Playwright.
+
+**MSRP sourcing research (2026-08-28, user-requested):** headline — **no bulk MSRP
+dataset exists anywhere** (Scrydex, PriceCharting, TCGCSV, Bulbapedia: none carry MSRP);
+the strategy is derive + curate. (1) **Type+era defaults** cover an estimated 60–70% of
+the ~1,850 Pokémon sealed SKUs: verified anchors — packs $3.99 (SWSH era) → **$4.49**
+(SV Mar 2023 onward, unchanged through the Mega era; the rumored 2025 rise to $4.99 was
+Japan-only), ETB $39.99 → $49.99, bundle $26.94, box 36×pack $161.64, UPC $119.99;
+defaults break on collections, tins, box sets, PC-exclusive ETBs ($59.99), and imports.
+(2) **One Piece is solved**: Bandai's official product pages print "MSRP USD $X" for
+every product — 23 SKUs ≈ 30 minutes by hand, grid scrapeable for future sets.
+(3) **Riftbound**: Riot merch pages + PHD/GTS distributor MSRP tables per wave — 73 SKUs
+≈ 2–3 hours. (4) Per-product Pokémon exceptions curate best from PokeBeach product
+announcements (every reveal carries MSRP; bot-walled, manual lookup). Pokémon Center
+scraping is dead (Imperva) and PokeBeach RSS 403s — skip automation there. ⚑ Resolved (2026-08-28, user): **verified + derived, badged** — hand-curate the verified
+sources (One Piece from Bandai, Riftbound from Riot/distributors, Pokémon exceptions
+from announcements) AND apply type+era defaults for the rest, stored as
+`msrp_source='derived'` with a visible "standard pricing" badge so estimates are never
+dressed as verified. Target ~85%+ coverage; the sealed view's "Verified MSRP" copy
+updates to distinguish the two sources. Queued as the next Phase C work item.

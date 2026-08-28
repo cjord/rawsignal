@@ -617,7 +617,9 @@ export default function Home() {
           : {}),
         signal: signalView,
         strictness,
-        sort: signalView === "leaderboard" ? "profitPct" : "signal",
+        // Market action is the default lens (audit C5): profit-vs-MSRP only covers the
+        // small MSRP-verified slice, so it is an opt-in sort, not the landing order.
+        sort: signalView === "leaderboard" ? "market" : "signal",
         direction: "desc",
         page: 1,
       }));

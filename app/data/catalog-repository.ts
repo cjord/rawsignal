@@ -74,7 +74,13 @@ export function createMemoryCatalogRepository(cards: Card[], sealedProducts: Sea
       const tierGroups=new Map<string,{label:string;packsPerHit:number;cards:Card[]}>();
       for(const item of setCards){const resolved=pullRateFor(pullRateConfig,product.game,product.set,item);if(resolved==null)continue;const group=tierGroups.get(resolved.key)??{label:tierLabel(resolved.key,resolved.bySection),packsPerHit:resolved.packsPerHit,cards:[]};group.cards.push(item);tierGroups.set(resolved.key,group)}
       const pullRates:RarityPullRate[]=[...tierGroups.values()].map(group=>({rarity:group.label,cardCount:group.cards.length,packsPerHit:group.packsPerHit,costPerHit:packPrice!=null?group.packsPerHit*packPrice:null,averageMarket:group.cards.length?group.cards.reduce((sum,item)=>sum+item.marketPrice,0)/group.cards.length:null})).sort((a,b)=>(b.averageMarket??0)-(a.averageMarket??0));
-      return {...product,kind:"sealed",exactTcgplayerUrl:exactTcgplayerUrl(product.url),metadata:enrichment?.metadata??[],priceVariants:enrichment?.priceVariants??[{printing:"Sealed",marketPrice:product.marketPrice,lowPrice:null,directLowPrice:null,midPrice:product.midPrice,highPrice:null}],source:enrichment?.source??emptySource,similar:similarSealed(product,uniqueSealed),marketRank:rank.rank,marketRankTotal:rank.total,peerContext:peerAverage(product.category,categoryPeers.map(item=>item.marketPrice),product.marketPrice),packPrice,chaseCards,relatedSealed,pullRates,graded:null};
+      // A case is its unit product at a multiplier (audit N5). Case sizes vary by era and
+      // product, so the honest number is the observed price multiple against the matching
+      // unit (name minus the trailing "Case"), never an assumed per-case count.
+      const unitName=product.category==="Cases"?product.name.replace(/\s+Case\b.*$/i,"").trim().toLowerCase():null;
+      const unit=unitName?uniqueSealed.find(item=>item.set===product.set&&item.productId!==product.productId&&item.name.trim().toLowerCase()===unitName):null;
+      const caseUnit=unit&&unit.marketPrice!=null&&unit.marketPrice>0&&product.marketPrice!=null?{productId:unit.productId,name:unit.name,marketPrice:unit.marketPrice,multiple:product.marketPrice/unit.marketPrice}:null;
+      return {...product,kind:"sealed",exactTcgplayerUrl:exactTcgplayerUrl(product.url),metadata:enrichment?.metadata??[],priceVariants:enrichment?.priceVariants??[{printing:"Sealed",marketPrice:product.marketPrice,lowPrice:null,directLowPrice:null,midPrice:product.midPrice,highPrice:null}],source:enrichment?.source??emptySource,similar:similarSealed(product,uniqueSealed),marketRank:rank.rank,marketRankTotal:rank.total,peerContext:peerAverage(product.category,categoryPeers.map(item=>item.marketPrice),product.marketPrice),packPrice,chaseCards,relatedSealed,pullRates,caseUnit,graded:null};
     },
   };
 }

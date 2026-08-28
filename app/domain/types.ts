@@ -235,6 +235,7 @@ export type SealedDetail = CatalogDetailBase & {
   chaseCards: Card[];
   relatedSealed: SealedProduct[];
   pullRates: RarityPullRate[];
+  caseUnit: { productId: number; name: string; marketPrice: number; multiple: number } | null;
 };
 
 export type CatalogDetail = CardDetail | SealedDetail;

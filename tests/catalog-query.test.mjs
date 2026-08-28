@@ -134,6 +134,17 @@ test("signal and movement filters consume the same derived catalog fields", asyn
   assert.deepEqual(result.items.map(card => card.productId), [selected.productId]);
 });
 
+test("a Cases product reports its price multiple against the matching unit product", async () => {
+  const unit = { game: "pokemon", productId: 70, name: "Fixture Booster Display", set: "Fixture Set", category: "Booster Boxes", image: null, url: "https://example.com/u", msrp: null, marketPrice: 100, midPrice: null, profit: null, profitPct: null, msrpSource: null };
+  const kase = { ...unit, productId: 71, name: "Fixture Booster Display Case", category: "Cases", marketPrice: 590 };
+  const repository = createMemoryCatalogRepository([], [unit, kase]);
+  const detail = await repository.getDetail("sealed", 71);
+  assert.equal(detail.caseUnit.productId, 70);
+  assert.equal(detail.caseUnit.multiple, 5.9);
+  // Non-case products, and cases without a matching unit, carry no multiple.
+  assert.equal((await repository.getDetail("sealed", 70)).caseUnit, null);
+});
+
 test("hot boards curate to the top entries by score; the leaderboard stays exhaustive", async () => {
   const cards = parseCards((await json("../public/data/overnumbered.json")).slice(0, 40));
   const derived = Object.fromEntries(cards.map((card, index) => [card.productId, {

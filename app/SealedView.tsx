@@ -123,6 +123,7 @@ export default function SealedView({
     [profitMax, setProfitMax] = useState(initialState.profitMax),
     [profitPctMin, setProfitPctMin] = useState(initialState.profitPctMin),
     [profitPctMax, setProfitPctMax] = useState(initialState.profitPctMax),
+    [setEv, setSetEv] = useState<Record<string, { packEv: number | null; evRatio: number | null }>>({}),
     [sort, setSort] = useState<SortKey>(initialState.sort),
     [direction, setDirection] = useState<Direction>(initialState.direction),
     [perPage, setPerPage] = useState(initialState.perPage),
@@ -174,10 +175,20 @@ export default function SealedView({
   useEffect(() => {
     if (previousSignal.current === signalView) return;
     previousSignal.current = signalView;
-    setSort(signalView === "leaderboard" ? "profitPct" : "signal");
+    setSort(signalView === "leaderboard" ? "market" : "signal");
     setDirection("desc");
     setPage(1);
   }, [signalView]);
+  // Per-set chase EV annotates hover cards on database-backed deployments (audit Phase C);
+  // a 503 (feed-only, dev) simply leaves the metric out.
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/set-ev", { signal: controller.signal })
+      .then(async (response) => (response.ok ? await response.json() as { rows: { set: string; packEv: number | null; evRatio: number | null }[] } : null))
+      .then((body) => { if (body?.rows && !controller.signal.aborted) setSetEv(Object.fromEntries(body.rows.map((row) => [row.set, { packEv: row.packEv, evRatio: row.evRatio }]))); })
+      .catch(() => { /* Feed-only deployment; hover cards omit EV. */ });
+    return () => controller.abort();
+  }, []);
   useEffect(
     () =>
       onQueryChange({
@@ -385,6 +396,13 @@ export default function SealedView({
           { label: "30D low", value: usd(h?.low30 ?? null) },
           { label: "30D high", value: usd(h?.high30 ?? null) },
           { label: "Hist low", value: usd(h?.historyLow ?? null) },
+          ...(setEv[product.set]?.packEv != null
+            ? [{
+                label: "Set pack EV",
+                value: `${usd(setEv[product.set].packEv)}${setEv[product.set].evRatio != null ? ` · ${(setEv[product.set].evRatio as number).toFixed(2)}×` : ""}`,
+                tone: setEv[product.set].evRatio != null ? ((setEv[product.set].evRatio as number) >= 1 ? "up" as const : "down" as const) : undefined,
+              }]
+            : []),
           {
             label: "Profit",
             value: usd(result.profit),
