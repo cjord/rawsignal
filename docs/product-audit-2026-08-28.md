@@ -530,3 +530,18 @@ from announcements) AND apply type+era defaults for the rest, stored as
 `msrp_source='derived'` with a visible "standard pricing" badge so estimates are never
 dressed as verified. Target ~85%+ coverage; the sealed view's "Verified MSRP" copy
 updates to distinguish the two sources. Queued as the next Phase C work item.
+
+**MSRP fill landed (2026-08-28, gated):** `scripts/msrp/derived-msrp.mjs` derives
+standard pricing for high-confidence Pokémon name patterns (packs/bundles/boxes/ETBs/
+UPCs, 2020+, SWSH vs SV-era price points; PC-exclusives, sleeved, blisters, collections
+and imports refuse to derive) — applied at normalization with precedence published →
+verified → derived, each carrying its badge string ("Standard pricing (derived)").
+`scripts/msrp/verified-msrp.mjs` holds hand-curated officially-sourced values: 16
+newly-priced Riftbound products from PHD/UVS/Riot/Coqui distributor sheets; the other
+28 of the 44 imports are deliberately **none** (distributor cases, OP kits/prize packs,
+non-SKU art bundles, unpublished waves) — soft secondary-only prices excluded. One Piece
+was already fully covered by the curated Bandai-sourced feed. Full provenance table:
+`docs/msrp-sources.md` (product | MSRP | source, per the user's request). Sealed-view
+copy updated to distinguish published from derived. New values flow to the database with
+each daily live run. Tests: derived-rule matrix + normalizer-precedence; gate 152/152 +
+4/4 Playwright.

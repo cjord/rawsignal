@@ -580,7 +580,7 @@ export default function SealedView({
           title={`${formatGameName(game)} ${signalView === "leaderboard" ? "Sealed" : signalView === "buy" ? "Hot Buys" : "Hot Sells"}`}
           description={
             signalView === "leaderboard"
-              ? "Verified MSRP compared with current TCGplayer pricing."
+              ? "MSRP compared with current TCGplayer pricing — published values where sources exist, standard type pricing (marked derived) elsewhere."
               : `${strictness[0].toUpperCase() + strictness.slice(1)} signals ranked by proximity, volatility, and data confidence.`
           }
           summary={
