@@ -24,10 +24,10 @@ export type MetricsOverviewRow = {
   change90: number | null;
 };
 export type MetricsSetRow = { set: string; game: string; trackedValue: number; medianPrice: number; cards: number; change30: number | null; sealedChange30: number | null; packPrice: number | null; packEv: number | null; evRatio: number | null };
-export type MetricsCategoryRow = { category: string; game: string; trackedValue: number; medianPrice: number; products: number; change30: number | null };
+export type MetricsCategoryRow = { category: string; game: string; trackedValue: number; medianPrice: number; products: number; change7: number | null; change30: number | null; change90: number | null };
 export type MetricsEraRow = { era: string; trackedValue: number; cards: number; sets: number; change30: number | null };
 export type MetricsMomentumRow = { game: string; kind: "single" | "sealed"; tracked: number; advancers7: number; decliners7: number; advancers30: number; decliners30: number; atHistoricHigh: number; atHistoricLow: number };
-export type MetricsMover = { productId: number; name: string; set: string; game: string; kind: "single" | "sealed"; printing: string; image: string | null; price: number; mid: number | null; change: number; window: "7d" | "30d"; direction: "up" | "down" };
+export type MetricsMover = { productId: number; name: string; set: string; game: string; kind: "single" | "sealed"; printing: string; image: string | null; price: number; mid: number | null; change: number; window: "7d" | "30d" | "90d"; direction: "up" | "down" };
 export type MetricsPayload = {
   generatedAt: string;
   rolledUpAt: string;
@@ -53,9 +53,9 @@ const metricsJoin = "join market_metrics mm on mm.product_id=p.product_id and (m
 
 type TotalsRow = { game: string; kind: "single" | "sealed"; totalCents: number; products: number };
 type SetRow = { setName: string; game: string; totalCents: number; cards: number; medianCents: number; change30Bps: number | null };
-type CategoryRow = { category: string; game: string; totalCents: number; products: number; medianCents: number; change30Bps: number | null };
+type CategoryRow = { category: string; game: string; totalCents: number; products: number; medianCents: number; change7Bps: number | null; change30Bps: number | null; change90Bps: number | null };
 type MomentumRow = { game: string; kind: "single" | "sealed"; tracked: number; advancers7: number; decliners7: number; advancers30: number; decliners30: number; atHigh: number; atLow: number };
-type MoverRow = { productId: number; name: string; setName: string; game: string; kind: "single" | "sealed"; printing: string | null; image: string | null; cents: number; midCents: number | null; changeBps: number; win: "7d" | "30d"; direction: "up" | "down" };
+type MoverRow = { productId: number; name: string; setName: string; game: string; kind: "single" | "sealed"; printing: string | null; image: string | null; cents: number; midCents: number | null; changeBps: number; win: "7d" | "30d" | "90d"; direction: "up" | "down" };
 
 const gameLabel: Record<string, string> = { pokemon: "Pokémon", riftbound: "Riftbound", onepiece: "One Piece" };
 
@@ -183,7 +183,9 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options
     };
   });
 
-  // Sealed groups by product category — sets barely exist as a sealed concept.
+  // Sealed groups by product category — sets barely exist as a sealed concept. Each
+  // momentum window is aggregated once and joined (never a correlated subselect against
+  // a window CTE — the pattern that made this payload pathological before).
   const categoryRows = (await db.prepare(`with ranked as (
       select p.product_type category, p.game, cp.market_cents v,
         row_number() over (partition by p.game, p.product_type order by cp.market_cents desc) rn,
@@ -194,19 +196,43 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options
     ), medians as (
       select category, game, max(total) products, max(sumv) totalCents, avg(v) medianCents
       from ranked where rn=(total+1)/2 or rn=total/2+1 group by game, category
-    ), momentum as (
+    ), m7 as (
+      select p.game, p.product_type category, mm.change_7_bps b,
+        row_number() over (partition by p.game, p.product_type order by mm.change_7_bps) rn,
+        count(*) over (partition by p.game, p.product_type) total
+      from catalog_products p ${metricsJoin}
+      where p.kind='sealed' and mm.change_7_bps is not null
+    ), m30 as (
       select p.game, p.product_type category, mm.change_30_bps b,
         row_number() over (partition by p.game, p.product_type order by mm.change_30_bps) rn,
         count(*) over (partition by p.game, p.product_type) total
       from catalog_products p ${metricsJoin}
       where p.kind='sealed' and mm.change_30_bps is not null
-    ), categoryChange as (
-      select game, category, avg(b) as change30Bps from momentum where rn=(total+1)/2 or rn=total/2+1 group by game, category
+    ), m90 as (
+      select p.game, p.product_type category, mm.change_90_bps b,
+        row_number() over (partition by p.game, p.product_type order by mm.change_90_bps) rn,
+        count(*) over (partition by p.game, p.product_type) total
+      from catalog_products p ${metricsJoin}
+      where p.kind='sealed' and mm.change_90_bps is not null
+    ), c7 as (
+      select game, category, avg(b) as change7Bps from m7 where rn=(total+1)/2 or rn=total/2+1 group by game, category
+    ), c30 as (
+      select game, category, avg(b) as change30Bps from m30 where rn=(total+1)/2 or rn=total/2+1 group by game, category
+    ), c90 as (
+      select game, category, avg(b) as change90Bps from m90 where rn=(total+1)/2 or rn=total/2+1 group by game, category
     )
-    select m.category, m.game, m.totalCents, m.products, m.medianCents, c.change30Bps
-    from medians m left join categoryChange c on c.game=m.game and c.category=m.category
+    select m.category, m.game, m.totalCents, m.products, m.medianCents, c7.change7Bps, c30.change30Bps, c90.change90Bps
+    from medians m
+    left join c7 on c7.game=m.game and c7.category=m.category
+    left join c30 on c30.game=m.game and c30.category=m.category
+    left join c90 on c90.game=m.game and c90.category=m.category
     order by m.totalCents desc`).bind().all<CategoryRow>()).results ?? [];
-  const sealedCategories: MetricsCategoryRow[] = categoryRows.map(row => ({ category: row.category, game: row.game, trackedValue: row.totalCents / 100, medianPrice: row.medianCents / 100, products: row.products, change30: row.change30Bps == null ? null : row.change30Bps / 100 }));
+  const sealedCategories: MetricsCategoryRow[] = categoryRows.map(row => ({
+    category: row.category, game: row.game, trackedValue: row.totalCents / 100, medianPrice: row.medianCents / 100, products: row.products,
+    change7: row.change7Bps == null ? null : row.change7Bps / 100,
+    change30: row.change30Bps == null ? null : row.change30Bps / 100,
+    change90: row.change90Bps == null ? null : row.change90Bps / 100,
+  }));
 
   // Era performance (audit R2 / Phase D): every Pokémon set's totals and 30D median fold
   // into collector eras in JS (prefix + year mapping) — era momentum is the tracked-value-
@@ -262,12 +288,12 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options
   // Movers: each scope's top gainers and decliners per window, floored at $10 singles /
   // $20 sealed on BOTH ends of the move — the implied prior price must clear the floor too,
   // or a $2 listing flipping to $89 tops the list as "+4,344%" (repricing noise, not market).
-  // Moves beyond 4x (7D) / 6x (30D) in either direction are excluded for the same reason:
-  // at those magnitudes the "move" is listing turnover, not the market repricing a product.
+  // Moves beyond 4x (7D) / 6x (30D) / 10x (90D) in either direction are excluded for the
+  // same reason: at those magnitudes the "move" is listing turnover, not a repricing.
   const moverRows = (await db.prepare(`with eligible as (
       select p.product_id productId, p.name, p.set_name setName, p.game, p.kind, p.image_url image,
         mm.variant printing, cp.market_cents cents, cp.median_cents midCents,
-        mm.change_7_bps c7, mm.change_30_bps c30,
+        mm.change_7_bps c7, mm.change_30_bps c30, mm.change_90_bps c90,
         case when p.kind='sealed' then 2000 else 1000 end floorCents
       from catalog_products p
       join current_prices cp on cp.product_id=p.product_id
@@ -279,12 +305,18 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options
     ), thirties as (
       select *, row_number() over (partition by game, kind order by c30 desc) up, row_number() over (partition by game, kind order by c30 asc) down
       from eligible where c30 is not null and c30 != 0 and c30 between -8333 and 50000 and cents / (1.0 + c30 / 10000.0) >= floorCents
+    ), nineties as (
+      select *, row_number() over (partition by game, kind order by c90 desc) up, row_number() over (partition by game, kind order by c90 asc) down
+      from eligible where c90 is not null and c90 != 0 and c90 between -9000 and 90000 and cents / (1.0 + c90 / 10000.0) >= floorCents
     )
     select productId, name, setName, game, kind, printing, image, cents, midCents, c7 as changeBps, '7d' as win, case when up <= 8 and c7 > 0 then 'up' else 'down' end as direction
       from sevens where (up <= 8 and c7 > 0) or (down <= 8 and c7 < 0)
     union all
     select productId, name, setName, game, kind, printing, image, cents, midCents, c30, '30d', case when up <= 8 and c30 > 0 then 'up' else 'down' end
-      from thirties where (up <= 8 and c30 > 0) or (down <= 8 and c30 < 0)`).bind().all<MoverRow>()).results ?? [];
+      from thirties where (up <= 8 and c30 > 0) or (down <= 8 and c30 < 0)
+    union all
+    select productId, name, setName, game, kind, printing, image, cents, midCents, c90, '90d', case when up <= 8 and c90 > 0 then 'up' else 'down' end
+      from nineties where (up <= 8 and c90 > 0) or (down <= 8 and c90 < 0)`).bind().all<MoverRow>()).results ?? [];
   const movers: MetricsMover[] = moverRows.map(row => ({
     productId: row.productId, name: row.name, set: row.setName, game: row.game, kind: row.kind,
     printing: row.printing ?? (row.kind === "sealed" ? "Sealed" : "Normal"), image: row.image ?? null,

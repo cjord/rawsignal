@@ -646,3 +646,19 @@ turns red whenever scalper mode is on — class-driven (`is-scalper`), no longer
 which market is selected. Sale scenario stays scalper-only (unchanged). Regular's
 footer note rewritten to describe MSRP provenance + history-backed ranges instead of
 profit.
+
+**Visual pass round 3 fixes (2026-08-28, user review):** (1) large-view 7D/30D chips
+truly share a row now — the tile is a flex *column* (market-content stretches the
+summary), so width math could never work; the chips ride a `.change-pair` wrapper that
+is `display:contents` in every grid view (grid-area placement intact) and a flex row
+only in large view. (2) Top Movers columns were scrambled because the shared
+`.identity` class pins `grid-area:identity`, throwing it into an implicit track in the
+area-less movers grid — reset with `grid-area:auto`. (3) Movers gained a **90D window**
+(`change_90_bps` supports it; caps ±10x/−90%, same both-ends floors). (4) Category
+Leaderboard: capitalized heading, title-cased category values, left-aligned first
+header, whole rows click through to the sealed leaderboard **filtered to the type**,
+and **7D/90D momentum columns** (per-window aggregate-once CTEs, never correlated
+subselects). (5) Riftbound sealed product types were invisible in the type filter —
+the riftbound feed taxonomy (Decks / Boosters / Booster boxes / Gift boxes / Collector
+bundles) all normalized to "Other"; a shared alias resolver (`canonicalSealedType`)
+maps them onto the canonical buckets and also powers the metrics deep links.

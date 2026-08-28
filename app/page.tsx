@@ -1018,15 +1018,17 @@ export default function Home() {
                 <span className="market-price">{usd(c.marketPrice)}</span>
                 <span className="low">{h ? usd(h.low30) : "…"}</span>
                 <span className="high">{h ? usd(h.high30) : "…"}</span>
-                <span
-                  className={`change change7 ${h?.change7 != null && h.change7 < 0 ? "down" : "up"}`}
-                >
-                  {h ? pct(h.change7) : "…"}
-                </span>
-                <span
-                  className={`change change30 ${h?.change30 != null && h.change30 < 0 ? "down" : "up"}`}
-                >
-                  {h ? pct(h.change30) : "…"}
+                <span className="change-pair">
+                  <span
+                    className={`change change7 ${h?.change7 != null && h.change7 < 0 ? "down" : "up"}`}
+                  >
+                    {h ? pct(h.change7) : "…"}
+                  </span>
+                  <span
+                    className={`change change30 ${h?.change30 != null && h.change30 < 0 ? "down" : "up"}`}
+                  >
+                    {h ? pct(h.change30) : "…"}
+                  </span>
                 </span>
                 <span className="row-star"><FavoriteStar entry={cardFavorite(c)} /></span>
               </MarketRow>

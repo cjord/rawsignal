@@ -36,10 +36,14 @@
 .metrics-mover-list{min-width:0;border:1px solid var(--line);border-radius:12px;background:var(--control);padding:13px 14px;transition:border-color .16s}
 .metrics-mover-list:hover{border-color:color-mix(in srgb,var(--blue) 30%,var(--line))}
 .metrics-mover-list h3{margin:0 0 8px;font-size:var(--text-2xs);font-weight:850;letter-spacing:.08em;text-transform:uppercase;color:var(--gray)}
-.metrics-mover-head{display:grid;grid-template-columns:30px minmax(0,1fr) 84px 72px;column-gap:10px;padding:4px 6px 8px;color:#96979c;font-size:var(--text-2xs);font-weight:800;text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--line)}
+.metrics-mover-head{display:grid;grid-template-columns:30px minmax(0,1fr) 92px 74px;column-gap:10px;padding:4px 6px 8px;color:#96979c;font-size:var(--text-2xs);font-weight:800;text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--line)}
 .metrics-mover-head span{min-width:0;white-space:nowrap}
 .metrics-mover-rows .market-row-shell+.market-row-shell .metrics-mover-row{border-top:1px solid var(--line)}
-.metrics-mover-row{display:grid;grid-template-columns:30px minmax(0,1fr) 84px 72px;column-gap:10px;align-items:center;position:relative;padding:7px 6px;border-radius:9px;transition:background-color .15s}
+.metrics-mover-row{display:grid;grid-template-columns:30px minmax(0,1fr) 92px 74px;column-gap:10px;align-items:center;position:relative;padding:7px 6px;border-radius:9px;transition:background-color .15s}
+/* The shared .identity class pins itself to a named grid area that only exists on the
+   leaderboards; without this reset it escapes into an implicit track and scrambles
+   the mover columns. */
+.metrics-mover-row .identity{grid-area:auto}
 .metrics-mover-row:hover,.market-row-shell[open]>.metrics-mover-row{background:var(--control-hover)}
 .metrics-mover-row .mover-star{position:relative;z-index:5;display:flex}
 .metrics-mover-row .mover-star .favorite-star{min-width:28px;min-height:28px;font-size:1rem;border-radius:8px;background:transparent;border-color:transparent}
@@ -93,8 +97,10 @@
 .metrics-table th button:hover{color:var(--text)}
 .metrics-table .sort-mark{color:var(--gray);font-size:.6rem}
 .metrics-table .sort-mark.active{color:var(--text)}
+.metrics-table thead th:first-child{text-align:left}
 .metrics-table tbody tr{transition:background-color .12s}
 .metrics-table tbody tr:hover{background:var(--control-hover)}
+.metrics-table tbody tr.is-clickable{cursor:pointer}
 .metrics-page .detail-variants-table tbody th a:hover{color:var(--blue);text-decoration:underline;text-underline-offset:3px}
 /* Flat hover feedback on the stat tiles too — border tint only, tone washes untouched. */
 .metrics-page .detail-metric{transition:border-color .16s}

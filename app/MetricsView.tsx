@@ -12,6 +12,7 @@ import HistoryPopover from "./leaderboard/HistoryPopover";
 import ProductIdentity from "./leaderboard/ProductIdentity";
 import {favoriteKey,type FavoriteEntry} from "./state/favorites";
 import {historyTargetKey,loadPriceHistoryBatch,type HistoryTarget} from "./data/usePriceHistoryBatch";
+import {canonicalSealedType} from "./data/catalog-query";
 import {deriveHistoryMetrics} from "./domain/history-metrics";
 import {POKEMON_ERAS,eraLabel} from "./domain/eras";
 import {formatGameName,formatPercent,formatUsd} from "./domain/formatters";
@@ -140,7 +141,11 @@ function SetTable({sets}:{sets:MetricsSetRow[]}){
  </tbody></table></div>;
 }
 
-type CategoryColumn="category"|"trackedValue"|"medianPrice"|"products"|"change30";
+// Category names come from feed product types; a few arrive half-lowercased
+// ("Booster boxes") — display them title-cased without touching the data.
+const titleCase=(value:string)=>value.replace(/\b[a-z]/g,letter=>letter.toUpperCase());
+
+type CategoryColumn="category"|"trackedValue"|"medianPrice"|"products"|"change7"|"change30"|"change90";
 function CategoryTable({categories}:{categories:MetricsCategoryRow[]}){
  const {sort,direction,onSort}=useSort<CategoryColumn>("trackedValue");
  const rows=useMemo(()=>[...categories].sort((a,b)=>compare(a[sort],b[sort],direction)),[categories,sort,direction]);
@@ -150,9 +155,22 @@ function CategoryTable({categories}:{categories:MetricsCategoryRow[]}){
   <SortTh label="Tracked value" column="trackedValue" sort={sort} direction={direction} onSort={onSort}/>
   <SortTh label="Median product" column="medianPrice" sort={sort} direction={direction} onSort={onSort}/>
   <SortTh label="Products" column="products" sort={sort} direction={direction} onSort={onSort}/>
+  <SortTh label="7D momentum" column="change7" sort={sort} direction={direction} onSort={onSort}/>
   <SortTh label="30D momentum" column="change30" sort={sort} direction={direction} onSort={onSort}/>
+  <SortTh label="90D momentum" column="change90" sort={sort} direction={direction} onSort={onSort}/>
  </tr></thead><tbody>
-  {rows.map(row=><tr key={`${row.game}:${row.category}`}><th scope="row"><a href={`/?mode=sealed${row.game==="pokemon"?"":`&market=${row.game}`}`}>{row.category}</a></th><td>{formatGameName(row.game)}</td><td>{compactUsd(row.trackedValue)}</td><td>{formatUsd(row.medianPrice)}</td><td>{row.products.toLocaleString()}</td><td><span className={`metrics-chip ${tone(row.change30)??""}`}>{pct(row.change30)}</span></td></tr>)}
+  {rows.map(row=>{
+   // The leaderboard filters on normalized product types: resolve this category through
+   // the same normalizer so the deep link lands on matching rows, not an empty list.
+   const href=`/?mode=sealed&market=${row.game}&type=${encodeURIComponent(canonicalSealedType(row.category))}`;
+   return <tr key={`${row.game}:${row.category}`} className="is-clickable" onClick={()=>{location.assign(href)}}>
+    <th scope="row"><a href={href} onClick={event=>event.stopPropagation()}>{titleCase(row.category)}</a></th>
+    <td>{formatGameName(row.game)}</td><td>{compactUsd(row.trackedValue)}</td><td>{formatUsd(row.medianPrice)}</td><td>{row.products.toLocaleString()}</td>
+    <td><span className={`metrics-chip ${tone(row.change7)??""}`}>{pct(row.change7)}</span></td>
+    <td><span className={`metrics-chip ${tone(row.change30)??""}`}>{pct(row.change30)}</span></td>
+    <td><span className={`metrics-chip ${tone(row.change90)??""}`}>{pct(row.change90)}</span></td>
+   </tr>;
+  })}
  </tbody></table></div>;
 }
 
@@ -233,7 +251,7 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
  const [strictness,setStrictness]=useState<SignalStrictness>("balanced");
  const [mode,setMode]=useState<Mode>("singles");
  const [market,setMarket]=useState<Market>("all");
- const [moversWindow,setMoversWindow]=useState<"7d"|"30d">("7d");
+ const [moversWindow,setMoversWindow]=useState<"7d"|"30d"|"90d">("7d");
  useEffect(()=>{
   const saved=localStorage.getItem("raw-signal-strictness");
   if(saved==="conservative"||saved==="aggressive")setStrictness(saved);
@@ -300,7 +318,7 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
      {scoped?.overview.map(row=><div className="metrics-market-card" key={row.key}><header><b>{row.label}</b></header><div className="metrics-market-value">{compactUsd(row.trackedValue)}</div><span className="metrics-market-sub">{row.products.toLocaleString()} products</span><ChangeTiles change7={row.change7} change30={row.change30} change90={row.change90}/></div>)}
     </div></section>
    <section className="detail-section"><header><span>Movers</span><h2>Top Movers<InfoHint label="About movers">Largest price changes over the selected window among products worth at least $10 (singles) or $20 (sealed) before and after the move. Extreme swings that typically reflect listing turnover rather than market movement are excluded. Rows open the product&apos;s detail page; hover for its price history.</InfoHint></h2>
-    <div className="metrics-seg metrics-seg-small" role="tablist" aria-label="Movers window">{(["7d","30d"] as const).map(item=><button key={item} type="button" role="tab" aria-selected={moversWindow===item} className={moversWindow===item?"active":""} onClick={()=>setMoversWindow(item)}>{item==="7d"?"7D":"30D"}</button>)}</div></header>
+    <div className="metrics-seg metrics-seg-small" role="tablist" aria-label="Movers window">{(["7d","30d","90d"] as const).map(item=><button key={item} type="button" role="tab" aria-selected={moversWindow===item} className={moversWindow===item?"active":""} onClick={()=>setMoversWindow(item)}>{item.toUpperCase()}</button>)}</div></header>
     <div className="metrics-movers">
      <MoverTable title="Gainers" movers={scoped?.gainers??[]} history={moverHistory} empty="No qualifying gainers in this window."/>
      <MoverTable title="Decliners" movers={scoped?.decliners??[]} history={moverHistory} empty="No qualifying decliners in this window."/>
@@ -320,8 +338,8 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
    {compareKeys&&<section className="detail-section"><header><span>Cross-market</span><h2>Pokémon vs Riftbound</h2></header>
     {pokemonBase.length>1&&riftboundBase.length>1?<><div className="metrics-legend"><span className="legend-pokemon">{INDEX_META[compareKeys[0]].title}</span><span className="legend-riftbound">{INDEX_META[compareKeys[1]].title}</span></div><PriceChart points={pokemonBase} overlay={riftboundBase} label="base-100 comparison"/><p className="detail-note">Each game&apos;s equal-weighted index rebased to 100 at the first shared rollup date. Values are index points, not dollars.</p></>:<p className="detail-unavailable">The comparison needs rolled-up history for both games.</p>}</section>}
    {mode==="singles"&&market==="pokemon"&&(payload.eras?.length??0)>0&&<section className="detail-section"><header><span>Pokémon by era</span><h2>Era performance<InfoHint label="About eras">Every tracked Pokémon set folded into its collector era (prefix first, release year otherwise). 30D momentum is the tracked-value-weighted mean of member sets&apos; median card changes — big sets move the era, minor sets don&apos;t swamp it.</InfoHint></h2></header><EraTable eras={payload.eras??[]}/></section>}
-   {mode==="singles"?<section className="detail-section"><header><span>By set</span><h2>Set leaderboard<InfoHint label="About the leaderboard">Top sets by tracked singles value. 30D momentum is the median of member cards&apos; 30-day changes; Sealed 30D is the same for the set&apos;s sealed products — a gap between them flags rotation between the two markets. Pack EV is the expected chase-card value of one booster from community pull-rate estimates times current singles prices (bulk excluded); the multiple compares it against the cheapest live pack price — above 1× means ripping beats buying the singles at these prices. Set names link to the filtered leaderboard.</InfoHint></h2></header><SetTable sets={scoped?.sets??[]}/></section>
-   :<section className="detail-section"><header><span>By category</span><h2>Category leaderboard<InfoHint label="About the leaderboard">Sealed products grouped by category. The median is the middle product price in the category; 30D momentum is the median of member products&apos; 30-day changes.</InfoHint></h2></header><CategoryTable categories={scoped?.categories??[]}/></section>}
+   {mode==="singles"?<section className="detail-section"><header><span>By set</span><h2>Set Leaderboard<InfoHint label="About the leaderboard">Top sets by tracked singles value. 30D momentum is the median of member cards&apos; 30-day changes; Sealed 30D is the same for the set&apos;s sealed products — a gap between them flags rotation between the two markets. Pack EV is the expected chase-card value of one booster from community pull-rate estimates times current singles prices (bulk excluded); the multiple compares it against the cheapest live pack price — above 1× means ripping beats buying the singles at these prices. Set names link to the filtered leaderboard.</InfoHint></h2></header><SetTable sets={scoped?.sets??[]}/></section>
+   :<section className="detail-section"><header><span>By category</span><h2>Category Leaderboard<InfoHint label="About the leaderboard">Sealed products grouped by category. The median is the middle product price in the category; each momentum column is the median of member products&apos; changes over that window. Rows open the sealed leaderboard filtered to the category.</InfoHint></h2></header><CategoryTable categories={scoped?.categories??[]}/></section>}
    </>}
   </article></main>;
 }

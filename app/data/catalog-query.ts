@@ -96,8 +96,26 @@ export const sealedProductTypes = [
   "Other",
 ] as const;
 
+// Riftbound's feed taxonomy maps onto the shared type buckets (visual pass 2026-08-28):
+// without the aliases every riftbound product normalized to "Other" and the type filter
+// offered nothing for that market.
+const categoryAliases: Record<string, (typeof sealedProductTypes)[number]> = {
+  "Boosters": "Booster Packs",
+  "Booster boxes": "Booster Boxes",
+  "Decks": "Starter / Theme Decks",
+  "Gift boxes": "Boxes / Bundles",
+  "Collector bundles": "Collections",
+};
+
+// One resolver for anything holding a raw category string (facets, filters, and the
+// metrics category deep links): alias first, then case-insensitive canonical match.
+export function canonicalSealedType(category: string) {
+  const aliased = categoryAliases[category] ?? category;
+  return (sealedProductTypes as readonly string[]).find(type => type.toLowerCase() === aliased.toLowerCase()) ?? "Other";
+}
+
 export function sealedProductType(product: SealedProduct) {
-  return (sealedProductTypes as readonly string[]).includes(product.category) ? product.category : "Other";
+  return canonicalSealedType(product.category);
 }
 
 export function calculateSealedScenario(product: SealedProduct, scenario: SealedScenario): SealedCalculation {

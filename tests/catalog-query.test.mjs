@@ -96,6 +96,18 @@ test("sealed scenario calculations and filters share one implementation", async 
   assert.ok(profitable.allItems.every(product => calculateSealedScenario(product, scenario).profit > 0));
 });
 
+test("riftbound sealed categories map onto the shared product-type buckets", async () => {
+  const sealed = parseSealedProducts(await json("../public/data/sealed-riftbound.json"));
+  const result = querySealedCatalog(sealed, sealedOptions({ market: "riftbound" }));
+  for (const type of ["Booster Packs", "Booster Boxes", "Starter / Theme Decks", "Collections"]) {
+    assert.ok(result.facets.productTypes.includes(type), `missing type facet ${type}`);
+  }
+  // Filtering by a mapped bucket returns the riftbound products that carried the alias.
+  const decks = querySealedCatalog(sealed, sealedOptions({ market: "riftbound", productTypes: ["Starter / Theme Decks"] }));
+  assert.ok(decks.total >= 10);
+  assert.ok(decks.allItems.every(product => product.category === "Decks"));
+});
+
 test("sealed regular-mode sorts rank by the derived 30-day metrics, unknowns last", async () => {
   const sealed = parseSealedProducts(await json("../public/data/sealed-pokemon.json")).slice(0, 3);
   const [a, b, c] = sealed.map(product => product.productId);

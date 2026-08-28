@@ -225,9 +225,13 @@
   .view-large .row-star .favorite-star{min-width:34px;min-height:34px;border-radius:999px;background:var(--surface);box-shadow:0 2px 10px #0003}
   .signal-card-wrap>.row-star{top:12px;right:10px;transform:none}
 
-  /* Large image view: the 7D/30D movement chips share one horizontal row. */
-  .view-large .change{width:calc(50% - 5px);margin-right:0;justify-content:space-between;box-sizing:border-box}
-  .view-large .change7{margin-right:6px}
+  /* Large image view: the tile is a flex COLUMN (market-content stretches the summary),
+     so widths alone can never put the 7D/30D chips side by side. The chips ride a
+     wrapper that every grid view ignores (display:contents keeps the grid-area
+     placement working) and that becomes a flex row only in the large view. */
+  .change-pair{display:contents}
+  .view-large .change-pair{display:flex;gap:8px;margin-top:8px}
+  .view-large .change-pair .change{flex:1;margin:0;justify-content:space-between;box-sizing:border-box}
 
   /* Sealed popover + full-view metric tiles match the singles popover typography. */
   .sealed-hover-card .history-stats small,.sealed-full-card .history-stats small{font-size:var(--text-2xs);color:var(--gray);text-transform:uppercase;letter-spacing:.08em}
