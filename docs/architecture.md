@@ -6,11 +6,11 @@ Raw Signal presents market intelligence for raw trading cards and unopened produ
 
 ## Runtime and hosting
 
-The application is React 19 and TypeScript compiled by vinext into a Cloudflare Worker-compatible build. OpenAI Sites is the current host. `.openai/hosting.json` declares the existing Site project and one logical D1 binding named `DB`; Sites owns the physical resource and deployment wiring.
+The application is React 19 and TypeScript compiled by vinext into a Cloudflare Worker. Production is the directly managed Worker `raw-signal` serving `https://rawsignal.cards` on the production D1 database, with a guarded `*/2` cron advancing daily ingestion in checkpointed batches. A sandbox Worker `raw-signal-staging` stays on workers.dev with its own deliberately stale D1 (no cron) for cheap pre-production review. OpenAI Sites is dormant: `.openai/hosting.json` and Sites build compatibility are retained only as a rollback path (see [Cloudflare cutover](cloudflare-cutover.md)).
 
-`worker/index.ts` is the Worker entry point. It delegates application requests to vinext and retains the Cloudflare image-optimization route. `vite.config.ts` supplies a local placeholder D1 binding without encoding production resource identifiers.
+`worker/index.ts` is the Worker entry point. It delegates application requests to vinext, retains the Cloudflare image-optimization route, and mounts the scheduled-ingestion cron handler plus the staging-only ops adapter. `vite.config.ts` supplies a local placeholder D1 binding without encoding production resource identifiers.
 
-The accepted migration direction is documented in [ADR 001](adr/001-hosting-and-database.md): move the same Worker and logical schema to directly managed Cloudflare hosting, then add scheduled ingestion and resumable history backfill.
+The migration direction documented in [ADR 001](adr/001-hosting-and-database.md) is complete: the same Worker and logical schema now run on directly managed Cloudflare hosting with scheduled ingestion and resumable history backfill.
 
 ## Application layers
 
@@ -33,7 +33,7 @@ Repository implementations are transport-neutral:
 - the D1 repository reads a completed published ingestion run;
 - `/api/catalog` exposes compact paged results through the same contract.
 
-The current browser remains on bundled feeds until D1 is fully populated and parity-validated. Server-side pagination should become authoritative only after that cutover.
+Production reads D1 (catalog, sealed, and signals report `source: "database"`); bundled feeds remain the automatic fallback for any market without a completed published run. Repository parity is verified with `npm run cloudflare:parity` during cutovers.
 
 ### History and signals
 
@@ -47,13 +47,17 @@ Persisted signals become authoritative only when the independent `history-signal
 
 `app/page.tsx` composes the application shell and Singles adapter. `app/SealedView.tsx` adapts the same shared leaderboard, control, filter, disclosure, pagination, history, and signal primitives for unopened products.
 
-Shared primitives live under `app/leaderboard/`, `app/filters/`, `MarketUI.tsx`, `HistoryPanel.tsx`, and `PriceChart.tsx`. Component-owned CSS is loaded after base and legacy styles in this order:
+Shared primitives live under `app/leaderboard/`, `app/filters/`, `MarketUI.tsx`, `HistoryPanel.tsx`, and `PriceChart.tsx`. Component-owned CSS is loaded in this order (later sheets deliberately out-rank earlier ones; `tests/css-architecture.test.mjs` pins the core of it):
 
-1. `app/styles/tokens.css`;
-2. `app/globals.css`;
-3. `app/market-views.css`;
-4. `app/styles/market-controls.css`;
-5. `app/styles/market-content.css`.
+1. `app/styles/fonts.css`;
+2. `app/styles/tokens.css`;
+3. `app/globals.css`;
+4. `app/market-views.css`;
+5. `app/styles/market-controls.css`;
+6. `app/styles/market-content.css`;
+7. `app/detail.css`;
+8. `app/metrics.css`;
+9. `app/buylist.css`.
 
 New rules should use the shared tokens and component-owned styles rather than append another versioned override to a legacy stylesheet.
 
@@ -79,4 +83,4 @@ See [Data ingestion](data-ingestion.md) for operations and failure behavior.
 
 ## Tests and release gate
 
-`npm run check` is the required local and CI gate. It builds the production Worker, runs all unit/contract/rendered-output/critical-journey tests, and lints the repository. Stable Cloudflare previews should later host the focused browser suite for pointer, touch, theme, responsive, and Back/Forward journeys.
+`npm run check` is the required local and CI gate. It builds the production Worker, runs all unit/contract/rendered-output/critical-journey tests plus the focused Playwright journey suite against a suite-managed local server, and lints the repository. Stop the dev server first — Playwright owns port 3000 during the gate.
