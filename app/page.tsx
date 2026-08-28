@@ -565,9 +565,12 @@ export default function Home() {
   useEffect(() => {
     storeMarket(mode === "singles" ? game : sealedState.market);
   }, [mode, game, sealedState.market]);
-  // On landing without an explicit market in the URL, restore the remembered one.
+  // On landing without an explicit market in the URL, restore the remembered one. The
+  // LANDING search is captured during render: by the time this effect runs, the URL-sync
+  // effect has already stamped the default market into location.search.
+  const [landingSearch] = useState(() => (typeof location === "undefined" ? "" : location.search));
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
+    const params = new URLSearchParams(landingSearch);
     if (params.has("market")) return;
     const stored = readStoredMarket();
     if (!stored) return;
@@ -577,6 +580,7 @@ export default function Home() {
     } else if (stored !== "onepiece") {
       switchGame(stored);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-time landing restore
   }, []);
   const changeSort = (next: SortKey) => {
     setDirection((current) =>
