@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {readFile,readdir} from "node:fs/promises";
 import {DatabaseSync} from "node:sqlite";
 import test from "node:test";
-import {readMetricSeries,runMetricsRollup} from "../db/metrics-ingestion.ts";
+import {METRIC_SERIES,metricsBackfillStatements,readMetricSeries,runMetricsRollup} from "../db/metrics-ingestion.ts";
 import {publishedIngestion,startIngestion,upsertCard,upsertHistory} from "../db/repository.ts";
 
 class LocalStatement{
@@ -52,6 +52,32 @@ test("metrics rollup writes per-date index and median rows and skips sparse date
   // Daily mode is idempotent over the same date.
   await runMetricsRollup(db,{mode:"daily",series:testSeries});
   assert.equal((await readMetricSeries(db))["index:test"].length,1);
+});
+
+test("percentage-baseline indexes size membership to each date's cohort",async()=>{
+  const db=new LocalD1(await migratedDatabase());
+  await startIngestion(db,"live-daily:seed","tcgcsv-live","2026-08-28T00:00:00Z",{});
+  for(const [id,market] of [[1,100],[2,50],[3,20]])await upsertCard(db,card(id,market),"2026-08-28T00:00:00Z","live-daily:seed");
+  for(const [id,price] of [[1,100],[2,50],[3,20]])await upsertHistory(db,id,"Holofoil","Near Mint",[{date:day(1),price}],"now");
+  const pctSeries=[{key:"index:pct",select:"index",topPct:0.66,floor:3,where:"p.kind='single' and o.variant=p.printing and o.condition='Near Mint' and o.market_cents>0"}];
+  await runMetricsRollup(db,{mode:"backfill",series:pctSeries});
+  // 66% of a 3-observation cohort rounds to 2 members: mean of 100 and 50.
+  assert.deepEqual((await readMetricSeries(db))["index:pct"],[{date:day(1),value:75,members:2}]);
+});
+
+test("backfill statements are literal SQL that a bind-less runner can execute",async()=>{
+  const db=new LocalD1(await migratedDatabase());
+  await startIngestion(db,"live-daily:seed","tcgcsv-live","2026-08-28T00:00:00Z",{});
+  for(const [id,market] of [[1,100],[2,50],[3,20]])await upsertCard(db,card(id,market),"2026-08-28T00:00:00Z","live-daily:seed");
+  for(const [id,price] of [[1,100],[2,50],[3,20]])await upsertHistory(db,id,"Holofoil","Near Mint",[{date:day(1),price}],"now");
+  const statements=metricsBackfillStatements([{key:"index:test",select:"index",topN:2,floor:3,where:"p.kind='single' and o.variant=p.printing and o.condition='Near Mint' and o.market_cents>0"}]);
+  assert.equal(statements.length,2);
+  assert.match(statements[0],/^delete from market_daily_metrics where series='index:test'$/);
+  assert.doesNotMatch(statements[1],/\?/);
+  for(const statement of statements)await db.prepare(statement).bind().run();
+  assert.deepEqual((await readMetricSeries(db))["index:test"],[{date:day(1),value:75,members:2}]);
+  // The full production list generates two statements per series, all literal.
+  assert.equal(metricsBackfillStatements().length,METRIC_SERIES.length*2);
 });
 
 test("even cohorts take the mean of the two middle ranks as the median",async()=>{

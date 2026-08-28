@@ -873,9 +873,28 @@ chips on index cards (7D/30D/90D deltas); advancers-vs-decliners ratio bar; "his
 accumulating" instead of N/A chips for young sealed series; short `Cache-Control` on
 `/api/metrics`.
 
-Execution note: starts after the production Worker/D1 cutover completes; new sealed
-series backfill runs on production via the ops adapter before its ENVIRONMENT flips (or
-locally against production D1 if after).
+**Landed 2026-08-28 (staging-verified, awaiting production push):** All eight items plus
+the extras. Decisions taken at build: movers floor **$10/$20 on both ends of the move**
+(implied prior price must clear it too) plus symmetric sanity caps (7D moves beyond
++300%/−75% and 30D beyond +500%/−83% are listing-turnover noise, excluded and disclosed
+in the ⓘ); **Riftbound sealed imports from the existing category-89 walk** (73 upstream
+products vs 33 curated; riftbound-specific category taxonomy matching the curated feed,
+curated MSRPs merged by productId, bulk lots excluded, bundled feed still rides along
+for curated-only products; One Piece import deferred by user choice — stays at 23
+curated); small sealed indexes use **top-66%-of-cohort membership** (`topPct` SeriesDef,
+integer-rounded in SQL) with floors 20/12; Cases excluded from every sealed index
+uniformly. Payload rows carry game+kind and the client composes scopes (ALL = sums +
+combined series); momentum join fixed to include sealed (`variant='Sealed'` rows were
+silently dropped before — 3,721 sealed products now counted). Production backfill for
+new series: `node scripts/cloudflare/print-metrics-backfill.mjs --series …` →
+`wrangler d1 execute --remote --file` (ops adapter is off in production);
+`scripts/cloudflare/print-metrics-backfill.mjs` + `metricsBackfillStatements` are
+tested. Staging-verified in browser: scope/mode/URL sync, One Piece scope, sortable
+tables (aria-sort), movers window toggle, mobile 375px (no body overflow), category
+leaderboard, "history accumulating" states. Riftbound/One Piece sealed 66% indexes
+draw real backfilled charts; RS-50 Sealed / Pokémon Sealed-50 accumulate honestly
+(historical sealed observation depth is below their floors). Production will ingest
+the 73 riftbound sealed on its next daily live run.
 
 ## Decisions — resolved at review (2026-08-27)
 

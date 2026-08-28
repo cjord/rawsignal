@@ -33,3 +33,27 @@ export function isPokemonSealedProduct(product, group = {}) {
 export function normalizedProductKey(product, groupName = "") {
   return `${groupName}|${product.name}`.toLowerCase().replace(/[^a-z0-9|]+/g, " ").trim();
 }
+
+// Riftbound uses its own category taxonomy (established by the curated feed); rule order
+// matters — bundles before packs so "Sleeved Booster Pack Art Bundle" lands as a bundle.
+const RIFTBOUND_TYPE_RULES = [
+  ["Cases", /\bcase\b/i],
+  ["Collector bundles", /\b(player bundle|signature edition|art bundle|vault bundle|worlds bundle)\b/i],
+  ["Gift boxes", /\b(gift box|lunar revel bundle)\b/i],
+  ["Decks", /\bchampion deck\b/i],
+  ["Booster boxes", /\b(booster display|booster box)\b/i],
+  ["Boosters", /\b(booster pack|sleeved booster|promo pack)\b/i],
+];
+
+export function normalizeRiftboundProductType(name = "") {
+  return RIFTBOUND_TYPE_RULES.find(([, pattern]) => pattern.test(name))?.[0] ?? "Other";
+}
+
+// Unlike Pokémon, "Other" stays includable (box sets live there in the curated taxonomy);
+// bulk lots are the one sealed-shaped Riftbound listing that is not a product.
+export function isRiftboundSealedProduct(product) {
+  if (product.categoryId != null && Number(product.categoryId) !== 89) return false;
+  if (NON_PRODUCT.test(product.name ?? "") || /\bbulk\b/i.test(product.name ?? "")) return false;
+  if ((product.extendedData ?? []).some(field => /^(number|rarity)$/i.test(field.name) && String(field.value ?? "").trim())) return false;
+  return true;
+}

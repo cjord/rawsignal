@@ -48,8 +48,14 @@ const fixtures={
     prices:[{productId:107,marketPrice:9,lowPrice:8,midPrice:9,highPrice:10,subTypeName:"Holofoil"}],
   },
   "89:90":{
-    products:[{productId:301,name:"Rift Hero",imageUrl:"",url:"",extendedData:rarity("Rare")}],
-    prices:[{productId:301,marketPrice:3,lowPrice:2,midPrice:3,highPrice:4,subTypeName:"Normal"}],
+    products:[
+      {productId:301,name:"Rift Hero",imageUrl:"",url:"",extendedData:rarity("Rare")},
+      {productId:401,name:"Rift Set - Booster Display",imageUrl:"",url:"https://example.com/rbd",extendedData:[]},
+    ],
+    prices:[
+      {productId:301,marketPrice:3,lowPrice:2,midPrice:3,highPrice:4,subTypeName:"Normal"},
+      {productId:401,marketPrice:85,lowPrice:80,midPrice:86,highPrice:95,subTypeName:"Normal"},
+    ],
   },
 };
 const deps={
@@ -59,7 +65,11 @@ const deps={
     async prices(categoryId,groupId){return fixtures[`${categoryId}:${groupId}`].prices},
   },
   async fetchMsrp(){return new Map([[201,{msrp:120,matched:true}]])},
-  async loadBundledSealed(market){return [{game:market,productId:market==="riftbound"?401:402,name:`${market} Fixture Box`,set:"Bundle Set",category:"Booster Boxes",image:null,url:"https://example.com/b",msrp:null,marketPrice:80,midPrice:82,profit:null,profitPct:null,msrpSource:null}]},
+  // The curated riftbound feed shares product 401 with the walked group (MSRP merge + dedupe).
+  async loadBundledSealed(market){
+    if(market==="riftbound")return [{game:"riftbound",productId:401,name:"Rift Set - Booster Display",set:"Rift Set",category:"Booster boxes",image:null,url:"https://example.com/rbd",msrp:90,marketPrice:80,midPrice:82,profit:null,profitPct:null,msrpSource:"Asmodee/Riftbound MSRP"}];
+    return [{game:"onepiece",productId:402,name:"onepiece Fixture Box",set:"Bundle Set",category:"Booster Boxes",image:null,url:"https://example.com/b",msrp:null,marketPrice:80,midPrice:82,profit:null,profitPct:null,msrpSource:null}];
+  },
 };
 
 test("live ingestion walks groups with a record cursor and publishes once complete",async()=>{
@@ -68,8 +78,9 @@ test("live ingestion walks groups with a record cursor and publishes once comple
   assert.deepEqual({cursor:first.cursor,done:first.done,written:first.recordsWritten},{cursor:"0:2",done:false,written:2});
   assert.equal(await publishedIngestion(db,"daily-market"),null);
   const second=await runLiveDailyIngestionBatch(db,deps,{...options,batchSize:100});
-  // Group A card+promo+sealed, promo reprint (dedup), riftbound card, two bundled sealed markets.
-  assert.deepEqual({cursor:second.cursor,done:second.done,written:second.recordsWritten,duplicates:second.duplicateDecisions},{cursor:"5:0",done:true,written:6,duplicates:1});
+  // Group A card+promo+sealed, promo reprint (dedup), riftbound card+walked sealed,
+  // bundled riftbound duplicate (dedup), bundled onepiece.
+  assert.deepEqual({cursor:second.cursor,done:second.done,written:second.recordsWritten,duplicates:second.duplicateDecisions},{cursor:"5:0",done:true,written:6,duplicates:2});
   const published=await publishedIngestion(db,"daily-market");
   assert.equal(published?.runId,"live-daily:2026-08-28");
   assert.equal(published?.sourceUpdatedAt,"2026-08-28T20:00:00Z");
@@ -79,6 +90,12 @@ test("live ingestion walks groups with a record cursor and publishes once comple
   // Sealed pulled MSRP and bundled markets landed with the same run stamp.
   const sealedRow=await db.prepare("select msrp_cents as msrpCents from sealed_details where product_id=201").bind().first();
   assert.equal(sealedRow.msrpCents,12000);
+  // The walked riftbound sealed row won over the bundled duplicate (its live price stands)
+  // and merged the curated MSRP; the classifier assigned the riftbound taxonomy label.
+  const rift=await db.prepare(`select p.product_type as productType, cp.market_cents as marketCents, sd.msrp_cents as msrpCents
+    from catalog_products p join current_prices cp on cp.product_id=p.product_id join sealed_details sd on sd.product_id=p.product_id
+    where p.product_id=401`).bind().first();
+  assert.deepEqual({...rift},{productType:"Booster boxes",marketCents:8500,msrpCents:9000});
   const runs=await db.prepare("select count(distinct ingestion_run_id) as n from catalog_products").bind().first();
   assert.equal(runs.n,1);
 });

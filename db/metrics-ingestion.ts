@@ -10,16 +10,24 @@ import { completeIngestion, failIngestion, startIngestion, type D1DatabaseLike }
 // rows than the floor cannot be trusted to contain the true top of the market.
 // The sealed index excludes Pokémon Cases, consistent with the related-sealed decision.
 
-export type SeriesDef = { key: string; select: "index" | "median"; topN?: number; floor: number; where: string };
+export type SeriesDef = { key: string; select: "index" | "median"; topN?: number; topPct?: number; floor: number; where: string };
 
 const singlesBase = "p.kind='single' and o.variant=p.printing and o.condition='Near Mint' and o.market_cents>0";
-const sealedBase = "p.kind='sealed' and o.market_cents>0 and not (p.game='pokemon' and p.product_type='Cases')";
+// Cases are excluded from every sealed index (the Pokémon-cases decision, applied uniformly):
+// a case is the same product as its display at a multiplier, so it double-counts the top.
+const sealedBase = "p.kind='sealed' and o.market_cents>0 and p.product_type!='Cases'";
 
+// Small cohorts (Riftbound/One Piece sealed) index the top ~66% of each date's observations
+// (user decision 2026-08-28) instead of a fixed top-N — the baseline scales as the catalog
+// grows, and a fixed N near the cohort size would degrade into a plain mean.
 export const METRIC_SERIES: SeriesDef[] = [
   { key: "index:cards", select: "index", topN: 100, floor: 500, where: singlesBase },
   { key: "index:sealed", select: "index", topN: 50, floor: 100, where: sealedBase },
   { key: "index:pokemon-cards", select: "index", topN: 100, floor: 400, where: `${singlesBase} and p.game='pokemon'` },
   { key: "index:riftbound-cards", select: "index", topN: 50, floor: 100, where: `${singlesBase} and p.game='riftbound'` },
+  { key: "index:pokemon-sealed", select: "index", topN: 50, floor: 300, where: `${sealedBase} and p.game='pokemon'` },
+  { key: "index:riftbound-sealed", select: "index", topPct: 0.66, floor: 20, where: `${sealedBase} and p.game='riftbound'` },
+  { key: "index:onepiece-sealed", select: "index", topPct: 0.66, floor: 12, where: `${sealedBase} and p.game='onepiece'` },
   { key: "median:pokemon-singles", select: "median", floor: 400, where: `${singlesBase} and p.game='pokemon'` },
   { key: "median:riftbound-singles", select: "median", floor: 100, where: `${singlesBase} and p.game='riftbound'` },
 ];
@@ -28,19 +36,30 @@ export const METRIC_SERIES: SeriesDef[] = [
 // mean of the middle one or two ranked values. Dates must observe at least 75% of the
 // best-covered date's count — a sparse date understates even a top-N index because part of
 // the true top was simply not observed that day.
-function seriesSql(def: SeriesDef, dateFilter: string) {
+function seriesSql(def: SeriesDef, dateFilter: string, seriesValue = "?") {
   const ranked = `select o.observed_date d, o.market_cents v,
       row_number() over (partition by o.observed_date order by o.market_cents desc) rn,
       count(*) over (partition by o.observed_date) total
     from price_observations o join catalog_products p on p.product_id=o.product_id
     where ${def.where}${dateFilter}`;
   const covered = `select d, v, rn, total, max(total) over () as maxTotal from (${ranked})`;
+  const membership = def.topPct != null ? `rn <= max(1, cast(total * ${def.topPct} + 0.5 as integer))` : `rn <= ${def.topN}`;
   const filter = def.select === "index"
-    ? `rn <= ${def.topN} and total >= ${def.floor} and total >= 0.75 * maxTotal`
+    ? `${membership} and total >= ${def.floor} and total >= 0.75 * maxTotal`
     : `total >= ${def.floor} and total >= 0.75 * maxTotal and (rn = (total + 1) / 2 or rn = total / 2 + 1)`;
   return `insert into market_daily_metrics (series, observed_date, value_cents, members)
-    select ?, d, cast(round(avg(v)) as integer), ${def.select === "index" ? "count(*)" : "max(total)"} from (${covered}) where ${filter} group by d
+    select ${seriesValue}, d, cast(round(avg(v)) as integer), ${def.select === "index" ? "count(*)" : "max(total)"} from (${covered}) where ${filter} group by d
     on conflict(series, observed_date) do update set value_cents=excluded.value_cents, members=excluded.members`;
+}
+
+// A production backfill has no ops adapter (ENVIRONMENT=production disables it), so new
+// series seed through `wrangler d1 execute --remote --file` with fully-literal statements.
+export function metricsBackfillStatements(series: SeriesDef[] = METRIC_SERIES): string[] {
+  const dateFilter = " and o.observed_date>=date('now','-190 days')";
+  return series.flatMap(def => [
+    `delete from market_daily_metrics where series='${def.key}'`,
+    seriesSql(def, dateFilter, `'${def.key}'`),
+  ]);
 }
 
 export async function runMetricsRollup(db: D1DatabaseLike, options: { mode: "daily" | "backfill"; now?: Date; series?: SeriesDef[] }) {

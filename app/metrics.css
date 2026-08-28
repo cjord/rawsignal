@@ -1,13 +1,55 @@
-.metrics-head{margin-bottom:22px}
+.metrics-head{margin-bottom:18px}
 .metrics-head .kicker{color:var(--gray);font-size:var(--text-2xs);font-weight:850;letter-spacing:.1em;text-transform:uppercase}
 .metrics-head h1{margin:8px 0 6px;font-size:clamp(1.625rem,3.4vw,2.375rem);letter-spacing:-.045em;line-height:1.05}
 .metrics-head .detail-note{margin-top:4px}
-.metrics-overview{grid-template-columns:repeat(3,minmax(0,1fr))}
-.metrics-overview .detail-metric{min-height:104px}
-.metrics-changes{display:flex;gap:10px;margin-top:6px}
-.metrics-changes em{font:750 var(--text-2xs) var(--font-mono);font-style:normal;color:var(--gray)}
-.metrics-changes em.up{color:#29b878}
-.metrics-changes em.down{color:#e05454}
+
+/* Scope controls: mode + market, one visual language with the movers window switch. */
+.metrics-scope{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px}
+.metrics-seg{display:inline-flex;padding:3px;border:1px solid var(--line);border-radius:10px;background:var(--control)}
+.metrics-seg button{appearance:none;border:0;background:none;color:var(--gray);font:750 var(--text-2xs) var(--font-mono);text-transform:uppercase;letter-spacing:.06em;padding:6px 12px;border-radius:7px;cursor:pointer}
+.metrics-seg button:hover{color:var(--text)}
+.metrics-seg button.active{background:var(--bg);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
+.metrics-seg-small{margin-left:auto}
+.metrics-page .detail-section>header{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.metrics-page .detail-section>header h2{display:inline-flex;align-items:center;gap:8px}
+
+/* Overview: one card per market with the change windows as proper tone tiles. */
+.metrics-market-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.metrics-market-card{min-width:0;padding:15px 16px;border:1px solid var(--line);border-radius:12px;background:var(--control)}
+.metrics-market-card>header b{font-size:var(--text-sm);font-weight:800}
+.metrics-market-all{border-color:var(--text)}
+.metrics-market-value{font:800 var(--text-lg) var(--font-mono);margin-top:6px}
+.metrics-market-sub{display:block;color:var(--gray);font-size:var(--text-2xs);margin-top:2px}
+.metrics-window-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
+.metrics-window-tile{padding:8px 10px}
+.metrics-window-tile small{font-size:var(--text-2xs)}
+.metrics-window-tile b{font:800 var(--text-xs) var(--font-mono)}
+.metrics-window-tile b.up,.metrics-chip.up,.metrics-ratio-head em.up{color:#29b878}
+.metrics-window-tile b.down,.metrics-chip.down,.metrics-ratio-head em.down{color:#e05454}
+
+/* Movers: two ranked lists, rows linking to detail pages. */
+.metrics-movers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.metrics-mover-list{min-width:0;border:1px solid var(--line);border-radius:12px;background:var(--control);padding:13px 14px}
+.metrics-mover-list h3{margin:0 0 8px;font-size:var(--text-2xs);font-weight:850;letter-spacing:.08em;text-transform:uppercase;color:var(--gray)}
+.metrics-mover-list ol{list-style:none;margin:0;padding:0}
+.metrics-mover-list li{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
+.metrics-mover-list li:first-child{border-top:0}
+.metrics-mover-list a{flex:1;min-width:0;text-decoration:none;color:inherit}
+.metrics-mover-list a b{display:block;font-size:var(--text-xs);font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.metrics-mover-list a span{display:block;color:var(--gray);font-size:var(--text-2xs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.metrics-mover-list a:hover b{color:var(--blue);text-decoration:underline;text-underline-offset:3px}
+.metrics-mover-price{font:750 var(--text-2xs) var(--font-mono);color:var(--gray)}
+.metrics-chip{font:750 var(--text-2xs) var(--font-mono);white-space:nowrap}
+
+/* Breadth: advancer share bars ahead of the count tiles. */
+.metrics-ratio{margin-bottom:12px}
+.metrics-ratio-head{display:flex;justify-content:space-between;gap:10px;margin-bottom:5px;font-size:var(--text-2xs);color:var(--gray)}
+.metrics-ratio-head em{font-style:normal;font-weight:750;font-family:var(--font-mono)}
+.metrics-ratio-bar{height:8px;border-radius:4px;background:#e05454;overflow:hidden}
+.metrics-ratio-bar span{display:block;height:100%;background:#29b878}
+.metrics-breadth-tiles{margin-top:14px}
+
+/* Index cards. */
 .metrics-index-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .metrics-index-card{min-width:0;padding:15px 16px;border:1px solid var(--line);border-radius:12px;background:var(--control)}
 .metrics-index-card>header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
@@ -15,7 +57,16 @@
 .metrics-index-value{font:800 var(--text-lg) var(--font-mono)}
 .metrics-index-card .chart-wrap{width:100%}
 .metrics-index-card .sparkline{width:100%!important;height:120px}
+.metrics-index-card .metrics-window-tiles{margin-top:10px}
+
+/* Tables: sortable headers borrowing the main tables' sort marks; flat hover. */
+.metrics-table th button{appearance:none;border:0;background:none;color:inherit;font:inherit;font-weight:inherit;text-transform:inherit;letter-spacing:inherit;padding:0;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.metrics-table th button:hover{color:var(--text)}
+.metrics-table .sort-mark{color:var(--gray);font-size:.6rem}
+.metrics-table .sort-mark.active{color:var(--text)}
+.metrics-table tbody tr:hover{background:var(--control)}
 .metrics-page .detail-variants-table tbody th a:hover{color:var(--blue);text-decoration:underline;text-underline-offset:3px}
+
 .metrics-legend{display:flex;gap:16px;margin-bottom:8px;font-size:var(--text-2xs);font-weight:800;text-transform:uppercase;letter-spacing:.07em}
 .metrics-legend span{display:inline-flex;align-items:center;gap:6px;color:var(--gray)}
 .metrics-legend span::before{content:"";width:14px;height:3px;border-radius:2px}
@@ -23,4 +74,7 @@
 .legend-riftbound::before{background:var(--purple)}
 .metrics-page .detail-section .chart-canvas{min-height:180px}
 .metrics-page .detail-section>.chart-wrap .sparkline,.metrics-page .metrics-legend+.chart-wrap .sparkline{width:100%!important;height:190px}
-@media(max-width:900px){.metrics-overview{grid-template-columns:1fr}.metrics-index-grid{grid-template-columns:1fr}}
+
+@media(max-width:1100px){.metrics-index-grid{gap:12px}.metrics-market-grid{gap:12px}}
+@media(max-width:900px){.metrics-index-grid{grid-template-columns:1fr}.metrics-movers{grid-template-columns:1fr}.metrics-seg-small{margin-left:0}}
+@media(max-width:640px){.metrics-market-grid{grid-template-columns:1fr}.metrics-window-tiles{gap:6px}.metrics-index-card .sparkline{height:100px}}

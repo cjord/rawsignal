@@ -4,7 +4,7 @@ import type { Card, SealedProduct } from "../app/domain/types.ts";
 import { normalizeSinglesGroup } from "../scripts/normalize/singles.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import { normalizePokemonSealedProduct, preferredSealedPrice, sealedIdentity } from "../scripts/normalize/sealed.mjs";
+import { normalizePokemonSealedProduct, normalizeRiftboundSealedProduct, preferredSealedPrice, sealedIdentity } from "../scripts/normalize/sealed.mjs";
 import { persistRecord } from "./daily-ingestion.ts";
 import { checkpointIngestion, completeIngestion, failIngestion, readRefreshCursor, startIngestion, type D1DatabaseLike } from "./repository.ts";
 
@@ -41,27 +41,33 @@ async function buildWorkList(client: TcgcsvClient, now: Date): Promise<WorkEntry
   return entries;
 }
 
-async function loadEntryRecords(entry: WorkEntry, deps: LiveSyncDeps, msrp: () => Promise<Map<number, unknown>>, rejected: Record<string, number>): Promise<(Card | SealedProduct)[]> {
+async function loadEntryRecords(entry: WorkEntry, deps: LiveSyncDeps, msrp: () => Promise<Map<number, unknown>>, curatedRiftbound: () => Promise<Map<number, SealedProduct>>, rejected: Record<string, number>): Promise<(Card | SealedProduct)[]> {
   if (entry.type === "bundled") return deps.loadBundledSealed(entry.market);
   const [products, prices] = await Promise.all([deps.client.products(entry.categoryId, entry.group.groupId), deps.client.prices(entry.categoryId, entry.group.groupId)]);
   const normalized = normalizeSinglesGroup({ game: entry.game, group: entry.group, products, prices }) as { cards: Card[]; rejected: Record<string, number> };
   for (const [reason, count] of Object.entries(normalized.rejected)) rejected[reason] = (rejected[reason] ?? 0) + count;
   const records: (Card | SealedProduct)[] = [...normalized.cards].sort((a, b) => a.productId - b.productId);
-  if (entry.game === "pokemon") {
-    const msrpById = await msrp();
-    const pricesByProduct = new Map<number, Record<string, unknown>[]>();
-    for (const row of prices) { const id = Number(row.productId); const rows = pricesByProduct.get(id) ?? []; rows.push(row); pricesByProduct.set(id, rows); }
-    const sealed: SealedProduct[] = [], seenIdentity = new Set<string>();
-    for (const product of products) {
-      const normalizedSealed = normalizePokemonSealedProduct(product, entry.group, preferredSealedPrice(pricesByProduct.get(Number(product.productId))), msrpById.get(Number(product.productId))) as SealedProduct | null;
-      if (!normalizedSealed) continue;
-      const identity = sealedIdentity(product, entry.group) as string;
-      if (seenIdentity.has(identity)) continue;
-      seenIdentity.add(identity);
-      sealed.push(normalizedSealed);
-    }
-    records.push(...sealed.sort((a, b) => a.productId - b.productId));
+  const pricesByProduct = new Map<number, Record<string, unknown>[]>();
+  for (const row of prices) { const id = Number(row.productId); const rows = pricesByProduct.get(id) ?? []; rows.push(row); pricesByProduct.set(id, rows); }
+  // Sealed normalizes from the same group walk as singles. Pokémon MSRPs come from the
+  // published-MSRP feed; Riftbound MSRPs merge from the curated bundled feed (which still
+  // rides along afterward — first-occurrence dedupe keeps these walked rows and lets
+  // curated-only products land).
+  const sealed: SealedProduct[] = [], seenIdentity = new Set<string>();
+  const msrpById = entry.game === "pokemon" ? await msrp() : null;
+  const curatedById = entry.game === "riftbound" ? await curatedRiftbound() : null;
+  for (const product of products) {
+    const price = preferredSealedPrice(pricesByProduct.get(Number(product.productId)));
+    const normalizedSealed = (entry.game === "pokemon"
+      ? normalizePokemonSealedProduct(product, entry.group, price, msrpById?.get(Number(product.productId)))
+      : normalizeRiftboundSealedProduct(product, entry.group, price, curatedById?.get(Number(product.productId)))) as SealedProduct | null;
+    if (!normalizedSealed) continue;
+    const identity = sealedIdentity(product, entry.group) as string;
+    if (seenIdentity.has(identity)) continue;
+    seenIdentity.add(identity);
+    sealed.push(normalizedSealed);
   }
+  records.push(...sealed.sort((a, b) => a.productId - b.productId));
   return records;
 }
 
@@ -96,13 +102,15 @@ export async function runLiveDailyIngestionBatch(db: D1DatabaseLike, deps: LiveS
   if (!resumed) await startIngestion(db, runId, "tcgcsv-live", observedAt, { sourceUpdatedAt: options.sourceUpdatedAt, stats: { rejected: {} } });
   let msrpPromise: Promise<Map<number, unknown>> | null = null;
   const msrp = () => msrpPromise ??= deps.fetchMsrp();
+  let curatedRiftboundPromise: Promise<Map<number, SealedProduct>> | null = null;
+  const curatedRiftbound = () => curatedRiftboundPromise ??= deps.loadBundledSealed("riftbound").then(items => new Map(items.map(item => [item.productId, item])));
   try {
     const workList = await buildWorkList(deps.client, now);
     let remaining = budgetTotal, groupFetches = 0, processed = 0;
     while (remaining > 0 && groupIndex < workList.length && groupFetches < groupFetchCap) {
       const entry = workList[groupIndex];
       groupFetches++;
-      const records = await loadEntryRecords(entry, deps, msrp, rejected);
+      const records = await loadEntryRecords(entry, deps, msrp, curatedRiftbound, rejected);
       const slice = records.slice(recordOffset, recordOffset + remaining);
       const existing = slice.length ? await existingRunRows(db, runId, slice.map(record => record.productId)) : new Map<number, { kind: string; marketCents: number | null }>();
       for (const record of slice) {
