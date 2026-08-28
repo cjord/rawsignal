@@ -702,6 +702,15 @@ Medium/Simple toggle (persisted) adds the card-show **simple view** — large-ar
 with name, number, and captured price, where tapping toggles acquired (dimmed + check
 badge; all items stay listed). User decisions: tap-to-acquire, show-all-dim-acquired.
 
+**Buy list fullscreen (2026-08-28, user spec):** the Medium/Simple toggle is gone — the
+page always shows the detailed medium-art rows, and "The list" header gains a
+**⛶ Fullscreen** button opening a viewport overlay of just the list (no scoreboard, no
+page chrome): art + name + captured price tiles (number line removed), tap toggles
+acquired, Escape or ✕ leaves. A **Larger/Smaller** toggle (persisted) switches 1
+full-width tile per row vs 2 per row (the grid caps at 760px on desktop so full-width
+stays a phone behavior, where it belongs). Sort now defaults to **By price** and the
+fullscreen bar carries a live acquired-count.
+
 **Favorites in the signal slider (2026-08-28, user request):** the standalone
 favorites toggle is gone; **★ Favorites** is the slider's fourth entry on both singles
 and sealed — gold slider (`tone-favorites`, dark text for contrast), mutually exclusive
