@@ -5,9 +5,10 @@ import InfoHint from "./InfoHint";
 import PriceChart from "./PriceChart";
 import TopBar from "./TopBar";
 import {deriveHistoryMetrics} from "./domain/history-metrics";
+import {POKEMON_ERAS,eraLabel} from "./domain/eras";
 import {formatGameName,formatPercent,formatUsd} from "./domain/formatters";
 import type {PricePoint,SignalStrictness} from "./domain/types";
-import type {MetricsCategoryRow,MetricsMover,MetricsPayload,MetricsSetRow} from "./data/metrics-service";
+import type {MetricsCategoryRow,MetricsEraRow,MetricsMover,MetricsPayload,MetricsSetRow} from "./data/metrics-service";
 
 type Mode="singles"|"sealed";
 type Market="all"|"pokemon"|"riftbound"|"onepiece";
@@ -41,11 +42,32 @@ function ChangeTiles({change7,change30,change90}:{change7:number|null;change30:n
  </div>;
 }
 
-function IndexCard({seriesKey,points}:{seriesKey:string;points:PricePoint[]}){
- const meta=INDEX_META[seriesKey],latest=points.at(-1),deltas=changesOf(points);
- return <div className="metrics-index-card"><header><b>{meta.title}</b>{latest&&<span className="metrics-index-value">{formatUsd(latest.price)}</span>}</header>
-  {points.length>1?<><PriceChart points={points} label={meta.title}/><ChangeTiles {...deltas}/></>:<p className="detail-unavailable">History accumulating — this index needs more rolled-up days before it can draw a line.</p>}
-  <p className="detail-note">{meta.note}</p></div>;
+// Per-game median series pair with their index (audit N3): the index tracks the top of
+// the market, the median tracks the typical card — divergence between them is a signal.
+const MEDIAN_FOR:Record<string,string>={"index:pokemon-cards":"median:pokemon-singles","index:riftbound-cards":"median:riftbound-singles"};
+
+function IndexCard({seriesKey,points,medianPoints}:{seriesKey:string;points:PricePoint[];medianPoints?:PricePoint[]}){
+ const meta=INDEX_META[seriesKey];
+ const [view,setView]=useState<"index"|"median">("index");
+ const hasMedian=Boolean(medianPoints&&medianPoints.length>1);
+ const shown=view==="median"&&hasMedian?medianPoints as PricePoint[]:points;
+ const latest=shown.at(-1),deltas=changesOf(shown);
+ const accumulating=points.length<=1;
+ return <div className={`metrics-index-card ${accumulating?"is-accumulating":""}`}><header><b>{meta.title}</b>
+  {hasMedian&&!accumulating&&<div className="metrics-seg metrics-seg-small" role="tablist" aria-label={`${meta.title} series`}>{(["index","median"] as const).map(item=><button key={item} type="button" role="tab" aria-selected={view===item} className={view===item?"active":""} onClick={()=>setView(item)}>{item==="index"?"Index":"Median"}</button>)}</div>}
+  {latest&&<span className="metrics-index-value">{formatUsd(latest.price)}</span>}</header>
+  {shown.length>1?<><PriceChart points={shown} label={`${meta.title} ${view}`}/><ChangeTiles {...deltas}/></>:<p className="detail-unavailable">History accumulating — one rolled-up day so far; the line grows daily.</p>}
+  <p className="detail-note">{view==="median"&&hasMedian?"Median tracked card price each day — the typical card, where the index tracks the top of the market.":meta.note}</p></div>;
+}
+
+function EraTable({eras}:{eras:MetricsEraRow[]}){
+ const order=new Map(POKEMON_ERAS.map((era,index)=>[era.key,index]));
+ const rows=[...eras].sort((a,b)=>(order.get(a.era)??99)-(order.get(b.era)??99));
+ return <div className="detail-table-scroll"><table className="detail-variants-table metrics-table"><thead><tr>
+  <th scope="col">Era</th><th scope="col">Tracked value</th><th scope="col">Cards</th><th scope="col">Sets</th><th scope="col">30D momentum</th>
+ </tr></thead><tbody>
+  {rows.map(row=><tr key={row.era}><th scope="row">{eraLabel(row.era)}</th><td>{compactUsd(row.trackedValue)}</td><td>{row.cards.toLocaleString()}</td><td>{row.sets}</td><td><span className={`metrics-chip ${tone(row.change30)??""}`}>{pct(row.change30)}</span></td></tr>)}
+ </tbody></table></div>;
 }
 
 function SortTh<T extends string>({label,column,sort,direction,onSort}:{label:string;column:T;sort:T;direction:"asc"|"desc";onSort:(column:T)=>void}){
@@ -196,9 +218,10 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
      <div className="detail-metric"><small>Tracked products</small><b>{scoped.momentum.tracked.toLocaleString()}</b><span>{mode==="singles"?"Singles":"Sealed"} with current prices and stored metrics</span></div>
     </div></>}</section>
    <section className="detail-section"><header><span>Equal-weighted indexes</span><h2>Indexes<InfoHint label="About the indexes">Each index is the mean of that day&apos;s top prices in its scope, rebalanced daily. Days observing too little of the market are excluded, which is why some series start later than others.</InfoHint></h2></header>
-    <div className="metrics-index-grid">{visibleIndexKeys(mode,market).map(key=><IndexCard key={key} seriesKey={key} points={series[key]??[]}/>)}</div></section>
+    <div className="metrics-index-grid">{visibleIndexKeys(mode,market).map(key=><IndexCard key={key} seriesKey={key} points={series[key]??[]} medianPoints={MEDIAN_FOR[key]?series[MEDIAN_FOR[key]]:undefined}/>)}</div></section>
    {compareKeys&&<section className="detail-section"><header><span>Cross-market</span><h2>Pokémon vs Riftbound</h2></header>
     {pokemonBase.length>1&&riftboundBase.length>1?<><div className="metrics-legend"><span className="legend-pokemon">{INDEX_META[compareKeys[0]].title}</span><span className="legend-riftbound">{INDEX_META[compareKeys[1]].title}</span></div><PriceChart points={pokemonBase} overlay={riftboundBase} label="base-100 comparison"/><p className="detail-note">Each game&apos;s equal-weighted index rebased to 100 at the first shared rollup date. Values are index points, not dollars.</p></>:<p className="detail-unavailable">The comparison needs rolled-up history for both games.</p>}</section>}
+   {mode==="singles"&&(market==="all"||market==="pokemon")&&(payload.eras?.length??0)>0&&<section className="detail-section"><header><span>Pokémon by era</span><h2>Era performance<InfoHint label="About eras">Every tracked Pokémon set folded into its collector era (prefix first, release year otherwise). 30D momentum is the tracked-value-weighted mean of member sets&apos; median card changes — big sets move the era, minor sets don&apos;t swamp it.</InfoHint></h2></header><EraTable eras={payload.eras??[]}/></section>}
    {mode==="singles"?<section className="detail-section"><header><span>By set</span><h2>Set leaderboard<InfoHint label="About the leaderboard">Top sets by tracked singles value. 30D momentum is the median of member cards&apos; 30-day changes; Sealed 30D is the same for the set&apos;s sealed products — a gap between them flags rotation between the two markets. Pack EV is the expected chase-card value of one booster from community pull-rate estimates times current singles prices (bulk excluded); the multiple compares it against the cheapest live pack price — above 1× means ripping beats buying the singles at these prices. Set names link to the filtered leaderboard.</InfoHint></h2></header><SetTable sets={scoped?.sets??[]}/></section>
    :<section className="detail-section"><header><span>By category</span><h2>Category leaderboard<InfoHint label="About the leaderboard">Sealed products grouped by category. The median is the middle product price in the category; 30D momentum is the median of member products&apos; 30-day changes.</InfoHint></h2></header><CategoryTable categories={scoped?.categories??[]}/></section>}
    </>}

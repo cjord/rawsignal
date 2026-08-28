@@ -1,4 +1,5 @@
 import { deriveHistoryMetrics } from "../domain/history-metrics.ts";
+import { pokemonEra } from "../domain/eras.ts";
 import { evRatio, packChaseEv } from "../domain/pack-ev.ts";
 import type { PricePoint, PullRateConfig } from "../domain/types.ts";
 import { pullRateFor } from "./catalog-repository.ts";
@@ -24,6 +25,7 @@ export type MetricsOverviewRow = {
 };
 export type MetricsSetRow = { set: string; game: string; trackedValue: number; medianPrice: number; cards: number; change30: number | null; sealedChange30: number | null; packPrice: number | null; packEv: number | null; evRatio: number | null };
 export type MetricsCategoryRow = { category: string; game: string; trackedValue: number; medianPrice: number; products: number; change30: number | null };
+export type MetricsEraRow = { era: string; trackedValue: number; cards: number; sets: number; change30: number | null };
 export type MetricsMomentumRow = { game: string; kind: "single" | "sealed"; tracked: number; advancers7: number; decliners7: number; advancers30: number; decliners30: number; atHistoricHigh: number; atHistoricLow: number };
 export type MetricsMover = { productId: number; name: string; set: string; game: string; kind: "single" | "sealed"; price: number; change: number; window: "7d" | "30d"; direction: "up" | "down" };
 export type MetricsPayload = {
@@ -33,6 +35,7 @@ export type MetricsPayload = {
   overview: MetricsOverviewRow[];
   sets: MetricsSetRow[];
   sealedCategories: MetricsCategoryRow[];
+  eras: MetricsEraRow[];
   momentum: MetricsMomentumRow[];
   movers: MetricsMover[];
 };
@@ -200,6 +203,38 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options
     from medians m order by m.totalCents desc`).bind().all<CategoryRow>()).results ?? [];
   const sealedCategories: MetricsCategoryRow[] = categoryRows.map(row => ({ category: row.category, game: row.game, trackedValue: row.totalCents / 100, medianPrice: row.medianCents / 100, products: row.products, change30: row.change30Bps == null ? null : row.change30Bps / 100 }));
 
+  // Era performance (audit R2 / Phase D): every Pokémon set's totals and 30D median fold
+  // into collector eras in JS (prefix + year mapping) — era momentum is the tracked-value-
+  // weighted mean of member sets' median changes, honest to what each set contributes.
+  const eraSetRows = (await db.prepare(`with totals as (
+      select p.set_name setName, max(p.release_year) year, sum(cp.market_cents) totalCents, count(*) cards
+      from catalog_products p join current_prices cp on cp.product_id=p.product_id
+      where p.kind='single' and p.game='pokemon' and cp.market_cents is not null group by p.set_name
+    ), momentum as (
+      select p.set_name setName, mm.change_30_bps b,
+        row_number() over (partition by p.set_name order by mm.change_30_bps) rn,
+        count(*) over (partition by p.set_name) total
+      from catalog_products p join market_metrics mm on mm.product_id=p.product_id and mm.variant=p.printing
+      where p.kind='single' and p.game='pokemon' and mm.change_30_bps is not null
+    )
+    select t.setName, t.year, t.totalCents, t.cards,
+      (select avg(b) from momentum mo where mo.setName=t.setName and (mo.rn=(mo.total+1)/2 or mo.rn=mo.total/2+1)) as change30Bps
+    from totals t`).bind().all<{ setName: string; year: number | null; totalCents: number; cards: number; change30Bps: number | null }>()).results ?? [];
+  const eraFold = new Map<string, { trackedValue: number; cards: number; sets: number; weighted: number; weight: number }>();
+  for (const row of eraSetRows) {
+    const era = pokemonEra(row.setName, row.year);
+    const bucket = eraFold.get(era) ?? { trackedValue: 0, cards: 0, sets: 0, weighted: 0, weight: 0 };
+    bucket.trackedValue += row.totalCents / 100;
+    bucket.cards += row.cards;
+    bucket.sets += 1;
+    if (row.change30Bps != null) { bucket.weighted += (row.change30Bps / 100) * row.totalCents; bucket.weight += row.totalCents; }
+    eraFold.set(era, bucket);
+  }
+  const eras: MetricsEraRow[] = [...eraFold.entries()].map(([era, bucket]) => ({
+    era, trackedValue: bucket.trackedValue, cards: bucket.cards, sets: bucket.sets,
+    change30: bucket.weight > 0 ? bucket.weighted / bucket.weight : null,
+  }));
+
   const momentumRows = (await db.prepare(`select p.game, p.kind, count(*) as tracked,
       sum(case when mm.change_7_bps > 0 then 1 else 0 end) as advancers7,
       sum(case when mm.change_7_bps < 0 then 1 else 0 end) as decliners7,
@@ -248,5 +283,5 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options
     price: row.cents / 100, change: row.changeBps / 100, window: row.win, direction: row.direction,
   }));
 
-  return { generatedAt: new Date().toISOString(), rolledUpAt: published.lastSuccessAt, series, overview, sets, sealedCategories, momentum, movers };
+  return { generatedAt: new Date().toISOString(), rolledUpAt: published.lastSuccessAt, series, overview, sets, sealedCategories, eras, momentum, movers };
 }

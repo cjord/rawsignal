@@ -80,3 +80,8 @@
 @media(max-width:640px){.metrics-market-grid{grid-template-columns:1fr}.metrics-window-tiles{gap:6px}.metrics-index-card .sparkline{height:100px}}
 .metrics-ev{display:inline-flex;align-items:center;gap:6px;font:750 var(--text-2xs) var(--font-mono)}
 .metrics-ev em{font-style:normal}
+/* Accumulating index cards stay compact (audit H5): value + note, no chart-height void. */
+.metrics-index-card.is-accumulating{padding:12px 14px}
+.metrics-index-card.is-accumulating .detail-unavailable{margin:6px 0 4px;font-size:var(--text-xs)}
+.metrics-index-card>header .metrics-seg-small{margin-left:auto}
+.metrics-index-card>header .metrics-seg-small+.metrics-index-value{margin-left:10px}

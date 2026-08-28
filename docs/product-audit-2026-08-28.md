@@ -544,4 +544,18 @@ was already fully covered by the curated Bandai-sourced feed. Full provenance ta
 `docs/msrp-sources.md` (product | MSRP | source, per the user's request). Sealed-view
 copy updated to distinguish published from derived. New values flow to the database with
 each daily live run. Tests: derived-rule matrix + normalizer-precedence; gate 152/152 +
-4/4 Playwright.
+4/4 Playwright. Committed `8438d23`.
+
+**Phase D landed (2026-08-28, gated):** `app/domain/eras.ts` — Pokémon era mapping
+(prefix wins, release year breaks ties; boundary cases pinned by tests: EX Dragon 2003
+→ EX, Crown Zenith 2023 → SWSH, DP promos → DP). The metrics payload folds every
+Pokémon set into eras (tracked value, cards, sets, and tracked-value-weighted 30D
+momentum from member sets' median changes) and the metrics page gains an **Era
+performance** section (Pokémon/All singles scopes, canonical era order, ⓘ explains the
+weighting). Index cards gain the **median toggle** (N3 — Pokémon-100 and Riftbound-50
+switch between top-of-market index and typical-card median; divergence is the signal)
+and accumulating cards render compact (H5). Detail pages show a **liquidity chip**
+beside the market price (H3 v1): "N sold/30D" from TCGplayer completed-sale buckets,
+amber "Thin market" under 5 — unknown volume shows nothing rather than a guess.
+Deferred from Phase D: the leaderboard-page era filter (filter-system surgery, queued
+with the row-star styling pass). Gate: 153/153 node, lint, 4/4 Playwright.

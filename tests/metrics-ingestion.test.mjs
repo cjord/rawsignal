@@ -100,6 +100,11 @@ test("the metrics payload prices per-set pack EV from pull rates and live pack p
   assert.equal(set.packEv,9.375);
   assert.equal(set.packPrice,4);
   assert.equal(set.evRatio,9.375/4);
+  // Era rollup folds the fixture set (year 2026 → Mega era) with its tracked totals.
+  const era=payload.eras.find(row=>row.era==="me");
+  assert.equal(era.cards,2);
+  assert.equal(era.trackedValue,150);
+  assert.equal(era.sets,1);
 });
 
 test("even cohorts take the mean of the two middle ranks as the median",async()=>{
