@@ -11,7 +11,9 @@ export function CheckboxGrid({options,selected,onToggle,className="set-option-gr
  const grid=(items:CheckboxOption[])=><div className={className}>{items.map(option=><label className={option.className} key={option.key}><input type="checkbox" checked={selected.includes(option.key)} onChange={()=>onToggle(option.key)}/><span>{option.label}</span></label>)}</div>;
  const groups=[...new Set(options.map(option=>option.group).filter((value):value is string=>Boolean(value)))];
  if(groups.length<2)return grid(options);
- return <>{groups.map(group=><div key={group}><small className="option-group-label">{group}</small>{grid(options.filter(option=>option.group===group))}</div>)}{options.some(option=>!option.group)&&grid(options.filter(option=>!option.group))}</>;
+ // One shared scroll container: each market label sits above its full-width option
+ // cluster, and labels ride along with filtered search results.
+ return <div className="option-groups">{groups.map(group=><div className="option-group" key={group}><small className="option-group-label">{group}</small>{grid(options.filter(option=>option.group===group))}</div>)}{options.some(option=>!option.group)&&grid(options.filter(option=>!option.group))}</div>;
 }
 
 export function SearchableCheckboxGrid({legend,options,selected,onChange,searchLabel,allLabel="All sets",emptyNoun="sets",className="set-filters"}:{legend:string;options:CheckboxOption[];selected:string[];onChange:(values:string[])=>void;searchLabel:string;allLabel?:string;emptyNoun?:string;className?:string}){

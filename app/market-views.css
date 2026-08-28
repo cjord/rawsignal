@@ -281,9 +281,18 @@
   /* The panel's "All …" button reads as label + hint, not one run-together string. */
   .multi-select-panel>button.all{display:flex;align-items:baseline;gap:9px}
   .multi-select-panel>button.all small{color:var(--gray)}
-  /* Grouped options (the "all" market): a small market heading above each cluster. */
+  /* Grouped options (the "all" market): a small market heading above each full-width
+     cluster, all inside ONE scroll container — the set panels' own child-grid rules
+     must not turn the wrapper into a side-by-side grid or per-group scrollers. */
   .option-group-label{display:block;margin:10px 2px 7px;color:var(--gray);font-size:var(--text-2xs);font-weight:850;letter-spacing:.09em;text-transform:uppercase}
-  .option-group-label:first-child{margin-top:2px}
+  .option-group>.option-group-label{margin-top:2px}
+  .option-groups .option-group{display:block}
+  .option-group+.option-group{margin-top:14px}
+  .set-filters>.option-groups{display:block;max-height:260px;overflow:auto;padding:1px;grid-template-columns:none}
+  .set-filters .option-group>.set-option-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;max-height:none;overflow:visible;padding:0}
+  .multi-select-panel .option-groups{max-height:min(420px,55vh);overflow:auto}
+  .option-groups .multi-options{max-height:none;overflow:visible}
+  @media(max-width:420px){.set-filters .option-group>.set-option-grid{grid-template-columns:1fr}}
   /* Per-page sits on its own right-aligned line BELOW the pagination so the page
      numbers keep their own alignment. */
   .pagination-row{display:block}
