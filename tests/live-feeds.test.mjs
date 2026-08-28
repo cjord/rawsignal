@@ -32,6 +32,8 @@ const card=(productId,section,rarity,marketPrice)=>({game:"pokemon",section,prod
 const sealed={game:"pokemon",productId:9,name:"Fixture Booster Box",set:"Fixture Set",category:"Booster Boxes",image:null,url:"https://example.com/bb",msrp:120,marketPrice:150,midPrice:155,profit:30,profitPct:25,msrpSource:"Publisher"};
 
 test("live feed URLs map to sections and sealed markets, everything else stays static",()=>{
+  // Freshness answers from the Worker so the page never shows the build-time date (audit C1).
+  assert.deepEqual(liveFeedTarget("/data/freshness.json"),{kind:"freshness"});
   assert.deepEqual(liveFeedTarget("/data/illustration-rares.json"),{kind:"sections",sections:["illustration-rares"]});
   assert.deepEqual(liveFeedTarget("/data/illustration-and-special-rares.json"),{kind:"sections",sections:["illustration-rares","special-illustration-rares"]});
   assert.deepEqual(liveFeedTarget("/data/sealed-onepiece.json"),{kind:"sealed",market:"onepiece"});

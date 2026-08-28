@@ -43,7 +43,10 @@ const worker = {
       const liveFeed = await handleLiveFeed(request, env as unknown as StagingJobEnv);
       if (liveFeed) return liveFeed;
       // run_worker_first routes /data/* through here, so non-intercepted paths (detail
-      // chunks, manifests, configs) are served from the static assets explicitly.
+      // chunks, manifests, configs) are served from the static assets explicitly. Worker-only
+      // paths with no asset behind them (freshness) 404 quietly instead of erroring — the
+      // dev-workerd environment has no ASSETS binding on this code path at all.
+      if (!env.ASSETS?.fetch) return new Response(null, { status: 404 });
       return env.ASSETS.fetch(request);
     }
 

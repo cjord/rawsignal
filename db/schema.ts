@@ -141,6 +141,22 @@ export const marketSignals = sqliteTable("market_signals", {
   index("idx_market_signals_rank").on(table.side, table.strictness, table.score),
 ]);
 
+// Daily top-of-board snapshots (audit C3): the public track record accrues from the day
+// this table exists — the top 100 per side at balanced strictness, with the price that day.
+export const signalHistory = sqliteTable("signal_history", {
+  observedDate: text("observed_date").notNull(),
+  side: text("side", { enum: ["buy", "sell"] }).notNull(),
+  strictness: text("strictness").notNull(),
+  productId: integer("product_id").notNull().references(() => catalogProducts.productId, { onDelete: "cascade" }),
+  score: integer("score").notNull(),
+  priceCents: integer("price_cents").notNull(),
+  rank: integer("rank").notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.observedDate, table.side, table.productId] }),
+  check("signal_history_side_check", sql`${table.side} in ('buy','sell')`),
+  index("idx_signal_history_product").on(table.productId, table.observedDate),
+]);
+
 export const gradedPrices = sqliteTable("graded_prices", {
   productId: integer("product_id").primaryKey().references(() => catalogProducts.productId, { onDelete: "cascade" }),
   gradesJson: text("grades_json").notNull().default("{}"),

@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { createFeedCatalogRepository } from "../app/data/feed-catalog-repository.ts";
 import { createMemoryCatalogRepository } from "../app/data/catalog-repository.ts";
-import { calculateSealedScenario, querySealedCatalog, querySinglesCatalog } from "../app/data/catalog-query.ts";
+import { HOT_BOARD_LIMIT, calculateSealedScenario, querySealedCatalog, querySinglesCatalog } from "../app/data/catalog-query.ts";
 import { catalogRequestFromUrl, executeCatalogRequest } from "../app/data/catalog-service.ts";
 import { parseCards, parseSealedProducts } from "../app/domain/contracts.ts";
 
@@ -132,6 +132,21 @@ test("signal and movement filters consume the same derived catalog fields", asyn
   };
   const result = querySinglesCatalog(cards, singlesOptions({ market: "riftbound", signal: "buy", sort: "signal", up7: true }), derived);
   assert.deepEqual(result.items.map(card => card.productId), [selected.productId]);
+});
+
+test("hot boards curate to the top entries by score; the leaderboard stays exhaustive", async () => {
+  const cards = parseCards((await json("../public/data/overnumbered.json")).slice(0, 40));
+  const derived = Object.fromEntries(cards.map((card, index) => [card.productId, {
+    change7: null, change30: null, low30: null, high30: null,
+    signal: { side: "sell", score: 40 + index, confidence: "medium", reason: "Near high", detail: "x", distance: 1, cutoff: 4 },
+  }]));
+  const hot = querySinglesCatalog(cards, singlesOptions({ market: "riftbound", signal: "sell", sort: "signal", perPage: 50 }), derived);
+  assert.equal(hot.total, HOT_BOARD_LIMIT);
+  // The board holds the HIGHEST scores: the lowest-scoring cards were cut, not paginated.
+  const scores = hot.allItems.map(card => derived[card.productId].signal.score);
+  assert.equal(Math.min(...scores), 40 + cards.length - HOT_BOARD_LIMIT);
+  const leaderboard = querySinglesCatalog(cards, singlesOptions({ market: "riftbound", perPage: 50 }), derived);
+  assert.equal(leaderboard.total, cards.length);
 });
 
 test("catalog service returns a compact paged API response", async () => {

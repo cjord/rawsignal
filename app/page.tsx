@@ -37,7 +37,10 @@ import {
 } from "./state/market-query";
 import { useMarketQueryState } from "./state/useMarketQueryState";
 import { useCatalogPage } from "./data/useCatalogPage";
+import { useFreshness } from "./data/useFreshness";
+import InfoHint from "./InfoHint";
 import {
+  HOT_BOARD_LIMIT,
   filterSinglesCandidates,
   querySinglesCatalog,
 } from "./data/catalog-query";
@@ -90,7 +93,7 @@ const cardMeta = (card: Card) => {
 };
 const cardKey = (card: Card) => card.productId;
 
-const updated = new Date(index.sourceUpdatedAt).toLocaleDateString("en-US", {
+const updatedLabel = (iso: string) => new Date(iso).toLocaleDateString("en-US", {
   month: "short",
   day: "numeric",
   year: "numeric",
@@ -262,6 +265,7 @@ export default function Home() {
   const lastRegularSealedMarket = useRef<SealedGame>("pokemon");
   const [signalView, setSignalView] = useState<SignalSide>("leaderboard"),
     [strictness, setStrictness] = useState<SignalStrictness>("balanced");
+  const freshIso = useFreshness(index.sourceUpdatedAt);
   const [minPrice, setMinPrice] = useState(""),
     [maxPrice, setMaxPrice] = useState(""),
     [selectedSets, setSelectedSets] = useState<string[]>([]),
@@ -748,7 +752,7 @@ export default function Home() {
                 allLabel="All rarities"
                 searchable={false}
               />
-              <div>
+              <div className="ranked-stat">
                 <span>Cards ranked</span>
                 <strong>{index.totals[game].toLocaleString()}</strong>
                 <small>total in {formatGameName(game)}</small>
@@ -791,8 +795,18 @@ export default function Home() {
               }
               aside={
                 <span>
-                  {total.toLocaleString()} cards · updated {updated}
+                  {signalView === "leaderboard"
+                    ? `${total.toLocaleString()} cards · updated ${updatedLabel(freshIso)}`
+                    : `Top ${total.toLocaleString()} by signal score · ${strictness[0].toUpperCase() + strictness.slice(1)} strictness (change in ⚙) · updated ${updatedLabel(freshIso)}`}
                   {signalCoverage && ` · ${signalCoverage}`}
+                  {signalView !== "leaderboard" && (
+                    <InfoHint label="How signals work">
+                      Signals score proximity to a 30/90-day price extreme, the size of the
+                      swing it would retrace, and history depth. Buys additionally require
+                      the price to have bounced off its low and to not be falling this week.
+                      The board is the top {HOT_BOARD_LIMIT} by score.
+                    </InfoHint>
+                  )}
                 </span>
               }
             />

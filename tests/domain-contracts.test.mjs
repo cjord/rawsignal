@@ -76,15 +76,18 @@ test("applies the D1 migration and ingests a fixture idempotently",async()=>{
 
 test("daily ingestion is idempotent, observable, and publishes complete signal coverage",async()=>{
   const database=await migratedDatabase(),db=new LocalD1(database);
-  const snapshot={cards:[card],sealed:[],source:"fixture",sourceUpdatedAt:"2026-08-24T00:00:00Z",schemaVersion:1,rejected:{unsupported:2},duplicateDecisions:[{key:"duplicate"}]};
+  // Rising two-point history: the sell side signals at the fresh high, while the buy side
+  // stays empty by design — a price sitting on its low has no bounce evidence (audit C2).
+  const snapshot={cards:[{...card,marketPrice:9}],sealed:[],source:"fixture",sourceUpdatedAt:"2026-08-24T00:00:00Z",schemaVersion:1,rejected:{unsupported:2},duplicateDecisions:[{key:"duplicate"}]};
   await runDailyMarketIngestion(db,snapshot,new Date("2026-08-24T12:00:00Z"));
-  const second={...snapshot,cards:[{...card,marketPrice:9}],sourceUpdatedAt:"2026-08-25T00:00:00Z"};
+  const second={...snapshot,cards:[card],sourceUpdatedAt:"2026-08-25T00:00:00Z"};
   const result=await runDailyMarketIngestion(db,second,new Date("2026-08-25T12:00:00Z"));
   await runDailyMarketIngestion(db,second,new Date("2026-08-25T18:00:00Z"));
   assert.equal(result.recordsWritten,1);
   assert.equal(database.prepare("select count(*) as count from price_observations").get().count,2);
-  const signal=database.prepare("select side,strictness,coverage,observation_date as observationDate from market_signals where product_id=1 and side='buy' and strictness='balanced'").get();
-  assert.deepEqual({...signal},{side:"buy",strictness:"balanced",coverage:"exact",observationDate:"2026-08-25"});
+  const signal=database.prepare("select side,strictness,coverage,observation_date as observationDate from market_signals where product_id=1 and side='sell' and strictness='balanced'").get();
+  assert.deepEqual({...signal},{side:"sell",strictness:"balanced",coverage:"exact",observationDate:"2026-08-25"});
+  assert.equal(database.prepare("select count(*) as count from market_signals where product_id=1 and side='buy'").get().count,0);
   const published=await publishedIngestion(db);
   assert.equal(published.runId,"daily-market:2026-08-25");
   assert.equal(published.recordsRejected,2);

@@ -41,8 +41,13 @@ test("metrics rollup writes per-date index and median rows and skips sparse date
   await upsertHistory(db,1,"Holofoil","Near Mint",[{date:day(2),price:90},{date:day(1),price:100}],"now");
   await upsertHistory(db,2,"Holofoil","Near Mint",[{date:day(1),price:50}],"now");
   await upsertHistory(db,3,"Holofoil","Near Mint",[{date:day(1),price:20}],"now");
+  await db.prepare("insert into market_signals (product_id, side, strictness, score, confidence, reason, detail, distance_bps, cutoff_bps, as_of_date, observation_date, coverage) values (1,'buy','balanced',88,'high','Within 1% of 30-day low','fixture',100,225,'2026-08-28','2026-08-28','exact')").bind().run();
   const result=await runMetricsRollup(db,{mode:"backfill",series:testSeries});
   assert.equal(result.done,true);
+  // The rollup snapshots the day's balanced boards for the signal track record.
+  assert.equal(result.signalSnapshots,1);
+  const snapshot=await db.prepare("select side, product_id as productId, score, price_cents as priceCents, rank from signal_history").bind().first();
+  assert.deepEqual({...snapshot},{side:"buy",productId:1,score:88,priceCents:10000,rank:1});
   const series=await readMetricSeries(db);
   // Index = mean of the top 2 prices (100, 50); the sparse day never appears.
   assert.deepEqual(series["index:test"],[{date:day(1),value:75,members:2}]);
