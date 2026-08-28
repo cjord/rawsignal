@@ -136,10 +136,16 @@ export type CatalogDetailEnrichment = {
   source: DetailSource;
 };
 
+export type DetailPeerQuartiles = { min: number; q1: number; median: number; q3: number; max: number };
+
 export type DetailPeerContext = {
   label: string;
   averagePrice: number | null;
   count: number;
+  // 1-based market-price rank of this product within the cohort including itself (H2).
+  position: number | null;
+  cohortSize: number;
+  quartiles: DetailPeerQuartiles | null;
 };
 
 export type GradedGradeStat = {

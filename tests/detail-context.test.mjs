@@ -41,6 +41,27 @@ test("sealed peer context averages the same product type and skips unavailable p
   assert.equal(detail.peerContext.averagePrice, 60);
 });
 
+test("peer context ranks the card within its cohort and reports quartiles", async () => {
+  const repository = createMemoryCatalogRepository([
+    card(1, { marketPrice: 60 }),
+    card(2, { marketPrice: 100 }),
+    card(3, { marketPrice: 40 }),
+    card(4, { marketPrice: 20 }),
+    card(5, { marketPrice: 10 }),
+  ], []);
+  const detail = await repository.getDetail("single", 1);
+  // One peer (100) prices above this card's 60 -> rank 2 of the 5-card cohort.
+  assert.equal(detail.peerContext.position, 2);
+  assert.equal(detail.peerContext.cohortSize, 5);
+  // Peer-only quartiles over [10, 20, 40, 100].
+  assert.deepEqual(detail.peerContext.quartiles, { min: 10, q1: 17.5, median: 30, q3: 55, max: 100 });
+  // Fewer than four priced peers -> no quartile strip.
+  const sparse = await createMemoryCatalogRepository([card(1), card(2, { marketPrice: 30 })], []).getDetail("single", 1);
+  assert.equal(sparse.peerContext.quartiles, null);
+  assert.equal(sparse.peerContext.position, 2);
+  assert.equal(sparse.peerContext.cohortSize, 2);
+});
+
 test("set-scoped peer context averages only the same set and rarity", async () => {
   const repository = createMemoryCatalogRepository([
     card(1, { marketPrice: 100 }),

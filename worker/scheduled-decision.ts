@@ -1,4 +1,4 @@
-export type ScheduledAction = "live" | "details" | "graded" | "history" | "idle";
+export type ScheduledAction = "live" | "details" | "graded" | "metrics" | "history" | "idle";
 
 // Guard-cron policy (docs/todo.md G1): every tick advances at most one checkpointed batch,
 // and only when work is genuinely due.
@@ -12,6 +12,8 @@ export type ScheduledAction = "live" | "details" | "graded" | "history" | "idle"
 //   deploy, at most once per day; the FK filter inside the runner handles catalog drift.
 // - Graded rotation: once per day when the PokemonPriceTracker key is configured; the runner
 //   spends its own credit budget and stops on the API's rate headers.
+// - Metrics rollup: once per day, only after that day's live run completed — no fresh
+//   observations means nothing to roll up.
 // - History: the cron only CONTINUES a backfill that an operator started via the staging
 //   adapter (checkpoint exists, run not completed); it never starts one on its own.
 export function decideScheduledAction(input: {
@@ -26,6 +28,8 @@ export function decideScheduledAction(input: {
   gradedKeyConfigured: boolean;
   gradedPublishedRunId: string | null;
   gradedTodayRunId: string;
+  metricsPublishedRunId: string | null;
+  metricsTodayRunId: string;
   historyCheckpointRunId: string | null;
   historyPublishedRunId: string | null;
 }): ScheduledAction {
@@ -35,6 +39,7 @@ export function decideScheduledAction(input: {
   const detailsTodayCompleted = input.detailsPublishedRunId === input.detailsTodayRunId;
   if (!detailsIngested && !detailsTodayCompleted) return "details";
   if (input.gradedKeyConfigured && input.gradedPublishedRunId !== input.gradedTodayRunId) return "graded";
+  if (liveTodayCompleted && input.metricsPublishedRunId !== input.metricsTodayRunId) return "metrics";
   if (input.historyCheckpointRunId && input.historyCheckpointRunId !== input.historyPublishedRunId) return "history";
   return "idle";
 }

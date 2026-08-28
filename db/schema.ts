@@ -149,6 +149,15 @@ export const gradedPrices = sqliteTable("graded_prices", {
   index("idx_graded_prices_updated").on(table.updatedAt),
 ]);
 
+export const marketDailyMetrics = sqliteTable("market_daily_metrics", {
+  series: text("series").notNull(),
+  observedDate: text("observed_date").notNull(),
+  valueCents: integer("value_cents").notNull(),
+  members: integer("members").notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.series, table.observedDate] }),
+]);
+
 export const refreshState = sqliteTable("refresh_state", {
   key: text("key").primaryKey(),
   lastSuccessAt: text("last_success_at"),

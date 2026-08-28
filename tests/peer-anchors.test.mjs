@@ -47,8 +47,9 @@ async function seededDb(){
 test("peer anchors derive cohort daily averages from primary-printing observations",async()=>{
   const db=await seededDb();
   const anchor=await readPeerAnchor(db,"pokemon","Fixture Set","Illustration Rare");
-  // Day-1: card 1 at 10 alone; latest day: cards 1 (12) and 2 (8) average to 10.
-  assert.deepEqual(anchor,{current:10,cardCount:2,avg30:10,avg90:10,observations:2});
+  // The two-days-ago row saw only card 1 of the 2-card cohort — composition-incomplete days
+  // are dropped, so the summary rests on the latest complete day: cards 1 (12) and 2 (8).
+  assert.deepEqual(anchor,{current:10,cardCount:2,avg30:10,avg90:10,observations:1});
   // The Promo cohort stands alone and never mixes in.
   const promo=await readPeerAnchor(db,"pokemon","Fixture Set","Promo");
   assert.deepEqual(promo,{current:50,cardCount:1,avg30:50,avg90:50,observations:1});
@@ -59,5 +60,5 @@ test("peer anchors derive cohort daily averages from primary-printing observatio
 test("the D1 detail adapter exposes the derived peer anchor",async()=>{
   const db=await seededDb();
   const detail=await createD1CatalogRepository(db).getDetail("single",1);
-  assert.deepEqual(detail?.peerAnchor,{current:10,cardCount:2,avg30:10,avg90:10,observations:2});
+  assert.deepEqual(detail?.peerAnchor,{current:10,cardCount:2,avg30:10,avg90:10,observations:1});
 });

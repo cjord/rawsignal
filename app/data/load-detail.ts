@@ -47,7 +47,9 @@ export async function loadCatalogDetail(kind:CatalogKind,productId:number,market
  // to the published run would exclude every product an in-progress re-ingestion has touched.
  if(db&&productId>0)try{const started=performance.now();const published=await publishedIngestion(db);if(published){const pullRates=await cachedPullRates(origin,fetcher);const repositoryMs=performance.now()-started,queryStarted=performance.now();const detail=await createD1CatalogRepository(db,undefined,pullRates).getDetail(kind,productId,market);if(detail){recordTiming(detail,"d1",repositoryMs,performance.now()-queryStarted,false);return detail}}}catch(error){
   // Retain the generated detail snapshot while D1 is incomplete — but say why it fell back.
-  console.error(JSON.stringify({event:"d1_detail_failed",kind,productId,message:error instanceof Error?error.message:"Unknown failure"}));
+  // An unmigrated local database (dev) is the expected fallback, not an anomaly worth logging.
+  const message=error instanceof Error?error.message:"Unknown failure";
+  if(!/no such table/.test(message))console.error(JSON.stringify({event:"d1_detail_failed",kind,productId,message}));
  }
  if(kind==="sealed"&&market==="scalping")try{
   const repository=await cachedRepository(`scalping:${origin}`,async()=>{

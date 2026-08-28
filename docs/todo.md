@@ -601,6 +601,21 @@ lost the Graded Market section (first rotation: 44/45 updated, verified renderin
 Remaining detail-parity gaps on D1 pages: pull rates and the fair-value peer anchor
 (feed-only inputs) — small follow-up slice alongside peer accumulation.
 
+**Custom domain live 2026-08-28:** the user registered `rawsignal.cards` and routed it to
+the staging Worker — verified serving the full current stack (database feeds, D1 detail
+pages) over Cloudflare. The production-promotion hostname blocker is resolved; the
+remaining promotion steps are the one-week cron soak, D1 export + Time Travel bookmark,
+and the dedicated production Worker/D1 split decision.
+
+**H2 peer comparisons — LANDED 2026-08-28** (user-directed: keep the existing
+average-sentence lines for now; removal/hiding decided later). `peerAverage` gains
+cohort rank (`position`/`cohortSize`, market-desc, ties rank above) and peer-only
+quartiles (null under four priced peers). The hero peer block now shows: the kept
+average sentences with "#N of M (top P%)" appended, a quartile spread strip
+(min/median/max labels, IQR band, median tick, fair-gauge-style marker; hero-capped at
+520px), and a 30D momentum compare (cohort momentum from `peerAnchor.current` vs
+`avg30` · this card from client history).
+
 **live leaderboard feeds — LANDED 2026-08-28.** The UI-to-API question resolved with a
 far lighter design: `worker/live-feeds.ts` serves the exact `/data/<section>.json` and
 `/data/sealed-<market>.json` URLs the leaderboard already loads, from current D1 rows
@@ -777,6 +792,19 @@ revisited at build review: index series backfilled from D1 observations; "total 
 shows singles and sealed with a per-mode breakdown and One Piece sealed included in the
 comparisons; chart needs (multi-series overlay for the Riftbound-vs-Pokémon base-100
 view) sized during implementation.
+
+**Build decisions (2026-08-28, user):** Metrics gets a **TopBar link**; indexes are
+**both combined and per-game** (RS-100 Cards, RS-50 Sealed, Pokémon-100, Riftbound-50);
+history is the **honest sparse backfill** (per-date top-N from observations, gated by a
+per-date observation floor — the composition rule from peer anchors); **no Top Movers in
+v1**. Implementation shape: migration 0004 `market_daily_metrics` (series,
+observed_date, value_cents, members); `db/metrics-ingestion.ts` rollup (daily mode via a
+new cron `metrics` action that runs only after the day's live run completes; backfill
+mode via the adapter); sealed index excludes Pokémon Cases (consistent with related
+sealed); same-day figures (overview totals, set leaderboard via per-product
+`market_metrics.change_30_bps`, advance/decline counts) compute on request; one
+`/api/metrics` payload, edge-cached; page renders an explicit unavailable state without
+the database.
 
 ## Decisions — resolved at review (2026-08-27)
 

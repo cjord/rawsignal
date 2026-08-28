@@ -13,6 +13,7 @@ import { runDetailIngestionBatch } from "../db/detail-ingestion.ts";
 import { runGradedRotationBatch, type GradedRotationDeps } from "../db/graded-ingestion.ts";
 import { runHistoryBackfillBatch, type HistoryBackfillTarget } from "../db/history-backfill.ts";
 import { runLiveDailyIngestionBatch, type LiveSyncDeps, type TcgcsvClient } from "../db/live-ingestion.ts";
+import { runMetricsRollup } from "../db/metrics-ingestion.ts";
 import type { D1DatabaseLike } from "../db/repository.ts";
 
 const probeUserAgent = "RawSignal/7.0 (+validated daily market ingestion)";
@@ -140,6 +141,11 @@ export async function handleStagingJob(request: Request, env: StagingJobEnv): Pr
       const result = await runGradedRotationBatch(env.DB, gradedRotationDeps(env.POKEMONPRICETRACKER_API_KEY), { budget });
       return json({ job: "graded", result });
     }
+    if (input.job === "metrics") {
+      const mode = input.batchSize === 0 ? "daily" : "backfill";
+      const result = await runMetricsRollup(env.DB, { mode });
+      return json({ job: "metrics", result });
+    }
     if (input.job === "details") {
       const requested = typeof input.batchSize === "number" ? input.batchSize : 4;
       const chunkPaths = await loadDetailChunkPaths(request, env.ASSETS);
@@ -164,7 +170,7 @@ export async function handleStagingJob(request: Request, env: StagingJobEnv): Pr
       });
       return json({ job: "history", result });
     }
-    return json({ error: "Job must be live, daily, history, details, or graded" }, 400);
+    return json({ error: "Job must be live, daily, history, details, graded, or metrics" }, 400);
   } catch (error) {
     console.error(JSON.stringify({ event: "staging_job_failed", job: input.job, message: error instanceof Error ? error.message : "Unknown failure" }));
     return json({ error: "Staging job failed" }, 500);

@@ -33,7 +33,8 @@ test("scheduled ticks advance due work and never start history backfills",()=>{
  const liveDone={livePublishedUpdatedAt:probeUpdatedAt,livePublishedRunId:liveTodayRunId};
  const detailsDone={detailsPublishedUpdatedAt:deploySnapshotUpdatedAt,detailsPublishedRunId:detailsTodayRunId};
  const gradedTodayRunId="graded-rotation:2026-08-28",gradedDone={gradedPublishedRunId:gradedTodayRunId};
- const decide=overrides=>decideScheduledAction({probeUpdatedAt,livePublishedUpdatedAt:null,livePublishedRunId:null,liveTodayRunId,deploySnapshotUpdatedAt,detailsPublishedUpdatedAt:null,detailsPublishedRunId:null,detailsTodayRunId,gradedKeyConfigured:true,gradedPublishedRunId:null,gradedTodayRunId,historyCheckpointRunId:null,historyPublishedRunId:null,...overrides});
+ const metricsTodayRunId="metrics-rollup:2026-08-28",metricsDone={metricsPublishedRunId:metricsTodayRunId};
+ const decide=overrides=>decideScheduledAction({probeUpdatedAt,livePublishedUpdatedAt:null,livePublishedRunId:null,liveTodayRunId,deploySnapshotUpdatedAt,detailsPublishedUpdatedAt:null,detailsPublishedRunId:null,detailsTodayRunId,gradedKeyConfigured:true,gradedPublishedRunId:null,gradedTodayRunId,metricsPublishedRunId:null,metricsTodayRunId,historyCheckpointRunId:null,historyPublishedRunId:null,...overrides});
  // A TCGCSV publish not yet ingested is due, whether the mismatch is absence or staleness.
  assert.equal(decide({...detailsDone}),"live");
  assert.equal(decide({livePublishedUpdatedAt:"2026-08-27T20:04:00Z",livePublishedRunId:"live-daily:2026-08-27",historyCheckpointRunId:"history-backfill:2026-08-27"}),"live");
@@ -42,18 +43,22 @@ test("scheduled ticks advance due work and never start history backfills",()=>{
  // The probe timestamp is the snapshot identity: an ingested publish is never re-observed.
  assert.equal(decide({livePublishedUpdatedAt:probeUpdatedAt,livePublishedRunId:"live-daily:2026-08-27",...detailsDone,...gradedDone}),"idle");
  // At most one live run per day: a same-day re-publish waits for the midnight re-key.
- assert.equal(decide({livePublishedUpdatedAt:"2026-08-28T10:00:00Z",livePublishedRunId:liveTodayRunId,...detailsDone,...gradedDone}),"idle");
+ assert.equal(decide({livePublishedUpdatedAt:"2026-08-28T10:00:00Z",livePublishedRunId:liveTodayRunId,...detailsDone,...gradedDone,...metricsDone}),"idle");
  // Details are keyed to the deploy snapshot, at most once per day.
  assert.equal(decide({...liveDone}),"details");
  assert.equal(decide({...liveDone,detailsPublishedUpdatedAt:"2026-08-27T00:00:00Z",detailsPublishedRunId:"product-details:2026-08-27"}),"details");
  // Graded rotation runs once per day, only when its key is configured.
  assert.equal(decide({...liveDone,...detailsDone}),"graded");
  assert.equal(decide({...liveDone,...detailsDone,gradedPublishedRunId:"graded-rotation:2026-08-27"}),"graded");
- assert.equal(decide({...liveDone,...detailsDone,gradedKeyConfigured:false}),"idle");
+ assert.equal(decide({...liveDone,...detailsDone,gradedKeyConfigured:false,...metricsDone}),"idle");
+ // Metrics roll up once per day, only after that day's live run completed.
+ assert.equal(decide({...liveDone,...detailsDone,...gradedDone}),"metrics");
+ assert.equal(decide({...liveDone,...detailsDone,...gradedDone,metricsPublishedRunId:"metrics-rollup:2026-08-27"}),"metrics");
+ assert.equal(decide({livePublishedUpdatedAt:probeUpdatedAt,livePublishedRunId:"live-daily:2026-08-27",...detailsDone,...gradedDone}),"idle");
  // History advances only when an operator-started backfill is checkpointed but not complete.
- assert.equal(decide({...liveDone,...detailsDone,...gradedDone,historyCheckpointRunId:"history-backfill:2026-08-27"}),"history");
- assert.equal(decide({...liveDone,...detailsDone,...gradedDone,historyCheckpointRunId:"history-backfill:2026-08-27",historyPublishedRunId:"history-backfill:2026-08-27"}),"idle");
- assert.equal(decide({...liveDone,...detailsDone,...gradedDone}),"idle");
+ assert.equal(decide({...liveDone,...detailsDone,...gradedDone,...metricsDone,historyCheckpointRunId:"history-backfill:2026-08-27"}),"history");
+ assert.equal(decide({...liveDone,...detailsDone,...gradedDone,...metricsDone,historyCheckpointRunId:"history-backfill:2026-08-27",historyPublishedRunId:"history-backfill:2026-08-27"}),"idle");
+ assert.equal(decide({...liveDone,...detailsDone,...gradedDone,...metricsDone}),"idle");
 });
 
 const response=(source,items)=>new Response(JSON.stringify({source,items,total:items.length,page:1,pages:1,perPage:50,facets:{sets:["Set A"],productTypes:[]}}),{headers:{"Content-Type":"application/json"}});

@@ -10,10 +10,16 @@ export interface CatalogRepository {
 
 const emptySource={categoryId:null,groupId:null,setAbbreviation:null,publishedOn:null,modifiedOn:null,imageCount:null,isPresale:null,presaleNote:null,sourceUpdatedAt:null};
 
-// "Other" peers only: the product itself is excluded, and unavailable prices stay out of the average.
-function peerAverage(label:string,prices:(number|null)[]){
- const usable=prices.filter((price):price is number=>price!=null&&price>0);
- return {label,averagePrice:usable.length?usable.reduce((sum,price)=>sum+price,0)/usable.length:null,count:usable.length};
+// "Other" peers only: the product itself is excluded, and unavailable prices stay out of the
+// average. Rank and quartiles (H2) place this product within the cohort including itself.
+function peerAverage(label:string,prices:(number|null)[],current:number|null=null){
+ const usable=prices.filter((price):price is number=>price!=null&&price>0).sort((a,b)=>a-b);
+ const averagePrice=usable.length?usable.reduce((sum,price)=>sum+price,0)/usable.length:null;
+ const hasCurrent=current!=null&&current>0;
+ const position=hasCurrent&&usable.length?1+usable.filter(price=>price>current).length:null;
+ const quantile=(q:number)=>{const index=(usable.length-1)*q,low=Math.floor(index),high=Math.ceil(index);return usable[low]+(usable[high]-usable[low])*(index-low)};
+ const quartiles=usable.length>=4?{min:usable[0],q1:quantile(.25),median:quantile(.5),q3:quantile(.75),max:usable[usable.length-1]}:null;
+ return {label,averagePrice,count:usable.length,position,cohortSize:usable.length+(hasCurrent?1:0),quartiles};
 }
 
 // Curated community-measured packs-per-hit. Config keys may be a rarity string or a section
@@ -54,7 +60,7 @@ export function createMemoryCatalogRepository(cards: Card[], sealedProducts: Sea
         const tierCount=resolvedRate?uniqueCards.filter(item=>item.set===card.set&&(resolvedRate.bySection?item.section===card.section:item.rarity===card.rarity)).length:0;
         const cardPackPrice=resolvedRate!=null?packPriceForSet(card.set):null;
         const pullRate=resolvedRate!=null&&tierCount>0?{packsPerHit:resolvedRate.packsPerHit,packsPerCard:resolvedRate.packsPerHit*tierCount,packPrice:cardPackPrice,costPerCard:cardPackPrice!=null?resolvedRate.packsPerHit*tierCount*cardPackPrice:null}:null;
-        return {...card,kind:"single",image:card.image||null,exactTcgplayerUrl:exactTcgplayerUrl(card.url),metadata:enrichment?.metadata??[],priceVariants:enrichment?.priceVariants??[{printing:card.printing,marketPrice:card.marketPrice,lowPrice:card.lowPrice,directLowPrice:null,midPrice:card.midPrice,highPrice:card.highPrice}],source:enrichment?.source??emptySource,similar:similarCards(card,uniqueCards),marketRank:rank.rank,marketRankTotal:rank.total,peerContext:peerAverage(`${card.rarity} cards`,rarityPeers.map(item=>item.marketPrice)),setPeerContext:peerAverage(`${card.rarity} cards in ${card.set}`,setRarityPeers.map(item=>item.marketPrice)),pullRate,graded:gradedByProductId?.[String(card.productId)]??null,peerAnchor:peerAnchorsByCohort?.[`${card.game}|${card.set}|${card.rarity}`]??null,relatedSealed:cardRelatedSealed};
+        return {...card,kind:"single",image:card.image||null,exactTcgplayerUrl:exactTcgplayerUrl(card.url),metadata:enrichment?.metadata??[],priceVariants:enrichment?.priceVariants??[{printing:card.printing,marketPrice:card.marketPrice,lowPrice:card.lowPrice,directLowPrice:null,midPrice:card.midPrice,highPrice:card.highPrice}],source:enrichment?.source??emptySource,similar:similarCards(card,uniqueCards),marketRank:rank.rank,marketRankTotal:rank.total,peerContext:peerAverage(`${card.rarity} cards`,rarityPeers.map(item=>item.marketPrice),card.marketPrice),setPeerContext:peerAverage(`${card.rarity} cards in ${card.set}`,setRarityPeers.map(item=>item.marketPrice),card.marketPrice),pullRate,graded:gradedByProductId?.[String(card.productId)]??null,peerAnchor:peerAnchorsByCohort?.[`${card.game}|${card.set}|${card.rarity}`]??null,relatedSealed:cardRelatedSealed};
       }
       const candidates=market==="scalping"?uniqueSealed:uniqueSealed.filter(item=>!market||item.game===market),product=candidates.find(item=>item.productId===productId)??uniqueSealed.find(item=>item.productId===productId);if(!product)return null;
       const peers=uniqueSealed.filter(item=>item.game===product.game&&item.set===product.set&&item.category===product.category),rank=marketRank(product.marketPrice,peers.map(item=>item.marketPrice));
@@ -67,7 +73,7 @@ export function createMemoryCatalogRepository(cards: Card[], sealedProducts: Sea
       const tierGroups=new Map<string,{label:string;packsPerHit:number;cards:Card[]}>();
       for(const item of setCards){const resolved=pullRateFor(pullRateConfig,product.game,product.set,item);if(resolved==null)continue;const group=tierGroups.get(resolved.key)??{label:tierLabel(resolved.key,resolved.bySection),packsPerHit:resolved.packsPerHit,cards:[]};group.cards.push(item);tierGroups.set(resolved.key,group)}
       const pullRates:RarityPullRate[]=[...tierGroups.values()].map(group=>({rarity:group.label,cardCount:group.cards.length,packsPerHit:group.packsPerHit,costPerHit:packPrice!=null?group.packsPerHit*packPrice:null,averageMarket:group.cards.length?group.cards.reduce((sum,item)=>sum+item.marketPrice,0)/group.cards.length:null})).sort((a,b)=>(b.averageMarket??0)-(a.averageMarket??0));
-      return {...product,kind:"sealed",exactTcgplayerUrl:exactTcgplayerUrl(product.url),metadata:enrichment?.metadata??[],priceVariants:enrichment?.priceVariants??[{printing:"Sealed",marketPrice:product.marketPrice,lowPrice:null,directLowPrice:null,midPrice:product.midPrice,highPrice:null}],source:enrichment?.source??emptySource,similar:similarSealed(product,uniqueSealed),marketRank:rank.rank,marketRankTotal:rank.total,peerContext:peerAverage(product.category,categoryPeers.map(item=>item.marketPrice)),packPrice,chaseCards,relatedSealed,pullRates,graded:null};
+      return {...product,kind:"sealed",exactTcgplayerUrl:exactTcgplayerUrl(product.url),metadata:enrichment?.metadata??[],priceVariants:enrichment?.priceVariants??[{printing:"Sealed",marketPrice:product.marketPrice,lowPrice:null,directLowPrice:null,midPrice:product.midPrice,highPrice:null}],source:enrichment?.source??emptySource,similar:similarSealed(product,uniqueSealed),marketRank:rank.rank,marketRankTotal:rank.total,peerContext:peerAverage(product.category,categoryPeers.map(item=>item.marketPrice),product.marketPrice),packPrice,chaseCards,relatedSealed,pullRates,graded:null};
     },
   };
 }

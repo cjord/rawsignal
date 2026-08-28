@@ -21,6 +21,15 @@
 .detail-signals .detail-signal-card.detail-skeleton{border-radius:12px}
 .detail-history .detail-chart-loading+.detail-history-grid{margin-top:18px}
 .detail-hero .detail-peer-context{margin:14px 0 0;font-size:var(--text-xs)}.detail-hero .detail-peer-context+.detail-peer-context{margin-top:5px}
+.peer-percentile{color:var(--gray)}
+.peer-momentum{margin-top:5px}
+.peer-spread{margin:9px 0 2px}
+.peer-spread-track{position:relative;height:7px;border-radius:99px;background:var(--soft);border:1px solid var(--line)}
+.peer-spread-iqr{position:absolute;top:0;bottom:0;border-radius:99px;background:color-mix(in srgb,var(--blue) 26%,var(--soft))}
+.peer-spread-median{position:absolute;top:-2px;bottom:-2px;width:2px;transform:translateX(-50%);border-radius:2px;background:color-mix(in srgb,var(--gray) 75%,transparent)}
+.peer-spread-marker{position:absolute;top:50%;width:13px;height:13px;transform:translate(-50%,-50%);border-radius:50%;background:var(--surface);border:3px solid var(--blue);box-shadow:0 2px 8px #0005}
+.peer-spread-labels{display:flex;justify-content:space-between;margin-top:5px;color:var(--gray);font-size:var(--text-2xs);font-weight:750}
+.detail-hero .peer-spread{max-width:520px}
 /* Progressive enhancement: browsers with interpolate-size animate the expander open;
    others open instantly. */
 .detail-collapsible{interpolate-size:allow-keywords}

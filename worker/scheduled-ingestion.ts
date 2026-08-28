@@ -3,6 +3,7 @@ import { runDetailIngestionBatch } from "../db/detail-ingestion.ts";
 import { runGradedRotationBatch } from "../db/graded-ingestion.ts";
 import { runHistoryBackfillBatch } from "../db/history-backfill.ts";
 import { runLiveDailyIngestionBatch } from "../db/live-ingestion.ts";
+import { runMetricsRollup } from "../db/metrics-ingestion.ts";
 import { publishedIngestion, readRefreshCursor } from "../db/repository.ts";
 import { decideScheduledAction, type ScheduledAction } from "./scheduled-decision.ts";
 import { gradedRotationDeps, historyTargets, liveSyncDeps, loadDetailChunkPaths, loadStagingSnapshot, probeTcgcsvUpdatedAt, type StagingJobEnv } from "./staging-jobs.ts";
@@ -20,10 +21,11 @@ export async function runScheduledIngestionTick(env: StagingJobEnv): Promise<{ a
   if (!env.DB) return { action: "idle", detail: "No database binding" };
   const deploySnapshotUpdatedAt = env.CF_VERSION_METADATA?.timestamp ?? new Date().toISOString();
   const today = new Date().toISOString().slice(0, 10);
-  const [live, details, graded, historyCheckpoint, historyPublished] = await Promise.all([
+  const [live, details, graded, metrics, historyCheckpoint, historyPublished] = await Promise.all([
     publishedIngestion(env.DB, "daily-market"),
     publishedIngestion(env.DB, "product-details"),
     publishedIngestion(env.DB, "graded-rotation"),
+    publishedIngestion(env.DB, "metrics-rollup"),
     readRefreshCursor(env.DB, "history-backfill"),
     publishedIngestion(env.DB, "history-signals"),
   ]);
@@ -46,6 +48,8 @@ export async function runScheduledIngestionTick(env: StagingJobEnv): Promise<{ a
     gradedKeyConfigured: Boolean(env.POKEMONPRICETRACKER_API_KEY),
     gradedPublishedRunId: graded?.runId ?? null,
     gradedTodayRunId: `graded-rotation:${today}`,
+    metricsPublishedRunId: metrics?.runId ?? null,
+    metricsTodayRunId: `metrics-rollup:${today}`,
     historyCheckpointRunId: historyCheckpoint?.ingestionRunId ?? null,
     historyPublishedRunId: historyPublished?.runId ?? null,
   });
@@ -63,6 +67,10 @@ export async function runScheduledIngestionTick(env: StagingJobEnv): Promise<{ a
   if (action === "graded") {
     const result = await runGradedRotationBatch(env.DB, gradedRotationDeps(env.POKEMONPRICETRACKER_API_KEY!), { budget: 90 });
     return { action, detail: `${result.updated}/${result.targets} updated, ~${result.spent} credits${result.stopped ? ` (${result.stopped})` : ""}` };
+  }
+  if (action === "metrics") {
+    const result = await runMetricsRollup(env.DB, { mode: "daily" });
+    return { action, detail: `${result.series} series, ${result.seriesRows} rows` };
   }
   const snapshot = await loadStagingSnapshot(syntheticRequest, env.ASSETS, deploySnapshotUpdatedAt);
   const targets = historyTargets(snapshot);

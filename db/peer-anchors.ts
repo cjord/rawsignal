@@ -20,6 +20,13 @@ export async function readPeerAnchor(db: D1DatabaseLike, game: string, set: stri
       and o.observed_date>=date('now','-180 days')
     group by o.observed_date order by o.observed_date`).bind(game, set, rarity).all<CohortRow>()).results ?? [];
   if (!rows.length) return null;
-  const summary = (summarizePeerHistory({ cohort: rows }) as Record<string, PeerAnchorStats>).cohort;
+  // Backfilled history is composition-biased: sparse dates carry only a subset of the cohort
+  // (daily "averages" swing hundreds of dollars purely from which cards were observed), so
+  // only days observing at least 80% of the best-covered day count. Live daily ingestion
+  // writes the full cohort every day, so current data always passes.
+  const maxCount = Math.max(...rows.map(row => row.count));
+  const complete = rows.filter(row => row.count >= Math.ceil(maxCount * 0.8));
+  if (!complete.length) return null;
+  const summary = (summarizePeerHistory({ cohort: complete }) as Record<string, PeerAnchorStats>).cohort;
   return summary ?? null;
 }
