@@ -39,7 +39,9 @@ type PoolRow = { productId: number; updatedAt: string | null };
 
 export async function runGradedRotationBatch(db: D1DatabaseLike, deps: GradedRotationDeps, options: { budget?: number; poolSize?: number; now?: Date } = {}) {
   const budget = Math.max(2, Math.min(100, options.budget ?? 90));
-  const poolSize = Math.max(1, Math.min(1000, options.poolSize ?? 400));
+  // Research (audit Phase F): grading premiums matter for roughly the top 500-1,000 cards
+  // by raw value. 600 keeps every card's refresh inside ~two weeks at 45 fetches/day.
+  const poolSize = Math.max(1, Math.min(1000, options.poolSize ?? 600));
   const now = options.now ?? new Date(), startedAt = now.toISOString(), today = startedAt.slice(0, 10);
   const runId = `graded-rotation:${today}`;
   const wait = deps.wait ?? (ms => new Promise<void>(resolve => setTimeout(resolve, ms)));

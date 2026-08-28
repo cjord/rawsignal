@@ -574,4 +574,15 @@ not a TopBar market — revisitable), injected until the next feed regeneration.
 optional section as empty instead of failing every other section. Production ingests
 the JP groups on its next daily live run; until then the section shows an honest empty
 state. Liquidity flags (Phase D's chip) apply to JP detail pages automatically. Gate:
-153/153 node, lint, 4/4 Playwright.
+153/153 node, lint, 4/4 Playwright. Committed `90de302`.
+
+**Phase F landed (2026-08-28, gated — spend held per user):** the rotation already
+walked the top-value pool exactly as prescribed (audit assumption corrected — coverage
+was small purely from 45-fetches/day accrual time); its pool widens 400 → 600 (research:
+premiums matter for the top 500–1,000; 600 keeps refresh inside ~two weeks). Covered
+detail pages gain the **Grading edge** strip: raw→PSA 10 spread net of a stated ~$25
+bulk-fee estimate, with a plain verdict ("Worth grading / Marginal / Not worth the
+fee") and the honesty note that gem-rate risk is not priced in — shown only when PSA 10
+has ≥2 real sales and a raw price exists. PriceCharting inquiry + paid sources remain
+parked with the spend decision; Phase G (accounts/alerts/portfolio) stays deliberately
+later. Gate: 153/153 node, lint, 4/4 Playwright.

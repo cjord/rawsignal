@@ -112,11 +112,23 @@ function FairValuePanel({history,loading,current,midPrice,kind,peerAnchor}:{hist
 
 const gradeLabel=(key:string)=>{if(key==="ungraded")return "Raw (eBay)";const match=key.match(/^([a-z]+)([\d_]+)$/);return match?`${match[1].toUpperCase()} ${match[2].replace("_",".")}`:key.toUpperCase()};
 
+// PSA bulk-tier submissions run ~$25/card in 2026 — a stated estimate, not a quote.
+const GRADING_FEE_ESTIMATE=25;
+
 function GradedMarketSection({graded,current}:{graded:GradedCardData|null;current:number|null}){
  if(!graded)return null;
  const rows=Object.entries(graded.grades).filter(([,stat])=>stat.count>=2).sort((a,b)=>(b[1].smartPrice??b[1].median??0)-(a[1].smartPrice??a[1].median??0)).slice(0,10);
  if(!rows.length)return null;
+ // Grading edge (audit Phase F): the raw→PSA 10 spread net of the fee — the number a
+ // grading decision actually turns on, shown only when both sides are real.
+ const psa10=graded.grades["psa10"]??graded.grades["PSA 10"];
+ const psa10Anchor=psa10?(psa10.smartPrice??psa10.median):null;
+ const edge=psa10Anchor!=null&&current!=null&&psa10.count>=2?psa10Anchor-current-GRADING_FEE_ESTIMATE:null;
  return <section className="detail-section"><header><span>Graded market</span><h2>Graded sales</h2></header>
+  {edge!=null&&<div className="detail-history-grid detail-ev-grid">
+   <div className="detail-metric"><small>Grading edge (PSA 10)</small><b className={edge>0?"up":"down"}>{edge>0?"+":""}{formatUsd(edge)}</b><span>{formatUsd(psa10Anchor)} PSA 10 − {formatUsd(current)} raw − ~{formatUsd(GRADING_FEE_ESTIMATE)} fee</span></div>
+   <div className="detail-metric"><small>Verdict</small><b>{edge>50?"Worth grading":edge>0?"Marginal":"Not worth the fee"}</b><span>Gem-rate risk not priced in — a 9 usually is not</span></div>
+  </div>}
   <div className="detail-table-scroll"><table className="detail-variants-table"><thead><tr><th scope="col">Grade</th><th scope="col">Sales</th><th scope="col">Median</th><th scope="col">Smart market</th><th scope="col">Trend</th><th scope="col">Vs raw</th></tr></thead><tbody>
   {rows.map(([key,stat])=>{const anchor=stat.smartPrice??stat.median,multiple=anchor!=null&&current?anchor/current:null;return <tr key={key}><th scope="row">{gradeLabel(key)}</th><td>{stat.count.toLocaleString()}</td><td>{formatUsd(stat.median,"N/A")}</td><td>{formatUsd(stat.smartPrice,"N/A")}{stat.confidence&&<small className="grade-confidence">{stat.confidence}</small>}</td><td className={stat.trend??""}>{stat.trend==="up"?"▲ up":stat.trend==="down"?"▼ down":"—"}</td><td>{multiple!=null?`${multiple.toFixed(1)}×`:"N/A"}</td></tr>})}
   </tbody></table></div>
