@@ -600,3 +600,18 @@ key-gated (`ALPHAVANTAGE_API_KEY` Worker secret — key to be provided), rows la
 combined overview card gains a "vs S&P 500 (SPY)" 90D comparison line and every index
 card gains a **"vs S&P"** view — both series rebased to 100 at the first shared date.
 Gate: 156/156 node, lint, 4/4 Playwright.
+
+**Visual pass round 1 landed (2026-08-28, user review of staging):** favorite stars
+moved out of the hover popover onto the surfaces themselves — medium/text rows carry the
+star at the far right (singles, sealed, and the detail-page chase/related tables), full
+view pins it to the tile's top-right, large view overlays it on the card art (top-right,
+mirroring the rank pill). Mid price left the rows' Market column and joined the popover
+as a "Median" tile after Hist low (matching the full view's existing tile). Large view's
+7D/30D chips share one horizontal row. Sealed polish: popover/full tiles adopt the
+singles metric typography (capitalized "Market"/"Median" basis label included),
+"MSRP unavailable" → "Unavailable", and the "TCGplayer value" filler under row market
+prices is gone. The Hot Buy/Sell **top-25 cap is removed** (it was curation, not a
+performance limit — audit C2 superseded): the stabilization + liquidity gates now do the
+curating and the board paginates. The footer states the data-updated date (C1
+follow-through). Two items queued in docs/todo.md §I: mobile large-image view + tap
+model, and view-mode persistence across list surfaces.

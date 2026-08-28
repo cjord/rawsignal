@@ -896,6 +896,19 @@ draw real backfilled charts; RS-50 Sealed / Pokémon Sealed-50 accumulate honest
 (historical sealed observation depth is below their floors). Production will ingest
 the 73 riftbound sealed on its next daily live run.
 
+## I. Queued from the staging visual pass (2026-08-28)
+
+Deferred to a later phase at the user's direction:
+
+1. **Large image view on mobile** — the large-card grid needs a real phone treatment, and
+   the tap model currently conflicts: tapping a tile is expected to both reveal the history
+   popup and navigate to the single card/sealed detail page. Decide one tap model (e.g.
+   first tap = popup, explicit control = navigate) and apply it consistently.
+2. **View mode persists across list pages** — switching between Leaderboard / Hot Buys /
+   Hot Sells and Singles/Sealed should keep the selected view mode (large/medium/text/full)
+   instead of resetting per surface. Likely a localStorage device preference layered under
+   the URL param (an explicit URL view still wins on shared links).
+
 ## Decisions — resolved at review (2026-08-27)
 
 1. **B2**: Direct low **removed everywhere** (hero + printings table; field stays in data).

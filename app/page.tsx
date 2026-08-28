@@ -39,10 +39,10 @@ import { useMarketQueryState } from "./state/useMarketQueryState";
 import { useCatalogPage } from "./data/useCatalogPage";
 import { useFreshness } from "./data/useFreshness";
 import InfoHint from "./InfoHint";
+import FavoriteStar from "./FavoriteStar";
 import { cardFavorite, favoriteKey } from "./state/favorites";
 import { useFavorites } from "./state/useFavorites";
 import {
-  HOT_BOARD_LIMIT,
   filterSinglesCandidates,
   querySinglesCatalog,
 } from "./data/catalog-query";
@@ -143,6 +143,7 @@ const cardHistoryMetrics = (card: Card, history?: History): HistoryMetric[] => {
     { label: "30D low", value: usd(history?.low30 ?? null) },
     { label: "30D high", value: usd(history?.high30 ?? null) },
     { label: "Hist low", value: usd(history?.historyLow ?? null) },
+    { label: "Median", value: usd(card.midPrice) },
     movement("7 day", history?.change7),
     movement("30 day", history?.change30),
     movement("90 day", history?.change90),
@@ -235,7 +236,6 @@ function HoverCard({
       image={card.image}
       alt={`${card.name} card`}
       badge={signal && <SignalBadge signal={signal} />}
-      favorite={cardFavorite(card)}
       label={`${card.name} price history`}
     >
       <HistoryPanel
@@ -860,7 +860,7 @@ export default function Home() {
                       Signals score proximity to a 30/90-day price extreme, the size of the
                       swing it would retrace, and history depth. Buys additionally require
                       the price to have bounced off its low and to not be falling this week.
-                      The board is the top {HOT_BOARD_LIMIT} by score.
+                      The board lists every qualifying card, strongest signals first.
                     </InfoHint>
                   )}
                 </span>
@@ -972,6 +972,7 @@ export default function Home() {
               return (
                 <span className="signal-card-wrap" key={c.productId}>
                   {signal && <SignalBadge signal={signal} />}
+                  <span className="row-star"><FavoriteStar entry={cardFavorite(c)} /></span>
                   <a className="detail-link-card" href={`/cards/${c.productId}`} aria-label={`View ${c.name} details`}>
                     <FullCard card={c} history={h} rank={rank} />
                   </a>
@@ -1014,10 +1015,7 @@ export default function Home() {
                   {c.set}
                   <small>{c.year}</small>
                 </span>
-                <span className="market-price">
-                  {usd(c.marketPrice)}
-                  <small>Mid {usd(c.midPrice)}</small>
-                </span>
+                <span className="market-price">{usd(c.marketPrice)}</span>
                 <span className="low">{h ? usd(h.low30) : "…"}</span>
                 <span className="high">{h ? usd(h.high30) : "…"}</span>
                 <span
@@ -1030,6 +1028,7 @@ export default function Home() {
                 >
                   {h ? pct(h.change30) : "…"}
                 </span>
+                <span className="row-star"><FavoriteStar entry={cardFavorite(c)} /></span>
               </MarketRow>
             );
           })}
@@ -1112,7 +1111,7 @@ export default function Home() {
             TCGCSV
           </a>
           ; Near Mint market history from TCGplayer; sealed MSRP from publisher
-          sources.
+          sources. Data updated {updatedLabel(freshIso)}.
         </p>
       </footer>
     </main>

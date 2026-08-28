@@ -5,6 +5,7 @@ import {NumberedPagination,SegmentedView} from "./MarketUI";
 import HistoryPopover from "./leaderboard/HistoryPopover";
 import MarketRow from "./leaderboard/MarketRow";
 import ProductIdentity from "./leaderboard/ProductIdentity";
+import FavoriteStar from "./FavoriteStar";
 import {historyTargetKey,loadPriceHistoryBatch,type HistoryTarget} from "./data/usePriceHistoryBatch";
 import {formatPercent,formatRarity,formatUsd} from "./domain/formatters";
 import {cardFavorite,sealedFavorite} from "./state/favorites";
@@ -30,13 +31,14 @@ function useDetailHistory(targets:HistoryTarget[]){
  return history;
 }
 
-function historyMetrics(marketPrice:number|null,history?:PriceHistory):HistoryMetric[]{
+function historyMetrics(marketPrice:number|null,midPrice:number|null,history?:PriceHistory):HistoryMetric[]{
  const movement=(label:string,value:number|null|undefined):HistoryMetric=>({label,value:value===undefined?"…":pct(value??null),tone:movementTone(value)});
  return [
   {label:"Market",value:usd(marketPrice)},
   {label:"30D low",value:usd(history?.low30??null)},
   {label:"30D high",value:usd(history?.high30??null)},
   {label:"Hist low",value:usd(history?.historyLow??null)},
+  {label:"Median",value:usd(midPrice)},
   movement("7 day",history?.change7),
   movement("30 day",history?.change30),
   movement("90 day",history?.change90),
@@ -47,8 +49,8 @@ function TableHead({view,itemLabel}:{view:TableView;itemLabel:string}){
  return <div className={`table-head ${view}`} role="row"><span role="columnheader">Rank</span><span role="columnheader">{itemLabel}</span><span role="columnheader">Set</span><span role="columnheader">Market</span><span role="columnheader">30D Low</span><span role="columnheader">30D High</span><span role="columnheader">7D</span><span role="columnheader">30D</span><span aria-hidden="true"/></div>;
 }
 
-function RowCells({set,setNote,market,mid,history}:{set:string;setNote:string|null;market:number|null;mid:number|null;history?:PriceHistory}){
- return <><span className="set-name">{set}{setNote&&<small>{setNote}</small>}</span><span className="market-price">{usd(market)}<small>Mid {usd(mid)}</small></span><span className="low">{history?usd(history.low30):"…"}</span><span className="high">{history?usd(history.high30):"…"}</span><span className={`change change7 ${history?.change7!=null&&history.change7<0?"down":"up"}`}>{history?pct(history.change7):"…"}</span><span className={`change change30 ${history?.change30!=null&&history.change30<0?"down":"up"}`}>{history?pct(history.change30):"…"}</span></>;
+function RowCells({set,setNote,market,history}:{set:string;setNote:string|null;market:number|null;history?:PriceHistory}){
+ return <><span className="set-name">{set}{setNote&&<small>{setNote}</small>}</span><span className="market-price">{usd(market)}</span><span className="low">{history?usd(history.low30):"…"}</span><span className="high">{history?usd(history.high30):"…"}</span><span className={`change change7 ${history?.change7!=null&&history.change7<0?"down":"up"}`}>{history?pct(history.change7):"…"}</span><span className={`change change30 ${history?.change30!=null&&history.change30<0?"down":"up"}`}>{history?pct(history.change30):"…"}</span></>;
 }
 
 export function ChaseCardsSection({cards,packPrice,setName}:{cards:Card[];packPrice:number|null;setName:string}){
@@ -64,10 +66,11 @@ export function ChaseCardsSection({cards,packPrice,setName}:{cards:Card[];packPr
    const cardHistory=history[historyTargetKey({productId:card.productId,printing:card.printing})];
    const multiple=packPrice!=null&&packPrice>0?Math.round(card.marketPrice/packPrice):null;
    return <MarketRow className="leader-row" key={card.productId} href={`/cards/${card.productId}`} label={`View ${card.name} details`}
-    popover={<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={card.image} alt={`${card.name} card`} favorite={cardFavorite(card)} label={`${card.name} price history`}><HistoryPanel title="Near Mint market history" subtitle={cardHistory?.variant??card.printing} points={cardHistory?.points??[]} metrics={historyMetrics(card.marketPrice,cardHistory)}/></HistoryPopover>}>
+    popover={<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={card.image} alt={`${card.name} card`} label={`${card.name} price history`}><HistoryPanel title="Near Mint market history" subtitle={cardHistory?.variant??card.printing} points={cardHistory?.points??[]} metrics={historyMetrics(card.marketPrice,card.midPrice,cardHistory)}/></HistoryPopover>}>
     <span className="position">{String(index+1).padStart(2,"0")}</span>
     <ProductIdentity className="identity" image={card.image} alt="" title={card.name} meta={`${card.number} · ${formatRarity(card.rarity)} · ${card.printing}${multiple!=null&&multiple>1?` · ≈${multiple}× pack`:""}`}/>
-    <RowCells set={card.set} setNote={String(card.year)} market={card.marketPrice} mid={card.midPrice} history={cardHistory}/>
+    <RowCells set={card.set} setNote={String(card.year)} market={card.marketPrice} history={cardHistory}/>
+    <span className="row-star"><FavoriteStar entry={cardFavorite(card)}/></span>
    </MarketRow>;
   })}</div>
  </section>;
@@ -85,10 +88,11 @@ export function RelatedSealedSection({products,setName,market}:{products:SealedP
   <div className={`rows view-${view}`} role="rowgroup">{visible.map((product,index)=>{
    const productHistory=history[historyTargetKey({productId:product.productId,printing:"Sealed",sealed:true})];
    return <MarketRow className="leader-row" key={product.productId} href={`/sealed/${product.productId}${market?`?market=${market}`:""}`} label={`View ${product.name} details`}
-    popover={<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={product.image} alt={`${product.name} product`} favorite={sealedFavorite(product)} label={`${product.name} price history`}><HistoryPanel title="Sealed market history" subtitle="Unopened" points={productHistory?.points??[]} metrics={historyMetrics(product.marketPrice,productHistory)}/></HistoryPopover>}>
+    popover={<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={product.image} alt={`${product.name} product`} label={`${product.name} price history`}><HistoryPanel title="Sealed market history" subtitle="Unopened" points={productHistory?.points??[]} metrics={historyMetrics(product.marketPrice,product.midPrice,productHistory)}/></HistoryPopover>}>
     <span className="position">{String((page-1)*perPage+index+1).padStart(2,"0")}</span>
     <ProductIdentity className="identity" image={product.image} alt="" title={product.name} meta={product.category}/>
-    <RowCells set={product.set} setNote={product.msrp!=null?`MSRP ${usd(product.msrp)}`:null} market={product.marketPrice} mid={product.midPrice} history={productHistory}/>
+    <RowCells set={product.set} setNote={product.msrp!=null?`MSRP ${usd(product.msrp)}`:null} market={product.marketPrice} history={productHistory}/>
+    <span className="row-star"><FavoriteStar entry={sealedFavorite(product)}/></span>
    </MarketRow>;
   })}</div>
   {pages>1&&<NumberedPagination page={page} pages={pages} onChange={setPage} label={`${setName} sealed pages`}/>}

@@ -10,6 +10,7 @@ import {
 } from "./MarketUI";
 import SealedFilters from "./SealedFilters";
 import { SignalBadge } from "./SignalControls";
+import FavoriteStar from "./FavoriteStar";
 import { sealedFavorite } from "./state/favorites";
 import {
   marketSignal,
@@ -392,7 +393,7 @@ export default function SealedView({
         label="sealed market"
         metrics={[
           { label: "MSRP", value: usd(product.msrp) },
-          { label: basis, value: usd(result.value) },
+          { label: basis === "market" ? "Market" : "Median", value: usd(result.value) },
           { label: "30D low", value: usd(h?.low30 ?? null) },
           { label: "30D high", value: usd(h?.high30 ?? null) },
           { label: "Hist low", value: usd(h?.historyLow ?? null) },
@@ -784,6 +785,7 @@ export default function SealedView({
           return (
             <span className="signal-card-wrap" key={product.productId}>
               {signal && <SignalBadge signal={signal} />}
+              <span className="row-star"><FavoriteStar entry={sealedFavorite(product)} /></span>
               <a className="detail-link-card" href={`/sealed/${product.productId}${isScalpingMarket?"?market=scalping":""}`} aria-label={`View ${product.name} details`}>
                <FullMarketCard
                 className="sealed-full-card"
@@ -818,7 +820,6 @@ export default function SealedView({
                 image={product.image}
                 alt={`${product.name} product`}
                 badge={signal && <SignalBadge signal={signal} />}
-                favorite={sealedFavorite(product)}
                 label={`${product.name} price history`}
               >
                 {rowDetails(product, result, h)}
@@ -842,7 +843,7 @@ export default function SealedView({
               <b>{usd(product.msrp)}</b>
               <small>
                 {product.msrp == null
-                  ? "MSRP unavailable"
+                  ? "Unavailable"
                   : scenario.taxOn
                     ? `Cost ${usd(result.cost)}`
                     : product.msrpSource}
@@ -850,13 +851,11 @@ export default function SealedView({
             </span>
             <span data-label={basis === "market" ? "Market" : "Median"}>
               <b>{usd(result.value)}</b>
-              <small>
-                {priced
-                  ? scenario.keepPct < 100
-                    ? `Proceeds ${usd(result.proceeds)}`
-                    : "TCGplayer value"
-                  : "No TCGplayer data"}
-              </small>
+              {(!priced || scenario.keepPct < 100) && (
+                <small>
+                  {priced ? `Proceeds ${usd(result.proceeds)}` : "No TCGplayer data"}
+                </small>
+              )}
             </span>
             <span
               data-label="Profit"
@@ -883,6 +882,7 @@ export default function SealedView({
                   : `${result.profitPct! >= 0 ? "+" : ""}${result.profitPct!.toFixed(1)}%`}
               </b>
             </span>
+            <span className="row-star"><FavoriteStar entry={sealedFavorite(product)} /></span>
           </MarketRow>
         );
       })}

@@ -6,9 +6,6 @@ export type CatalogDerived = Pick<PriceHistory, "change7" | "change30" | "low30"
   signal: MarketSignal | null;
 };
 
-// Curated depth of the Hot Buy / Hot Sell boards (audit C2).
-export const HOT_BOARD_LIMIT = 25;
-
 export type CatalogPage<T> = {
   items: T[];
   allItems: T[];
@@ -155,19 +152,15 @@ export function querySinglesCatalog(cards: Card[], options: SinglesCatalogQuery,
     sections: [...new Set(marketCards.map(card => card.section))].sort(),
     productTypes: [],
   };
-  let filtered = filterSinglesCandidates(marketCards, options).filter(card => {
+  const filtered = filterSinglesCandidates(marketCards, options).filter(card => {
     const metrics = derived[card.productId];
     return movementMatches(metrics?.change7, options.up7, options.down7)
       && movementMatches(metrics?.change30, options.up30, options.down30)
       && (options.signal === "leaderboard" || Boolean(metrics?.signal));
   });
-  // Hot boards are curated, not exhaustive (audit C2): hundreds of simultaneous "hot" rows
-  // read as noise. The board holds the top entries by score; user sorts rearrange those.
-  if (options.signal !== "leaderboard") {
-    filtered = [...filtered]
-      .sort((a, b) => nullableCompare(derived[a.productId]?.signal?.score, derived[b.productId]?.signal?.score, "desc"))
-      .slice(0, HOT_BOARD_LIMIT);
-  }
+  // Hot boards list every qualifying signal (top-N curation removed 2026-08-28): the
+  // stabilization and liquidity gates already keep weak entries off, and pagination
+  // handles depth. Default score ordering comes from the "signal" sort below.
   filtered.sort((a, b) => {
     const am = derived[a.productId], bm = derived[b.productId];
     if (options.sort === "name") return textCompare(a.name, b.name, options.direction);

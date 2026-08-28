@@ -50,6 +50,3 @@
 .favorites-toggle.active{color:#e8b93e;border-color:color-mix(in srgb,#e8b93e 55%,var(--line))}
 .signal-navigation .hot-add-button{align-self:center}
 @media(max-width:620px){.signal-navigation .hot-add-button{width:100%;justify-content:center;min-height:38px}}
-/* Popover star (user decision 2026-08-28): compact, pinned to the hover card's corner —
-   rows stay clean and the star appears exactly when a product is being inspected. */
-.popover-star{position:absolute;top:8px;right:8px;z-index:7;min-width:32px;min-height:32px;font-size:.95rem;border-radius:9px;background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(3px)}
