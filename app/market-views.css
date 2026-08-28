@@ -276,9 +276,12 @@
   .controls>.multi-select .multi-select-label,.sealed-toolbar>.multi-select .multi-select-label{font-size:var(--text-2xs);font-weight:850;letter-spacing:.08em;text-transform:uppercase;color:var(--gray)}
   .controls>.multi-select .multi-select-control,.sealed-toolbar>.multi-select .multi-select-control{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
   .controls>.multi-select .multi-select-control b,.sealed-toolbar>.multi-select .multi-select-control b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--text-sm)}
-  /* Same chevron treatment as the Filters button's .filter-chevron. */
-  .controls>.multi-select .multi-select-control i,.sealed-toolbar>.multi-select .multi-select-control i{color:var(--gray);font:800 1rem/1 var(--font-sans);font-style:normal;transition:transform .2s,color .16s}
-  .controls>.multi-select[open] .multi-select-control i,.sealed-toolbar>.multi-select[open] .multi-select-control i{transform:rotate(180deg);color:var(--blue)}
+  /* Same chevron treatment as the Filters button's .filter-chevron — centered against
+     the whole 56px button, not riding the value line (the panel is absolutely
+     positioned, so the details box stays summary-sized as an anchor). */
+  .controls>.multi-select .multi-select-control,.sealed-toolbar>.multi-select .multi-select-control{padding-right:20px}
+  .controls>.multi-select .multi-select-control i,.sealed-toolbar>.multi-select .multi-select-control i{position:absolute;right:13px;top:50%;transform:translateY(-50%);color:var(--gray);font:800 1rem/1 var(--font-sans);font-style:normal;transition:transform .2s,color .16s}
+  .controls>.multi-select[open] .multi-select-control i,.sealed-toolbar>.multi-select[open] .multi-select-control i{transform:translateY(-50%) rotate(180deg);color:var(--blue)}
   /* The panel's "All …" button reads as label + hint, not one run-together string. */
   .multi-select-panel>button.all{display:flex;align-items:baseline;gap:9px}
   .multi-select-panel>button.all small{color:var(--gray)}
