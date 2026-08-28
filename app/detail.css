@@ -60,6 +60,9 @@
    tint only, matching the rest of the site — no lifts. */
 .detail-metric{transition:border-color .16s}
 .detail-metric:hover{border-color:color-mix(in srgb,var(--blue) 35%,var(--line))}
+/* Toned tiles respond in their own color, not the neutral blue. */
+.detail-metric:has(>b.up):hover{border-color:color-mix(in srgb,#29b878 62%,var(--line))}
+.detail-metric:has(>b.down):hover{border-color:color-mix(in srgb,#e05454 62%,var(--line))}
 .detail-variants-table tbody tr{transition:background-color .12s}
 .detail-variants-table tbody tr:hover{background:var(--control-hover)}
 .detail-facts>div,.detail-metadata>div{transition:background-color .12s}

@@ -4,7 +4,7 @@ import useDismissibleDetails from "./filters/useDismissibleDetails";
 import {CheckboxGrid,toggleSelection} from "./filters/CheckboxGrid";
 import {filterSelectionOptions} from "./filters/selection";
 
-export type MultiOption={key:string;label:string};
+export type MultiOption={key:string;label:string;group?:string};
 
 export default function MultiSelectField({label,options,selected,onChange,allLabel="All",searchable=true}:{label:string;options:MultiOption[];selected:string[];onChange:(values:string[])=>void;allLabel?:string;searchable?:boolean}){
  const root=useDismissibleDetails(),[query,setQuery]=useState(""),allSelected=!selected.length||selected.length===options.length,visible=useMemo(()=>filterSelectionOptions(options,query),[options,query]),summary=allSelected?allLabel:selected.length===1?(options.find(option=>option.key===selected[0])?.label??selected[0]):`${selected.length} selected`,allKeys=options.map(option=>option.key);

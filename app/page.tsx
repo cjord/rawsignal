@@ -333,7 +333,7 @@ export default function Home() {
       ...(target === "pokemon" && !index.rarities.pokemon.some((option) => option.key === "japanese-promos")
         ? [{ key: "japanese-promos", label: "Japanese Promos" }]
         : []),
-    ].filter((option) => option.key !== "all");
+    ].filter((option) => option.key !== "all").map((option) => ({ ...option, group: formatGameName(target) }));
   const rarityOptions = game === "all"
       ? [...gameRarityOptions("pokemon"), ...gameRarityOptions("riftbound")]
       : gameRarityOptions(game),
@@ -442,6 +442,13 @@ export default function Home() {
     () => new Set(favorites.entries.filter((entry) => entry.kind === "single").map((entry) => entry.productId)),
     [favorites.entries],
   );
+  // Set → market map for grouped filter options; headings only surface on the all scope
+  // (a single market yields one group, which renders flat).
+  const setGames = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const card of cards) map[card.set] = formatGameName(card.game);
+    return map;
+  }, [cards]);
   const scopedCards = useMemo(
     () => (favoritesOnly ? cards.filter((card) => favoriteSingleIds.has(card.productId)) : cards),
     [cards, favoritesOnly, favoriteSingleIds],
@@ -842,9 +849,12 @@ export default function Home() {
                 />
               }
               aside={
-                <span>
+                <span className="section-aside">
                   {signalView === "leaderboard"
-                    ? `${total.toLocaleString()} cards · ${(game === "all" ? index.totals.pokemon + index.totals.riftbound : index.totals[game]).toLocaleString()} ranked in ${game === "all" ? "all markets" : formatGameName(game)} · updated ${updatedLabel(freshIso)}`
+                    ? <>
+                        <span>{total.toLocaleString()} cards · {(game === "all" ? index.totals.pokemon + index.totals.riftbound : index.totals[game]).toLocaleString()} ranked in {game === "all" ? "all markets" : formatGameName(game)}</span>
+                        <span>updated {updatedLabel(freshIso)}</span>
+                      </>
                     : `Top ${total.toLocaleString()} by signal score · ${strictness[0].toUpperCase() + strictness.slice(1)} strictness (change in ⚙) · updated ${updatedLabel(freshIso)}`}
                   {signalCoverage && ` · ${signalCoverage}`}
                   {signalView !== "leaderboard" && (
@@ -877,6 +887,7 @@ export default function Home() {
                 options={rarityOptions.map((option) => ({
                   key: option.key,
                   label: displayLabel(option.label),
+                  group: option.group,
                 }))}
                 selected={selectedRarities}
                 onChange={(values) => {
@@ -888,6 +899,7 @@ export default function Home() {
               />
               <CardFilters
                 sets={availableSets}
+                setGroups={setGames}
                 selectedSets={selectedSets}
                 onSets={(value) => {
                   setSelectedSets(value);

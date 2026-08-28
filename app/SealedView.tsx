@@ -208,6 +208,12 @@ export default function SealedView({
     () => (favoritesOnly ? products.filter((product) => favoriteSealedIds.has(product.productId)) : products),
     [products, favoritesOnly, favoriteSealedIds],
   );
+  // Set → market map so the sets filter clusters by game on the all/scalping scopes.
+  const setGames = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const product of products) map[product.set] = formatGameName(product.game);
+    return map;
+  }, [products]);
   const persistedSignals = usePersistedSignals({
     kind: "sealed",
     market: game,
@@ -662,6 +668,7 @@ export default function SealedView({
           <SealedFilters
             showProfit={isScalping}
             sets={sets}
+            setGroups={setGames}
             selectedSets={selectedSets}
             onSets={(values) => {
               setSelectedSets(values);

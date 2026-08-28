@@ -276,12 +276,22 @@
   .controls>.multi-select .multi-select-label,.sealed-toolbar>.multi-select .multi-select-label{font-size:var(--text-2xs);font-weight:850;letter-spacing:.08em;text-transform:uppercase;color:var(--gray)}
   .controls>.multi-select .multi-select-control,.sealed-toolbar>.multi-select .multi-select-control{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
   .controls>.multi-select .multi-select-control b,.sealed-toolbar>.multi-select .multi-select-control b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--text-sm)}
-  .controls>.multi-select .multi-select-control i,.sealed-toolbar>.multi-select .multi-select-control i{color:var(--gray);font-style:normal}
-  .pagination-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px 16px}
-  .pagination-row>nav{min-width:0}
-  .per-page-control{display:inline-flex;align-items:center;gap:8px}
+  .controls>.multi-select .multi-select-control i,.sealed-toolbar>.multi-select .multi-select-control i{color:var(--gray);font-style:normal;transition:transform .18s,color .16s}
+  .controls>.multi-select[open] .multi-select-control i,.sealed-toolbar>.multi-select[open] .multi-select-control i{transform:rotate(180deg);color:var(--blue)}
+  /* The panel's "All …" button reads as label + hint, not one run-together string. */
+  .multi-select-panel>button.all{display:flex;align-items:baseline;gap:9px}
+  .multi-select-panel>button.all small{color:var(--gray)}
+  /* Grouped options (the "all" market): a small market heading above each cluster. */
+  .option-group-label{display:block;margin:10px 2px 7px;color:var(--gray);font-size:var(--text-2xs);font-weight:850;letter-spacing:.09em;text-transform:uppercase}
+  .option-group-label:first-child{margin-top:2px}
+  /* Per-page sits on its own right-aligned line BELOW the pagination so the page
+     numbers keep their own alignment. */
+  .pagination-row{display:block}
+  .pagination-row .per-page-control{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:8px}
   .per-page-control>span{color:var(--gray);font-size:var(--text-2xs);font-weight:850;letter-spacing:.08em;text-transform:uppercase}
   .per-page-control select{min-height:38px;padding:0 30px 0 10px;border:1px solid var(--line);border-radius:9px;background:var(--control);color:var(--text);font-weight:700}
+  /* The header aside stacks its two data lines, both right-aligned. */
+  .section-aside{display:flex;flex-direction:column;align-items:flex-end;gap:3px;text-align:right}
   .sealed-aside{display:flex;flex-direction:column;align-items:flex-end;gap:9px}
   .sealed-count-line{color:var(--gray);font-size:var(--text-xs);white-space:nowrap}
   .sealed-count-line strong{color:var(--text);font:800 var(--text-md) var(--font-mono)}

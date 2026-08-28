@@ -13,10 +13,31 @@
 .buylist-check{display:inline-flex}
 .buylist-check input{width:22px;height:22px;accent-color:var(--blue);cursor:pointer}
 
-.buylist-identity{min-width:0;text-decoration:none;color:inherit}
+/* Detailed rows carry medium art like the other list views (rework 2026-08-28). */
+.buylist-identity{display:flex;align-items:center;gap:11px;min-width:0;text-decoration:none;color:inherit}
+.buylist-identity>.deferred-image{width:48px;height:65px;flex:0 0 48px;border-radius:6px}
+.buylist-identity>.deferred-image img{width:100%;height:100%;object-fit:contain}
+.buylist-text{min-width:0}
 .buylist-identity b{display:block;font-size:var(--text-base);font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.buylist-identity span{display:block;color:var(--gray);font-size:var(--text-xs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.buylist-identity .buylist-meta{display:block;color:var(--gray);font-size:var(--text-xs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .buylist-identity:hover b{color:var(--blue);text-decoration:underline;text-underline-offset:3px}
+
+/* View toggle + the quick-scan simple grid: large art, name, number, captured price.
+   Tapping a tile toggles acquired; acquired tiles dim but stay listed (user decisions). */
+.buylist-view-row{display:flex;justify-content:flex-end;margin-bottom:14px}
+.buylist-view-toggle{grid-template-columns:repeat(2,96px)!important}
+.buylist-simple-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.buylist-tile{position:relative;display:flex;flex-direction:column;gap:5px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--control);color:var(--text);text-align:left;cursor:pointer;transition:border-color .16s,background-color .16s,opacity .16s}
+.buylist-tile:hover{border-color:color-mix(in srgb,var(--blue) 42%,var(--line));background:var(--control-hover)}
+.buylist-tile:focus-visible{outline:3px solid color-mix(in srgb,var(--blue) 55%,transparent);outline-offset:2px}
+.buylist-tile>.deferred-image{width:100%;height:auto;aspect-ratio:5/7;background:transparent;border-radius:8px}
+.buylist-tile>.deferred-image img{width:100%;height:100%;object-fit:contain}
+.buylist-tile b{font-size:var(--text-sm);line-height:1.3}
+.buylist-tile small{color:var(--gray);font-size:var(--text-2xs)}
+.buylist-tile strong{font:800 var(--text-md) var(--font-mono)}
+.buylist-tile-check{position:absolute;top:8px;right:8px;display:none;width:27px;height:27px;place-items:center;border-radius:50%;background:#29b878;color:#fff;font-style:normal;font-weight:800}
+.buylist-tile.acquired{opacity:.55;border-color:color-mix(in srgb,#29b878 45%,var(--line))}
+.buylist-tile.acquired .buylist-tile-check{display:grid}
 
 .buylist-price{text-align:right}
 .buylist-price b{display:block;font:800 var(--text-base) var(--font-mono)}

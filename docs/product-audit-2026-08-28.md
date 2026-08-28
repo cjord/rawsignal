@@ -689,6 +689,19 @@ metric tiles/tables/facts/signal cards, Title Case section headers ("Price Histo
 "Pull Rates", …), and the Sale Scenario panel is hidden pending its queued rework
 (todo §I.3).
 
+**Navigation polish round (2026-08-28, user review of the rework):** per-page moved to
+its own right-aligned line below the pagination (page numbers keep their alignment);
+the relocated Rarity/Product-type selectors got a rotating chevron and a properly
+spaced "All …" panel button; **filter options cluster by market** — rarities and both
+sets filters render small Pokémon/Riftbound(/One Piece) headings whenever more than one
+game is in scope (shared `group` support in CheckboxGrid/MultiSelectField, set→game maps
+built client-side); the header aside stacks onto two right-aligned lines (counts, then
+updated date); detail-page toned tiles hover in their own green/red instead of blue.
+**Buy list rework**: detailed rows now carry medium art like other list views, and a
+Medium/Simple toggle (persisted) adds the card-show **simple view** — large-art tiles
+with name, number, and captured price, where tapping toggles acquired (dimmed + check
+badge; all items stay listed). User decisions: tap-to-acquire, show-all-dim-acquired.
+
 **Favorites in the signal slider (2026-08-28, user request):** the standalone
 favorites toggle is gone; **★ Favorites** is the slider's fourth entry on both singles
 and sealed — gold slider (`tone-favorites`, dark text for contrast), mutually exclusive
