@@ -91,11 +91,28 @@ node scripts/cloudflare/prepare-deployment.mjs --environment production --route 
 
 Do not deploy this config until staging parity, backup verification, DNS ownership, Access/preview policy, monitoring, and a rollback window are approved.
 
-## Next implementation slice
+## Status — cutover completed 2026-08-28
 
-1. Confirm the Cloudflare account and provision only the staging Worker/D1 resources.
-2. Add an authenticated staging-only execution adapter for daily ingestion and history backfill.
-3. Run migrations and seed staging; keep Cron disabled.
-4. Prove database-backed catalog and signal parity.
-5. Add monitoring and then enable a daily staging schedule.
-6. Plan production hostname, backups, and cutover separately.
+All slices of this runbook are done. Final topology: production Worker `raw-signal`
+serves `rawsignal.cards` (custom domain; workers.dev off; `ENVIRONMENT=production`;
+guard Cron `*/2`) on D1 `raw-signal-production`; sandbox Worker `raw-signal-staging`
+keeps its workers.dev URL and `raw-signal-staging` D1 with no schedule (stale by
+design — update only when deliberately testing ingestion changes).
+
+Execution notes from the split:
+
+1. The production Worker was commissioned with `ENVIRONMENT=staging` + workers.dev on
+   so the ops adapter could seed its database (live → details → history → metrics, plus
+   a graded carry-over from staging); the cutover deploy flipped it to production shape,
+   which disabled the adapter.
+2. Fresh-catalog drift is real: products in build-time snapshots (details, history
+   targets, graded carry-over) can be absent from a freshly ingested catalog. History
+   batches now skip such targets (`skippedMissingCatalog`); manual seeds must filter
+   by existing `catalog_products` rows first.
+3. Wrangler moved the custom domain between Workers in one deploy — no manual dashboard
+   release was needed.
+4. Pre-cutover D1 exports and Time Travel bookmarks for both databases live in
+   `backups/` (gitignored), named `*-2026-08-28-pre-cutover.*`.
+
+Rollback order: re-attach `rawsignal.cards` to `raw-signal-staging` (its Worker and D1
+are intact); restore from the exports or Time Travel bookmarks; dormant Sites last.

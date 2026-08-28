@@ -21,9 +21,10 @@ export function prepareDeploymentConfig(base,{environment,databaseId,databaseNam
  config.images={binding:"IMAGES"};
  config.version_metadata={binding:"CF_VERSION_METADATA"};
  config.vars={...(config.vars??{}),ENVIRONMENT:environment};
- // Only staging may carry a schedule, and only when explicitly requested (--cron / env);
- // production never inherits one — its schedule is a separate cutover decision.
- config.triggers=environment==="staging"&&cron?.trim()?{crons:[cron.trim()]}:{};
+ // A schedule exists only when explicitly requested (--cron / env) — never inherited from
+ // the base config. Since the 2026-08-28 split, production is ingestion's home and carries
+ // the guard cron; staging runs one only while deliberately testing ingestion changes.
+ config.triggers=cron?.trim()?{crons:[cron.trim()]}:{};
  config.observability={...(config.observability??{}),enabled:true};
  if(environment==="production")config.routes=[{pattern:route.trim(),custom_domain:true}];else delete config.routes;
  return config;

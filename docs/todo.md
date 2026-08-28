@@ -700,6 +700,22 @@ catch now logs `d1_detail_failed`.
 **Effort/risk.** Large; spans sessions; every mutation step gated on you. Nothing here
 starts without the Gate 0 items.
 
+**7. Production Worker/D1 split — COMPLETED 2026-08-28 (user decisions: split yes, fresh
+backfill, production-only ingestion, same-day cutover).** New Worker `raw-signal` + D1
+`raw-signal-production` (`af781f30-9cb1-4e5d-a396-7fd927e9a23b`) commissioned via the ops
+adapter (temporary `ENVIRONMENT=staging` + workers.dev), seeded fresh in one sitting:
+live catalog (228 groups), 16,825 detail enrichments, 15,981 history targets (97.9% with
+data, 50 snapshot-drift targets skipped — the seed exposed and fixed a history-backfill
+FK failure: batches now skip targets missing from the catalog, `skippedMissingCatalog`
+stat, covered in domain-contracts tests), 43 graded rows carried over (1 delisted product
+dropped), metrics rollup. Parity passed (all 6 cases, database-backed both sides);
+pre-cutover D1 exports + Time Travel bookmarks in `backups/`. Cutover deploy attached
+`rawsignal.cards` + `*/2` cron to `raw-signal` (`ENVIRONMENT=production` disables the
+adapter; workers.dev off) — wrangler claimed the domain without a manual release.
+Staging demoted to cron-less sandbox (user rule: staging stays cheap — no scheduled
+ingestion, stale by design). Graded key lives only on production. AGENTS.md hosting/
+deployment sections updated 2026-08-28.
+
 ---
 
 ## H. Second batch (added 2026-08-27, from user review of v71)
@@ -821,6 +837,45 @@ sealed); same-day figures (overview totals, set leaderboard via per-product
 `market_metrics.change_30_bps`, advance/decline counts) compute on request; one
 `/api/metrics` payload, edge-cached; page renders an explicit unavailable state without
 the database.
+
+### H4. Metrics page v2 (planned 2026-08-28, user review of the live page)
+
+User items, with the decisions taken at planning:
+
+1. **Momentum moves up**: section order becomes Overview → Momentum → Indexes →
+   Pokémon vs Riftbound → Set leaderboard.
+2. **Overview change tiles**: 7D/30D/90D render as proper `detail-metric`-style tiles
+   with tone colors (replacing the cramped `metrics-changes` mono row); fixes the sealed
+   tile's stacked-breakdown-plus-N/A layout too.
+3. **Scope control — decided: whole page.** ALL / Pokémon / Riftbound segmented control;
+   scope lives in the URL (`/metrics?market=…`, content state not device preference).
+   Every section responds; requires per-game momentum splits in `loadMetricsPayload`.
+4. **Styling/responsiveness parity**: sweep against `docs/design-baseline.md` — more
+   breakpoints than the single 900px one, chart heights on small screens, font-ramp and
+   flat-hover compliance, `data-font-size` behavior.
+5. **Set leaderboard — decided: top 30, sortable.** `SortableHeader` sorting, tone
+   chips for momentum, main-table hover treatment; optional 7D momentum and top-card
+   columns.
+6. **Hover explanations**: `InfoHint` ⓘ on equal-weighted/rebalanced, tracked value ≠
+   market cap, median card, index start date (coverage floor), advancers/decliners,
+   all-time-high basis.
+7. **Sealed — decided: full mode toggle.** Singles/Sealed mode mirroring the main page,
+   plus the market scope: new `METRIC_SERIES` entries (`index:pokemon-sealed`,
+   `index:riftbound-sealed`, `index:onepiece-sealed`) with a one-time backfill rollup,
+   sealed category leaderboard, sealed momentum. Sealed charts start short (shallow
+   sealed history) and grow daily — shown honestly.
+8. **Movers — decided: ships this round.** Top gainers/decliners (7D/30D) linking to
+   detail pages, from existing `market_metrics`.
+
+Additional planned items: investigate the Riftbound-50 sawtooth (composition churn near
+the 100-observation floor — raise the floor or offer a 7-day smoothing toggle); change
+chips on index cards (7D/30D/90D deltas); advancers-vs-decliners ratio bar; "history
+accumulating" instead of N/A chips for young sealed series; short `Cache-Control` on
+`/api/metrics`.
+
+Execution note: starts after the production Worker/D1 cutover completes; new sealed
+series backfill runs on production via the ops adapter before its ENVIRONMENT flips (or
+locally against production D1 if after).
 
 ## Decisions — resolved at review (2026-08-27)
 

@@ -15,7 +15,7 @@ export type HistoryBackfillTarget = {
 };
 
 export type HistoryBackfillFetcher = (target: HistoryBackfillTarget) => Promise<PriceHistory>;
-const parseStats = (value: string | null | undefined) => { try { return value ? JSON.parse(value) as { historiesWithData?: number; exactCoverage?: number } : {}; } catch { return {}; } };
+const parseStats = (value: string | null | undefined) => { try { return value ? JSON.parse(value) as { historiesWithData?: number; exactCoverage?: number; skippedMissingCatalog?: number } : {}; } catch { return {}; } };
 
 export async function runHistoryBackfillBatch(db: D1DatabaseLike, targets: HistoryBackfillTarget[], fetchHistory: HistoryBackfillFetcher, options: { batchSize?: number; sourceUpdatedAt: string; now?: Date } ) {
   const batchSize = Math.max(1, Math.min(100, options.batchSize ?? 25));
@@ -25,9 +25,17 @@ export async function runHistoryBackfillBatch(db: D1DatabaseLike, targets: Histo
   const priorStats = checkpoint?.ingestionRunId === runId ? parseStats(checkpoint.statsJson) : {};
   if (cursor === 0) await startIngestion(db, runId, "tcgplayer-history", startedAt, { sourceUpdatedAt: options.sourceUpdatedAt, stats: { totalTargets: targets.length } });
   const batch = targets.slice(cursor, cursor + batchSize);
-  let written = cursor, historiesWithData = priorStats.historiesWithData ?? 0, exactCoverage = priorStats.exactCoverage ?? 0;
+  let written = cursor, historiesWithData = priorStats.historiesWithData ?? 0, exactCoverage = priorStats.exactCoverage ?? 0, skippedMissingCatalog = priorStats.skippedMissingCatalog ?? 0;
   try {
-    const fetched = await mapWithConcurrency(batch, FETCH_CONCURRENCY, async target => ({ target, history: await fetchHistory(target) }));
+    // Targets come from a deploy-time snapshot while the catalog may have been ingested from a
+    // newer feed; a product that has since left the feed has no catalog row, and every history
+    // table references catalog_products. Skip those targets instead of failing the batch.
+    const ids = batch.map(target => target.productId);
+    const knownRows = ids.length ? (await db.prepare(`select product_id as productId from catalog_products where product_id in (${ids.map(() => "?").join(",")})`).bind(...ids).all<{ productId: number }>()).results ?? [] : [];
+    const known = new Set(knownRows.map(row => row.productId));
+    const present = batch.filter(target => known.has(target.productId));
+    skippedMissingCatalog += batch.length - present.length;
+    const fetched = await mapWithConcurrency(present, FETCH_CONCURRENCY, async target => ({ target, history: await fetchHistory(target) }));
     for (const { target, history } of fetched) {
       const variant = history.variant ?? (target.sealed ? "Sealed" : target.printing), condition = history.condition ?? (target.sealed ? "Unopened" : "Near Mint");
       if (history.points.length) {
@@ -37,10 +45,11 @@ export async function runHistoryBackfillBatch(db: D1DatabaseLike, targets: Histo
       }
       written++;
     }
-    const done = written >= targets.length, stats = { totalTargets: targets.length, processed: written, historiesWithData, exactCoverage };
+    written += batch.length - present.length;
+    const done = written >= targets.length, stats = { totalTargets: targets.length, processed: written, historiesWithData, exactCoverage, skippedMissingCatalog };
     if (done) await completeIngestion(db, runId, "history-signals", new Date().toISOString(), targets.length, written, 0, 0, stats);
     else await checkpointIngestion(db, runId, "history-backfill", targets.length, written, String(written), stats);
-    return { runId, cursor: written, total: targets.length, done, processed: batch.length, historiesWithData, exactCoverage };
+    return { runId, cursor: written, total: targets.length, done, processed: batch.length, historiesWithData, exactCoverage, skippedMissingCatalog };
   } catch (error) {
     await failIngestion(db, runId, new Date().toISOString(), error instanceof Error ? error.message : "Unknown history backfill failure");
     throw error;

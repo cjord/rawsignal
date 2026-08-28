@@ -18,12 +18,16 @@ test("production config requires an explicit hostname and never inherits a sched
  assert.throws(()=>prepareDeploymentConfig(base,{environment:"production",databaseId,databaseName:"raw-signal-production",workerName:"raw-signal"}),/custom-domain/);
  const config=prepareDeploymentConfig(base,{environment:"production",databaseId,databaseName:"raw-signal-production",workerName:"raw-signal",route:"cards.example.com"});
  assert.equal(config.workers_dev,false);assert.equal(config.vars.ENVIRONMENT,"production");assert.deepEqual(config.routes,[{pattern:"cards.example.com",custom_domain:true}]);assert.deepEqual(config.triggers,{});
+ // Since the split, production is ingestion's home: an explicit --cron applies there too.
+ const scheduled=prepareDeploymentConfig(base,{environment:"production",databaseId,databaseName:"raw-signal-production",workerName:"raw-signal",route:"cards.example.com",cron:"*/2 * * * *"});
+ assert.deepEqual(scheduled.triggers,{crons:["*/2 * * * *"]});
 });
 
-test("staging config can opt into a guard cron while production never carries one",()=>{
+test("either environment opts into a guard cron explicitly; none is inherited",()=>{
  const withCron=prepareDeploymentConfig(base,{environment:"staging",databaseId,databaseName:"raw-signal-staging",workerName:"raw-signal-staging",cron:"*/2 * * * *"});
  assert.deepEqual(withCron.triggers,{crons:["*/2 * * * *"]});
- const production=prepareDeploymentConfig(base,{environment:"production",databaseId,databaseName:"raw-signal-production",workerName:"raw-signal",route:"cards.example.com",cron:"*/2 * * * *"});
+ // The base config's schedule never leaks through without an explicit request.
+ const production=prepareDeploymentConfig(base,{environment:"production",databaseId,databaseName:"raw-signal-production",workerName:"raw-signal",route:"cards.example.com"});
  assert.deepEqual(production.triggers,{});
 });
 
