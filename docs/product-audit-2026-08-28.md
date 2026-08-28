@@ -630,3 +630,19 @@ thicker bar with a 50% reference tick; the all-time-high/low tiles are tone-wash
 state their share of tracked products. Flat hover feedback added across market cards,
 index cards, stat tiles, table rows, and segmented buttons. The Pokémon era table now
 renders only on the Pokémon scope.
+
+**Scalper-mode rework (2026-08-28, user spec + AskUserQuestion decisions):** the two
+sealed modes now show different tables. **Regular** mirrors the singles columns —
+Product · Set · MSRP · Market · 30D Low · 30D High · 7D · 30D (new low/high/change
+sealed sorts ride the derived metrics; unknown history sorts last) — and profit leaves
+regular entirely: no columns, no popover/full-view tiles, no filter fieldsets, no
+summary chips (typed values persist but never bind; URLs stop serializing them).
+**Scalper** keeps MSRP · Market · 7D · 30D and closes with Profit · Profit % (columns,
+popover and full-view tiles, filters, chips all return). Decisions: the curated
+in-print market is relabeled **"Obey Products"** (internal value stays `scalping` for
+URL stability); the summary title is always "Scalping {market} Sealed" with a red
+Scalping flag; the Market/Median basis toggle stays in both modes. The market strip
+turns red whenever scalper mode is on — class-driven (`is-scalper`), no longer tied to
+which market is selected. Sale scenario stays scalper-only (unchanged). Regular's
+footer note rewritten to describe MSRP provenance + history-backed ranges instead of
+profit.

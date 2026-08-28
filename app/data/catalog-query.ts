@@ -223,6 +223,10 @@ export function querySealedCatalog(products: SealedProduct[], options: SealedCat
     if (options.sort === "signal") return nullableCompare(derived[a.productId]?.signal?.score, derived[b.productId]?.signal?.score, options.direction);
     if (options.sort === "msrp") return nullableCompare(a.msrp, b.msrp, options.direction);
     if (options.sort === "market") return nullableCompare(ac.value, bc.value, options.direction);
+    if (options.sort === "low") return nullableCompare(derived[a.productId]?.low30, derived[b.productId]?.low30, options.direction);
+    if (options.sort === "high") return nullableCompare(derived[a.productId]?.high30, derived[b.productId]?.high30, options.direction);
+    if (options.sort === "change7") return nullableCompare(derived[a.productId]?.change7, derived[b.productId]?.change7, options.direction);
+    if (options.sort === "change30") return nullableCompare(derived[a.productId]?.change30, derived[b.productId]?.change30, options.direction);
     if (options.sort === "profit") return nullableCompare(ac.profit, bc.profit, options.direction);
     return nullableCompare(ac.profitPct, bc.profitPct, options.direction);
   });

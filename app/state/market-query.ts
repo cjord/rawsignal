@@ -2,7 +2,7 @@ import type {SealedMarket,SealedView,SignalSide,SignalStrictness,SinglesGame,Sin
 
 export type Direction="asc"|"desc";
 export type SinglesSort="name"|"signal"|"set"|"market"|"low"|"high"|"change7"|"change30";
-export type SealedSort="name"|"signal"|"set"|"msrp"|"market"|"profit"|"profitPct";
+export type SealedSort="name"|"signal"|"set"|"msrp"|"market"|"low"|"high"|"change7"|"change30"|"profit"|"profitPct";
 
 type SharedState={signal:SignalSide;strictness:SignalStrictness};
 export type SinglesQueryState=SharedState&{mode:"singles";market:SinglesGame;rarities:string[];view:SinglesView;sort:SinglesSort;direction:Direction;page:number;perPage:number;query:string;minPrice:string;maxPrice:string;sets:string[];up7:boolean;down7:boolean;up30:boolean;down30:boolean};
@@ -13,7 +13,7 @@ export type HistoryWriteMode="replace"|"push"|"skip";
 export const defaultRarities:Record<SinglesGame,string[]>={pokemon:["illustration-rares","special-illustration-rares"],riftbound:["overnumbered"]};
 export const allowedRarities:Record<SinglesGame,string[]>={pokemon:["illustration-rares","special-illustration-rares","promos","ultra-rares","double-rares","secret-hyper-rares","shiny-radiant-rares","vintage","japanese-promos"],riftbound:["rares","epics","alt-arts","overnumbered","signatures"]};
 const singlesViews:SinglesView[]=["large","medium","text","full"],sealedViews:SealedView[]=["medium","text","full"];
-const singlesSorts:SinglesSort[]=["name","signal","set","market","low","high","change7","change30"],sealedSorts:SealedSort[]=["name","signal","set","msrp","market","profit","profitPct"];
+const singlesSorts:SinglesSort[]=["name","signal","set","market","low","high","change7","change30"],sealedSorts:SealedSort[]=["name","signal","set","msrp","market","low","high","change7","change30","profit","profitPct"];
 const signals:SignalSide[]=["leaderboard","buy","sell"],strictnesses:SignalStrictness[]=["conservative","balanced","aggressive"];
 const pageSizes=[20,30,40,50];
 const list=(value:string|null)=>value?.split("|").map(item=>item.trim()).filter(Boolean)??[];

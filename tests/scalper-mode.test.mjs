@@ -57,6 +57,22 @@ test("Scalper controls are preference-driven and gated to Sealed rendering", asy
   assert.match(page, /raw-signal-scalper-mode/);
   assert.match(page, /setMode\(value\)/);
   assert.match(page, /scalperEnabled=\{scalperMode\s*===\s*"scalper"\}/);
-  assert.match(sealed, /scalperEnabled\s*&&\s*<option value="scalping">Scalping<\/option>/);
+  // The curated market keeps its internal "scalping" value (URL stability) under the
+  // user-facing "Obey Products" label; the option only exists in scalper mode.
+  assert.match(sealed, /scalperEnabled\s*&&\s*<option value="scalping">Obey Products<\/option>/);
   assert.match(sealed, /beforeControls=\{\s*isScalping\s*\?\s*\(?\s*<SaleScenario/);
+});
+
+test("scalper mode swaps the 30D range for closing profit columns; regular hides profit", async () => {
+  const sealed = await text("../app/SealedView.tsx");
+  // Regular mirrors singles; scalper ends with Profit / Profit %.
+  assert.match(sealed, /REGULAR_SORTS[\s\S]*?"low"[\s\S]*?"high"[\s\S]*?"change7"[\s\S]*?"change30"/);
+  assert.match(sealed, /SCALPER_SORTS[\s\S]*?"change30"[\s\S]*?"profit"[\s\S]*?"profitPct"/);
+  assert.doesNotMatch(sealed.slice(sealed.indexOf("SCALPER_SORTS")), /SCALPER_SORTS[\s\S]{0,600}"low"/);
+  // Profit tiles, filters, and chips are scalper-gated; the strip and summary flag the mode.
+  assert.match(sealed, /\.\.\.\(isScalping\s*\?\s*\[\s*\{ label: "Profit"/);
+  assert.match(sealed, /showProfit=\{isScalping\}/);
+  assert.match(sealed, /isScalping && \(profitMin \|\| profitMax\)/);
+  assert.match(sealed, /sealed-market-strip\$\{isScalping \? " is-scalper" : ""\}/);
+  assert.match(sealed, /className="scalping-flag">Scalping</);
 });

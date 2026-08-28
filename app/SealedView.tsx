@@ -66,24 +66,43 @@ type SortKey =
   | "set"
   | "msrp"
   | "market"
+  | "low"
+  | "high"
+  | "change7"
+  | "change30"
   | "profit"
   | "profitPct";
 type Product = SealedProduct;
 type History = PriceHistory;
+// Regular mode mirrors the singles columns (scalper rework 2026-08-28); scalper mode
+// swaps the 30D range for profit, which closes the table as its last two columns.
+const REGULAR_SORTS: { label: string; key: SortKey }[] = [
+  { label: "Product", key: "name" },
+  { label: "Set", key: "set" },
+  { label: "MSRP", key: "msrp" },
+  { label: "Market", key: "market" },
+  { label: "30D Low", key: "low" },
+  { label: "30D High", key: "high" },
+  { label: "7D", key: "change7" },
+  { label: "30D", key: "change30" },
+];
+const SCALPER_SORTS: { label: string; key: SortKey }[] = [
+  { label: "Product", key: "name" },
+  { label: "Set", key: "set" },
+  { label: "MSRP", key: "msrp" },
+  { label: "Market", key: "market" },
+  { label: "7D", key: "change7" },
+  { label: "30D", key: "change30" },
+  { label: "Profit", key: "profit" },
+  { label: "Profit %", key: "profitPct" },
+];
 const sealedModel: LeaderboardModeModel<View, SortKey> = {
   views: [
     { key: "medium", label: "Medium", icon: "▤" },
     { key: "text", label: "Text", icon: "☷" },
     { key: "full", label: "Full", icon: "▥" },
   ],
-  sorts: [
-    { label: "Product", key: "name" },
-    { label: "Set", key: "set" },
-    { label: "MSRP", key: "msrp" },
-    { label: "Market", key: "market" },
-    { label: "Profit", key: "profit" },
-    { label: "Profit %", key: "profitPct" },
-  ],
+  sorts: REGULAR_SORTS,
   viewLabel: "Sealed product view",
   paginationLabel: "Sealed product pages",
 };
@@ -140,6 +159,18 @@ export default function SealedView({
   const isScalping = scalperEnabled,
     isScalpingMarket = game === "scalping",
     scenarioProfitableOnly = isScalping && profitableOnly;
+  // Each mode has its own column set; a sort carried across the toggle (or an old URL)
+  // that the mode no longer shows falls back to Market. Profit filters only bind in
+  // scalper mode — regular keeps the typed values but never applies or serializes them.
+  const modeSorts = isScalping ? SCALPER_SORTS : REGULAR_SORTS;
+  const validSorts = useMemo(() => new Set<SortKey>([...modeSorts.map(item => item.key), "signal"]), [modeSorts]);
+  const effectiveSort = validSorts.has(sort) ? sort : "market";
+  const boundProfit = {
+    profitMin: isScalping ? profitMin : "",
+    profitMax: isScalping ? profitMax : "",
+    profitPctMin: isScalping ? profitPctMin : "",
+    profitPctMax: isScalping ? profitPctMax : "",
+  };
   const scenario = {
       basis,
       keepPct: isScalping ? keepPct : 100,
@@ -197,7 +228,7 @@ export default function SealedView({
         market: game,
         productTypes: selectedTypes,
         view,
-        sort,
+        sort: effectiveSort,
         direction,
         page,
         perPage,
@@ -207,10 +238,7 @@ export default function SealedView({
         marketMax,
         msrpMin,
         msrpMax,
-        profitMin,
-        profitMax,
-        profitPctMin,
-        profitPctMax,
+        ...boundProfit,
         ...scenario,
         profitableOnly: scenarioProfitableOnly,
         signal: signalView,
@@ -284,15 +312,12 @@ export default function SealedView({
           marketMax,
           msrpMin,
           msrpMax,
-          profitMin,
-          profitMax,
-          profitPctMin,
-          profitPctMax,
+          ...boundProfit,
           profitableOnly: scenarioProfitableOnly,
           ...scenario,
           signal: signalView,
           strictness,
-          sort,
+          sort: effectiveSort,
           direction,
           page,
           perPage,
@@ -404,16 +429,14 @@ export default function SealedView({
                 tone: setEv[product.set].evRatio != null ? ((setEv[product.set].evRatio as number) >= 1 ? "up" as const : "down" as const) : undefined,
               }]
             : []),
-          {
-            label: "Profit",
-            value: usd(result.profit),
-            tone: movementTone(result.profit),
-          },
-          {
-            label: "Profit %",
-            value: pct(result.profitPct),
-            tone: movementTone(result.profitPct),
-          },
+          // Profit is a scalper concept: regular mode's popover and full view stay
+          // aligned with the singles tiles (visual pass 2026-08-28).
+          ...(isScalping
+            ? [
+                { label: "Profit", value: usd(result.profit), tone: movementTone(result.profit) },
+                { label: "Profit %", value: pct(result.profitPct), tone: movementTone(result.profitPct) },
+              ]
+            : []),
           movement("7 day", h?.change7),
           movement("30 day", h?.change30),
           movement("90 day", h?.change90),
@@ -423,7 +446,7 @@ export default function SealedView({
     );
   };
   const activeSorts = signalAwareSorts(
-    sealedModel.sorts,
+    modeSorts,
     sealedSignalSort,
     signalView,
   );
@@ -463,7 +486,7 @@ export default function SealedView({
           },
         }
       : null,
-    profitMin || profitMax
+    isScalping && (profitMin || profitMax)
       ? {
           key: "profit",
           label: `Profit: ${profitMin || "Any"}–${profitMax || "Any"}`,
@@ -473,7 +496,7 @@ export default function SealedView({
           },
         }
       : null,
-    profitPctMin || profitPctMax
+    isScalping && (profitPctMin || profitPctMax)
       ? {
           key: "profitPct",
           label: `Profit %: ${profitPctMin || "Any"}–${profitPctMax || "Any"}`,
@@ -516,11 +539,11 @@ export default function SealedView({
   );
   return (
     <MarketLeaderboard
-      className="sealed-market"
+      className={`sealed-market${isScalping ? " is-scalper" : ""}`}
       id="sealed-market"
       historyStatus={historyStatus}
       marketStrip={
-        <section className="market-strip sealed-market-strip">
+        <section className={`market-strip sealed-market-strip${isScalping ? " is-scalper" : ""}`}>
           <label>
             <span>Market</span>
             <select
@@ -536,7 +559,7 @@ export default function SealedView({
               <option value="pokemon">Pokémon</option>
               <option value="onepiece">One Piece</option>
               <option value="riftbound">Riftbound</option>
-              {scalperEnabled && <option value="scalping">Scalping</option>}
+              {scalperEnabled && <option value="scalping">Obey Products</option>}
             </select>
           </label>
           <MultiSelectField
@@ -578,7 +601,11 @@ export default function SealedView({
           className="sealed-summary"
           kicker="Sealed product intelligence"
           kickerClassName="kicker"
-          title={`${formatGameName(game)} ${signalView === "leaderboard" ? "Sealed" : signalView === "buy" ? "Hot Buys" : "Hot Sells"}`}
+          title={
+            signalView === "leaderboard"
+              ? <>{isScalping && <em className="scalping-flag">Scalping</em>}{formatGameName(game)} Sealed</>
+              : `${formatGameName(game)} ${signalView === "buy" ? "Hot Buys" : "Hot Sells"}`
+          }
           description={
             signalView === "leaderboard"
               ? "MSRP compared with current TCGplayer pricing — published values where sources exist, standard type pricing (marked derived) elsewhere."
@@ -661,6 +688,7 @@ export default function SealedView({
             />
           </label>
           <SealedFilters
+            showProfit={isScalping}
             sets={sets}
             selectedSets={selectedSets}
             onSets={(values) => {
@@ -739,7 +767,7 @@ export default function SealedView({
                 ? { ...item, label: basis === "market" ? "Market" : "Median" }
                 : item,
             )}
-            sort={sort}
+            sort={effectiveSort}
             direction={direction}
             onSort={changeSort}
             label="Full sealed product sorting"
@@ -759,7 +787,7 @@ export default function SealedView({
                     : item.label
                 }
                 column={item.key}
-                sort={sort}
+                sort={effectiveSort}
                 direction={direction}
                 onSort={changeSort}
               />
@@ -857,31 +885,47 @@ export default function SealedView({
                 </small>
               )}
             </span>
-            <span
-              data-label="Profit"
-              className={
-                !comparable
-                  ? ""
-                  : result.profit! >= 0
-                    ? "profit-positive"
-                    : "profit-negative"
-              }
-            >
-              <b>
-                {!comparable
-                  ? "N/A"
-                  : `${result.profit! >= 0 ? "+" : ""}${usd(result.profit)}`}
-              </b>
+            {!isScalping && (
+              <>
+                <span data-label="30D Low" className="sealed-range-cell"><b>{h ? usd(h.low30 ?? null) : "…"}</b></span>
+                <span data-label="30D High" className="sealed-range-cell"><b>{h ? usd(h.high30 ?? null) : "…"}</b></span>
+              </>
+            )}
+            <span data-label="7D" className="sealed-change-cell">
+              <b className={h?.change7 != null ? (h.change7 < 0 ? "down" : "up") : undefined}>{h ? pct(h.change7 ?? null) : "…"}</b>
             </span>
-            <span data-label="Profit %">
-              <b
-                className={`profit-pill ${!comparable ? "unavailable" : result.profitPct! >= 0 ? "positive" : "negative"}`}
-              >
-                {!comparable
-                  ? "N/A"
-                  : `${result.profitPct! >= 0 ? "+" : ""}${result.profitPct!.toFixed(1)}%`}
-              </b>
+            <span data-label="30D" className="sealed-change-cell">
+              <b className={h?.change30 != null ? (h.change30 < 0 ? "down" : "up") : undefined}>{h ? pct(h.change30 ?? null) : "…"}</b>
             </span>
+            {isScalping && (
+              <>
+                <span
+                  data-label="Profit"
+                  className={
+                    !comparable
+                      ? ""
+                      : result.profit! >= 0
+                        ? "profit-positive"
+                        : "profit-negative"
+                  }
+                >
+                  <b>
+                    {!comparable
+                      ? "N/A"
+                      : `${result.profit! >= 0 ? "+" : ""}${usd(result.profit)}`}
+                  </b>
+                </span>
+                <span data-label="Profit %">
+                  <b
+                    className={`profit-pill ${!comparable ? "unavailable" : result.profitPct! >= 0 ? "positive" : "negative"}`}
+                  >
+                    {!comparable
+                      ? "N/A"
+                      : `${result.profitPct! >= 0 ? "+" : ""}${result.profitPct!.toFixed(1)}%`}
+                  </b>
+                </span>
+              </>
+            )}
             <span className="row-star"><FavoriteStar entry={sealedFavorite(product)} /></span>
           </MarketRow>
         );
@@ -896,7 +940,7 @@ export default function SealedView({
         <p className="sealed-note">
           {isScalping
             ? "Profit uses the selected price basis and optional sale assumptions above. Fees, tax, and shipping are scenario inputs, not predictions."
-            : "Profit compares the selected TCGplayer price basis directly with published US MSRP. Missing prices remain N/A."}
+            : "MSRP shows published values where sources exist and standard type pricing (marked derived) elsewhere. The 30-day range and movement come from sealed market history; missing data stays unavailable rather than estimated."}
         </p>
       }
     />

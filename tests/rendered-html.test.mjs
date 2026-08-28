@@ -43,7 +43,9 @@ test("styles Scalper mode and its sale scenario as a distinct sealed state",asyn
   ]);
   assert.match(scenario,/taxOn\?"has-value":"is-disabled"/);
   assert.match(css,/\.sealed-market:has\(\.sale-scenario\)>\.sealed-summary\{border-bottom-color:transparent\}/);
-  assert.match(css,/option\[value="scalping"\]:checked/);
+  // Scalper rework 2026-08-28: the strip is red whenever scalper mode is on (class-driven),
+  // not only while the curated market option is the selection.
+  assert.match(css,/\.sealed-market-strip\.is-scalper\{[^}]*#e05454/);
   assert.match(css,/\.scenario-checks label>span\{display:flex;align-items:center/);
   assert.match(globals,/\.scalper-mode-toggle\.is-scalper i\{[^}]*#e05454/);
 });

@@ -96,6 +96,22 @@ test("sealed scenario calculations and filters share one implementation", async 
   assert.ok(profitable.allItems.every(product => calculateSealedScenario(product, scenario).profit > 0));
 });
 
+test("sealed regular-mode sorts rank by the derived 30-day metrics, unknowns last", async () => {
+  const sealed = parseSealedProducts(await json("../public/data/sealed-pokemon.json")).slice(0, 3);
+  const [a, b, c] = sealed.map(product => product.productId);
+  const derived = {
+    [a]: { change7: 1, change30: -2, low30: 30, high30: 90, signal: null },
+    [b]: { change7: 5, change30: 4, low30: 10, high30: 50, signal: null },
+    // c has no derived metrics — it sorts last in either direction.
+  };
+  const byChange7 = querySealedCatalog(sealed, sealedOptions({ sort: "change7" }), derived);
+  assert.deepEqual(byChange7.allItems.map(product => product.productId), [b, a, c]);
+  const byLow = querySealedCatalog(sealed, sealedOptions({ sort: "low", direction: "asc" }), derived);
+  assert.deepEqual(byLow.allItems.map(product => product.productId), [b, a, c]);
+  const byHigh = querySealedCatalog(sealed, sealedOptions({ sort: "high" }), derived);
+  assert.deepEqual(byHigh.allItems.map(product => product.productId), [a, b, c]);
+});
+
 test("memory and feed repositories return the same IDs and totals", async () => {
   const cards = parseCards(await json("../public/data/overnumbered.json"));
   const sealed = parseSealedProducts(await json("../public/data/sealed-riftbound.json"));

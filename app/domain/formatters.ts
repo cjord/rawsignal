@@ -37,7 +37,8 @@ const gameNames: Record<string, string> = {
   pokemon: "Pokémon",
   riftbound: "Riftbound",
   onepiece: "One Piece",
-  scalping: "Scalping",
+  // The curated in-print sealed list ("scalping" internally, for URL stability).
+  scalping: "Obey Products",
 };
 
 export function formatGameName(value: string) {
