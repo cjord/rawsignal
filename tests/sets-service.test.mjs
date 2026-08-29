@@ -128,6 +128,8 @@ test("set detail resolves slugs, applies the chase cutoff and the index coverage
   // Pack price 15 gates the chase list: cards at 40 and 90 qualify, the 10 does not.
   assert.deepEqual({ packPrice: detail.packPrice, chaseCount: detail.chaseCount, chaseMarket: detail.chaseMarket, sealedCount: detail.sealedCount },
     { packPrice: 15, chaseCount: 2, chaseMarket: 130, sealedCount: 2 });
+  // Balanced-strictness signal presence rides the detail payload for the stat tiles.
+  assert.deepEqual({ buy: detail.buySignals, sell: detail.sellSignals }, { buy: 1, sell: 1 });
   // The sparse 08-29 singles day (1/3 members) drops; full days sum the printing-matched variants only.
   assert.deepEqual(detail.singlesIndex, [{ date: "2026-08-27", price: 136 }, { date: "2026-08-28", price: 138 }]);
   assert.deepEqual(detail.sealedIndex, [{ date: "2026-08-28", price: 14 }, { date: "2026-08-29", price: 15 }]);

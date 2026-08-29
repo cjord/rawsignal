@@ -35,6 +35,8 @@ export type SetDetailPayload = {
   evRatio: number | null;
   singlesChange30: number | null;
   sealedChange30: number | null;
+  buySignals: number;
+  sellSignals: number;
   // Raw daily set values (sum of observed members, coverage-floored); the view rebases.
   singlesIndex: PricePoint[];
   sealedIndex: PricePoint[];

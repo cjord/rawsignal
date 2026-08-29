@@ -149,6 +149,12 @@ export async function loadSetDetail(db: D1DatabaseLike | undefined, game: string
   const release = await db.prepare(`select min(pd.published_on) releaseDate from product_details pd
     join catalog_products p on p.product_id=pd.product_id
     where p.game=? and p.set_name=? and pd.published_on is not null`).bind(game, setName).first<{ releaseDate: string | null }>();
+
+  const signalRows = (await db.prepare(`select ms.side, count(distinct ms.product_id) n
+    from market_signals ms join catalog_products p on p.product_id=ms.product_id
+    where p.game=? and p.set_name=? and p.kind='single' and ms.strictness='balanced'
+    group by ms.side`).bind(game, setName).all<{ side: "buy" | "sell"; n: number }>()).results ?? [];
+  const signalCount = (side: "buy" | "sell") => signalRows.find(row => row.side === side)?.n ?? 0;
   const releaseYear = cards.length ? Math.min(...cards.map(card => card.year).filter(year => year > 0)) : null;
 
   const { packPriceBySet, evBySet } = await loadSetEvData(db, pullRates);
@@ -168,6 +174,8 @@ export async function loadSetDetail(db: D1DatabaseLike | undefined, game: string
     evRatio: packEv != null && evPack != null && evPack > 0 ? packEv / evPack : null,
     singlesChange30: await momentum("single"),
     sealedChange30: await momentum("sealed"),
+    buySignals: signalCount("buy"),
+    sellSignals: signalCount("sell"),
     singlesIndex: seriesFor("single"),
     sealedIndex: seriesFor("sealed"),
     cards, sealed,

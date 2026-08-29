@@ -5,7 +5,7 @@ import TopBar from "./TopBar";
 import {ChaseCardsSection,RelatedSealedSection} from "./detail-tables";
 import {parseStrictness,STRICTNESS_KEY,usePreference} from "./state/usePreference";
 import {setGroupLabel} from "../core/domain/eras";
-import {formatGameName,formatPercent,formatUsd,formatUtcDate} from "../core/domain/formatters";
+import {formatFullDate,formatGameName,formatPercent,formatUsd,formatUtcDate} from "../core/domain/formatters";
 import type {SetDetailPayload} from "../core/domain/sets";
 import type {PricePoint} from "../core/domain/types";
 import {setLogoFor} from "./data/set-logos";
@@ -44,7 +44,7 @@ export default function SetDetailView({payload}:{payload:SetDetailPayload}){
      :<span className={`set-tile-mark mark-${payload.game}`} aria-hidden="true">{payload.set}</span>}
     <div className="set-detail-title">
      <h1>{payload.set}{ageDays!=null&&ageDays<=NEW_SET_DAYS&&<span className="set-badge-new">New set</span>}</h1>
-     <p className="set-detail-meta">{setGroupLabel(payload.game,payload.group)} · {formatGameName(payload.game)}{payload.releaseDate&&<> · released {formatUtcDate(payload.releaseDate,true)}</>}{ageLabel&&<> · {ageLabel}</>}{dataThrough&&<> · data through {formatUtcDate(dataThrough,true)}</>}</p>
+     <p className="set-detail-meta">{setGroupLabel(payload.game,payload.group)} · {formatGameName(payload.game)}{payload.releaseDate&&<> · released {formatUtcDate(payload.releaseDate,true)}</>}{ageLabel&&<> · {ageLabel}</>}</p>
     </div>
     <a className="set-detail-cardlist" href={cardListHref}>Open card list →</a>
    </header>
@@ -55,8 +55,11 @@ export default function SetDetailView({payload}:{payload:SetDetailPayload}){
     <div className="detail-metric"><small>Pack EV</small>{payload.packEv!=null?<><b className={payload.evRatio!=null?(payload.evRatio>=1?"up":"down"):undefined}>{formatUsd(payload.packEv)}</b><span>{payload.evRatio!=null?`${payload.evRatio.toFixed(2)}× the ${formatUsd(payload.packPrice)} pack`:"per pack opened"}</span></>:<><b>—</b><span>needs pull-rate data</span></>}</div>
     <div className="detail-metric"><small>Singles 30D</small><b className={tone(payload.singlesChange30)}>{payload.singlesChange30==null?"—":formatPercent(payload.singlesChange30)}</b><span>median member change</span></div>
     <div className="detail-metric"><small>Sealed 30D</small><b className={tone(payload.sealedChange30)}>{payload.sealedChange30==null?"—":formatPercent(payload.sealedChange30)}</b><span>median member change</span></div>
+    <div className="detail-metric"><small>Buy signals</small><b>{payload.buySignals}</b><span>on the Hot Buy board</span></div>
+    <div className="detail-metric"><small>Sell signals</small><b>{payload.sellSignals}</b><span>on the Hot Sell board</span></div>
    </div>
-   <section className="detail-section"><header><span>{payload.set} index · base 1,000</span><h2>Set Value</h2></header>
+   <section className="detail-section"><header className="set-index-head"><div><span>{payload.set} index · base 1,000</span><h2>Set Value</h2></div>
+    {dataThrough&&<span className="section-aside"><span>Updated {formatFullDate(dataThrough)}</span></span>}</header>
     {mainLine.length>1?<>
      {overlayLine&&<div className="metrics-legend"><span className="legend-line legend-main">Singles value</span><span className="legend-line chart-series-2">Sealed value</span></div>}
      <PriceChart points={mainLine} overlays={overlayLine?[{label:"Sealed value",points:overlayLine,className:"chart-series-2"}]:undefined} mainLabel={mainLabel} formatValue={indexFormat} label={`${payload.set} set value`}/>

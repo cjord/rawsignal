@@ -28,16 +28,12 @@ function releaseLine(row:SetDirectoryRow,asOf:string){
  return `${label} · ${age}`;
 }
 
-function ChangeChip({value,window:windowLabel}:{value:number|null;window:string}){
- if(value==null)return null;
- const tone=value===0?"":value>0?"up":"down";
- return <span className={`set-chip ${tone}`}>{value>0?"▲":value<0?"▼":"◆"} {formatPercent(value)} <em>/ {windowLabel}</em></span>;
-}
+const pctLabel=(value:number|null)=>value==null?"N/A":formatPercent(value);
+const toneOf=(value:number|null)=>value==null||value===0?undefined:value<0?"down":"up";
 
 function SetTile({row,asOf,starred}:{row:SetDirectoryRow;asOf:string;starred:boolean}){
  const logo=setLogoFor(row.game,row.set);
  const release=releaseLine(row,asOf);
- const counts=[row.chase>0?`${row.chase} chase`:null,row.sealed>0?`${row.sealed} sealed`:null].filter(Boolean).join(" · ");
  return <a className="set-tile" href={`/sets/${row.game}/${row.slug}`}>
   <div className="set-tile-head">
    {logo?<span className="set-tile-logo"><DeferredImage src={logo.logo} alt={`${row.set} logo`} className="set-logo-image"/></span>
@@ -47,11 +43,11 @@ function SetTile({row,asOf,starred}:{row:SetDirectoryRow;asOf:string;starred:boo
     onClick={event=>{event.preventDefault();event.stopPropagation();toggleSetFavorite(row.game,row.set)}}>{starred?"★":"☆"}</button>
   </div>
   <div className="set-tile-foot">
-   <span className="set-tile-chips"><ChangeChip value={row.change7} window="7d"/><ChangeChip value={row.change30} window="30d"/></span>
-   <span className="set-tile-meta">{counts||"—"}
-    {(row.buySignals>0||row.sellSignals>0)&&<span className="set-signals">{row.buySignals>0&&<i className="set-signal buy">{row.buySignals} buy</i>}{row.sellSignals>0&&<i className="set-signal sell">{row.sellSignals} sell</i>}</span>}
-   </span>
-   <span className="set-tile-open" aria-hidden="true">Open set →</span>
+   <div className="metrics-window-tiles set-tile-windows">
+    <div className="detail-metric metrics-window-tile"><small>7D</small><b className={toneOf(row.change7)}>{pctLabel(row.change7)}</b></div>
+    <div className="detail-metric metrics-window-tile"><small>30D</small><b className={toneOf(row.change30)}>{pctLabel(row.change30)}</b></div>
+   </div>
+   <span className="set-tile-arrow" aria-hidden="true">→</span>
   </div>
  </a>;
 }

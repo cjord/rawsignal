@@ -74,32 +74,11 @@
 .set-star:hover { background: var(--soft); color: var(--tone-favorite); }
 .set-star.is-starred { color: var(--tone-favorite); }
 
-.set-tile-foot { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
-.set-tile-chips { display: flex; gap: 6px; }
-.set-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  font: 750 var(--text-2xs) var(--font-mono);
-  background: var(--soft);
-  color: var(--gray);
-}
-.set-chip.up { color: var(--tone-up); background: color-mix(in srgb, var(--tone-up) 10%, var(--soft)); }
-.set-chip.down { color: var(--tone-down); background: color-mix(in srgb, var(--tone-down) 10%, var(--soft)); }
-.set-chip em { font-style: normal; font-weight: 500; color: var(--gray); }
-.set-tile-meta { color: var(--gray); font-size: var(--text-2xs); display: inline-flex; align-items: center; gap: 8px; }
-.set-signals { display: inline-flex; gap: 5px; }
-.set-signal {
-  font-style: normal;
-  font: 750 var(--text-2xs) var(--font-mono);
-  padding: 2px 7px;
-  border-radius: 999px;
-}
-.set-signal.buy { color: var(--tone-buy); background: color-mix(in srgb, var(--tone-buy) 11%, var(--soft)); }
-.set-signal.sell { color: var(--tone-sell); background: color-mix(in srgb, var(--tone-sell) 11%, var(--soft)); }
-.set-tile-open { margin-left: auto; color: var(--blue); font-size: var(--text-2xs); font-weight: 750; white-space: nowrap; }
+.set-tile-foot { display: flex; align-items: center; gap: 12px; min-width: 0; }
+/* The site's standard 7D/30D window tiles, sized for a browse card. */
+.set-tile-windows { flex: 1; min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 0; }
+.set-tile-arrow { color: var(--gray); font-size: var(--text-md); font-weight: 750; transition: color var(--motion-fast), transform var(--motion-fast); }
+.set-tile:hover .set-tile-arrow { color: var(--blue); transform: translateX(2px); }
 
 @media (max-width: 1000px) { .set-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) {
@@ -150,7 +129,13 @@
   transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
 }
 .set-detail-cardlist:hover { border-color: color-mix(in srgb, var(--blue) 45%, var(--line)); box-shadow: 0 4px 14px color-mix(in srgb, var(--blue) 10%, transparent); }
-.set-detail-tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); margin-bottom: 22px; }
+.set-detail-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 22px; }
+
+/* The Set Value header carries the right-aligned freshness aside (main-page pattern);
+   the kicker span sits inside a wrapper, so the >header>span styling is replicated. */
+.set-index-head { justify-content: space-between; }
+.set-index-head > div > span { display: block; margin-bottom: 5px; color: var(--gray); font-size: var(--text-2xs); font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+.set-index-head .section-aside { margin-left: auto; color: var(--gray); font-size: var(--text-xs); text-align: right; }
 
 @media (max-width: 1000px) { .set-detail-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 620px) {
