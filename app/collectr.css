@@ -45,10 +45,13 @@
 .import-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .import-added { color: var(--tone-favorite); font-size: var(--text-sm); font-weight: 700; }
 
-/* Portfolio-header cluster: the add-to-favorites actions and the import dates, pinned to
-   the section's top-right (the header is a wrapping flex row; margin-left:auto pushes us
-   right of the "Portfolio" title). */
-.import-portfolio-actions { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+/* Portfolio header top row: the profile kicker on the left and the add-to-favorites
+   actions + import dates on the right, both riding the SAME line as the username (not the
+   "Portfolio" title, which drops below). The kicker span lives in this wrapper now, so it
+   re-declares the header-kicker look it lost by leaving the direct header>span slot. */
+.import-header-top { display: flex; width: 100%; align-items: flex-start; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; }
+.import-header-top > span { color: var(--gray); font-size: var(--text-2xs); font-weight: 850; letter-spacing: .1em; text-transform: uppercase; padding-top: 5px; }
+.import-portfolio-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .import-portfolio-actions .import-actions { justify-content: flex-end; }
 /* Match the main leaderboard's "Updated …" aside: small, gray, right-aligned (not the
    larger inherited body size it fell to once it left the header's direct span slot). */

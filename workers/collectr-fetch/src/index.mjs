@@ -16,6 +16,41 @@ const API_ORIGIN = "https://api-v2.getcollectr.com";
 const REAL_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 const PAGE_SIZE = 30; // the API rejects larger limits with a 401
 const WAVE_SIZE = 4; // concurrent page-context fetches per wave
+const WAVE_GAP_MS = 250; // pause between waves so a big collection paginates politely
+const RATE_WINDOW_MS = 60000;
+const GLOBAL_LIMIT = 15; // account-wide imports per minute
+const HANDLE_LIMIT = 4; // imports of any single profile per minute
+
+// Sliding-window rate limiter held in ONE Durable Object instance, so the counters are
+// global and consistent across every caller. Budget is only consumed when ALL checks in a
+// call pass, so a per-handle rejection never eats the global allowance. In-memory state is
+// fine here: a rare DO eviction just resets the window (fails open briefly), which for a
+// politeness throttle is acceptable.
+export class RateLimiter {
+  constructor() { this.hits = new Map(); }
+  async fetch(request) {
+    const { checks, windowMs } = await request.json();
+    const now = Date.now();
+    const evaluated = checks.map(({ key, limit }) => {
+      const recent = (this.hits.get(key) ?? []).filter((t) => now - t < windowMs);
+      return { key, recent, ok: recent.length < limit };
+    });
+    const allowed = evaluated.every((entry) => entry.ok);
+    if (allowed) for (const entry of evaluated) { entry.recent.push(now); this.hits.set(entry.key, entry.recent); }
+    return Response.json({ allowed, blockedBy: allowed ? null : evaluated.find((entry) => !entry.ok).key });
+  }
+}
+
+// Ask the limiter whether an import for `handle` may proceed (consuming budget if so).
+async function allowImport(env, handle) {
+  if (!env.LIMITER) return { allowed: true };
+  const stub = env.LIMITER.get(env.LIMITER.idFromName("collectr-global"));
+  const response = await stub.fetch("https://limiter/limit", {
+    method: "POST",
+    body: JSON.stringify({ windowMs: RATE_WINDOW_MS, checks: [{ key: "global", limit: GLOBAL_LIMIT }, { key: `handle:${handle}`, limit: HANDLE_LIMIT }] }),
+  });
+  return response.json();
+}
 const DEFAULT_MAX_PRODUCTS = 6000;
 const HARD_MAX_PRODUCTS = 12000;
 const PAGINATION_BUDGET_MS = 45000; // keeps the whole request chain under edge response timeouts
@@ -29,8 +64,9 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // One warm-up-and-paginate pass in the page context. Returns { pages, complete, failure }.
 async function paginate(page, handle, maxProducts, budgetMs) {
   return page.evaluate(
-    async ({ apiOrigin, handle, pageSize, waveSize, maxProducts, budgetMs }) => {
+    async ({ apiOrigin, handle, pageSize, waveSize, maxProducts, budgetMs, waveGapMs }) => {
       const started = Date.now();
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
       const getPage = async (offset) => fetch(`${apiOrigin}/data/showcase/${encodeURIComponent(handle)}?limit=${pageSize}&offset=${offset}`, {
         credentials: "include",
         headers: { accept: "application/json, text/plain, */*" },
@@ -48,6 +84,7 @@ async function paginate(page, handle, maxProducts, budgetMs) {
       let failure = null;
       for (let base = pageSize; base < maxProducts && !complete && !failure; base += pageSize * waveSize) {
         if (Date.now() - started > budgetMs) { failure = "time budget exhausted"; break; }
+        if (base > pageSize && waveGapMs) await wait(waveGapMs); // space out waves so a large collection doesn't burst
         const offsets = [];
         for (let step = 0; step < waveSize; step += 1) {
           const offset = base + step * pageSize;
@@ -68,7 +105,7 @@ async function paginate(page, handle, maxProducts, budgetMs) {
       }
       return { pages, complete, failure, elapsedMs: Date.now() - started };
     },
-    { apiOrigin: API_ORIGIN, handle, pageSize: PAGE_SIZE, waveSize: WAVE_SIZE, maxProducts, budgetMs },
+    { apiOrigin: API_ORIGIN, handle, pageSize: PAGE_SIZE, waveSize: WAVE_SIZE, maxProducts, budgetMs, waveGapMs: WAVE_GAP_MS },
   );
 }
 
@@ -82,6 +119,17 @@ export default {
     const handle = (url.searchParams.get("profile") ?? "").trim().toLowerCase();
     if (!/^[a-z0-9_.-]{2,64}$/.test(handle)) return json({ error: "invalid profile handle" }, 400);
     const maxProducts = Math.min(Math.max(Number(url.searchParams.get("max")) || DEFAULT_MAX_PRODUCTS, PAGE_SIZE), HARD_MAX_PRODUCTS);
+
+    // Global politeness gate BEFORE spending a browser session: an account-wide cap on
+    // imports per minute, plus a tighter per-profile cap, so a stuck retry loop or a burst
+    // of clicks can never hammer Collectr. Exceeding it is a soft 429 the caller degrades
+    // to the top-30 page import.
+    try {
+      const gate = await allowImport(env, handle);
+      if (!gate.allowed) {
+        return json({ error: gate.blockedBy === "global" ? "import rate limit reached — try again in a minute" : "this profile was imported too many times just now — try again shortly" }, 429);
+      }
+    } catch { /* limiter unavailable: fail open rather than block imports */ }
 
     let browser;
     try {

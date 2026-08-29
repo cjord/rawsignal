@@ -106,6 +106,15 @@ test("browser fetch worker keeps its WAF-safe contract", async () => {
   assert.match(source, /const PAGE_SIZE = 30;/, "the showcase API 401s on limits above 30 — keep the page size");
   assert.match(source, /`Bearer \$\{env\.IMPORT_TOKEN\}`/, "the worker must stay token-gated (it is an open WAF relay otherwise)");
   assert.match(source, /api-v2\.getcollectr\.com/);
+  // A global throttle must gate imports before a browser session is spent, so a burst of
+  // clicks can never spam Collectr. It runs through a single Durable Object instance for
+  // account-wide consistency.
+  assert.match(source, /export class RateLimiter/, "the DO rate limiter class must exist");
+  assert.match(source, /allowImport\(env, handle\)/, "imports must pass the rate gate before launching a browser");
+  assert.match(source, /idFromName\("collectr-global"\)/, "one shared limiter instance keeps the cap global");
+  const config = await readFile(new URL("../workers/collectr-fetch/wrangler.jsonc", import.meta.url), "utf8");
+  assert.match(config, /"class_name":\s*"RateLimiter"/);
+  assert.match(config, /new_sqlite_classes/);
 });
 
 test("csv match disambiguation prefers number, then set, and refuses ambiguity", () => {

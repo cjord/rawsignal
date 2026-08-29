@@ -8,5 +8,11 @@
   "compatibility_date": "2026-08-28",
   "compatibility_flags": ["nodejs_compat"],
   "browser": { "binding": "BROWSER" },
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  // Global throttle so "Import All" can never spam Collectr. A single Durable Object
+  // instance holds the sliding-window counters (strongly consistent and atomic — the
+  // native rate-limit binding proved to be a no-op in this account), enforcing an
+  // account-wide per-minute cap plus a tighter per-profile cap.
+  "durable_objects": { "bindings": [{ "name": "LIMITER", "class_name": "RateLimiter" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RateLimiter"] }]
 }

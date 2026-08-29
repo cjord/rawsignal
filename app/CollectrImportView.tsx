@@ -194,15 +194,19 @@ export default function CollectrImportView(){
    </section>
 
    {payload&&!loading&&<>
-   <section className="detail-section"><header><span>{payload.source==="csv"?payload.profile.name:`${payload.profile.name} · @${payload.profile.handle}`}</span><h2>Portfolio<InfoHint label="About these numbers">NM market sums our Near Mint market prices (× quantity) for matched cards only. The Collectr value is their condition-adjusted estimate for every imported card. Coverage counts cards matched to the tracked catalog.</InfoHint></h2>
-    <div className="import-portfolio-actions">
-     <div className="import-actions">
-      <button type="button" className="hot-add-button" onClick={addAll} disabled={!matched.length}>★ Add all tracked to favorites</button>
-      <button type="button" className="hot-add-button" onClick={addHold} disabled={!signalsReady||!holdIds.size}>★ Add Hold cards only</button>
+   <section className="detail-section"><header>
+    <div className="import-header-top">
+     <span>{payload.source==="csv"?payload.profile.name:`${payload.profile.name} · @${payload.profile.handle}`}</span>
+     <div className="import-portfolio-actions">
+      <div className="import-actions">
+       <button type="button" className="hot-add-button" onClick={addAll} disabled={!matched.length}>★ Add all tracked to favorites</button>
+       <button type="button" className="hot-add-button" onClick={addHold} disabled={!signalsReady||!holdIds.size}>★ Add Hold cards only</button>
+      </div>
+      {added&&<span className="import-added" role="status">{added}</span>}
+      <span className="section-aside"><span>Imported {new Date(payload.importedAt).toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"})}</span>{signalsReady&&buySignals.asOfDate&&<span>Signals as of {formatFullDate(buySignals.asOfDate)}</span>}</span>
      </div>
-     {added&&<span className="import-added" role="status">{added}</span>}
-     <span className="section-aside"><span>Imported {new Date(payload.importedAt).toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"})}</span>{signalsReady&&buySignals.asOfDate&&<span>Signals as of {formatFullDate(buySignals.asOfDate)}</span>}</span>
-    </div></header>
+    </div>
+    <h2>Portfolio<InfoHint label="About these numbers">NM market sums our Near Mint market prices (× quantity) for matched cards only. The Collectr value is their condition-adjusted estimate for every imported card. Coverage counts cards matched to the tracked catalog.</InfoHint></h2></header>
     <div className="detail-history-grid import-summary-tiles">
      <div className="detail-metric"><small>NM market</small><b>{usd(marketTotal)}</b><span>{matched.length} tracked cards</span></div>
      <div className="detail-metric"><small>Collectr value</small><b>{usd(payload.profile.collectrValue??collectrTotal)}</b><span>condition-adjusted</span></div>
