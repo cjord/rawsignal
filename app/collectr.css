@@ -30,6 +30,14 @@
 }
 .import-run:hover { filter: brightness(1.08); }
 .import-run:disabled { opacity: .6; cursor: progress; }
+.import-run-secondary { background: transparent; border-color: var(--line); color: var(--text); font-weight: 700; }
+.import-run-secondary:hover { border-color: var(--blue); filter: none; }
+
+/* CSV alternative: a link-styled label wrapping a visually hidden file input. */
+.import-alt { margin: 10px 0 0; color: var(--gray); font-size: var(--text-sm); }
+.import-csv-link { color: var(--blue); font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; position: relative; }
+.import-csv-link:focus-within { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 3px; }
+.import-csv-input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .import-error { margin: 12px 0 0; color: var(--tone-down); font-size: var(--text-sm); }
 .import-skeletons { margin-top: 16px; }
 

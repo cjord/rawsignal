@@ -186,6 +186,20 @@ export async function readCardsByIds(db: D1DatabaseLike, productIds: number[]): 
   return cards;
 }
 
+// Case-insensitive name lookup (Collectr CSV imports lacking TCGplayer ids). Chunked
+// like readCardsByIds; callers disambiguate same-name candidates by number/set.
+export async function readCardsByNames(db: D1DatabaseLike, names: string[]): Promise<Card[]> {
+  const unique = [...new Set(names.map(name => name.toLowerCase()).filter(Boolean))];
+  const cards: Card[] = [];
+  for (let index = 0; index < unique.length; index += 80) {
+    const chunk = unique.slice(index, index + 80);
+    const rows = (await db.prepare(`${productsSqlBase} where p.kind='single' and lower(p.name) in (${chunk.map(() => "?").join(",")})`)
+      .bind(...chunk).all<ProductRow>()).results ?? [];
+    for (const row of rows) { const card = toCard(row); if (card) cards.push(card); }
+  }
+  return cards;
+}
+
 // One set's products of both kinds in domain shapes (sets view detail page).
 export async function readGameSetProducts(db: D1DatabaseLike, game: string, setName: string): Promise<{ cards: Card[]; sealed: SealedProduct[] }> {
   const rows = (await db.prepare(`${productsSqlBase} where p.game=? and p.set_name=? order by p.product_id`).bind(game, setName).all<ProductRow>()).results ?? [];

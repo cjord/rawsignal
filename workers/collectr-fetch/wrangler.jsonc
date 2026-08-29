@@ -1,0 +1,12 @@
+// Raw Signal Collectr fetch worker: a separate, tiny Worker whose only job is walking
+// the full Collectr showcase API through a real headless-Chrome session (Browser
+// Rendering binding). Deployed standalone: npx wrangler deploy -c workers/collectr-fetch/wrangler.jsonc
+// Secret: IMPORT_TOKEN (bearer token the main raw-signal Workers present).
+{
+  "name": "raw-signal-collectr",
+  "main": "src/index.mjs",
+  "compatibility_date": "2026-08-28",
+  "compatibility_flags": ["nodejs_compat"],
+  "browser": { "binding": "BROWSER" },
+  "observability": { "enabled": true }
+}

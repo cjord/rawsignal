@@ -1,0 +1,9 @@
+{
+  "name": "raw-signal-collectr",
+  "private": true,
+  "type": "module",
+  "description": "Browser Rendering worker that paginates the Collectr showcase API past its TLS-fingerprinting WAF.",
+  "dependencies": {
+    "@cloudflare/puppeteer": "^1.0.0"
+  }
+}

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { normalizeCollectrHandle, normalizeCollectrProducts, parseShowcaseHtml, parseShowcasePage } from "../core/collectr.ts";
+import { cardNumberKey, normalizeCollectrCsv, normalizeCollectrHandle, normalizeCollectrProducts, parseCsv, parseShowcaseHtml, parseShowcasePage, pickCsvMatch } from "../core/collectr.ts";
 
 // The fixture is a trimmed capture of the real @9wocep showcase page (2026-08-29): the
 // RSC push chunk holding the dehydrated getShowcaseProfile query — profile header plus
@@ -56,4 +56,71 @@ test("parses direct API pages and normalizes handles", () => {
   assert.equal(normalizeCollectrHandle("  9Wocep  "), "9wocep");
   assert.equal(normalizeCollectrHandle("not a handle!!"), null);
   assert.equal(normalizeCollectrHandle(""), null);
+});
+
+test("parseCsv handles quotes, escapes, CRLF, and BOM", () => {
+  const rows = parseCsv('﻿Name,Set,Qty\r\n"Pikachu, V","Sword ""&"" Shield",2\nCharizard,Base Set,1\r\n\r\n');
+  assert.deepEqual(rows, [
+    ["Name", "Set", "Qty"],
+    ['Pikachu, V', 'Sword "&" Shield', "2"],
+    ["Charizard", "Base Set", "1"],
+  ]);
+});
+
+test("normalizeCollectrCsv maps tolerant headers and skips graded/sealed rows", () => {
+  const csv = [
+    "Product Name,Set Name,Card Number,Rarity,Condition,Printing,Quantity,Market Price,Category,Grading Company,TCGplayer Id,Product Type",
+    'Charmander,EX Dragon,"98/97",Secret Rare,Near Mint,Holofoil,1,"$120.50",Pokémon,Raw,84208,Single',
+    "Ahri,Spiritforged,227/221,Epic,Lightly Played,Normal,2,10,Riftbound,,664881,Card",
+    "Graded Pika,Base Set,58/102,Rare,Near Mint,Normal,1,300,Pokemon,PSA,12345,Single",
+    "Booster Box,Evolving Skies,,,,,1,400,Pokemon,,,Sealed Product",
+    "No Id Card,Surging Sparks,238/191,Special Illustration Rare,Near Mint,Normal,1,55,Pokemon,,,Single",
+  ].join("\r\n");
+  const result = normalizeCollectrCsv(csv);
+  assert.ok(!("error" in result), `unexpected error: ${"error" in result ? result.error : ""}`);
+  assert.equal(result.cards.length, 3);
+  assert.equal(result.skippedGraded, 1);
+  assert.equal(result.skippedSealed, 1);
+  assert.equal(result.hasIds, true);
+  const charmander = result.cards[0];
+  assert.deepEqual(
+    { id: charmander.productId, game: charmander.game, set: charmander.set, price: charmander.collectrPrice, printing: charmander.printing },
+    { id: 84208, game: "pokemon", set: "EX Dragon", price: 120.5, printing: "Holofoil" },
+  );
+  const ahri = result.cards[1];
+  assert.deepEqual({ id: ahri.productId, game: ahri.game, qty: ahri.quantity }, { id: 664881, game: "riftbound", qty: 2 });
+  // Id-less rows get synthetic negative ids for later name resolution.
+  assert.ok(result.cards[2].productId < 0);
+  assert.equal(result.cards[2].name, "No Id Card");
+});
+
+test("normalizeCollectrCsv rejects unrecognizable layouts with the found headers", () => {
+  const result = normalizeCollectrCsv("Foo,Bar\n1,2");
+  assert.ok("error" in result);
+  assert.match(result.error, /Foo, Bar/);
+  assert.ok("error" in normalizeCollectrCsv(""));
+});
+
+test("browser fetch worker keeps its WAF-safe contract", async () => {
+  const source = await readFile(new URL("../workers/collectr-fetch/src/index.mjs", import.meta.url), "utf8");
+  assert.match(source, /const PAGE_SIZE = 30;/, "the showcase API 401s on limits above 30 — keep the page size");
+  assert.match(source, /`Bearer \$\{env\.IMPORT_TOKEN\}`/, "the worker must stay token-gated (it is an open WAF relay otherwise)");
+  assert.match(source, /api-v2\.getcollectr\.com/);
+});
+
+test("csv match disambiguation prefers number, then set, and refuses ambiguity", () => {
+  assert.equal(cardNumberKey("058/189"), "58/189");
+  assert.equal(cardNumberKey("TG12/TG30"), "tg12/tg30");
+  assert.equal(cardNumberKey(" 4 "), "4");
+  const candidates = [
+    { productId: 1, number: "58/102", set: "Base Set" },
+    { productId: 2, number: "58/189", set: "Darkness Ablaze" },
+  ];
+  assert.equal(pickCsvMatch({ number: "058/102", set: "" }, candidates)?.productId, 1);
+  // A bare numerator agrees with either denominator form — still needs the set to decide.
+  assert.equal(pickCsvMatch({ number: "58", set: "Base Set" }, candidates)?.productId, 1);
+  assert.equal(pickCsvMatch({ number: "", set: "Darkness Ablaze" }, candidates)?.productId, 2);
+  assert.equal(pickCsvMatch({ number: "", set: "" }, candidates), null);
+  assert.equal(pickCsvMatch({ number: "7/102", set: "" }, [candidates[0]])?.productId, 1);
+  assert.equal(pickCsvMatch({ number: "1/1", set: "" }, []), null);
 });

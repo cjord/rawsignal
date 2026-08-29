@@ -164,3 +164,147 @@ export function normalizeCollectrHandle(input: string): string | null {
   const bare = fromUrl ?? trimmed.replace(/^@/, "");
   return /^[A-Za-z0-9_.-]{2,64}$/.test(bare) ? bare.toLowerCase() : null;
 }
+
+// ---------------------------------------------------------------------------
+// Collectr Pro CSV export import. Collectr doesn't document the export layout, so the
+// header mapping is deliberately tolerant: each logical field accepts every plausible
+// header spelling, matched case- and punctuation-insensitively. Rows without a
+// TCGplayer id get synthetic negative productIds; the route later resolves them by
+// name/number against the catalog and rewrites the id when a match lands.
+
+// RFC4180-ish parser: quoted fields, doubled-quote escapes, CRLF/CR/LF rows, BOM strip.
+export function parseCsv(text: string): string[][] {
+  const source = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+  const rows: string[][] = [];
+  let row: string[] = [], field = "", inQuotes = false;
+  const endField = () => { row.push(field); field = ""; };
+  const endRow = () => { endField(); if (row.length > 1 || row[0].trim() !== "") rows.push(row); row = []; };
+  for (let index = 0; index < source.length; index++) {
+    const ch = source[index];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (source[index + 1] === '"') { field += '"'; index += 1; }
+        else inQuotes = false;
+      } else field += ch;
+      continue;
+    }
+    if (ch === '"') inQuotes = true;
+    else if (ch === ",") endField();
+    else if (ch === "\n") endRow();
+    else if (ch === "\r") { if (source[index + 1] === "\n") index += 1; endRow(); }
+    else field += ch;
+  }
+  if (field !== "" || row.length) endRow();
+  return rows;
+}
+
+const headerKey = (value: string) => value.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9#]+/g, "");
+const csvGame = (value: string): CollectrCard["game"] => {
+  const folded = headerKey(value);
+  if (folded.includes("pokemon")) return "pokemon";
+  if (folded.includes("riftbound")) return "riftbound";
+  return null;
+};
+const CSV_FIELDS: Record<string, string[]> = {
+  id: ["tcgplayerid", "tcgplayerproductid", "productid", "tcgid", "id"],
+  name: ["productname", "cardname", "name", "card", "product"],
+  set: ["setname", "set", "group", "expansion", "cataloggroup"],
+  number: ["cardnumber", "number", "card#", "#", "no"],
+  rarity: ["rarity"],
+  condition: ["condition", "cardcondition"],
+  printing: ["printing", "subtype", "productsubtype", "variance", "variant", "finish"],
+  quantity: ["quantity", "qty", "count", "owned"],
+  price: ["marketprice", "marketvalue", "price", "value", "estimatedvalue"],
+  game: ["category", "catalogcategory", "game", "tcg", "franchise"],
+  gradeCompany: ["gradingcompany", "gradecompany", "grader", "grading"],
+  grade: ["grade", "gradevalue"],
+  kind: ["producttype", "itemtype", "type", "kind"],
+};
+
+const csvNumber = (value: string | undefined): number | null => {
+  if (!value) return null;
+  const parsed = Number(value.replace(/[$,\s]/g, ""));
+  return Number.isFinite(parsed) ? parsed : null;
+};
+const RAW_GRADE_VALUES = /^(raw|ungraded|none|no|n\/a|-|—|0)$/i;
+
+export type CollectrCsvImport = { cards: CollectrCard[]; skippedGraded: number; skippedSealed: number; hasIds: boolean };
+
+export function normalizeCollectrCsv(text: string): CollectrCsvImport | { error: string } {
+  const rows = parseCsv(text);
+  if (rows.length < 2) return { error: "The CSV has no data rows — export your collection from Collectr (Pro) and try again." };
+  const headers = rows[0].map(headerKey);
+  const columns: Partial<Record<keyof typeof CSV_FIELDS, number>> = {};
+  for (const [fieldName, aliases] of Object.entries(CSV_FIELDS)) {
+    const at = headers.findIndex(header => aliases.includes(header));
+    if (at >= 0) columns[fieldName as keyof typeof CSV_FIELDS] = at;
+  }
+  if (columns.name == null || (columns.id == null && columns.set == null && columns.number == null)) {
+    return { error: `Couldn't recognize the CSV columns (found: ${rows[0].map(header => header.trim()).filter(Boolean).join(", ") || "none"}). Expected a Collectr collection export with a product name plus a TCGplayer id or set/number.` };
+  }
+  const cell = (row: string[], fieldName: keyof typeof CSV_FIELDS) => {
+    const at = columns[fieldName];
+    return at == null ? "" : (row[at] ?? "").trim();
+  };
+  const cards: CollectrCard[] = [];
+  let skippedGraded = 0, skippedSealed = 0, hasIds = false;
+  for (let index = 1; index < rows.length; index++) {
+    const row = rows[index];
+    const name = cell(row, "name");
+    if (!name) continue;
+    const kind = cell(row, "kind");
+    if (kind && !/single|card/i.test(kind)) { skippedSealed += 1; continue; }
+    const gradeCompany = cell(row, "gradeCompany");
+    const grade = cell(row, "grade");
+    if ((gradeCompany && !RAW_GRADE_VALUES.test(gradeCompany)) || (grade && !RAW_GRADE_VALUES.test(grade))) { skippedGraded += 1; continue; }
+    const productId = csvNumber(cell(row, "id"));
+    if (productId != null && productId > 0) hasIds = true;
+    const collectrGame = cell(row, "game");
+    cards.push({
+      productId: productId != null && productId > 0 ? productId : -index,
+      game: csvGame(collectrGame),
+      collectrGame,
+      name,
+      set: cell(row, "set"),
+      number: cell(row, "number"),
+      rarity: cell(row, "rarity"),
+      condition: cell(row, "condition") || null,
+      printing: cell(row, "printing") || null,
+      quantity: Math.max(1, Math.round(csvNumber(cell(row, "quantity")) ?? 1)),
+      collectrPrice: csvNumber(cell(row, "price")),
+      collectrChange: null,
+      image: null,
+    });
+  }
+  if (!cards.length) return { error: "No importable raw singles found in the CSV." };
+  return { cards, skippedGraded, skippedSealed, hasIds };
+}
+
+// Card numbers vary in zero-padding and denominators across sources ("058/189", "58/189",
+// "58"): normalize zero-padding per segment; two numbers agree when the normalized forms
+// are equal, or when exactly one side lacks a denominator and the numerators match.
+export function cardNumberKey(value: string): string {
+  return value.toLowerCase().replace(/\s+/g, "").split("/").map(segment => segment.replace(/^0+(?=[0-9])/, "")).join("/");
+}
+const numbersAgree = (a: string, b: string): boolean => {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  return a.includes("/") !== b.includes("/") && a.split("/")[0] === b.split("/")[0];
+};
+
+// Disambiguate same-name catalog candidates for a CSV row: prefer a card-number match,
+// then a set match; anything still ambiguous stays honestly unmatched.
+export function pickCsvMatch<T extends { number: string; set: string }>(card: Pick<CollectrCard, "number" | "set">, candidates: T[]): T | null {
+  if (!candidates.length) return null;
+  let pool = candidates;
+  const number = cardNumberKey(card.number);
+  if (number) {
+    const byNumber = pool.filter(candidate => numbersAgree(number, cardNumberKey(candidate.number)));
+    if (byNumber.length) pool = byNumber;
+  }
+  if (pool.length > 1 && card.set) {
+    const bySet = pool.filter(candidate => candidate.set.toLowerCase() === card.set.toLowerCase());
+    if (bySet.length) pool = bySet;
+  }
+  return pool.length === 1 ? pool[0] : null;
+}

@@ -40,7 +40,7 @@ export default function CollectrImportView(){
  const [strictness,setStrictness]=usePreference(STRICTNESS_KEY,parseStrictness,"balanced");
  const [stored,setStored]=useState<StoredCollectrImport|null>(null);
  const [input,setInput]=useState("");
- const [phase,setPhase]=useState<"idle"|"loading">("idle");
+ const [phase,setPhase]=useState<"idle"|"top"|"full"|"csv">("idle");
  const [error,setError]=useState<string|null>(null);
  const [market,setMarket]=useState<ImportMarket>("all");
  const [lens,setLens]=useState<Lens>("all");
@@ -63,17 +63,32 @@ export default function CollectrImportView(){
   else if(existing)setInput(`@${existing.payload.profile.handle}`);
  },[]);
 
- const runImport=async()=>{
-  if(phase==="loading")return;
-  setPhase("loading");setError(null);setAdded(null);
+ const loading=phase!=="idle";
+ const acceptPayload=(body:CollectrImportPayload)=>{
+  setStored(storeImport(body));
+  setLens("all");setQuery("");setSetFilter([]);setMinPrice("");setMaxPrice("");
+  window.history.replaceState(null,"",body.source==="csv"?"/import":`/import?profile=@${body.profile.handle}`);
+ };
+ const runImport=async(mode:"top"|"full")=>{
+  if(loading)return;
+  setPhase(mode);setError(null);setAdded(null);
   try{
-   const response=await fetch(`/api/collectr?profile=${encodeURIComponent(input.trim())}`);
+   const response=await fetch(`/api/collectr?profile=${encodeURIComponent(input.trim())}${mode==="full"?"&mode=full":""}`);
    const body=await response.json() as CollectrImportPayload&{error?:string};
    if(!response.ok||body.error){setError(body.error??`Import failed (HTTP ${response.status})`);return}
-   setStored(storeImport(body));
-   setLens("all");setQuery("");setSetFilter([]);setMinPrice("");setMaxPrice("");
-   window.history.replaceState(null,"",`/import?profile=@${body.profile.handle}`);
+   acceptPayload(body);
   }catch{setError("Import failed — check the link and try again.")}
+  finally{setPhase("idle")}
+ };
+ const runCsv=async(file:File)=>{
+  if(loading)return;
+  setPhase("csv");setError(null);setAdded(null);
+  try{
+   const response=await fetch("/api/collectr",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({csv:await file.text(),filename:file.name})});
+   const body=await response.json() as CollectrImportPayload&{error?:string};
+   if(!response.ok||body.error){setError(body.error??`CSV import failed (HTTP ${response.status})`);return}
+   acceptPayload(body);
+  }catch{setError("CSV import failed — is that the collection export from Collectr?")}
   finally{setPhase("idle")}
  };
 
@@ -124,17 +139,20 @@ export default function CollectrImportView(){
   </header>
   <article className="detail-content">
    <section className="detail-section import-form-section"><header><span>Import</span><h2>Collectr Profile</h2></header>
-    <p className="detail-note">Paste a public Collectr showcase link or @handle. The import matches every raw single against tracked market data, flags what the sell signals say to move and what the buy signals say to hold, and can star the lot into your Buy List. {payload?"Importing again replaces this page with the new profile.":"Graded cards and sealed products are skipped."}<InfoHint label="How matching works">Collectr and Raw Signal both key cards by TCGplayer product id, so matching is exact. Cards outside the tracked rarity sections show with a “not tracked” badge and Collectr&apos;s own value; they stay out of the Hold/Sell lenses and favorites.</InfoHint></p>
+    <p className="detail-note">Paste a public Collectr showcase link or @handle. The import matches every raw single against tracked market data, flags what the sell signals say to move and what the buy signals say to hold, and can star the lot into your Buy List. Import Top 30 grabs the showcase&apos;s most valuable cards instantly; Import All walks the entire collection through a real browser session and takes longer. {payload?"Importing again replaces this page with the new profile.":"Graded cards and sealed products are skipped."}<InfoHint label="How matching works">Collectr and Raw Signal both key cards by TCGplayer product id, so matching is exact. Cards outside the tracked rarity sections show with a “not tracked” badge and Collectr&apos;s own value; they stay out of the Hold/Sell lenses and favorites.</InfoHint></p>
     <div className="import-form">
-     <label className="import-input"><span aria-hidden="true">⌕</span><input ref={inputRef} value={input} placeholder="https://app.getcollectr.com/showcase/profile/@yourhandle" onChange={event=>setInput(event.target.value)} onKeyDown={event=>{if(event.key==="Enter")runImport()}} aria-label="Collectr showcase link or handle"/></label>
-     <button type="button" className="import-run" onClick={runImport} disabled={phase==="loading"}>{phase==="loading"?"Importing…":"Import"}</button>
+     <label className="import-input"><span aria-hidden="true">⌕</span><input ref={inputRef} value={input} placeholder="https://app.getcollectr.com/showcase/profile/@yourhandle" onChange={event=>setInput(event.target.value)} onKeyDown={event=>{if(event.key==="Enter")runImport("full")}} aria-label="Collectr showcase link or handle"/></label>
+     <button type="button" className="import-run import-run-secondary" onClick={()=>runImport("top")} disabled={loading}>{phase==="top"?"Importing…":"Import Top 30"}</button>
+     <button type="button" className="import-run" onClick={()=>runImport("full")} disabled={loading}>{phase==="full"?"Importing…":"Import All"}</button>
     </div>
+    <p className="import-alt">or <label className="import-csv-link">import your Collectr Pro CSV export<input className="import-csv-input" type="file" accept=".csv,text/csv" disabled={loading} onChange={event=>{const file=event.target.files?.[0];event.target.value="";if(file)runCsv(file)}} aria-label="Import a Collectr Pro CSV export"/></label>{phase==="csv"&&" — importing…"}<InfoHint label="About CSV import">Collection CSV export needs a Collectr Pro subscription — in Collectr, open your collection and choose Export, then drop the file here. The file is parsed for matching only; nothing is stored server-side. No Pro? The showcase importers above work for any public profile.</InfoHint></p>
     {error&&<p className="import-error" role="alert">{error}</p>}
-    {phase==="loading"&&<div className="row-skeletons import-skeletons" aria-label="Importing collection"><span/><span/><span/><span/></div>}
+    {loading&&<div className="row-skeletons import-skeletons" aria-label="Importing collection"><span/><span/><span/><span/></div>}
+    {phase==="full"&&<p className="detail-note">Walking the full collection through a real browser session — large collections can take up to a minute.</p>}
    </section>
 
-   {payload&&phase!=="loading"&&<>
-   <section className="detail-section"><header><span>{payload.profile.name} · @{payload.profile.handle}</span><h2>Portfolio<InfoHint label="About these numbers">NM market sums our Near Mint market prices (× quantity) for matched cards only. The Collectr value is their condition-adjusted estimate for every imported card. Coverage counts cards matched to the tracked catalog.</InfoHint></h2>
+   {payload&&!loading&&<>
+   <section className="detail-section"><header><span>{payload.source==="csv"?payload.profile.name:`${payload.profile.name} · @${payload.profile.handle}`}</span><h2>Portfolio<InfoHint label="About these numbers">NM market sums our Near Mint market prices (× quantity) for matched cards only. The Collectr value is their condition-adjusted estimate for every imported card. Coverage counts cards matched to the tracked catalog.</InfoHint></h2>
     <span className="section-aside"><span>Imported {formatFullDate(payload.importedAt)}</span>{signalsReady&&buySignals.asOfDate&&<span>Signals as of {formatFullDate(buySignals.asOfDate)}</span>}</span></header>
     <div className="detail-history-grid import-summary-tiles">
      <div className="detail-metric"><small>NM market</small><b>{usd(marketTotal)}</b><span>{matched.length} tracked cards</span></div>
@@ -144,7 +162,7 @@ export default function CollectrImportView(){
      <div className="detail-metric"><small>Sell candidates</small><b className="down">{sellIds.size}</b><span>worth {usd(sellValue)} at market</span></div>
      <div className="detail-metric"><small>Skipped</small><b>{payload.skippedGraded+payload.skippedSealed}</b><span>{payload.skippedGraded} graded · {payload.skippedSealed} sealed</span></div>
     </div>
-    {(diff||payload.partial)&&<p className="detail-note">{diff&&<>Since last import: {diff.added} new · {diff.removed} removed. </>}{payload.partial&&<>Partial import — Collectr&apos;s API declined pagination, so this shows the {payload.cards.length} most valuable cards of {payload.profile.totalCards}.</>}</p>}
+    {(diff||payload.partial||payload.fullError)&&<p className="detail-note">{diff&&<>Since last import: {diff.added} new · {diff.removed} removed. </>}{payload.fullError&&<>Full import fell back to the showcase page ({payload.fullError}). </>}{payload.partial&&(payload.source==="browser"?<>Partial import — the browser walk stopped early, so this shows {payload.cards.length} cards of {payload.profile.totalCards}.</>:<>Partial import — Collectr&apos;s API declined pagination, so this shows the {payload.cards.length} most valuable cards of {payload.profile.totalCards}.</>)}</p>}
     <div className="import-actions">
      <button type="button" className="hot-add-button" onClick={addAll} disabled={!matched.length}>★ Add all tracked to favorites</button>
      <button type="button" className="hot-add-button" onClick={addHold} disabled={!signalsReady||!holdIds.size}>★ Add Hold cards only</button>
@@ -169,7 +187,7 @@ export default function CollectrImportView(){
     <div className={`import-table view-${view}`}>
      <div className="table-head import-head" role="row"><span role="columnheader">Card</span><span role="columnheader">Set</span><span role="columnheader">Cond · Qty</span><span role="columnheader">Collectr</span><span role="columnheader">NM Market</span><span role="columnheader">Signal</span></div>
      <div className="rows" role="rowgroup">
-      {visible.map(card=>{
+      {visible.map((card,rowIndex)=>{
        const match=card.matched;
        const signal=lens==="sell"?sellSignals.derived[card.productId]?.signal:buySignals.derived[card.productId]?.signal??sellSignals.derived[card.productId]?.signal;
        const cardHistory=match?priceHistory[historyTargetKey({productId:card.productId,printing:card.printing??"Normal"})]:undefined;
@@ -181,9 +199,9 @@ export default function CollectrImportView(){
         <span className="market-price">{match?usd(match.marketPrice):<i className="import-untracked">Not tracked</i>}</span>
         <span className="import-signal">{signalsReady&&signal?<SignalBadge signal={signal}/>:<span className="import-neutral">{match?"—":""}</span>}</span>
        </>;
-       return match?<a key={`${card.productId}`} className="leader-row import-row" href={match.detailPath} aria-label={`View ${match.name} details`}>{body}
+       return match?<a key={`${card.productId}-${rowIndex}`} className="leader-row import-row" href={match.detailPath} aria-label={`View ${match.name} details`}>{body}
         {cardHistory&&<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={match.image??""} alt={`${match.name} card`} label={`${match.name} price history`}><HistoryPanel title="Near Mint market history" subtitle={card.printing??"Normal"} points={cardHistory.points??[]} metrics={standardHistoryMetrics(match.marketPrice,null,cardHistory)}/></HistoryPopover>}
-       </a>:<div key={`${card.productId}-u`} className="leader-row import-row is-untracked">{body}</div>;
+       </a>:<div key={`${card.productId}-u-${rowIndex}`} className="leader-row import-row is-untracked">{body}</div>;
       })}
       {!visible.length&&<p className="empty">Nothing matches the current lens and filters.</p>}
      </div>
