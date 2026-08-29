@@ -34,12 +34,17 @@ const gameLabel: Record<string, string> = { pokemon: "Pokémon", riftbound: "Rif
 // Pack EV inputs (audit Phase C / H1): the cheapest live booster-pack price per set, and
 // per-set tier averages resolved through the same curated pull-rate rules the detail pages
 // use. Shared by the metrics payload and the /api/set-ev feed the sealed view reads.
+// Set names collide across games ("Unleashed" is both an HGSS Pokémon set and a
+// Riftbound set — live since D3 put riftbound packs in the shared Booster Packs
+// bucket), so every per-set map in this module is keyed `${game}|${set}`.
+const gameSetKey = (game: string, set: string) => `${game}|${set}`;
+
 export async function loadSetEvData(db: D1DatabaseLike, pullRates?: PullRateConfig) {
-  const packRows = (await db.prepare(`select p.set_name setName, min(cp.market_cents) packCents
+  const packRows = (await db.prepare(`select p.game, p.set_name setName, min(cp.market_cents) packCents
       from catalog_products p join current_prices cp on cp.product_id=p.product_id
       where p.kind='sealed' and p.product_type='Booster Packs' and cp.market_cents > 0
-      group by p.set_name`).bind().all<{ setName: string; packCents: number }>()).results ?? [];
-  const packPriceBySet = new Map(packRows.map(row => [row.setName, row.packCents / 100]));
+      group by p.game, p.set_name`).bind().all<{ game: string; setName: string; packCents: number }>()).results ?? [];
+  const packPriceBySet = new Map(packRows.map(row => [gameSetKey(row.game, row.setName), row.packCents / 100]));
   const evBySet = new Map<string, number | null>();
   if (pullRates) {
     const tierRows = (await db.prepare(`select p.set_name setName, p.game, p.rarity, p.section, avg(cp.market_cents) avgCents, count(*) n
@@ -50,28 +55,30 @@ export async function loadSetEvData(db: D1DatabaseLike, pullRates?: PullRateConf
     for (const row of tierRows) {
       const resolved = pullRateFor(pullRates, row.game, row.setName, { rarity: row.rarity, section: row.section ?? undefined });
       if (!resolved) continue;
-      const tiers = tiersBySet.get(row.setName) ?? new Map();
+      const key = gameSetKey(row.game, row.setName);
+      const tiers = tiersBySet.get(key) ?? new Map();
       const tier = tiers.get(resolved.key) ?? { packsPerHit: resolved.packsPerHit, weighted: 0, count: 0 };
       tier.weighted += (row.avgCents / 100) * row.n;
       tier.count += row.n;
       tiers.set(resolved.key, tier);
-      tiersBySet.set(row.setName, tiers);
+      tiersBySet.set(key, tiers);
     }
-    for (const [setName, tiers] of tiersBySet) {
-      evBySet.set(setName, packChaseEv([...tiers.values()].map(tier => ({ packsPerHit: tier.packsPerHit, averageMarket: tier.count ? tier.weighted / tier.count : null }))));
+    for (const [key, tiers] of tiersBySet) {
+      evBySet.set(key, packChaseEv([...tiers.values()].map(tier => ({ packsPerHit: tier.packsPerHit, averageMarket: tier.count ? tier.weighted / tier.count : null }))));
     }
   }
   return { packPriceBySet, evBySet };
 }
 
-export type SetEvRow = { set: string; packPrice: number | null; packEv: number | null; evRatio: number | null };
+export type SetEvRow = { game: string; set: string; packPrice: number | null; packEv: number | null; evRatio: number | null };
 
 export async function loadSetEvRows(db: D1DatabaseLike, pullRates?: PullRateConfig): Promise<SetEvRow[]> {
   const { packPriceBySet, evBySet } = await loadSetEvData(db, pullRates);
-  const sets = new Set([...packPriceBySet.keys(), ...evBySet.keys()]);
-  return [...sets].map(set => {
-    const packPrice = packPriceBySet.get(set) ?? null, packEv = evBySet.get(set) ?? null;
-    return { set, packPrice, packEv, evRatio: evRatio(packEv, packPrice) };
+  const keys = new Set([...packPriceBySet.keys(), ...evBySet.keys()]);
+  return [...keys].map(key => {
+    const game = key.slice(0, key.indexOf("|")), set = key.slice(key.indexOf("|") + 1);
+    const packPrice = packPriceBySet.get(key) ?? null, packEv = evBySet.get(key) ?? null;
+    return { game, set, packPrice, packEv, evRatio: evRatio(packEv, packPrice) };
   }).filter(row => row.packEv != null);
 }
 
@@ -106,51 +113,52 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options
   // scope has a full table (the ALL view re-ranks the union by tracked value).
   const setRows = (await db.prepare(`with ranked as (
       select p.set_name, p.game, cp.market_cents v,
-        row_number() over (partition by p.set_name order by cp.market_cents desc) rn,
-        count(*) over (partition by p.set_name) total,
-        sum(cp.market_cents) over (partition by p.set_name) sumv
+        row_number() over (partition by p.game, p.set_name order by cp.market_cents desc) rn,
+        count(*) over (partition by p.game, p.set_name) total,
+        sum(cp.market_cents) over (partition by p.game, p.set_name) sumv
       from catalog_products p join current_prices cp on cp.product_id=p.product_id
       where p.kind='single' and cp.market_cents is not null
     ), medians as (
       select set_name, game, max(total) cards, max(sumv) totalCents, avg(v) medianCents
       from ranked where rn=(total+1)/2 or rn=total/2+1 group by set_name, game
     ), momentum as (
-      select p.set_name, mm.change_30_bps b,
-        row_number() over (partition by p.set_name order by mm.change_30_bps) rn,
-        count(*) over (partition by p.set_name) total
+      select p.set_name, p.game, mm.change_30_bps b,
+        row_number() over (partition by p.game, p.set_name order by mm.change_30_bps) rn,
+        count(*) over (partition by p.game, p.set_name) total
       from catalog_products p join market_metrics mm on mm.product_id=p.product_id and mm.variant=p.printing
       where p.kind='single' and mm.change_30_bps is not null
     ), setChange as (
       -- Aggregated once and joined: a correlated subselect against a window CTE re-evaluates
       -- the whole window per outer row in SQLite, which turned this payload pathological.
-      select set_name, avg(b) as change30Bps from momentum where rn=(total+1)/2 or rn=total/2+1 group by set_name
+      select set_name, game, avg(b) as change30Bps from momentum where rn=(total+1)/2 or rn=total/2+1 group by set_name, game
     ), sized as (
       select m.set_name as setName, m.game, m.totalCents, m.cards, m.medianCents, c.change30Bps,
         row_number() over (partition by m.game order by m.totalCents desc) as gameRank
-      from medians m left join setChange c on c.set_name=m.set_name
+      from medians m left join setChange c on c.set_name=m.set_name and c.game=m.game
     )
     select setName, game, totalCents, cards, medianCents, change30Bps from sized where gameRank <= 30 order by totalCents desc`).bind().all<SetRow>()).results ?? [];
 
   // Sealed-vs-singles divergence (audit H2): each set's sealed products' median 30D change,
   // read the same middle-rank way as the singles momentum above.
   const sealedSetRows = (await db.prepare(`with momentum as (
-      select p.set_name setName, mm.change_30_bps b,
-        row_number() over (partition by p.set_name order by mm.change_30_bps) rn,
-        count(*) over (partition by p.set_name) total
+      select p.set_name setName, p.game, mm.change_30_bps b,
+        row_number() over (partition by p.game, p.set_name order by mm.change_30_bps) rn,
+        count(*) over (partition by p.game, p.set_name) total
       from catalog_products p ${metricsJoin}
       where p.kind='sealed' and mm.change_30_bps is not null
-    ) select setName, avg(b) as change30Bps from momentum where rn=(total+1)/2 or rn=total/2+1 group by setName`).bind().all<{ setName: string; change30Bps: number | null }>()).results ?? [];
-  const sealedChangeBySet = new Map(sealedSetRows.map(row => [row.setName, row.change30Bps]));
+    ) select setName, game, avg(b) as change30Bps from momentum where rn=(total+1)/2 or rn=total/2+1 group by setName, game`).bind().all<{ setName: string; game: string; change30Bps: number | null }>()).results ?? [];
+  const sealedChangeBySet = new Map(sealedSetRows.map(row => [gameSetKey(row.game, row.setName), row.change30Bps]));
 
   const { packPriceBySet, evBySet } = await loadSetEvData(db, options.pullRates);
 
   const sets: MetricsSetRow[] = setRows.map(row => {
-    const packPrice = packPriceBySet.get(row.setName) ?? null;
-    const packEv = evBySet.get(row.setName) ?? null;
+    const key = gameSetKey(row.game, row.setName);
+    const packPrice = packPriceBySet.get(key) ?? null;
+    const packEv = evBySet.get(key) ?? null;
     return {
       set: row.setName, game: row.game, trackedValue: row.totalCents / 100, medianPrice: row.medianCents / 100,
       cards: row.cards, change30: row.change30Bps == null ? null : row.change30Bps / 100,
-      sealedChange30: (sealedChangeBySet.get(row.setName) ?? null) == null ? null : (sealedChangeBySet.get(row.setName) as number) / 100,
+      sealedChange30: (sealedChangeBySet.get(key) ?? null) == null ? null : (sealedChangeBySet.get(key) as number) / 100,
       packPrice, packEv, evRatio: evRatio(packEv, packPrice),
     };
   });

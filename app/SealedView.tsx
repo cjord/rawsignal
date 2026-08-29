@@ -263,8 +263,8 @@ export default function SealedView({
   useEffect(() => {
     const controller = new AbortController();
     fetch("/api/set-ev", { signal: controller.signal })
-      .then(async (response) => (response.ok ? await response.json() as { rows: { set: string; packEv: number | null; evRatio: number | null }[] } : null))
-      .then((body) => { if (body?.rows && !controller.signal.aborted) setSetEv(Object.fromEntries(body.rows.map((row) => [row.set, { packEv: row.packEv, evRatio: row.evRatio }]))); })
+      .then(async (response) => (response.ok ? await response.json() as { rows: { game: string; set: string; packEv: number | null; evRatio: number | null }[] } : null))
+      .then((body) => { if (body?.rows && !controller.signal.aborted) setSetEv(Object.fromEntries(body.rows.map((row) => [`${row.game}|${row.set}`, { packEv: row.packEv, evRatio: row.evRatio }]))); })
       .catch(() => { /* Feed-only deployment; hover cards omit EV. */ });
     return () => controller.abort();
   }, []);
@@ -417,11 +417,11 @@ export default function SealedView({
           { label: "30D low", value: usd(h?.low30 ?? null) },
           { label: "30D high", value: usd(h?.high30 ?? null) },
           { label: "Hist low", value: usd(h?.historyLow ?? null) },
-          ...(setEv[product.set]?.packEv != null
+          ...(setEv[`${product.game}|${product.set}`]?.packEv != null
             ? [{
                 label: "Set pack EV",
-                value: `${usd(setEv[product.set].packEv)}${setEv[product.set].evRatio != null ? ` · ${(setEv[product.set].evRatio as number).toFixed(2)}×` : ""}`,
-                tone: setEv[product.set].evRatio != null ? ((setEv[product.set].evRatio as number) >= 1 ? "up" as const : "down" as const) : undefined,
+                value: `${usd(setEv[`${product.game}|${product.set}`].packEv)}${setEv[`${product.game}|${product.set}`].evRatio != null ? ` · ${(setEv[`${product.game}|${product.set}`].evRatio as number).toFixed(2)}×` : ""}`,
+                tone: setEv[`${product.game}|${product.set}`].evRatio != null ? ((setEv[`${product.game}|${product.set}`].evRatio as number) >= 1 ? "up" as const : "down" as const) : undefined,
               }]
             : []),
           // Profit is a scalper concept: regular mode's popover and full view stay
