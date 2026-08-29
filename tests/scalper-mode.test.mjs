@@ -53,8 +53,10 @@ test("Scalping queries the mixed sealed allowlist without filtering by source ga
 });
 
 test("Scalper controls are preference-driven and gated to Sealed rendering", async () => {
-  const [page, sealed] = await Promise.all([text("../app/page.tsx"), text("../app/SealedView.tsx")]);
-  assert.match(page, /raw-signal-scalper-mode/);
+  const [page, sealed, store] = await Promise.all([text("../app/page.tsx"), text("../app/SealedView.tsx"), text("../app/state/scalper-mode.ts")]);
+  // The preference lives in the shared device store (decision D13).
+  assert.match(store, /raw-signal-scalper-mode/);
+  assert.match(page, /useScalperMode\(\)/);
   assert.match(page, /setMode\(value\)/);
   assert.match(page, /scalperEnabled=\{scalperMode\s*===\s*"scalper"\}/);
   // The curated market keeps its internal "scalping" value (URL stability) under the

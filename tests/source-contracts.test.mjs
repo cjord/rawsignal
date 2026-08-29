@@ -58,7 +58,7 @@ test("keeps the URL codec defaults stable", () => {
 
 test("a shared scalping URL falls back safely without the scalper preference", async () => {
   const sealed = await read("app/SealedView.tsx");
-  assert.match(sealed, /initialState\.market === "scalping" && !scalperEnabled \? "pokemon" : initialState\.market/);
+  assert.match(sealed, /state\.market === "scalping" && !scalperEnabled \? "pokemon" : state\.market/);
 });
 
 test("strictness lives only in the TopBar settings menu", async () => {
