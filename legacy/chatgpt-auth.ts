@@ -1,3 +1,6 @@
+// LEGACY (OpenAI Sites era): header-based ChatGPT sign-in helpers for the dormant
+// Sites deployment. Nothing in the maintained application imports this module; it is
+// retained with .openai/hosting.json as the Sites rollback kit (docs/legacy-artifacts.md).
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
