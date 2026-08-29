@@ -50,6 +50,7 @@ import MarketLeaderboard from "./leaderboard/MarketLeaderboard";
 import LeaderboardHeader from "./leaderboard/LeaderboardHeader";
 import LeaderboardControls from "./leaderboard/LeaderboardControls";
 import LeaderboardSearch from "./leaderboard/LeaderboardSearch";
+import FullViewCardWrap from "./leaderboard/FullViewCardWrap";
 import { useSetGroups } from "./leaderboard/useSetGroups";
 import ActiveFilterSummary from "./leaderboard/ActiveFilterSummary";
 import { resultState, type LeaderboardModeModel } from "./leaderboard/types";
@@ -400,8 +401,11 @@ export default function SealedView({
     requestHistory,
   );
   const changeSort = (next: SortKey) => {
+    // Compare against the displayed column (effectiveSort), not the raw state: a sort
+    // carried across the scalper toggle can be out-of-mode, and clicking the column shown
+    // as active must toggle its direction instead of restarting at descending.
     setDirection((current) =>
-      nextSortDirection(sort, current, next, ascendingSealedSorts),
+      nextSortDirection(effectiveSort, current, next, ascendingSealedSorts),
     );
     setSort(next);
     setPage(1);
@@ -777,11 +781,14 @@ export default function SealedView({
           columnSignal = signal && (view === "medium" || view === "text");
         if (view === "full")
           return (
-            <span className="signal-card-wrap" key={product.productId}>
-              {signal && <SignalBadge signal={signal} />}
-              <span className="row-star"><FavoriteStar entry={sealedFavorite(product)} /></span>
-              <a className="detail-link-card" href={`/sealed/${product.productId}${isScalpingMarket?"?market=scalping":""}`} aria-label={`View ${product.name} details`}>
-               <FullMarketCard
+            <FullViewCardWrap
+              key={product.productId}
+              signal={signal}
+              favorite={sealedFavorite(product)}
+              href={`/sealed/${product.productId}${isScalpingMarket?"?market=scalping":""}`}
+              label={`View ${product.name} details`}
+            >
+              <FullMarketCard
                 className="sealed-full-card"
                 artClassName="sealed-full-art"
                 dataClassName="sealed-full-data"
@@ -795,9 +802,8 @@ export default function SealedView({
                   </>
                 }
                 content={rowDetails(product, result, h)}
-               />
-              </a>
-            </span>
+              />
+            </FullViewCardWrap>
           );
         return (
           <MarketRow

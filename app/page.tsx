@@ -62,6 +62,7 @@ import MarketLeaderboard from "./leaderboard/MarketLeaderboard";
 import LeaderboardHeader from "./leaderboard/LeaderboardHeader";
 import LeaderboardControls from "./leaderboard/LeaderboardControls";
 import LeaderboardSearch from "./leaderboard/LeaderboardSearch";
+import FullViewCardWrap from "./leaderboard/FullViewCardWrap";
 import { useSetGroups } from "./leaderboard/useSetGroups";
 import ActiveFilterSummary from "./leaderboard/ActiveFilterSummary";
 import { resultState, type LeaderboardModeModel } from "./leaderboard/types";
@@ -944,13 +945,15 @@ export default function Home() {
               columnSignal = signal && (view === "medium" || view === "text");
             if (view === "full")
               return (
-                <span className="signal-card-wrap" key={c.productId}>
-                  {signal && <SignalBadge signal={signal} />}
-                  <span className="row-star"><FavoriteStar entry={cardFavorite(c)} /></span>
-                  <a className="detail-link-card" href={`/cards/${c.productId}`} aria-label={`View ${c.name} details`}>
-                    <FullCard card={c} history={h} rank={rank} />
-                  </a>
-                </span>
+                <FullViewCardWrap
+                  key={c.productId}
+                  signal={signal}
+                  favorite={cardFavorite(c)}
+                  href={`/cards/${c.productId}`}
+                  label={`View ${c.name} details`}
+                >
+                  <FullCard card={c} history={h} rank={rank} />
+                </FullViewCardWrap>
               );
             return (
               <MarketRow
