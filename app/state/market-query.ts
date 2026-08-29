@@ -4,7 +4,9 @@ export type Direction="asc"|"desc";
 export type SinglesSort="name"|"signal"|"set"|"market"|"low"|"high"|"change7"|"change30";
 export type SealedSort="name"|"signal"|"set"|"msrp"|"market"|"low"|"high"|"change7"|"change30"|"profit"|"profitPct";
 
-type SharedState={signal:SignalSide;strictness:SignalStrictness};
+// `favorites` is the slider's Favorites lens (decision D12): shareable URL state like
+// the signal side, serialized only when on.
+type SharedState={signal:SignalSide;strictness:SignalStrictness;favorites:boolean};
 export type SinglesQueryState=SharedState&{mode:"singles";market:SinglesMarket;rarities:string[];view:SinglesView;sort:SinglesSort;direction:Direction;page:number;perPage:number;query:string;minPrice:string;maxPrice:string;sets:string[];up7:boolean;down7:boolean;up30:boolean;down30:boolean};
 export type SealedQueryState=SharedState&{mode:"sealed";market:SealedMarket;productTypes:string[];view:SealedView;sort:SealedSort;direction:Direction;page:number;perPage:number;query:string;sets:string[];marketMin:string;marketMax:string;msrpMin:string;msrpMax:string;profitMin:string;profitMax:string;profitPctMin:string;profitPctMax:string;basis:"market"|"median";keepPct:number;taxOn:boolean;taxRate:number;shipping:number;profitableOnly:boolean};
 export type MarketQueryState=SinglesQueryState|SealedQueryState;
@@ -23,7 +25,7 @@ const list=(value:string|null)=>value?.split("|").map(item=>item.trim()).filter(
 const choice=<T extends string>(value:string|null,allowed:readonly T[],fallback:T)=>allowed.includes(value as T)?value as T:fallback;
 const positiveInt=(value:string|null,fallback:number)=>{const parsed=Number(value);return Number.isInteger(parsed)&&parsed>0?parsed:fallback};
 const finiteNumber=(value:string|null,fallback:number)=>{const parsed=Number(value);return value!==null&&Number.isFinite(parsed)?parsed:fallback};
-const shared=(params:URLSearchParams)=>({signal:choice(params.get("signal"),signals,"leaderboard"),strictness:choice(params.get("strictness"),strictnesses,"balanced")});
+const shared=(params:URLSearchParams)=>({signal:choice(params.get("signal"),signals,"leaderboard"),strictness:choice(params.get("strictness"),strictnesses,"balanced"),favorites:params.has("favorites")});
 
 export function parseMarketQuery(input:string|URLSearchParams):MarketQueryState{
  const params=typeof input==="string"?new URLSearchParams(input.startsWith("?")?input.slice(1):input):input;
@@ -37,6 +39,7 @@ const setOptional=(params:URLSearchParams,key:string,value:string|number,default
 export function serializeMarketQuery(state:MarketQueryState){
  // Strictness is a device preference (settings menu), not shareable state; parse still tolerates old strictness= links.
  const params=new URLSearchParams({market:state.market,view:state.view,sort:state.sort,direction:state.direction,page:String(state.page),perPage:String(state.perPage),mode:state.mode,signal:state.signal});
+ if(state.favorites)params.set("favorites","1");
  setOptional(params,"q",state.query);
  if(state.sets.length)params.set("sets",state.sets.join("|"));
  if(state.mode==="singles"){
