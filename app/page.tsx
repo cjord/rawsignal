@@ -840,6 +840,7 @@ export default function Home() {
               />
               <MultiSelectField
                 label="Rarity"
+                className="toolbar-select"
                 options={rarityOptions.map((option) => ({
                   key: option.key,
                   label: displayLabel(option.label),
@@ -925,7 +926,6 @@ export default function Home() {
                     onSort={changeSort}
                   />
                 ))}
-                <span aria-hidden="true" />
               </div>
             )
           }

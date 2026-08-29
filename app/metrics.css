@@ -16,7 +16,7 @@
 
 /* Overview: one card per market with the change windows as proper tone tiles. */
 .metrics-market-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
-.metrics-market-card{min-width:0;padding:15px 16px;border:1px solid var(--line);border-radius:12px;background:var(--control);transition:border-color .16s,background-color .16s}
+.metrics-market-card{min-width:0;padding:15px 16px;border:1px solid var(--line);border-radius:12px;background:var(--control);transition:border-color var(--motion-fast),background-color var(--motion-fast)}
 .metrics-market-card:hover{border-color:color-mix(in srgb,var(--blue) 42%,var(--line));background:var(--control-hover)}
 .metrics-market-card>header b{font-size:var(--text-sm);font-weight:800}
 .metrics-market-all{border-color:var(--text)}
@@ -26,12 +26,12 @@
 .metrics-window-tile{padding:8px 10px}
 .metrics-window-tile small{font-size:var(--text-2xs)}
 .metrics-window-tile b{font:800 var(--text-xs) var(--font-mono)}
-.metrics-window-tile b.up,.metrics-chip.up,.metrics-ratio-head em.up{color:#29b878}
-.metrics-window-tile b.down,.metrics-chip.down,.metrics-ratio-head em.down{color:#e05454}
+.metrics-window-tile b.up,.metrics-chip.up,.metrics-ratio-head em.up{color:var(--tone-up)}
+.metrics-window-tile b.down,.metrics-chip.down,.metrics-ratio-head em.down{color:var(--tone-down)}
 
 /* Movers: two leaderboard-style row tables with images, hover popovers, and stars. */
 .metrics-movers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-.metrics-mover-list{min-width:0;border:1px solid var(--line);border-radius:12px;background:var(--control);padding:13px 14px;transition:border-color .16s}
+.metrics-mover-list{min-width:0;border:1px solid var(--line);border-radius:12px;background:var(--control);padding:13px 14px;transition:border-color var(--motion-fast)}
 .metrics-mover-list:hover{border-color:color-mix(in srgb,var(--blue) 30%,var(--line))}
 .metrics-mover-list h3{margin:0 0 8px;font-size:var(--text-2xs);font-weight:850;letter-spacing:.08em;text-transform:uppercase;color:var(--gray)}
 .metrics-mover-head{display:grid;grid-template-columns:30px minmax(0,1fr) 92px 74px;column-gap:10px;padding:4px 6px 8px;color:#96979c;font-size:var(--text-2xs);font-weight:800;text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--line)}
@@ -61,27 +61,27 @@
 /* Breadth: each window is a card — share headline, counts with direction arrows, net
    figure, and a thicker advance/decline bar with a 50% reference tick. */
 .metrics-ratio-stack{display:grid;gap:10px}
-.metrics-ratio{padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--control);transition:border-color .16s}
+.metrics-ratio{padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--control);transition:border-color var(--motion-fast)}
 .metrics-ratio:hover{border-color:color-mix(in srgb,var(--blue) 35%,var(--line))}
 .metrics-ratio-head{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px 14px;margin-bottom:9px;font-size:var(--text-2xs);color:var(--gray)}
 .metrics-ratio-label{font-weight:850;letter-spacing:.08em;text-transform:uppercase}
 .metrics-ratio-share{font:800 var(--text-md) var(--font-mono)}
-.metrics-ratio-share.up{color:#29b878}
-.metrics-ratio-share.down{color:#e05454}
+.metrics-ratio-share.up{color:var(--tone-up)}
+.metrics-ratio-share.down{color:var(--tone-down)}
 .metrics-ratio-counts{display:inline-flex;gap:12px;margin-left:auto}
 .metrics-ratio-counts em{font-style:normal;font-weight:750;font-family:var(--font-mono)}
-.metrics-ratio-counts em.up{color:#29b878}
-.metrics-ratio-counts em.down{color:#e05454}
+.metrics-ratio-counts em.up{color:var(--tone-up)}
+.metrics-ratio-counts em.down{color:var(--tone-down)}
 .metrics-ratio-net{padding-left:12px;border-left:1px solid var(--line)}
-.metrics-ratio-bar{position:relative;height:10px;border-radius:6px;background:color-mix(in srgb,#e05454 62%,var(--control))}
-.metrics-ratio-bar>span{position:absolute;inset:0 auto 0 0;border-radius:6px 0 0 6px;background:#29b878}
+.metrics-ratio-bar{position:relative;height:10px;border-radius:6px;background:color-mix(in srgb,var(--tone-down) 62%,var(--control))}
+.metrics-ratio-bar>span{position:absolute;inset:0 auto 0 0;border-radius:6px 0 0 6px;background:var(--tone-up)}
 .metrics-ratio-bar>i{position:absolute;left:50%;top:-4px;bottom:-4px;width:2px;border-radius:1px;background:color-mix(in srgb,var(--gray) 55%,transparent)}
 .metrics-breadth-tiles{margin-top:14px}
 .metrics-breadth-tiles .detail-metric>span{display:block;margin-top:3px;color:var(--gray);font-size:var(--text-2xs)}
 
 /* Index cards. */
 .metrics-index-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-.metrics-index-card{min-width:0;padding:15px 16px;border:1px solid var(--line);border-radius:12px;background:var(--control);transition:border-color .16s,background-color .16s}
+.metrics-index-card{min-width:0;padding:15px 16px;border:1px solid var(--line);border-radius:12px;background:var(--control);transition:border-color var(--motion-fast),background-color var(--motion-fast)}
 .metrics-index-card:hover{border-color:color-mix(in srgb,var(--blue) 42%,var(--line));background:var(--control-hover)}
 .metrics-index-card>header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
 .metrics-index-card>header b{font-size:var(--text-md)}
@@ -101,7 +101,7 @@
 .metrics-table tbody tr.is-clickable{cursor:pointer}
 .metrics-page .detail-variants-table tbody th a:hover{color:var(--blue);text-decoration:underline;text-underline-offset:3px}
 /* Flat hover feedback on the stat tiles too — border tint only, tone washes untouched. */
-.metrics-page .detail-metric{transition:border-color .16s}
+.metrics-page .detail-metric{transition:border-color var(--motion-fast)}
 .metrics-page .detail-metric:hover{border-color:color-mix(in srgb,var(--blue) 35%,var(--line))}
 
 .metrics-legend{display:flex;gap:16px;margin-bottom:8px;font-size:var(--text-2xs);font-weight:800;text-transform:uppercase;letter-spacing:.07em}
@@ -114,7 +114,7 @@
 
 @media(max-width:1100px){.metrics-index-grid{gap:12px}.metrics-market-grid{gap:12px}}
 @media(max-width:900px){.metrics-index-grid{grid-template-columns:1fr}.metrics-movers{grid-template-columns:1fr}.metrics-seg-small{margin-left:0}}
-@media(max-width:640px){.metrics-market-grid{grid-template-columns:1fr}.metrics-window-tiles{gap:6px}.metrics-index-card .sparkline{height:100px}}
+@media(max-width:620px){.metrics-market-grid{grid-template-columns:1fr}.metrics-window-tiles{gap:6px}.metrics-index-card .sparkline{height:100px}}
 .metrics-ev{display:inline-flex;align-items:center;gap:6px;font:750 var(--text-2xs) var(--font-mono)}
 .metrics-ev em{font-style:normal}
 /* Accumulating index cards stay compact (audit H5): value + note, no chart-height void. */
@@ -124,5 +124,5 @@
 .metrics-index-card>header .metrics-seg-small+.metrics-index-value{margin-left:10px}
 .metrics-sp-line{display:block;margin-top:10px;padding-top:8px;border-top:1px solid var(--line);color:var(--gray);font-size:var(--text-2xs)}
 .metrics-sp-line em{font:750 var(--text-2xs) var(--font-mono);font-style:normal}
-.metrics-sp-line em.up{color:#29b878}
-.metrics-sp-line em.down{color:#e05454}
+.metrics-sp-line em.up{color:var(--tone-up)}
+.metrics-sp-line em.down{color:var(--tone-down)}

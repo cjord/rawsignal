@@ -634,6 +634,7 @@ export default function SealedView({
           />
           <MultiSelectField
             label="Product type"
+            className="toolbar-select"
             options={productTypes.map((type) => ({ key: type, label: type }))}
             selected={selectedTypes}
             onChange={(values) => {

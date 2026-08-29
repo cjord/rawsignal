@@ -18,7 +18,7 @@ const pct=(value:number|null)=>formatPercent(value);
 const historyMetrics=standardHistoryMetrics;
 
 function TableHead({view,itemLabel}:{view:TableView;itemLabel:string}){
- return <div className={`table-head ${view}`} role="row"><span role="columnheader">Rank</span><span role="columnheader">{itemLabel}</span><span role="columnheader">Set</span><span role="columnheader">Market</span><span role="columnheader">30D Low</span><span role="columnheader">30D High</span><span role="columnheader">7D</span><span role="columnheader">30D</span><span aria-hidden="true"/></div>;
+ return <div className={`table-head ${view}`} role="row"><span role="columnheader">Rank</span><span role="columnheader">{itemLabel}</span><span role="columnheader">Set</span><span role="columnheader">Market</span><span role="columnheader">30D Low</span><span role="columnheader">30D High</span><span role="columnheader">7D</span><span role="columnheader">30D</span></div>;
 }
 
 function RowCells({set,setNote,market,history}:{set:string;setNote:string|null;market:number|null;history?:PriceHistory}){

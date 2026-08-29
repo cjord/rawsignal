@@ -23,6 +23,14 @@ html[data-font-size="large"] {
   /* Hover feedback is flat by decision (docs/todo.md D1): tint and border only, no lift. */
   --hover-lift: 0;
   --popover-lift: 0;
+  /* Signal tone palette (CSS decision S11): one green/red family repo-wide — up/down
+     movement, the Hot Buy/Sell tab tones, the Favorites gold, and the derived-data amber. */
+  --tone-up: #29b878;
+  --tone-down: #e05454;
+  --tone-buy: #16875f;
+  --tone-sell: #c64747;
+  --tone-favorite: #e8b93e;
+  --tone-warn: #e0a534;
   --motion-fast: 160ms;
   --motion-standard: 180ms;
   --ease-standard: cubic-bezier(.2, .75, .25, 1);
