@@ -8,6 +8,10 @@ test("preserves mode and view changes in browser history",async({page})=>{
  await waitForApp(page);
  await expect(page.getByRole("button",{name:"Singles",exact:true})).toHaveAttribute("aria-pressed","true");
  await expect(page.getByRole("button",{name:"Medium",exact:true})).toHaveAttribute("aria-pressed","true");
+ // Migrated from the retired source-pin suite (D7): the numbered pagination renders and
+ // the Metrics surface stays reachable from the top bar.
+ await expect(page.locator(".pagination")).toBeVisible();
+ await expect(page.getByRole("link",{name:"Metrics"})).toHaveAttribute("href","/metrics");
 
  await page.getByRole("button",{name:"Sealed",exact:true}).click();
  await expect(page).toHaveURL(/mode=sealed/);
