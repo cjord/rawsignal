@@ -43,9 +43,9 @@ function SetTile({row,asOf,starred}:{row:SetDirectoryRow;asOf:string;starred:boo
     onClick={event=>{event.preventDefault();event.stopPropagation();toggleSetFavorite(row.game,row.set)}}>{starred?"★":"☆"}</button>
   </div>
   <div className="set-tile-foot">
-   <div className="metrics-window-tiles set-tile-windows">
-    <div className="detail-metric metrics-window-tile"><small>7D</small><b className={toneOf(row.change7)}>{pctLabel(row.change7)}</b></div>
-    <div className="detail-metric metrics-window-tile"><small>30D</small><b className={toneOf(row.change30)}>{pctLabel(row.change30)}</b></div>
+   <div className="set-tile-changes">
+    <span className="set-tile-change"><small>7D</small><span className={`metrics-chip ${toneOf(row.change7)??""}`}>{pctLabel(row.change7)}</span></span>
+    <span className="set-tile-change"><small>30D</small><span className={`metrics-chip ${toneOf(row.change30)??""}`}>{pctLabel(row.change30)}</span></span>
    </div>
    <span className="set-tile-arrow" aria-hidden="true">→</span>
   </div>

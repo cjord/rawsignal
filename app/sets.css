@@ -58,7 +58,7 @@
 .set-tile-mark.mark-riftbound { background: color-mix(in srgb, var(--purple) 14%, var(--soft)); }
 .set-tile-mark.mark-onepiece { background: color-mix(in srgb, var(--tone-warn) 14%, var(--soft)); }
 .set-tile-title { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.set-tile-title b { font-size: var(--text-base); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.set-tile-title b { font-size: var(--text-base); line-height: 1.25; overflow-wrap: anywhere; }
 .set-tile-title small { color: var(--gray); font-size: var(--text-2xs); }
 .set-star {
   margin-left: auto;
@@ -75,8 +75,10 @@
 .set-star.is-starred { color: var(--tone-favorite); }
 
 .set-tile-foot { display: flex; align-items: center; gap: 12px; min-width: 0; }
-/* The site's standard 7D/30D window tiles, sized for a browse card. */
-.set-tile-windows { flex: 1; min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 0; }
+/* Compact leaderboard-style chips: muted window label + toned mono value. */
+.set-tile-changes { display: flex; flex: 1; min-width: 0; gap: 16px; }
+.set-tile-change { display: inline-flex; align-items: baseline; gap: 5px; }
+.set-tile-change small { color: var(--gray); font: 800 var(--text-2xs) var(--font-sans); letter-spacing: .06em; }
 .set-tile-arrow { color: var(--gray); font-size: var(--text-md); font-weight: 750; transition: color var(--motion-fast), transform var(--motion-fast); }
 .set-tile:hover .set-tile-arrow { color: var(--blue); transform: translateX(2px); }
 
