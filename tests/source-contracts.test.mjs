@@ -93,7 +93,15 @@ test("gates complete Hot Buy and Hot Sell coverage on persisted signal readiness
   }
   assert.match(page, /candidates evaluated/);
   assert.match(hook, /\/api\/signals/);
-  assert.match(signals, /publishedIngestion\(db,"history-signals"\)/);
+  // Bind the whole chain: the route imports the shared gate from db/readiness, and THAT
+  // function's own body checks the marker — a local reimplementation or a gutted gate
+  // both break one of these.
+  assert.match(signals, /import \{ readySignalHistory \} from "\.\.\/\.\.\/\.\.\/db\/readiness\.ts"/);
+  assert.match(signals, /readySignalHistory\(db\)/);
+  const readiness = await read("db/readiness.ts");
+  const gateStart = readiness.indexOf("function readySignalHistory"), gateEnd = readiness.indexOf("function readySetEv");
+  assert.ok(gateStart >= 0 && gateEnd > gateStart, "readySignalHistory/readySetEv anchors not found in db/readiness.ts — update the slice anchors");
+  assert.match(readiness.slice(gateStart, gateEnd), /publishedIngestion\(db, "history-signals"\)/);
   assert.match(catalog, /options\.signal === "leaderboard" \|\| Boolean\(await publishedIngestion\(db, "history-signals"\)\)/);
 });
 

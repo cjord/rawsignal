@@ -4,6 +4,7 @@ import {deriveHistoryMetrics} from "../../../core/domain/history-metrics.ts";
 import { fetchTcgplayerHistory } from "../../data/tcgplayer-history-client.ts";
 import { persistDerivedHistory } from "../../../db/daily-ingestion.ts";
 import { upsertHistory, type D1DatabaseLike } from "../../../db/repository.ts";
+import { CACHE_TIERS } from "../cache.ts";
 
 type StoredRow={variant:string;condition:string;observedDate:string;marketCents:number};
 
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
   const sealed = url.searchParams.get("sealed") === "1";
   if (!/^\d{1,9}$/.test(productId)) return NextResponse.json({ error: "Invalid product ID" }, { status: 400 });
   const db=env.DB as unknown as D1DatabaseLike|undefined;
-  if(db)try{const stored=await storedHistory(db,productId,printing,sealed);if(stored)return NextResponse.json({...stored,...deriveHistoryMetrics(stored.points)},{headers:{"Cache-Control":"public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400"}})}catch{/* D1 can be awaiting migration or backfill; retain the upstream fallback. */}
+  if(db)try{const stored=await storedHistory(db,productId,printing,sealed);if(stored)return NextResponse.json({...stored,...deriveHistoryMetrics(stored.points)},{headers:{"Cache-Control":CACHE_TIERS.hour}})}catch{/* D1 can be awaiting migration or backfill; retain the upstream fallback. */}
   let result;
   try { result = await fetchTcgplayerHistory(Number(productId), printing, sealed); }
   catch { return NextResponse.json({ error: "History unavailable" }, { status: 502 }); }
@@ -35,6 +36,6 @@ export async function GET(request: Request) {
     await persistDerivedHistory(db,Number(productId),result.variant!,result.condition!,currentPrice,result.points,result.coverage,fetchedAt);
   }catch{/* History remains available to the caller even if cache persistence fails. */}
   return NextResponse.json(result, {
-    headers: { "Cache-Control": "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400" },
+    headers: { "Cache-Control": CACHE_TIERS.hour },
   });
 }
