@@ -3,7 +3,18 @@
 Queue of changes identified by the [2026-08-28 codebase audit](codebase-audit-2026-08-28.md)
 that need a product or architecture decision before implementation. Safe mechanical
 consolidations are NOT listed here — they land directly on the `refactor/consolidation`
-branch. Each item: context → options → recommendation. Nothing here is implemented.
+branch. Each item: context → options → recommendation.
+
+> **Status (ruled 2026-08-28, manual review on `refactor/consolidation`).** Every
+> decision below was reviewed and ruled; the sections are kept as the option record.
+> Rulings: **D1/D2/D4/D8** full `core/` layering pass (done). **D3** canonical
+> producer labels + curated-feed rewrite + data migration (in progress).
+> **D5** straight swap to SQL predicates, verified by a parity suite (in progress).
+> **D6** readiness/cache/error standardization (done). **D7** migrate to behavioral
+> tests + slim `source-contracts` (done — `rendered-html.test.mjs` retired).
+> **D9** quarantine (done). **D10** keep the internal `scalping` value.
+> **D11/D13/D14/D15** full state pass with URL fixes (done). **D12** strictness is
+> view-only from links — never persisted (done). CSS slices S7–S14 all approved (done).
 
 ## D1. Extract a `core/` layer to fix the layering inversion
 

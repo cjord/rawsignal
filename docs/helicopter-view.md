@@ -21,32 +21,37 @@ flowchart TB
   subgraph frontend["Frontend (app/)"]
     pages["pages: page.tsx (Singles + shell) · SealedView · MetricsView · buylist · ProductDetailPage"]
     prims["shared UI: leaderboard/* · filters/* · MarketTabs · SignalControls · TopBar · MarketUI · HistoryPanel · PriceChart"]
-    state["state/: market-query codec · market-memory · favorites"]
-    dataL["data/: catalog-query engine · repositories · services · hooks"]
-    domain["domain/: types · contracts · formatters · history-metrics · eras · pack-ev"]
-    api["api/: catalog · history · metrics · set-ev · signals"]
-    css["9 stylesheets, import-order dependent"]
+    state["state/: market-query codec · scalper-mode store · market-memory · favorites"]
+    dataL["data/: repositories · services · hooks"]
+    api["api/: routes + shared cache tiers (cache.ts)"]
+    css["stylesheets, import-order dependent; tokens in styles/tokens.css"]
+  end
+  subgraph core["core/ — pure, framework-free, shared by all three consumers"]
+    domain["domain: types · contracts · formatters · history-metrics · eras · pack-ev"]
+    engine["catalog-query engine · catalog-repository · market-state · signal-utils · market-utils"]
+    pipe["clients · normalize · sealed-product-utils · peer-history · msrp · graded"]
   end
   subgraph backend["Worker + DB"]
     worker["worker/: index (fetch) · scheduled-ingestion (cron) · staging-jobs (ops) · live-feeds"]
-    db["db/: schema · repository · ingestion modules · backfill"]
+    db["db/: schema · repository · readiness · ingestion modules · backfill"]
     drizzle["drizzle/: migrations 0000-0006"]
   end
   subgraph pipeline["Feed pipeline (node)"]
     sync["sync-tcgcsv.mjs · sync-sealed.mjs (roots)"]
-    scripts["scripts/: clients · normalize · validate · details · scalper · msrp · graded · cloudflare"]
+    scripts["scripts/: validate · details · scalper · graded · io · cloudflare"]
     feeds["public/data/*.json (generated, last-good protected)"]
   end
-  tests["tests/: 159 node + 4 Playwright — several pin raw source text"]
+  tests["tests/: 152 node + 4 Playwright — behavioral suites + a slim source-contract file"]
   docs["docs/: maintained + gate-enforced"]
 
-  pages --> prims --> dataL --> domain
+  pages --> prims --> dataL
   pages --> state
+  frontend --> core
   api --> db
   worker --> db
-  db -. "wrong-way imports" .-> frontend
-  db -. "imports .mjs" .-> scripts
+  db --> core
   sync --> scripts --> feeds
+  sync --> core
   feeds --> dataL
 ```
 
@@ -60,36 +65,37 @@ flowchart TB
 | `/cards/[id]`, `/sealed/[id]` | `ProductDetailPage` via `detail-route` + `data/load-detail` | Shared detail surface for both product kinds |
 | `/api/*` | `app/api/**/route.ts` | catalog, catalog/detail, history, metrics, set-ev, signals — read D1 first, bundled feeds as fallback |
 
-## Layering (intended vs actual)
+## Layering
 
-Intended: `domain` ← `state`/`data` ← UI, with `db/` and `worker/` beside them.
-Actual: `db/` imports **from** `app/` (types, but also `signal-utils`, `market-utils`,
-and the catalog repositories) and **from** `scripts/*.mjs` (normalizers), because
-ingestion reuses the app's pure logic. It works — one bundle — but it means the
-"backend" cannot be reasoned about without the frontend tree. See the audit doc for
-the full wrong-way edge list and the extraction options.
+The 2026-08 refactor extracted every module shared across consumers into `core/`
+(pure TypeScript, no React/Worker/node imports). The old wrong-way edges — `db/`
+importing from `app/`, ingestion importing `scripts/*.mjs` — are gone: `app/`,
+`db/`+`worker/`, and the sync scripts all depend downward on `core/` and never on
+each other. `app/state/market-query.ts` remains the URL codec but re-exports its
+types from `core/market-state`; node scripts import core TS directly (Node 24
+type-stripping — which is why every node-reachable relative import in `core/`
+carries an explicit `.ts` extension).
 
 ```mermaid
 flowchart LR
-  domain["core/domain (pure)"]
+  corel["core/ (domain · catalog-query · market-state · signal/market-utils · clients · normalize · msrp · graded · peer-history)"]
   state["app/state"]
   data["app/data"]
   ui["pages + shared UI"]
   apir["app/api routes"]
-  dbl["db/"]
+  dbl["db/ (schema · repository · readiness)"]
   wrk["worker/"]
-  scr["scripts/*.mjs"]
+  scr["sync roots + scripts/"]
 
-  ui --> data --> domain
-  ui --> state --> domain
+  ui --> data --> corel
+  ui --> state --> corel
   data --> state
   apir --> data
   apir --> dbl
   wrk --> dbl
   wrk --> apir
-  dbl --> domain
-  dbl -->|"signal-utils, market-utils, catalog repos"| data
-  dbl -->|"normalize/*.mjs, peer-history.mjs"| scr
+  dbl --> corel
+  scr --> corel
 ```
 
 ## Data lifecycle
@@ -136,11 +142,13 @@ word.
 
 ## Release gate
 
-`npm run check` = production build + 159 node tests + lint + 4 Playwright journeys.
-The dev server must be stopped first (Playwright owns port 3000). Several node tests
-are **characterization tests that regex-match raw source files** (`rendered-html`,
-`scalper-mode`, `css-architecture`, `maintainer-docs`, `cloudflare-cutover`) — moving
-or renaming code they pin fails the gate until the pins are updated deliberately.
+`npm run check` = production build + 152 node tests + lint + 4 Playwright journeys.
+The dev server must be stopped first (Playwright owns port 3000). A few suites still
+**regex-match raw source files** (`source-contracts` — the slim successor to the old
+`rendered-html` file, `scalper-mode`, `css-architecture`, `maintainer-docs`,
+`cloudflare-cutover`) — moving or renaming code they pin fails the gate until the
+pins are updated deliberately, and that is the point: each pin is an invariant only
+source text can express.
 
 ## Sharp edges (do not rediscover these)
 
@@ -153,9 +161,9 @@ or renaming code they pin fails the gate until the pins are updated deliberately
 - `tcg-index.json` (repo root) is imported directly by `page.tsx`/`SealedView.tsx` —
   regenerating feeds changes app-visible totals without touching `app/`.
 - Device preferences live in `localStorage` (`raw-signal-*` keys), never the URL.
-- `research.mjs`, `cards.json` are quarantined legacy artifacts
-  ([docs/legacy-artifacts.md](legacy-artifacts.md)); `app/chatgpt-auth.ts` is orphaned
-  Sites-era code kept pending a rollback-value review.
+- `research.mjs` and `cards.json` (repo root) are quarantined-in-place legacy
+  artifacts, and `legacy/chatgpt-auth.ts` is the parked Sites-era auth helper —
+  none reachable from any build ([docs/legacy-artifacts.md](legacy-artifacts.md)).
 - Windows dev: wrangler can crash in libuv teardown after succeeding — verify actual
   state before retrying; migrations need `echo y |`.
 
@@ -165,7 +173,8 @@ or renaming code they pin fails the gate until the pins are updated deliberately
 |---|---|
 | Add/adjust a leaderboard column or row cell | the mode adapter in `page.tsx` / `SealedView.tsx` + `leaderboard/MarketRow` styles in `market-views.css` |
 | Change filters | `CardFilters` / `SealedFilters` config + `filters/*` primitives |
-| Change URL/state behavior | `app/state/market-query.ts` (codec) + `useMarketQueryState` |
+| Change URL/state behavior | `core/market-state` (types/defaults) + `app/state/market-query.ts` (codec) + `useMarketQueryState`; scalper persistence lives in `app/state/scalper-mode.ts` |
+| Change API caching or readiness gating | `app/api/cache.ts` (shared Cache-Control tiers) + `db/readiness.ts` (run/marker gates) |
 | Change search/sort/facets | `core/catalog-query.ts` (one engine for browser + server) |
 | Change signal scoring | `core/signal-utils.ts` (single implementation, used by UI **and** ingestion) |
 | Change ingestion | `db/*-ingestion.ts` + `worker/scheduled-*` (cron) or `worker/staging-jobs.ts` (ops) |

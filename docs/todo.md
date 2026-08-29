@@ -481,7 +481,7 @@ sentence-case "rankings"). [formatters.ts](../core/domain/formatters.ts) `format
 identity function; game display names exist only as a local map in `page.tsx`.
 
 **Implementation plan.**
-1. Add `formatGameName(game)` to `app/domain/formatters.ts` ("pokemon" → "Pokémon",
+1. Add `formatGameName(game)` to `core/domain/formatters.ts` ("pokemon" → "Pokémon",
    "riftbound" → "Riftbound", "onepiece" → "One Piece", "scalping" → "Scalping watch" — final
    copy at review); replace the local `gameNames` map in `page.tsx` and use it in the
    breadcrumb, detail kickers, and E2 nav links.
