@@ -921,6 +921,20 @@ sets browse page reordering set tiles WITHIN their era/category groups by releas
 inside them, so "which Scarlet & Violet set is moving" is answerable without scanning.
 Excluded from the initial build; revisit after the browse page has real usage.
 
+## K. Signal display (added 2026-08-30)
+
+**K1. Handle a card/sealed product that carries a Hot Buy and a Hot Sell signal at once
+(added 2026-08-30).** When a product qualifies for *both* boards at the same strictness —
+its price sits close to both its 30-day low and its 30-day high, i.e. a tight recent range
+with conflicting momentum — the current UI would show whichever side the surface asked for
+(e.g. the import table's Hold lens shows the buy, the Hot Sells lens shows the sell) and the
+two never reconcile. Decide and build a distinct treatment for this collision: e.g. a
+combined "Conflicted / range-bound" badge, showing both sides side by side, or a tie-break
+rule (stronger score wins, with the loser noted). Applies anywhere signals render — the
+Collectr import table, the Hot Buy/Hot Sell boards, and single-card / sealed detail pages.
+Needs a definition of "very close together" (score delta and/or distance-to-cutoff
+threshold) before implementation.
+
 ## Decisions — resolved at review (2026-08-27)
 
 1. **B2**: Direct low **removed everywhere** (hero + printings table; field stays in data).
