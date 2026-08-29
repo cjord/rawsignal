@@ -153,7 +153,7 @@ export default function CollectrImportView(){
    </section>
 
    <section className="detail-section">
-    <header><span>Signal check</span><h2>{lens==="hold"?"Hold — Don&apos;t Sell These":lens==="sell"?"Sell Candidates":"All Imported Cards"}<InfoHint label="About the lenses">Hold lists cards with a live buy signal at your strictness — the market says they sit near a floor, the opposite of a good time to sell. Hot Sells lists cards with a live sell signal — near a historical high with retrace risk. Everything else is neutral: no strong signal either way.</InfoHint></h2></header>
+    <header><span>Signal check</span><h2>{lens==="hold"?"Hold — Do Not Sell These":lens==="sell"?"Sell Candidates":"All Imported Cards"}<InfoHint label="About the lenses">Hold lists cards with a live buy signal at your strictness — the market says they sit near a floor, the opposite of a good time to sell. Hot Sells lists cards with a live sell signal — near a historical high with retrace risk. Everything else is neutral: no strong signal either way.</InfoHint></h2></header>
     <div className="signal-navigation import-nav">
      <MarketTabs className="import-market-tabs" options={MARKET_OPTIONS} value={market} onChange={next=>setMarket(next as ImportMarket)} label="Import market"/>
      <SlidingTabs options={LENS_OPTIONS} selectedKey={lens} onSelect={key=>setLens(key as Lens)} label="Signal lens" className={lens==="hold"?"tone-buy":lens==="sell"?"tone-sell":""}/>
