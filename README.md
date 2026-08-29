@@ -85,7 +85,7 @@ See [Architecture](docs/architecture.md), [Hosting decision](docs/adr/001-hostin
 
 ## Important directories
 
-- `app/domain/`: market types, runtime feed contracts, formatting, and history metrics.
+- `core/domain/`: market types, runtime feed contracts, formatting, and history metrics.
 - `app/data/`: shared catalog queries, repositories, history loading, and signal coverage.
 - `app/state/`: URL parsing, serialization, and browser history synchronization.
 - `app/leaderboard/`, `app/filters/`: shared Singles/Sealed presentation primitives.

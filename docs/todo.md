@@ -188,7 +188,7 @@ cards* section at the very bottom; they are valuation context and belong with th
 (`ProductDetailPage.tsx` line 38–41) appends "s" when the *whole label* doesn't end in "s" —
 the set-scoped label ends with the set name, producing **"Spiritforgeds"**. Fix by
 pluralizing the rarity noun where the label is built
-([catalog-repository.ts](../app/data/catalog-repository.ts) peer-context labels), never the
+([catalog-repository.ts](../core/catalog-repository.ts) peer-context labels), never the
 composed label.
 
 **Proposed solutions.**
@@ -214,8 +214,8 @@ sealed); single-card pages dead-end — no path to the set's ETBs/boxes.
 does.
 
 **Implementation plan.**
-1. [types.ts](../app/domain/types.ts): add `relatedSealed: SealedProduct[]` to `CardDetail`.
-2. [catalog-repository.ts](../app/data/catalog-repository.ts) singles branch: 
+1. [types.ts](../core/domain/types.ts): add `relatedSealed: SealedProduct[]` to `CardDetail`.
+2. [catalog-repository.ts](../core/catalog-repository.ts) singles branch: 
    `sealed.filter(p => p.game === card.game && p.set === card.set)` sorted by market desc
    (same ordering as the sealed branch), capped ~12.
 3. `ProductDetailPage.tsx`: render
@@ -233,7 +233,7 @@ detail-page `SignalsPanel`). It's expert tuning noise for most sessions. User le
 default Balanced or Conservative.
 
 **Recommendation: pin Balanced.** It is already the default everywhere, and Conservative's
-tighter cutoff (base 1.5% vs 2.25%, min score 72 vs 58 — [signal-utils.ts](../app/signal-utils.ts))
+tighter cutoff (base 1.5% vs 2.25%, min score 72 vs 58 — [signal-utils.ts](../core/signal-utils.ts))
 would leave Hot Buy/Sell pages looking empty on quiet days. Keep the engine parameterized;
 this is a UI removal, not a model change.
 
@@ -477,7 +477,7 @@ which is exactly what it's built for.
 ### E5. Proper capitalization across the site
 
 **What/why.** Observed: breadcrumb "Market rankings / riftbound / …" (raw game key,
-sentence-case "rankings"). [formatters.ts](../app/domain/formatters.ts) `formatRarity` is an
+sentence-case "rankings"). [formatters.ts](../core/domain/formatters.ts) `formatRarity` is an
 identity function; game display names exist only as a local map in `page.tsx`.
 
 **Implementation plan.**
@@ -581,7 +581,7 @@ accumulation, then the production Worker/D1/cutover gates.
 
 **live TCGCSV fetch slice — LANDED 2026-08-28.** `db/live-ingestion.ts`: checkpointed
 group walk (cursor = group:record), one walk feeding singles + Pokémon-sealed normalizers
-(same pure scripts/normalize modules as the local sync) with published-MSRP lookup;
+(same pure core/normalize modules as the local sync) with published-MSRP lookup;
 curated riftbound/onepiece sealed feeds ride as bundled pseudo-groups; sync duplicate
 rules enforced via per-run DB reads; a 10k minimum-record threshold blocks truncated
 publishes. The `last-updated.txt` probe timestamp is the snapshot identity — the cron's
@@ -647,7 +647,7 @@ optional. Verified: leaderboard renders from database feeds on staging.
 **peer accumulation slice — LANDED 2026-08-28.** Derive-on-read instead of a second
 accumulator: `db/peer-anchors.ts` computes the set-rarity cohort's daily averages
 directly from `price_observations` (primary printing, Near Mint, 180-day window) and
-summarizes them through the same pure `scripts/details/peer-history.mjs` the feed script
+summarizes them through the same pure `core/peer-history.ts` the feed script
 uses. No migration, no cron action, no seeding — the live daily run's observations ARE
 the accumulation, and the backfilled history is deeper than the 1-obs/day file, so
 anchors activate immediately where the feed accumulator was still counting toward 14.

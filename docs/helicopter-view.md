@@ -71,7 +71,7 @@ the full wrong-way edge list and the extraction options.
 
 ```mermaid
 flowchart LR
-  domain["app/domain (pure)"]
+  domain["core/domain (pure)"]
   state["app/state"]
   data["app/data"]
   ui["pages + shared UI"]
@@ -97,8 +97,8 @@ flowchart LR
 ```mermaid
 flowchart LR
   src["TCGCSV + supplemental sources"]
-  clients["scripts/clients (retrying HTTP)"]
-  norm["scripts/normalize (pure)"]
+  clients["core/clients (retrying HTTP)"]
+  norm["core/normalize (pure)"]
   val["scripts/validate + last-good publish"]
   pub["public/data feeds (bundled into deploys)"]
   cron["production cron */2 — guard: one checkpointed batch when due"]
@@ -166,8 +166,8 @@ or renaming code they pin fails the gate until the pins are updated deliberately
 | Add/adjust a leaderboard column or row cell | the mode adapter in `page.tsx` / `SealedView.tsx` + `leaderboard/MarketRow` styles in `market-views.css` |
 | Change filters | `CardFilters` / `SealedFilters` config + `filters/*` primitives |
 | Change URL/state behavior | `app/state/market-query.ts` (codec) + `useMarketQueryState` |
-| Change search/sort/facets | `app/data/catalog-query.ts` (one engine for browser + server) |
-| Change signal scoring | `app/signal-utils.ts` (single implementation, used by UI **and** ingestion) |
+| Change search/sort/facets | `core/catalog-query.ts` (one engine for browser + server) |
+| Change signal scoring | `core/signal-utils.ts` (single implementation, used by UI **and** ingestion) |
 | Change ingestion | `db/*-ingestion.ts` + `worker/scheduled-*` (cron) or `worker/staging-jobs.ts` (ops) |
 | Add a migration | `drizzle/` — apply to BOTH D1s; bookmark production first |
-| Change feed generation | `sync-*.mjs` + `scripts/normalize` + validators — never bypass last-good |
+| Change feed generation | `sync-*.mjs` + `core/normalize` + validators — never bypass last-good |

@@ -6,8 +6,8 @@ OpenAI Sites hosts the application and owns the logical `DB` binding. Sites does
 
 `sync-tcgcsv.mjs` and `sync-sealed.mjs` separate four concerns:
 
-1. retrying source clients under `scripts/clients/`;
-2. deterministic normalization under `scripts/normalize/`;
+1. retrying source clients under `core/clients/`;
+2. deterministic normalization under `core/normalize/`;
 3. schema, identity, nullability, duplicate, and minimum-count validation under `scripts/validate/`;
 4. staged last-good output replacement under `scripts/io/`.
 

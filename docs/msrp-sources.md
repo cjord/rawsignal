@@ -2,8 +2,8 @@
 
 Provenance for every MSRP the site shows (audit Phase C, user decision 2026-08-28:
 **verified + derived, badged**). Precedence per product: published feed → hand-curated
-verified table (`scripts/msrp/verified-msrp.mjs`) → standard-pricing derivation
-(`scripts/msrp/derived-msrp.mjs`). The `msrp_source` string stored with each product is
+verified table (`core/msrp/verified-msrp.ts`) → standard-pricing derivation
+(`core/msrp/derived-msrp.ts`). The `msrp_source` string stored with each product is
 the badge the UI shows; derived values always read "Standard pricing (derived)".
 
 ## Derived standard pricing (Pokémon, 2020+)

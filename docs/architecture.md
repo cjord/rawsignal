@@ -16,7 +16,7 @@ The migration direction documented in [ADR 001](adr/001-hosting-and-database.md)
 
 ### Domain
 
-`app/domain/` owns market types, runtime input contracts, display formatting, and dated-history calculations. Missing source values remain `null`; presentation code decides whether to render `N/A` or another established unavailable label.
+`core/domain/` owns market types, runtime input contracts, display formatting, and dated-history calculations. Missing source values remain `null`; presentation code decides whether to render `N/A` or another established unavailable label.
 
 ### State
 
@@ -24,7 +24,7 @@ The migration direction documented in [ADR 001](adr/001-hosting-and-database.md)
 
 ### Catalog service
 
-`app/data/catalog-query.ts` owns shared fuzzy search, filters, sorting, null ordering, deduplication, facets, signal filtering, sealed calculations, and pagination. Both UI adapters and server repositories call the same query engine.
+`core/catalog-query.ts` owns shared fuzzy search, filters, sorting, null ordering, deduplication, facets, signal filtering, sealed calculations, and pagination. Both UI adapters and server repositories call the same query engine.
 
 Repository implementations are transport-neutral:
 
@@ -37,9 +37,9 @@ Production reads D1 (catalog, sealed, and signals report `source: "database"`); 
 
 ### History and signals
 
-`/api/history` normalizes TCGplayer history, preferring durable observations when they exist and caching successful upstream fallback data. `app/domain/history-metrics.ts` derives 7-, 30-, and 90-day changes plus extrema from dated observations.
+`/api/history` normalizes TCGplayer history, preferring durable observations when they exist and caching successful upstream fallback data. `core/domain/history-metrics.ts` derives 7-, 30-, and 90-day changes plus extrema from dated observations.
 
-`app/signal-utils.ts` is the single Buy/Sell scoring implementation. It evaluates proximity, adaptive volatility cutoffs, opposite-extreme price swing, strictness, and coverage confidence. It also returns explicit non-qualification reasons for diagnostics.
+`core/signal-utils.ts` is the single Buy/Sell scoring implementation. It evaluates proximity, adaptive volatility cutoffs, opposite-extreme price swing, strictness, and coverage confidence. It also returns explicit non-qualification reasons for diagnostics.
 
 Persisted signals become authoritative only when the independent `history-signals` completion marker exists. Before that marker, `app/data/signal-coverage.ts` selects at most 400 proportional, price-stratified candidates and the interface discloses that transitional coverage.
 
