@@ -124,3 +124,15 @@
 .full-history{display:block;grid-template-columns:none}.full-history .history-panel{display:flex;flex-direction:column}.full-history .history-stats{grid-template-columns:repeat(7,minmax(0,1fr))}.full-history .chart-large .sparkline{width:100%}.full-prices{grid-template-columns:repeat(4,minmax(0,1fr))}
 .view-large .hover-card{min-height:100%;background:var(--surface)!important;border:1px solid var(--line)!important;border-top:1px solid var(--line)!important}.view-large .leader-row[data-expand="right"] .hover-card{border-left-color:transparent!important;border-radius:0 12px 12px 0}.view-large .leader-row[data-expand="left"] .hover-card{border-right-color:transparent!important;border-radius:12px 0 0 12px}.view-large .history-title{padding-top:2px}.view-large .history-stats>span{background:color-mix(in srgb,var(--soft) 82%,transparent)}
 @media(max-width:759px){.full-history .history-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.sort-toolbar{overflow-x:auto;flex-wrap:nowrap;padding-bottom:10px}.sort-toolbar>span{flex:0 0 auto}}
+
+/* Mobile bottom tab bar (2026-08-29): phones hide the topbar links, so the four
+   destinations live in a fixed thumb-zone bar. Sits under modal overlays (z 200). */
+.tabbar{display:none}
+@media(max-width:560px){
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:var(--z-sticky);display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);background:var(--surface-raised);padding-bottom:env(safe-area-inset-bottom)}
+.tabbar a{display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 4px 8px;color:var(--gray);font-size:var(--text-2xs);font-weight:750;min-height:52px}
+.tabbar a span{font-size:1.05rem;line-height:1}
+.tabbar a.active{color:var(--blue);box-shadow:inset 0 2px var(--blue)}
+.tabbar a:focus-visible{outline:3px solid color-mix(in srgb,var(--blue) 60%,transparent);outline-offset:-3px}
+body{padding-bottom:calc(60px + env(safe-area-inset-bottom))}
+}

@@ -7,10 +7,10 @@ import {setScalperMode,useScalperMode} from "./state/scalper-mode";
 import type {SignalStrictness} from "../core/domain/types";
 
 const marketLinks=[
- {key:"cards",label:"Cards",href:"/"},
- {key:"sets",label:"Sets",href:"/sets"},
- {key:"metrics",label:"Metrics",href:"/metrics"},
- {key:"buylist",label:"Buy List",href:"/buylist"},
+ {key:"cards",label:"Cards",href:"/",icon:"◫"},
+ {key:"sets",label:"Sets",href:"/sets",icon:"▦"},
+ {key:"metrics",label:"Metrics",href:"/metrics",icon:"∿"},
+ {key:"buylist",label:"Buy List",href:"/buylist",icon:"≡"},
 ] as const;
 export type TopBarActive=(typeof marketLinks)[number]["key"]|null;
 
@@ -35,7 +35,7 @@ export default function TopBar({active=null,actions,strictness,onStrictness,sett
  const changeFontSize=(next:"default"|"large")=>{setFontSize(next);document.documentElement.dataset.fontSize=next;try{localStorage.setItem("raw-signal-font-size",next)}catch{/* Storage unavailable; applies for this visit only. */}};
  const scalper=useScalperMode();
  const changeScalper=setScalperMode;
- return <nav className={`topbar ${className}`.trim()}>
+ return <><nav className={`topbar ${className}`.trim()}>
   <a className="brand" href="/"><span>R</span> Raw Signal</a>
   <div className="toplinks">
    {marketLinks.map(item=><a key={item.key} href={item.href} className={active===item.key?"active":""} aria-current={active===item.key?"page":undefined}>{item.label}</a>)}
@@ -67,5 +67,10 @@ export default function TopBar({active=null,actions,strictness,onStrictness,sett
    </div>
    <button type="button" className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme==="dark"?"light":"dark"} mode`}><span aria-hidden="true">{theme==="dark"?"☀":"☾"}</span><b>{theme==="dark"?"Light":"Dark"}</b></button>
   </div>
- </nav>;
+ </nav>
+ {/* Phones hide the topbar links (space); destinations move to a bottom tab bar — the
+     thumb-first pattern for a handful of top-level pages. Hidden above 560px. */}
+ <nav className="tabbar" aria-label="Primary">
+  {marketLinks.map(item=><a key={item.key} href={item.href} className={active===item.key?"active":""} aria-current={active===item.key?"page":undefined}><span aria-hidden="true">{item.icon}</span><b>{item.label}</b></a>)}
+ </nav></>;
 }
