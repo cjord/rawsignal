@@ -8,6 +8,7 @@ import type {SignalStrictness} from "../core/domain/types";
 
 const marketLinks=[
  {key:"cards",label:"Cards",href:"/"},
+ {key:"sets",label:"Sets",href:"/sets"},
  {key:"metrics",label:"Metrics",href:"/metrics"},
  {key:"buylist",label:"Buy List",href:"/buylist"},
 ] as const;

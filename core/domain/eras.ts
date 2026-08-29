@@ -45,3 +45,43 @@ export function pokemonEra(setName: string, year: number | null | undefined): st
 }
 
 export const eraLabel = (key: string) => POKEMON_ERAS.find(era => era.key === key)?.label ?? key;
+
+// Sets-view groupings (2026-08-29): every market folds its sets into a small ordered
+// group list — Pokémon by collector era, the younger games by product family. Anything
+// a rule cannot place lands in that market's "Other" bucket for later refinement.
+export type SetGroup = { key: string; label: string };
+
+export const RIFTBOUND_GROUPS: SetGroup[] = [
+  { key: "core", label: "Core Sets" },
+  { key: "other", label: "Promos / Other" },
+];
+
+export const ONEPIECE_GROUPS: SetGroup[] = [
+  { key: "main", label: "Main Sets" },
+  { key: "eb", label: "Extra Boosters" },
+  { key: "st", label: "Starter Decks" },
+  { key: "other", label: "Other" },
+];
+
+// Display order: newest era first for Pokémon (the mockup leads with the current block).
+export function setGroupsFor(game: string): SetGroup[] {
+  if (game === "pokemon") return [...POKEMON_ERAS].reverse();
+  if (game === "riftbound") return RIFTBOUND_GROUPS;
+  if (game === "onepiece") return ONEPIECE_GROUPS;
+  return [{ key: "other", label: "Other" }];
+}
+
+export function setGroupKey(game: string, setName: string, year: number | null | undefined): string {
+  if (game === "pokemon") return pokemonEra(setName, year);
+  if (game === "riftbound") return /\b(promo|bulk|demo)\b/i.test(setName) ? "other" : "core";
+  if (game === "onepiece") {
+    if (/^starter deck|deck set\b/i.test(setName)) return "st";
+    if (/^extra booster/i.test(setName)) return "eb";
+    if (/promotion|collection set/i.test(setName)) return "other";
+    return "main";
+  }
+  return "other";
+}
+
+export const setGroupLabel = (game: string, key: string) =>
+  setGroupsFor(game).find(group => group.key === key)?.label ?? key;

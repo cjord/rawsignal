@@ -55,3 +55,9 @@ const gameNames: Record<string, string> = {
 export function formatGameName(value: string) {
   return gameNames[value] ?? value;
 }
+
+// URL identity for a set within its game (sets view 2026-08-29): lowercase, punctuation
+// folded to hyphens. Slugs are only unique per game — route paths must carry both.
+export function setSlug(setName: string) {
+  return setName.toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}

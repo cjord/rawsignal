@@ -18,7 +18,7 @@ import {historyTargetKey,useHistoryOnce,type HistoryTarget} from "./data/usePric
 import {canonicalSealedType} from "../core/catalog-query";
 import {deriveHistoryMetrics} from "../core/domain/history-metrics";
 import {POKEMON_ERAS,eraLabel} from "../core/domain/eras";
-import {formatGameName,formatPercent,formatUsd} from "../core/domain/formatters";
+import {formatGameName,formatPercent,formatUsd,setSlug} from "../core/domain/formatters";
 import type {PriceHistory,PricePoint,SignalStrictness} from "../core/domain/types";
 import type {MetricsCategoryRow,MetricsEraRow,MetricsMover,MetricsPayload,MetricsSetRow} from "../core/domain/metrics";
 
@@ -154,7 +154,7 @@ function SetTable({sets}:{sets:MetricsSetRow[]}){
   <SortTh label="Sealed 30D" column="sealedChange30" sort={sort} direction={direction} onSort={sortAnd}/>
   <SortTh label="Pack EV" column="evRatio" sort={sort} direction={direction} onSort={sortAnd}/>
  </tr></thead><tbody>
-  {visible.map(row=><tr key={`${row.game}:${row.set}`}><th scope="row"><a href={`/?mode=singles&market=${row.game}&rarity=all&sets=${encodeURIComponent(row.set)}`}>{row.set}</a></th><td>{formatGameName(row.game)}</td><td>{compactUsd(row.trackedValue)}</td><td>{formatUsd(row.medianPrice)}</td><td>{row.cards.toLocaleString()}</td><td><span className={`metrics-chip ${tone(row.change30)??""}`}>{pct(row.change30)}</span></td><td><span className={`metrics-chip ${tone(row.sealedChange30)??""}`}>{pct(row.sealedChange30)}</span></td><td>{row.packEv!=null?<span className="metrics-ev">{formatUsd(row.packEv)}{row.evRatio!=null&&<em className={`metrics-chip ${row.evRatio>=1?"up":"down"}`}>{row.evRatio.toFixed(2)}×</em>}</span>:"N/A"}</td></tr>)}
+  {visible.map(row=><tr key={`${row.game}:${row.set}`} className="is-clickable" onClick={()=>{location.assign(`/sets/${row.game}/${setSlug(row.set)}`)}}><th scope="row"><a href={`/sets/${row.game}/${setSlug(row.set)}`} onClick={event=>event.stopPropagation()}>{row.set}</a></th><td>{formatGameName(row.game)}</td><td>{compactUsd(row.trackedValue)}</td><td>{formatUsd(row.medianPrice)}</td><td>{row.cards.toLocaleString()}</td><td><span className={`metrics-chip ${tone(row.change30)??""}`}>{pct(row.change30)}</span></td><td><span className={`metrics-chip ${tone(row.sealedChange30)??""}`}>{pct(row.sealedChange30)}</span></td><td>{row.packEv!=null?<span className="metrics-ev">{formatUsd(row.packEv)}{row.evRatio!=null&&<em className={`metrics-chip ${row.evRatio>=1?"up":"down"}`}>{row.evRatio.toFixed(2)}×</em>}</span>:"N/A"}</td></tr>)}
  </tbody></table></div>
  {pages>1&&<NumberedPagination page={current} pages={pages} onChange={setPage} label="Set leaderboard pages"/>}</>;
 }
@@ -321,7 +321,7 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
      {market==="all"&&<ComparisonCard mode={mode==="singles"?"sealed":"singles"} series={series}/>}
     </div></section>
    {mode==="singles"&&market==="pokemon"&&(payload.eras?.length??0)>0&&<section className="detail-section"><header><span>Pokémon by era</span><h2>Era performance<InfoHint label="About eras">Every tracked Pokémon set folded into its collector era (prefix first, release year otherwise). 30D momentum is the tracked-value-weighted mean of member sets&apos; median card changes — big sets move the era, minor sets don&apos;t swamp it.</InfoHint></h2></header><EraTable eras={payload.eras??[]}/></section>}
-   {mode==="singles"?<section className="detail-section"><header><span>By set</span><h2>Set Leaderboard<InfoHint label="About the leaderboard">Top sets by tracked singles value. 30D momentum is the median of member cards&apos; 30-day changes; Sealed 30D is the same for the set&apos;s sealed products — a gap between them flags rotation between the two markets. Pack EV is the expected chase-card value of one booster from community pull-rate estimates times current singles prices (bulk excluded); the multiple compares it against the cheapest live pack price — above 1× means ripping beats buying the singles at these prices. Set names link to the filtered leaderboard.</InfoHint></h2></header><SetTable sets={scoped?.sets??[]}/></section>
+   {mode==="singles"?<section className="detail-section"><header><span>By set</span><h2>Set Leaderboard<InfoHint label="About the leaderboard">Top sets by tracked singles value. 30D momentum is the median of member cards&apos; 30-day changes; Sealed 30D is the same for the set&apos;s sealed products — a gap between them flags rotation between the two markets. Pack EV is the expected chase-card value of one booster from community pull-rate estimates times current singles prices (bulk excluded); the multiple compares it against the cheapest live pack price — above 1× means ripping beats buying the singles at these prices. Rows open the set&apos;s dedicated page.</InfoHint></h2></header><SetTable sets={scoped?.sets??[]}/></section>
    :<section className="detail-section"><header><span>By category</span><h2>Category Leaderboard<InfoHint label="About the leaderboard">Sealed products grouped by category. The median is the middle product price in the category; each momentum column is the median of member products&apos; changes over that window. Rows open the sealed leaderboard filtered to the category.</InfoHint></h2></header><CategoryTable categories={scoped?.categories??[]}/></section>}
    </>}
   </article></main>;

@@ -173,6 +173,15 @@ const centsCeil = (value: string) => {
 const placeholders = (values: unknown[]) => values.map(() => "?").join(",");
 const canonicalTypesLower = sealedProductTypes.map(type => type.toLowerCase());
 
+// One set's products of both kinds in domain shapes (sets view detail page).
+export async function readGameSetProducts(db: D1DatabaseLike, game: string, setName: string): Promise<{ cards: Card[]; sealed: SealedProduct[] }> {
+  const rows = (await db.prepare(`${productsSqlBase} where p.game=? and p.set_name=? order by p.product_id`).bind(game, setName).all<ProductRow>()).results ?? [];
+  return {
+    cards: rows.map(toCard).filter((card): card is Card => card !== null),
+    sealed: rows.map(toSealed).filter((product): product is SealedProduct => product !== null),
+  };
+}
+
 export function createD1CatalogRepository(db: D1DatabaseLike, ingestionRunId?: string, pullRateConfig?: PullRateConfig): CatalogRepository {
   const runClause = ingestionRunId ? " and p.ingestion_run_id=?" : "";
   const runParams = ingestionRunId ? [ingestionRunId] : [];
