@@ -42,8 +42,31 @@
 .import-skeletons { margin-top: 16px; }
 
 .import-summary-tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-.import-actions { display: flex; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+.import-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .import-added { color: var(--tone-favorite); font-size: var(--text-sm); font-weight: 700; }
+
+/* Portfolio-header cluster: the add-to-favorites actions and the import dates, pinned to
+   the section's top-right (the header is a wrapping flex row; margin-left:auto pushes us
+   right of the "Portfolio" title). */
+.import-portfolio-actions { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.import-portfolio-actions .import-actions { justify-content: flex-end; }
+.import-portfolio-actions .section-aside { margin: 0; }
+
+/* Coverage tile hover popup: the names of the cards that did not match the catalog. */
+.import-coverage.has-pop { position: relative; cursor: help; }
+.import-coverage-pop {
+  display: none; position: absolute; z-index: 30; top: calc(100% + 6px); left: 0;
+  width: max(240px, 100%); max-height: 300px; overflow-y: auto;
+  padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--surface-raised, var(--surface)); box-shadow: 0 18px 45px #0005;
+}
+.import-coverage.has-pop:hover .import-coverage-pop,
+.import-coverage.has-pop:focus-within .import-coverage-pop { display: block; }
+.import-coverage-pop > b { display: block; font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: .07em; color: var(--gray); margin-bottom: 8px; }
+.import-coverage-pop ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.import-coverage-pop li { font-size: var(--text-sm); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.import-coverage-pop li span { color: var(--gray); font-family: var(--font-mono); font-size: var(--text-2xs); }
+.import-coverage-pop p { margin: 8px 0 0; font-size: var(--text-2xs); color: var(--gray); }
 
 .import-nav { flex-wrap: wrap; margin: 0 0 14px; }
 .import-filters { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
@@ -51,35 +74,35 @@
 .import-price { flex: 0 0 130px; }
 .import-price input { font: 700 var(--text-base) var(--font-mono); }
 
-.import-table .table-head.import-head {
+/* Nine-track grid: Cond·Qty | Card | Signal | Set | Collectr | NM Market | 7D | 30D | ★.
+   The shared .leader-row / .table-head grids assert their 8-track template with
+   !important, so the import grid overrides with !important too and clears any inherited
+   named areas — cells then flow in source order across all nine tracks (this is what
+   fills the row edge-to-edge instead of leaving the two leaked tracks empty). */
+.import-table .table-head.import-head,
+.import-table .import-row {
   display: grid;
-  grid-template-columns: minmax(230px, 1.8fr) minmax(140px, 1fr) 110px 110px 110px minmax(150px, 1fr);
-  column-gap: 10px;
-  padding: 10px 3px;
-  color: var(--gray);
-  font-size: var(--text-2xs);
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  font-weight: 800;
-}
-.import-row {
-  display: grid;
-  grid-template-columns: minmax(230px, 1.8fr) minmax(140px, 1fr) 110px 110px 110px minmax(150px, 1fr);
+  grid-template-columns: 96px minmax(160px, 2fr) minmax(138px, 1.35fr) minmax(92px, 1fr) 82px 86px 60px 60px 34px !important;
+  grid-template-areas: none !important;
   column-gap: 10px;
   align-items: center;
-  padding: 9px 3px;
-  border-bottom: 1px solid var(--line);
-  position: relative;
-  min-width: 0;
 }
+.import-table .import-row > *,
+.import-table .table-head.import-head > * { grid-area: auto !important; }
+.import-table .table-head.import-head { padding: 2px 3px; color: var(--gray); }
+.import-table .table-head.import-head [role="columnheader"] { min-width: 0; }
+.import-table .import-head button { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.import-row { padding: 9px 3px; border-bottom: 1px solid var(--line); position: relative; min-width: 0; }
 .import-row .set-name { padding: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .import-row .market-price { text-align: left; padding: 0; }
-.import-cond { color: var(--gray); font-size: var(--text-xs); white-space: nowrap; }
+.import-row .change { text-align: left; padding: 0; margin: 0; }
+.import-row .change.is-empty { color: var(--gray); }
+.import-cond { color: var(--gray); font-size: var(--text-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .import-collectr { font: 700 var(--text-base) var(--font-mono); }
-.import-collectr small { display: block; margin-top: 3px; color: var(--gray); font: 500 var(--text-2xs) var(--font-sans); }
 .import-signal { min-width: 0; }
 .import-signal .signal-badge { margin: 0; width: 100%; }
 .import-neutral { color: var(--gray); }
+.import-row .row-star { display: flex; align-items: center; justify-content: center; }
 .import-untracked {
   font: 750 var(--text-2xs) var(--font-sans);
   font-style: normal;
@@ -95,11 +118,24 @@
 @media (max-width: 900px) {
   .import-summary-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .import-table .table-head.import-head { display: none; }
-  .import-row { grid-template-columns: minmax(0, 1.6fr) 96px 96px; grid-template-rows: auto auto; }
-  .import-row .set-name, .import-row .import-cond { display: none; }
-  .import-signal { grid-column: 1 / -1; }
+  .import-table .import-row {
+    grid-template-columns: minmax(0, 1fr) 80px 80px !important;
+    grid-template-areas: "card col mkt" "cond . star" "sig sig sig" !important;
+    grid-template-rows: auto auto auto;
+    row-gap: 6px; column-gap: 10px;
+  }
+  .import-row > .identity { grid-area: card !important; }
+  .import-row > .import-collectr { grid-area: col !important; }
+  .import-row > .market-price { grid-area: mkt !important; }
+  .import-row > .import-cond { grid-area: cond !important; display: block !important; }
+  .import-row > .import-signal { grid-area: sig !important; }
+  .import-row > .row-star { grid-area: star !important; justify-content: flex-end; }
+  .import-row > .set-name { display: none !important; }
+  .import-row > .change { display: none !important; }
 }
 @media (max-width: 620px) {
   .import-form { flex-direction: column; }
   .import-summary-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .import-portfolio-actions { width: 100%; align-items: stretch; margin-top: 12px; }
+  .import-portfolio-actions .import-actions .hot-add-button { flex: 1; justify-content: center; }
 }

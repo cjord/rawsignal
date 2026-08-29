@@ -1,6 +1,7 @@
 "use client";
 /* eslint-disable react-hooks/set-state-in-effect -- the stored import and the ?profile= deep link hydrate once from device storage after mount, the same pattern TopBar uses for display preferences */
 import {useEffect,useMemo,useRef,useState} from "react";
+import FavoriteStar from "./FavoriteStar";
 import InfoHint from "./InfoHint";
 import MarketTabs from "./MarketTabs";
 import MultiSelectField from "./MultiSelectField";
@@ -17,12 +18,18 @@ import {importDiff,readStoredImport,storeImport,type StoredCollectrImport} from 
 import {cardFavorite} from "./state/favorites";
 import {useFavorites} from "./state/useFavorites";
 import {parseStrictness,STRICTNESS_KEY,usePreference} from "./state/usePreference";
-import {formatFullDate,formatUsd} from "../core/domain/formatters";
+import {formatFullDate,formatPercent,formatUsd} from "../core/domain/formatters";
 import type {CollectrImportCard,CollectrImportPayload} from "./api/collectr/route";
 
 type Lens="all"|"hold"|"sell";
 type ViewMode="medium"|"text";
 type ImportMarket="all"|"pokemon"|"riftbound";
+type SortCol="cond"|"card"|"signal"|"set"|"collectr"|"market"|"change7"|"change30";
+
+function SortHead({col,label,sortCol,sortDir,onSort}:{col:SortCol;label:string;sortCol:SortCol;sortDir:"asc"|"desc";onSort:(col:SortCol)=>void}){
+ const active=sortCol===col;
+ return <span role="columnheader" aria-sort={active?(sortDir==="asc"?"ascending":"descending"):"none"}><button type="button" onClick={()=>onSort(col)}>{label}<span className={`sort-mark ${active?"active":""}`} aria-hidden="true">{active?(sortDir==="asc"?"▲":"▼"):"◇"}</span></button></span>;
+}
 const MARKET_OPTIONS=[{key:"all",label:"All"},{key:"pokemon",label:"Pokémon"},{key:"riftbound",label:"Riftbound"}] as const;
 const LENS_OPTIONS=[{key:"all",label:"All cards"},{key:"hold",label:"Hold"},{key:"sell",label:"Hot Sells"}];
 const VIEW_OPTIONS:[{key:ViewMode;label:string;icon:string},{key:ViewMode;label:string;icon:string}]=[{key:"medium",label:"Medium",icon:"▤"},{key:"text",label:"Text",icon:"☷"}];
@@ -50,6 +57,9 @@ export default function CollectrImportView(){
  const [minPrice,setMinPrice]=useState("");
  const [maxPrice,setMaxPrice]=useState("");
  const [added,setAdded]=useState<string|null>(null);
+ const [sortCol,setSortCol]=useState<SortCol>("market");
+ const [sortDir,setSortDir]=useState<"asc"|"desc">("desc");
+ const onSort=(col:SortCol)=>{if(col===sortCol)setSortDir(dir=>dir==="asc"?"desc":"asc");else{setSortCol(col);setSortDir("desc")}};
  const inputRef=useRef<HTMLInputElement>(null);
  const favorites=useFavorites();
 
@@ -116,6 +126,7 @@ export default function CollectrImportView(){
  }),[cards,market,lens,holdIds,sellIds,query,setFilter,min,max]);
 
  const matched=cards.filter(card=>card.matched);
+ const unmatched=useMemo(()=>cards.filter(card=>!card.matched),[cards]);
  const marketTotal=matched.reduce((sum,card)=>sum+(card.matched!.marketPrice*card.quantity),0);
  const collectrTotal=cards.reduce((sum,card)=>sum+((card.collectrPrice??0)*card.quantity),0);
  const sellValue=useMemo(()=>cards.filter(card=>sellIds.has(card.productId)).reduce((sum,card)=>sum+effectivePrice(card)*card.quantity,0),[cards,sellIds]);
@@ -128,6 +139,29 @@ export default function CollectrImportView(){
 
  const historyTargets=useMemo(()=>visible.filter(card=>card.matched).slice(0,120).map(card=>({productId:card.productId,printing:card.printing??"Normal"})),[visible]);
  const priceHistory=useHistoryOnce(historyTargets);
+
+ const signalOf=(card:CollectrImportCard)=>lens==="sell"?sellSignals.derived[card.productId]?.signal:buySignals.derived[card.productId]?.signal??sellSignals.derived[card.productId]?.signal;
+ const historyOf=(card:CollectrImportCard)=>card.matched?priceHistory[historyTargetKey({productId:card.productId,printing:card.printing??"Normal"})]:undefined;
+ const sortValue=(card:CollectrImportCard):number|string|null=>{
+  switch(sortCol){
+   case "cond":return card.condition?card.condition.toLowerCase():null;
+   case "card":return (card.matched?.name??card.name).toLowerCase();
+   case "set":return (card.matched?.set??card.set).toLowerCase();
+   case "collectr":return card.collectrPrice;
+   case "market":return card.matched?card.matched.marketPrice:null;
+   case "signal":{const sig=signalOf(card);return sig?sig.score:null;}
+   case "change7":return historyOf(card)?.change7??null;
+   case "change30":return historyOf(card)?.change30??null;
+  }
+ };
+ // Sort the filtered rows; nulls (unmatched / no data) always sink to the bottom.
+ const sortedVisible=useMemo(()=>[...visible].sort((a,b)=>{
+  const av=sortValue(a),bv=sortValue(b);
+  if(av==null&&bv==null)return 0;if(av==null)return 1;if(bv==null)return -1;
+  const order=typeof av==="string"?av.localeCompare(String(bv)):Number(av)-Number(bv);
+  return sortDir==="asc"?order:-order;
+ // eslint-disable-next-line react-hooks/exhaustive-deps -- sortValue/signalOf/historyOf close over the deps listed
+ }),[visible,sortCol,sortDir,lens,buySignals.derived,sellSignals.derived,priceHistory]);
 
  const addAll=()=>{favorites.addMany(matched.map(favoriteEntryFor));setAdded(`Added ${matched.length} tracked cards to favorites.`)};
  const addHold=()=>{const holds=matched.filter(card=>holdIds.has(card.productId));favorites.addMany(holds.map(favoriteEntryFor));setAdded(`Added ${holds.length} Hold cards to favorites.`)};
@@ -153,21 +187,25 @@ export default function CollectrImportView(){
 
    {payload&&!loading&&<>
    <section className="detail-section"><header><span>{payload.source==="csv"?payload.profile.name:`${payload.profile.name} · @${payload.profile.handle}`}</span><h2>Portfolio<InfoHint label="About these numbers">NM market sums our Near Mint market prices (× quantity) for matched cards only. The Collectr value is their condition-adjusted estimate for every imported card. Coverage counts cards matched to the tracked catalog.</InfoHint></h2>
-    <span className="section-aside"><span>Imported {formatFullDate(payload.importedAt)}</span>{signalsReady&&buySignals.asOfDate&&<span>Signals as of {formatFullDate(buySignals.asOfDate)}</span>}</span></header>
+    <div className="import-portfolio-actions">
+     <div className="import-actions">
+      <button type="button" className="hot-add-button" onClick={addAll} disabled={!matched.length}>★ Add all tracked to favorites</button>
+      <button type="button" className="hot-add-button" onClick={addHold} disabled={!signalsReady||!holdIds.size}>★ Add Hold cards only</button>
+     </div>
+     {added&&<span className="import-added" role="status">{added}</span>}
+     <span className="section-aside"><span>Imported {formatFullDate(payload.importedAt)}</span>{signalsReady&&buySignals.asOfDate&&<span>Signals as of {formatFullDate(buySignals.asOfDate)}</span>}</span>
+    </div></header>
     <div className="detail-history-grid import-summary-tiles">
      <div className="detail-metric"><small>NM market</small><b>{usd(marketTotal)}</b><span>{matched.length} tracked cards</span></div>
      <div className="detail-metric"><small>Collectr value</small><b>{usd(payload.profile.collectrValue??collectrTotal)}</b><span>condition-adjusted</span></div>
-     <div className="detail-metric"><small>Coverage</small><b>{cards.length?Math.round(matched.length/cards.length*100):0}%</b><span>{matched.length} of {cards.length} matched</span></div>
+     <div className={`detail-metric import-coverage${unmatched.length?" has-pop":""}`}><small>Coverage</small><b>{cards.length?Math.round(matched.length/cards.length*100):0}%</b><span>{matched.length} of {cards.length} matched</span>
+      {unmatched.length>0&&<div className="import-coverage-pop" role="tooltip"><b>Not matched · {unmatched.length}</b><ul>{unmatched.slice(0,60).map((card,index)=><li key={index}>{card.name||"Unknown card"}{card.number?<span> · {card.number}</span>:null}</li>)}</ul>{unmatched.length>60&&<p>+{unmatched.length-60} more</p>}</div>}
+     </div>
      <div className="detail-metric"><small>Hold</small><b className="up">{holdIds.size}</b><span>buy-signal backed</span></div>
      <div className="detail-metric"><small>Sell candidates</small><b className="down">{sellIds.size}</b><span>worth {usd(sellValue)} at market</span></div>
      <div className="detail-metric"><small>Skipped</small><b>{payload.skippedGraded+payload.skippedSealed}</b><span>{payload.skippedGraded} graded · {payload.skippedSealed} sealed</span></div>
     </div>
     {(diff||payload.partial||payload.fullError)&&<p className="detail-note">{diff&&<>Since last import: {diff.added} new · {diff.removed} removed. </>}{payload.fullError&&<>Full import fell back to the showcase page ({payload.fullError}). </>}{payload.partial&&(payload.source==="browser"?<>Partial import — the browser walk stopped early, so this shows {payload.cards.length} cards of {payload.profile.totalCards}.</>:<>Partial import — Collectr&apos;s API declined pagination, so this shows the {payload.cards.length} most valuable cards of {payload.profile.totalCards}.</>)}</p>}
-    <div className="import-actions">
-     <button type="button" className="hot-add-button" onClick={addAll} disabled={!matched.length}>★ Add all tracked to favorites</button>
-     <button type="button" className="hot-add-button" onClick={addHold} disabled={!signalsReady||!holdIds.size}>★ Add Hold cards only</button>
-     {added&&<span className="import-added" role="status">{added}</span>}
-    </div>
    </section>
 
    <section className="detail-section">
@@ -185,25 +223,40 @@ export default function CollectrImportView(){
      <label className="import-input import-price"><span>Max $</span><input inputMode="decimal" value={maxPrice} onChange={event=>setMaxPrice(event.target.value)} aria-label="Maximum price"/></label>
     </div>
     <div className={`import-table view-${view}`}>
-     <div className="table-head import-head" role="row"><span role="columnheader">Card</span><span role="columnheader">Set</span><span role="columnheader">Cond · Qty</span><span role="columnheader">Collectr</span><span role="columnheader">NM Market</span><span role="columnheader">Signal</span></div>
+     <div className="table-head import-head" role="row">
+      <SortHead col="cond" label="Cond · Qty" sortCol={sortCol} sortDir={sortDir} onSort={onSort}/>
+      <SortHead col="card" label="Card" sortCol={sortCol} sortDir={sortDir} onSort={onSort}/>
+      <SortHead col="signal" label="Signal" sortCol={sortCol} sortDir={sortDir} onSort={onSort}/>
+      <SortHead col="set" label="Set" sortCol={sortCol} sortDir={sortDir} onSort={onSort}/>
+      <SortHead col="collectr" label="Collectr" sortCol={sortCol} sortDir={sortDir} onSort={onSort}/>
+      <SortHead col="market" label="NM Market" sortCol={sortCol} sortDir={sortDir} onSort={onSort}/>
+      <SortHead col="change7" label="7D" sortCol={sortCol} sortDir={sortDir} onSort={onSort}/>
+      <SortHead col="change30" label="30D" sortCol={sortCol} sortDir={sortDir} onSort={onSort}/>
+      <span role="columnheader" className="import-star-head" aria-label="Favorite"/>
+     </div>
      <div className="rows" role="rowgroup">
-      {visible.map((card,rowIndex)=>{
+      {sortedVisible.map((card,rowIndex)=>{
        const match=card.matched;
-       const signal=lens==="sell"?sellSignals.derived[card.productId]?.signal:buySignals.derived[card.productId]?.signal??sellSignals.derived[card.productId]?.signal;
-       const cardHistory=match?priceHistory[historyTargetKey({productId:card.productId,printing:card.printing??"Normal"})]:undefined;
+       const signal=signalsReady?signalOf(card):undefined;
+       const cardHistory=historyOf(card);
+       const change7=match?cardHistory?.change7??null:null;
+       const change30=match?cardHistory?.change30??null:null;
        const body=<>
-        <ProductIdentity className="identity" image={match?.image??card.image} alt="" title={match?.name??card.name} meta={`${card.number||"—"} · ${card.rarity||"—"}${card.printing?` · ${card.printing}`:""}`}/>
-        <span className="set-name">{match?.set??card.set}</span>
         <span className="import-cond">{card.condition??"—"} · ×{card.quantity}</span>
-        <span className="import-collectr">{usd(card.collectrPrice)}{card.condition&&<small>{card.condition}</small>}</span>
+        <ProductIdentity className="identity" image={match?.image??card.image} alt="" title={match?.name??card.name} meta={`${card.number||"—"} · ${card.rarity||"—"}${card.printing?` · ${card.printing}`:""}`}/>
+        <span className="import-signal">{signal?<SignalBadge signal={signal}/>:<span className="import-neutral">{match?"—":""}</span>}</span>
+        <span className="set-name">{match?.set??card.set}</span>
+        <span className="import-collectr">{usd(card.collectrPrice)}</span>
         <span className="market-price">{match?usd(match.marketPrice):<i className="import-untracked">Not tracked</i>}</span>
-        <span className="import-signal">{signalsReady&&signal?<SignalBadge signal={signal}/>:<span className="import-neutral">{match?"—":""}</span>}</span>
+        <span className={`change change7 import-change${change7==null?" is-empty":change7<0?" down":" up"}`}>{match?(change7==null?"…":formatPercent(change7)):""}</span>
+        <span className={`change change30 import-change${change30==null?" is-empty":change30<0?" down":" up"}`}>{match?(change30==null?"…":formatPercent(change30)):""}</span>
+        <span className="row-star">{match?<FavoriteStar entry={favoriteEntryFor(card)}/>:null}</span>
        </>;
        return match?<a key={`${card.productId}-${rowIndex}`} className="leader-row import-row" href={match.detailPath} aria-label={`View ${match.name} details`}>{body}
         {cardHistory&&<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={match.image??""} alt={`${match.name} card`} label={`${match.name} price history`}><HistoryPanel title="Near Mint market history" subtitle={card.printing??"Normal"} points={cardHistory.points??[]} metrics={standardHistoryMetrics(match.marketPrice,null,cardHistory)}/></HistoryPopover>}
        </a>:<div key={`${card.productId}-u-${rowIndex}`} className="leader-row import-row is-untracked">{body}</div>;
       })}
-      {!visible.length&&<p className="empty">Nothing matches the current lens and filters.</p>}
+      {!sortedVisible.length&&<p className="empty">Nothing matches the current lens and filters.</p>}
      </div>
     </div>
    </section>
