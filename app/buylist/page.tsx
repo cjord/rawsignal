@@ -1,10 +1,10 @@
 "use client";
-/* eslint-disable react-hooks/set-state-in-effect -- the strictness and size preferences hydrate after mount */
 import {useMemo,useState,useEffect} from "react";
 import DeferredImage from "../DeferredImage";
 import TopBar from "../TopBar";
 import {SegmentedView} from "../MarketUI";
 import {formatGameName,formatUsd} from "../domain/formatters";
+import {parseStrictness,STRICTNESS_KEY,usePreference} from "../state/usePreference";
 import type {SignalStrictness} from "../domain/types";
 import {buylistTotals,type FavoriteEntry} from "../state/favorites";
 import {useFavorites} from "../state/useFavorites";
@@ -47,18 +47,9 @@ function SimpleTile({entry,acquired,onToggle}:{entry:FavoriteEntry;acquired:bool
 }
 
 export default function BuylistPage(){
- const [strictness,setStrictness]=useState<SignalStrictness>("balanced");
+ const [strictness,changeStrictness]=usePreference<SignalStrictness>(STRICTNESS_KEY,parseStrictness,"balanced");
  const [fullscreen,setFullscreen]=useState(false);
- const [size,setSize]=useState<TileSize>("large");
- useEffect(()=>{
-  try{
-   const saved=localStorage.getItem("raw-signal-strictness");
-   if(saved==="conservative"||saved==="aggressive")setStrictness(saved);
-   if(localStorage.getItem("raw-signal-buylist-size")==="small")setSize("small");
-  }catch{/* Storage unavailable; defaults apply. */}
- },[]);
- const changeStrictness=(value:SignalStrictness)=>{setStrictness(value);try{localStorage.setItem("raw-signal-strictness",value)}catch{/* Storage unavailable; page-local only. */}};
- const changeSize=(next:TileSize)=>{setSize(next);try{localStorage.setItem("raw-signal-buylist-size",next)}catch{/* Storage unavailable; page-local only. */}};
+ const [size,changeSize]=usePreference<TileSize>("raw-signal-buylist-size",stored=>stored==="small"?"small":stored==="large"?"large":null,"large");
  // The fullscreen list is a viewport overlay: lock the page scroll behind it and let
  // Escape leave it, like any lightbox.
  useEffect(()=>{

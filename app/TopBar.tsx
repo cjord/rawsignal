@@ -3,6 +3,7 @@
 import {useEffect,useRef,useState,type ReactNode} from "react";
 import {StrictnessControl} from "./SignalControls";
 import {setHoverPreviews,useHoverPreviews} from "./state/hover-previews";
+import {setScalperMode,useScalperMode} from "./state/scalper-mode";
 import type {SignalStrictness} from "./domain/types";
 
 const marketLinks=[
@@ -11,21 +12,17 @@ const marketLinks=[
  {key:"buylist",label:"Buy List",href:"/buylist"},
 ] as const;
 export type TopBarActive=(typeof marketLinks)[number]["key"]|null;
-export type ScalperMode="regular"|"scalper";
 
-export default function TopBar({active=null,actions,strictness,onStrictness,scalperMode,onScalperMode,settingsExtra,className=""}:{active?:TopBarActive;actions?:ReactNode;strictness:SignalStrictness;onStrictness:(value:SignalStrictness)=>void;scalperMode?:ScalperMode;onScalperMode?:(value:ScalperMode)=>void;settingsExtra?:ReactNode;className?:string}){
+export default function TopBar({active=null,actions,strictness,onStrictness,settingsExtra,className=""}:{active?:TopBarActive;actions?:ReactNode;strictness:SignalStrictness;onStrictness:(value:SignalStrictness)=>void;settingsExtra?:ReactNode;className?:string}){
  const [theme,setTheme]=useState<"dark"|"light">("dark");
  const [fontSize,setFontSize]=useState<"default"|"large">("default");
  const [settingsOpen,setSettingsOpen]=useState(false),settingsRef=useRef<HTMLDivElement>(null);
- // Scalper mode lives in the settings menu on every page (user rule 2026-08-28). Pages
- // that react live (the leaderboards) control it via props; elsewhere the toggle manages
- // the shared localStorage preference itself and the next sealed visit picks it up.
- const [localScalper,setLocalScalper]=useState<ScalperMode>("regular");
+ // Scalper mode lives in the settings menu on every page (user rule 2026-08-28) and in
+ // the shared device store (decision D13): toggling here updates every mounted surface.
  const hoverPreviews=useHoverPreviews();
  useEffect(()=>{
   setTheme(document.documentElement.dataset.theme==="light"?"light":"dark");
   setFontSize(document.documentElement.dataset.fontSize==="large"?"large":"default");
-  try{if(localStorage.getItem("raw-signal-scalper-mode")==="scalper")setLocalScalper("scalper")}catch{/* Storage unavailable; regular mode. */}
  },[]);
  useEffect(()=>{
   if(!settingsOpen)return;
@@ -35,12 +32,8 @@ export default function TopBar({active=null,actions,strictness,onStrictness,scal
  },[settingsOpen]);
  const toggleTheme=()=>setTheme(current=>{const next=current==="dark"?"light":"dark";document.documentElement.dataset.theme=next;try{localStorage.setItem("raw-signal-theme",next)}catch{/* Storage unavailable; applies for this visit only. */}return next});
  const changeFontSize=(next:"default"|"large")=>{setFontSize(next);document.documentElement.dataset.fontSize=next;try{localStorage.setItem("raw-signal-font-size",next)}catch{/* Storage unavailable; applies for this visit only. */}};
- const scalper=scalperMode??localScalper;
- const changeScalper=(next:ScalperMode)=>{
-  if(onScalperMode){onScalperMode(next);return}
-  setLocalScalper(next);
-  try{localStorage.setItem("raw-signal-scalper-mode",next)}catch{/* Private mode; toggle applies for this page only. */}
- };
+ const scalper=useScalperMode();
+ const changeScalper=setScalperMode;
  return <nav className={`topbar ${className}`.trim()}>
   <a className="brand" href="/"><span>R</span> Raw Signal</a>
   <div className="toplinks">

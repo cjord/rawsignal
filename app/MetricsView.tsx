@@ -1,9 +1,10 @@
 "use client";
-/* eslint-disable react-hooks/set-state-in-effect -- scope and the strictness preference hydrate from the URL and storage after mount */
-import {useEffect,useMemo,useState} from "react";
+import {useMemo,useState} from "react";
 import InfoHint from "./InfoHint";
 import MarketTabs from "./MarketTabs";
 import {readStoredMarket,storeMarket} from "./state/market-memory";
+import {METRICS_MARKETS,serializeMetricsScope,useMetricsScopeUrl,type MetricsMarket,type MetricsMode} from "./state/metrics-query";
+import {parseStrictness,STRICTNESS_KEY,usePreference} from "./state/usePreference";
 import PriceChart from "./PriceChart";
 import TopBar from "./TopBar";
 import HistoryPanel,{standardHistoryMetrics,type HistoryMetric} from "./HistoryPanel";
@@ -21,11 +22,10 @@ import {formatGameName,formatPercent,formatUsd} from "./domain/formatters";
 import type {PriceHistory,PricePoint,SignalStrictness} from "./domain/types";
 import type {MetricsCategoryRow,MetricsEraRow,MetricsMover,MetricsPayload,MetricsSetRow} from "./data/metrics-service";
 
-type Mode="singles"|"sealed";
-type Market="all"|"pokemon"|"riftbound"|"onepiece";
-const MODE_MARKETS:Record<Mode,Market[]>={singles:["all","pokemon","riftbound"],sealed:["all","pokemon","riftbound","onepiece"]};
+type Mode=MetricsMode;
+type Market=MetricsMarket;
 const MODE_VIEWS:[{key:Mode;label:string;icon:string},{key:Mode;label:string;icon:string}]=[{key:"singles",label:"Singles",icon:"◫"},{key:"sealed",label:"Sealed",icon:"▣"}];
-const marketTabOptions=(mode:Mode)=>MODE_MARKETS[mode].map(item=>({key:item,label:item==="all"?"All":formatGameName(item)}));
+const marketTabOptions=(mode:Mode)=>METRICS_MARKETS[mode].map(item=>({key:item,label:item==="all"?"All":formatGameName(item)}));
 
 const pct=(value:number|null)=>value==null?"N/A":formatPercent(value);
 const tone=(value:number|null)=>value==null||value===0?undefined:value<0?"down":"up";
@@ -47,7 +47,7 @@ const INDEX_META:Record<string,{title:string;note:string}>={
  "index:onepiece-sealed":{title:"One Piece Sealed 66%",note:"Mean of the top 66% of One Piece sealed prices each day — the baseline scales with this young catalog."},
 };
 const indexKey=(mode:Mode,market:Market)=>market==="all"?(mode==="singles"?"index:cards":"index:sealed"):`index:${market}-${mode==="singles"?"cards":"sealed"}`;
-const visibleIndexKeys=(mode:Mode,market:Market)=>market==="all"?[indexKey(mode,"all"),...MODE_MARKETS[mode].filter(item=>item!=="all").map(item=>indexKey(mode,item))]:[indexKey(mode,market)];
+const visibleIndexKeys=(mode:Mode,market:Market)=>market==="all"?[indexKey(mode,"all"),...METRICS_MARKETS[mode].filter(item=>item!=="all").map(item=>indexKey(mode,item))]:[indexKey(mode,market)];
 
 function ChangeTiles({change7,change30,change90}:{change7:number|null;change30:number|null;change90:number|null}){
  return <div className="metrics-window-tiles">
@@ -211,30 +211,29 @@ function RatioBar({label,advancers,decliners}:{label:string;advancers:number;dec
 }
 
 export default function MetricsView({payload}:{payload:MetricsPayload|null}){
- const [strictness,setStrictness]=useState<SignalStrictness>("balanced");
+ const [strictness,changeStrictness]=usePreference<SignalStrictness>(STRICTNESS_KEY,parseStrictness,"balanced");
  const [mode,setMode]=useState<Mode>("singles");
  const [market,setMarket]=useState<Market>("all");
  const [moversWindow,setMoversWindow]=useState<"7d"|"30d"|"90d">("7d");
- useEffect(()=>{
-  let saved:string|null=null;
-  try{saved=localStorage.getItem("raw-signal-strictness")}catch{/* Storage unavailable; the default applies. */}
-  if(saved==="conservative"||saved==="aggressive")setStrictness(saved);
-  const params=new URLSearchParams(location.search);
-  const nextMode=params.get("mode")==="sealed"?"sealed":"singles";
-  // The URL wins; otherwise the market remembered from the other pages; else Pokémon.
-  const requested=(params.get("market")??readStoredMarket())as Market|null;
+ // Scope rides the URL through the shared push/popstate discipline (decision D14):
+ // the URL wins; otherwise the market remembered from the other pages; else Pokémon.
+ const writeScope=useMetricsScopeUrl(({mode:nextMode,requestedMarket})=>{
+  const requested=(requestedMarket??readStoredMarket())as Market|null;
+  const resolved=requested&&METRICS_MARKETS[nextMode].includes(requested)?requested:"pokemon";
   setMode(nextMode);
-  setMarket(requested&&MODE_MARKETS[nextMode].includes(requested)?requested:"pokemon");
- },[]);
- const changeStrictness=(value:SignalStrictness)=>{setStrictness(value);try{localStorage.setItem("raw-signal-strictness",value)}catch{/* Storage unavailable; page-local only. */}};
+  setMarket(resolved);
+  storeMarket(resolved);
+  // Stamp the resolved scope into the current entry (replace, not push) so the landing
+  // entry is itself back-navigable after later scope pushes.
+  history.replaceState(null,"",`/metrics?${serializeMetricsScope(nextMode,resolved)}`);
+ });
  const setScope=(nextMode:Mode,nextMarket:Market)=>{
-  const resolved=MODE_MARKETS[nextMode].includes(nextMarket)?nextMarket:"pokemon";
+  const resolved=METRICS_MARKETS[nextMode].includes(nextMarket)?nextMarket:"pokemon";
+  // Re-clicking the active tab must not push a duplicate history entry.
+  if(nextMode===mode&&resolved===market)return;
   setMode(nextMode);setMarket(resolved);
   storeMarket(resolved);
-  const params=new URLSearchParams();
-  if(nextMode!=="singles")params.set("mode",nextMode);
-  params.set("market",resolved);
-  history.replaceState(null,"",`/metrics?${params}`);
+  writeScope(nextMode,resolved);
  };
 
  const kind=mode==="singles"?"single":"sealed";

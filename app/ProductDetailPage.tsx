@@ -1,11 +1,12 @@
 "use client";
-/* eslint-disable @next/next/no-html-link-for-pages, react-hooks/set-state-in-effect -- detail navigation preserves exact leaderboard URLs; the strictness preference hydrates after mount to match server HTML */
+/* eslint-disable @next/next/no-html-link-for-pages -- detail navigation preserves exact leaderboard URLs */
 import {useEffect,useRef,useState} from "react";
 import DeferredImage from "./DeferredImage";
 import FavoriteStar from "./FavoriteStar";
 import InfoHint from "./InfoHint";
 import {evRatio,packChaseEv} from "./domain/pack-ev";
 import {favoriteKey} from "./state/favorites";
+import {parseStrictness,STRICTNESS_KEY,usePreference} from "./state/usePreference";
 import PriceChart from "./PriceChart";
 import TopBar from "./TopBar";
 import {ChaseCardsSection,RelatedSealedSection} from "./detail-tables";
@@ -155,11 +156,10 @@ function SignalsPanel({history,loading,current,strictness}:{history:PriceHistory
 }
 
 export default function ProductDetailPage({detail,market,serverTiming}:{detail:CatalogDetail;market?:string;serverTiming?:string|null}){
- const [variant,setVariant]=useState(detail.priceVariants.find(item=>item.printing===(detail.kind==="single"?detail.printing:"Sealed"))??detail.priceVariants[0]),[historyResult,setHistoryResult]=useState<{key:string;value:PriceHistory|null;error:boolean}>({key:"",value:null,error:false}),[strictness,setStrictness]=useState<SignalStrictness>("balanced");
+ const [variant,setVariant]=useState(detail.priceVariants.find(item=>item.printing===(detail.kind==="single"?detail.printing:"Sealed"))??detail.priceVariants[0]),[historyResult,setHistoryResult]=useState<{key:string;value:PriceHistory|null;error:boolean}>({key:"",value:null,error:false});
+ const [strictness,changeStrictness]=usePreference<SignalStrictness>(STRICTNESS_KEY,parseStrictness,"balanced");
  const fallback=detail.kind==="single"?`/?mode=singles&market=${detail.game}`:`/?mode=sealed&market=${market??detail.game}`,current=variant?.marketPrice??detail.marketPrice,printing=variant?.printing??(detail.kind==="single"?detail.printing:"Sealed"),historyKey=`${detail.kind}:${detail.productId}:${printing}`;
  useEffect(()=>{const controller=new AbortController(),params=new URLSearchParams({productId:String(detail.productId),printing});if(detail.kind==="sealed")params.set("sealed","1");fetch(`/api/history?${params}`,{signal:controller.signal}).then(response=>{if(!response.ok)throw new Error();return response.json()}).then(value=>setHistoryResult({key:historyKey,value:value as PriceHistory,error:false})).catch(error=>{if(error.name!=="AbortError")setHistoryResult({key:historyKey,value:null,error:true})});return()=>controller.abort()},[detail.kind,detail.productId,printing,historyKey]);
- useEffect(()=>{let saved:string|null=null;try{saved=localStorage.getItem("raw-signal-strictness")}catch{/* Storage unavailable; the default applies. */}if(saved==="conservative"||saved==="aggressive")setStrictness(saved)},[]);
- const changeStrictness=(value:SignalStrictness)=>{setStrictness(value);try{localStorage.setItem("raw-signal-strictness",value)}catch{/* Storage unavailable (private mode); the preference applies for this page only. */}};
  const historyData=historyResult.key===historyKey?historyResult.value:null,historyError=historyResult.key===historyKey&&historyResult.error,h=historyData??emptyHistory,depth=historyDepth(historyData),rankPct=detailPercentile(detail),position=rangePosition(current,h.historyLow,h.historyHigh);
  const sourceLabel=detail.source.sourceUpdatedAt?`Source updated ${detail.source.sourceUpdatedAt.slice(0,10)}`:"Current TCGCSV / TCGplayer snapshot";
  const marketKey=detail.kind==="single"?detail.game:(market??detail.game);

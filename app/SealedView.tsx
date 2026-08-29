@@ -1,6 +1,6 @@
 "use client";
 /* eslint-disable react-hooks/exhaustive-deps -- keyed effects synchronize remote sealed data and history */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import index from "../tcg-index.json";
 import { useFreshness } from "./data/useFreshness";
 import HistoryPanel, { movementMetric, movementTone } from "./HistoryPanel";
@@ -115,6 +115,27 @@ const sealedModel: LeaderboardModeModel<View, SortKey> = {
 };
 const sealedSignalSort = { label: "Signal", key: "signal" as SortKey };
 const ascendingSealedSorts = new Set<SortKey>(["name", "set"]);
+
+// What the URL should say for this state under the given mode (decision D11): an
+// out-of-mode sort falls back to Market, and the profit filters/scenario serialize only
+// while scalping — regular mode keeps the typed values without applying or sharing them.
+export const sealedUrlState = (state: SealedQueryState, isScalping: boolean): SealedQueryState => {
+  const modeSorts = isScalping ? SCALPER_SORTS : REGULAR_SORTS;
+  const valid = new Set<string>([...modeSorts.map((item) => item.key), "signal"]);
+  return {
+    ...state,
+    sort: valid.has(state.sort) ? state.sort : "market",
+    profitMin: isScalping ? state.profitMin : "",
+    profitMax: isScalping ? state.profitMax : "",
+    profitPctMin: isScalping ? state.profitPctMin : "",
+    profitPctMax: isScalping ? state.profitPctMax : "",
+    keepPct: isScalping ? state.keepPct : 100,
+    taxOn: isScalping ? state.taxOn : false,
+    taxRate: isScalping ? state.taxRate : 8,
+    shipping: isScalping ? state.shipping : 0,
+    profitableOnly: isScalping ? state.profitableOnly : false,
+  };
+};
 const usd = (value: number | null) => formatUsd(value, "N/A");
 const pct = (value: number | null) => formatPercent(value, "N/A");
 const productKey = (product: Product) => product.productId;
@@ -124,45 +145,70 @@ export default function SealedView({
   strictness = "balanced",
   scalperEnabled = false,
   favoritesOnly = false,
-  initialState,
-  onQueryChange,
+  state,
+  onState,
 }: {
   signalView?: SignalSide;
   strictness?: SignalStrictness;
   scalperEnabled?: boolean;
   favoritesOnly?: boolean;
-  initialState: SealedQueryState;
-  onQueryChange: (state: SealedQueryState) => void;
+  state: SealedQueryState;
+  onState: (updater: (current: SealedQueryState) => SealedQueryState) => void;
 }) {
-  // The market comes from the page-level slider via initialState (the component remounts
-  // on every market change); a stale scalping URL without scalper mode falls back.
-  const game: Game = initialState.market === "scalping" && !scalperEnabled ? "pokemon" : initialState.market;
-  const [query, setQuery] = useState(initialState.query),
-    [selectedSets, setSelectedSets] = useState<string[]>(initialState.sets),
-    [selectedTypes, setSelectedTypes] = useState<string[]>(
-      initialState.productTypes,
-    ),
-    [marketMin, setMarketMin] = useState(initialState.marketMin),
-    [marketMax, setMarketMax] = useState(initialState.marketMax),
-    [msrpMin, setMsrpMin] = useState(initialState.msrpMin),
-    [msrpMax, setMsrpMax] = useState(initialState.msrpMax),
-    [profitMin, setProfitMin] = useState(initialState.profitMin),
-    [profitMax, setProfitMax] = useState(initialState.profitMax),
-    [profitPctMin, setProfitPctMin] = useState(initialState.profitPctMin),
-    [profitPctMax, setProfitPctMax] = useState(initialState.profitPctMax),
-    [setEv, setSetEv] = useState<Record<string, { packEv: number | null; evRatio: number | null }>>({}),
-    [sort, setSort] = useState<SortKey>(initialState.sort),
-    [direction, setDirection] = useState<Direction>(initialState.direction),
-    [perPage, setPerPage] = useState(initialState.perPage),
-    [page, setPage] = useState(initialState.page),
-    [view, setView] = useState<View>(initialState.view);
-  const [basis, setBasis] = useState<Basis>(initialState.basis),
-    [keepPct, setKeepPct] = useState(initialState.keepPct),
-    [taxOn, setTaxOn] = useState(initialState.taxOn),
-    [taxRate, setTaxRate] = useState(initialState.taxRate),
-    [shipping, setShipping] = useState(initialState.shipping),
-    [profitableOnly, setProfitableOnly] = useState(initialState.profitableOnly),
-    previousSignal = useRef(signalView);
+  // The market comes from the page-level slider (the page owns all sealed query state —
+  // decision D11); a stale scalping URL without scalper mode falls back for display.
+  const game: Game = state.market === "scalping" && !scalperEnabled ? "pokemon" : state.market;
+  const {
+    query,
+    sets: selectedSets,
+    productTypes: selectedTypes,
+    marketMin,
+    marketMax,
+    msrpMin,
+    msrpMax,
+    profitMin,
+    profitMax,
+    profitPctMin,
+    profitPctMax,
+    sort,
+    direction,
+    perPage,
+    page,
+    view,
+    basis,
+    keepPct,
+    taxOn,
+    taxRate,
+    shipping,
+    profitableOnly,
+  } = state;
+  const [setEv, setSetEv] = useState<Record<string, { packEv: number | null; evRatio: number | null }>>({});
+  // Controlled setters keep the names the JSX has always used, now writing through the
+  // page-owned state instead of local copies reconciled by a remount key.
+  const patch = (partial: Partial<SealedQueryState>) => onState((current) => ({ ...current, ...partial }));
+  const setQuery = (query: string) => patch({ query });
+  const setSelectedSets = (sets: string[]) => patch({ sets });
+  const setSelectedTypes = (productTypes: string[]) => patch({ productTypes });
+  const setMarketMin = (marketMin: string) => patch({ marketMin });
+  const setMarketMax = (marketMax: string) => patch({ marketMax });
+  const setMsrpMin = (msrpMin: string) => patch({ msrpMin });
+  const setMsrpMax = (msrpMax: string) => patch({ msrpMax });
+  const setProfitMin = (profitMin: string) => patch({ profitMin });
+  const setProfitMax = (profitMax: string) => patch({ profitMax });
+  const setProfitPctMin = (profitPctMin: string) => patch({ profitPctMin });
+  const setProfitPctMax = (profitPctMax: string) => patch({ profitPctMax });
+  const setSort = (sort: SortKey) => patch({ sort });
+  const setDirection = (next: Direction | ((current: Direction) => Direction)) =>
+    onState((current) => ({ ...current, direction: typeof next === "function" ? next(current.direction) : next }));
+  const setPerPage = (perPage: number) => patch({ perPage });
+  const setPage = (page: number) => patch({ page });
+  const setView = (view: View) => patch({ view });
+  const setBasis = (basis: Basis) => patch({ basis });
+  const setKeepPct = (keepPct: number) => patch({ keepPct });
+  const setTaxOn = (taxOn: boolean) => patch({ taxOn });
+  const setTaxRate = (taxRate: number) => patch({ taxRate });
+  const setShipping = (shipping: number) => patch({ shipping });
+  const setProfitableOnly = (profitableOnly: boolean) => patch({ profitableOnly });
   const isScalping = scalperEnabled,
     isScalpingMarket = game === "scalping",
     scenarioProfitableOnly = isScalping && profitableOnly;
@@ -212,13 +258,6 @@ export default function SealedView({
     side: basis === "market" ? signalView : "leaderboard",
     strictness,
   });
-  useEffect(() => {
-    if (previousSignal.current === signalView) return;
-    previousSignal.current = signalView;
-    setSort(signalView === "leaderboard" ? "market" : "signal");
-    setDirection("desc");
-    setPage(1);
-  }, [signalView]);
   // Per-set chase EV annotates hover cards on database-backed deployments (audit Phase C);
   // a 503 (feed-only, dev) simply leaves the metric out.
   useEffect(() => {
@@ -229,58 +268,6 @@ export default function SealedView({
       .catch(() => { /* Feed-only deployment; hover cards omit EV. */ });
     return () => controller.abort();
   }, []);
-  useEffect(
-    () =>
-      onQueryChange({
-        mode: "sealed",
-        market: game,
-        productTypes: selectedTypes,
-        view,
-        sort: effectiveSort,
-        direction,
-        page,
-        perPage,
-        query,
-        sets: selectedSets,
-        marketMin,
-        marketMax,
-        msrpMin,
-        msrpMax,
-        ...boundProfit,
-        ...scenario,
-        profitableOnly: scenarioProfitableOnly,
-        signal: signalView,
-        strictness,
-      }),
-    [
-      game,
-      selectedTypes,
-      view,
-      sort,
-      direction,
-      page,
-      perPage,
-      query,
-      selectedSets,
-      marketMin,
-      marketMax,
-      msrpMin,
-      msrpMax,
-      profitMin,
-      profitMax,
-      profitPctMin,
-      profitPctMax,
-      basis,
-      keepPct,
-      taxOn,
-      taxRate,
-      shipping,
-      profitableOnly,
-      signalView,
-      strictness,
-      isScalping,
-    ],
-  );
   const signalFor = (product: Product) =>
     signalView === "leaderboard"
       ? null

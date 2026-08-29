@@ -2,7 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps -- keyed effects synchronize remote data and theme */
 import { useEffect, useMemo, useRef, useState } from "react";
 import index from "../tcg-index.json";
-import SealedView from "./SealedView";
+import SealedView, { sealedUrlState } from "./SealedView";
 import {
   SegmentedView,
   SortableHeader,
@@ -32,6 +32,8 @@ import type {
 } from "./domain/types";
 import MarketTabs from "./MarketTabs";
 import { readStoredMarket, storeMarket } from "./state/market-memory";
+import { applyScalperMode, onScalperToggle, storedScalperMode, useScalperMode } from "./state/scalper-mode";
+import { parseStrictness, STRICTNESS_KEY, usePreference } from "./state/usePreference";
 import {
   defaultRarities,
   parseMarketQuery,
@@ -87,7 +89,6 @@ type SortKey =
   | "high"
   | "change7"
   | "change30";
-type ScalperMode = "regular" | "scalper";
 type History = PriceHistory;
 const displayLabel = formatRarity;
 const usd = (value: number | null) => formatUsd(value);
@@ -258,14 +259,25 @@ export default function Home() {
     [perPage, setPerPage] = useState(20),
     [page, setPage] = useState(1);
   const [mode, setMode] = useState<"singles" | "sealed">("singles"),
-    [scalperMode, setScalperMode] = useState<ScalperMode>("regular"),
     [sealedState, setSealedState] = useState<SealedQueryState>(
       () => parseMarketQuery("?mode=sealed") as SealedQueryState,
-    ),
-    [sealedRevision, setSealedRevision] = useState(0);
-  const lastRegularSealedMarket = useRef<Exclude<SealedMarket, "scalping">>("pokemon");
-  const [signalView, setSignalView] = useState<SignalSide>("leaderboard"),
-    [strictness, setStrictness] = useState<SignalStrictness>("balanced");
+    );
+  // Scalper mode lives in the shared device store (decision D13): the ⚙ toggle on any
+  // surface updates this page. Only REAL toggles fire the scenario reset (registered
+  // below); URL restores and hydration apply the mode without resetting anything.
+  const scalperMode = useScalperMode();
+  // Seeded from the remembered market so a scalping deep link followed by ⚙-off lands
+  // on the market the visitor actually uses, not the Pokémon default.
+  const lastRegularSealedMarket = useRef<Exclude<SealedMarket, "scalping">>(readStoredMarket() ?? "pokemon");
+  const updateSealed = setSealedState;
+  // The last regular market backs the scalper-off restore; syncing it from committed
+  // state (not inside updaters, which must stay pure) keeps it fresh on every path —
+  // restores, landings, market changes.
+  useEffect(() => {
+    if (sealedState.market !== "scalping") lastRegularSealedMarket.current = sealedState.market;
+  }, [sealedState.market]);
+  const [signalView, setSignalView] = useState<SignalSide>("leaderboard");
+  const [strictness, persistStrictness, setStrictnessView] = usePreference<SignalStrictness>(STRICTNESS_KEY, parseStrictness, "balanced");
   const freshIso = useFreshness(index.sourceUpdatedAt);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [minPrice, setMinPrice] = useState(""),
@@ -277,14 +289,20 @@ export default function Home() {
       up30: false,
       down30: false,
     });
-  const restoreQuery = (state: MarketQueryState) => {
+  const restoreQuery = (state: MarketQueryState, rawSearch: string) => {
     setMode(state.mode);
     setSignalView(state.signal);
+    setFavoritesOnly(state.favorites);
+    // A shared link's strictness applies to this view only (decision D12): the device's
+    // saved ⚙ preference is untouched and returns next visit. rawSearch is the
+    // pre-normalization URL — serialize drops strictness, so location.search can't see it.
+    if (new URLSearchParams(rawSearch).has("strictness")) setStrictnessView(state.strictness);
+    // A scalping entry shows scalper mode view-only; every other restored entry
+    // returns to the device's saved ⚙ preference — otherwise one shared scalping
+    // link would leave the view-only mode sticky across later Backs.
+    applyScalperMode(state.mode === "sealed" && state.market === "scalping" ? "scalper" : storedScalperMode());
     if (state.mode === "sealed") {
-      if (state.market === "scalping") setScalperMode("scalper");
-      else lastRegularSealedMarket.current = state.market;
       setSealedState(state);
-      setSealedRevision((value) => value + 1);
       return;
     }
     setGame(state.market);
@@ -360,7 +378,7 @@ export default function Home() {
   useEffect(() => {
     if (!urlReady) return;
     if (mode === "sealed") {
-      writeUrl({ ...sealedState, signal: signalView, strictness });
+      writeUrl({ ...sealedUrlState(sealedState, scalperMode === "scalper"), signal: signalView, strictness, favorites: favoritesOnly });
       return;
     }
     writeUrl({
@@ -374,6 +392,7 @@ export default function Home() {
       perPage,
       signal: signalView,
       strictness,
+      favorites: favoritesOnly,
       query,
       minPrice,
       maxPrice,
@@ -395,6 +414,8 @@ export default function Home() {
     mode,
     signalView,
     strictness,
+    favoritesOnly,
+    scalperMode,
     query,
     minPrice,
     maxPrice,
@@ -517,21 +538,22 @@ export default function Home() {
     setDirection("desc");
     setPage(1);
   };
-  // One market slider drives both modes; sealed changes remount SealedView with the new
-  // scope (same pattern as the scalper toggle) so its facets and URL state reset cleanly.
+  // One market slider drives both modes; sealed market changes reset the market-scoped
+  // selections and the controlled SealedView re-queries in place (decision D11 — no remount).
   const changeMarket = (next: string) => {
     if (mode === "singles") {
       switchGame(next as Game);
       return;
     }
-    if (next !== "scalping") lastRegularSealedMarket.current = next as Exclude<SealedMarket, "scalping">;
-    setSealedState((current) => ({ ...current, market: next as SealedMarket, productTypes: [], sets: [], page: 1 }));
-    setSealedRevision((value) => value + 1);
+    updateSealed((current) => ({ ...current, market: next as SealedMarket, productTypes: [], sets: [], page: 1 }));
   };
   // The chosen market follows the visitor across the leaderboards, sealed, and metrics.
+  // Gated on urlReady: the pre-restore flush would otherwise stamp the default market
+  // over the remembered one (unfixable for scalping URLs, which never store).
   useEffect(() => {
+    if (!urlReady) return;
     storeMarket(mode === "singles" ? game : sealedState.market);
-  }, [mode, game, sealedState.market]);
+  }, [urlReady, mode, game, sealedState.market]);
   // On landing without an explicit market in the URL, restore the remembered one. Both
   // inputs are captured during render: by the time this effect runs, the URL-sync effect
   // has stamped the default market into location.search AND the persistence effect above
@@ -545,8 +567,7 @@ export default function Home() {
     const stored = landing.stored;
     if (params.has("market") || !stored) return;
     if (params.get("mode") === "sealed") {
-      setSealedState((current) => ({ ...current, market: stored }));
-      setSealedRevision((value) => value + 1);
+      updateSealed((current) => ({ ...current, market: stored }));
     } else if (stored !== "onepiece") {
       switchGame(stored);
     }
@@ -564,37 +585,13 @@ export default function Home() {
       delete document.documentElement.dataset.appReady;
     };
   }, []);
-  useEffect(() => {
-    let saved: string | null = null;
-    try { saved = localStorage.getItem("raw-signal-strictness"); } catch { /* Storage unavailable; the default applies. */ }
-    if (saved === "conservative" || saved === "aggressive") setStrictness(saved);
-  }, []);
-  useEffect(() => {
-    let stored: string | null = null;
-    try { stored = localStorage.getItem("raw-signal-scalper-mode"); } catch { /* Storage unavailable; regular mode. */ }
-    const params = new URLSearchParams(location.search),
-      urlScalping =
-        params.get("mode") === "sealed" && params.get("market") === "scalping",
-      saved: ScalperMode =
-        urlScalping || stored === "scalper"
-          ? "scalper"
-          : "regular";
-    // Scalper mode never changes the market by itself (user rule 2026-08-28): it only
-    // unlocks the Obey Products entry. A URL that explicitly says market=scalping keeps
-    // it via the normal query parse.
-    setScalperMode(saved);
-  }, []);
-  const changeStrictness = (value: SignalStrictness) => {
-    setStrictness(value);
-    try { localStorage.setItem("raw-signal-strictness", value); } catch { /* Storage unavailable; applies for this visit only. */ }
-    setPage(1);
-  };
-  const changeScalperMode = (next: ScalperMode) => {
-    setScalperMode(next);
-    try { localStorage.setItem("raw-signal-scalper-mode", next); } catch { /* Storage unavailable; applies for this visit only. */ }
-    // Enabling scalper keeps the current market — it only unlocks Obey Products.
-    // Disabling it leaves the curated market (if selected) and resets the scenario.
-    setSealedState((current) =>
+  // Scalper mode never changes the market by itself (user rule 2026-08-28): it only
+  // unlocks the Obey Products entry. A REAL ⚙ toggle resets the sealed scenario in the
+  // SAME event (and therefore the same React commit the new mode renders with), so the
+  // URL-sync effect never observes a half-toggled state; restores and hydration apply
+  // the mode without ever firing this.
+  useEffect(() => onScalperToggle((next) => {
+    updateSealed((current) =>
       next === "scalper"
         ? { ...current, page: 1 }
         : {
@@ -613,24 +610,28 @@ export default function Home() {
             page: 1,
           },
     );
-    setSealedRevision((value) => value + 1);
-  };
-  const updateSealedState = (next: SealedQueryState) => {
-    if (next.market !== "scalping")
-      lastRegularSealedMarket.current = next.market;
-    setSealedState(next);
+  }), []);
+  const changeStrictness = (value: SignalStrictness) => {
+    persistStrictness(value);
+    setPage(1);
   };
   const changeSignalView = (value: SignalSide) => {
     setFavoritesOnly(false);
     setSignalView(value);
+    if (value === signalView) return;
     if (mode === "singles") {
       setSort(value === "leaderboard" ? "market" : "signal");
       setDirection("desc");
       setPage(1);
-    }
+    } else
+      // The sealed sort reset lived in SealedView's signal-change effect before the
+      // controlled conversion (D11); the page owns it now, guarded like the old effect
+      // so re-clicking the active tab (or leaving Favorites on it) resets nothing.
+      updateSealed((current) => ({ ...current, sort: value === "leaderboard" ? "market" : "signal", direction: "desc", page: 1 }));
   };
   // Favorites is the slider's fourth entry: a leaderboard-format filter, so activating
-  // it always lands on the leaderboard ordering with the flag on.
+  // it always lands on the leaderboard ordering with the flag on (both modes — the
+  // sealed side previously kept its old sort, a divergence the audit flagged).
   const activateFavorites = () => {
     setFavoritesOnly(true);
     setSignalView("leaderboard");
@@ -638,7 +639,7 @@ export default function Home() {
       setSort("market");
       setDirection("desc");
       setPage(1);
-    }
+    } else updateSealed((current) => ({ ...current, sort: "market", direction: "desc", page: 1 }));
   };
   const changeMode = (value: "singles" | "sealed") => {
     if (value === "singles") {
@@ -650,7 +651,7 @@ export default function Home() {
       setDirection("desc");
       setPage(1);
     } else
-      setSealedState((current) => ({
+      updateSealed((current) => ({
         ...current,
         ...(game !== current.market
           ? { market: game as SealedMarket, productTypes: [], sets: [] }
@@ -726,8 +727,6 @@ export default function Home() {
         active="cards"
         strictness={strictness}
         onStrictness={changeStrictness}
-        scalperMode={scalperMode}
-        onScalperMode={changeScalperMode}
       />
       <header className="masthead" id="top">
         <p className="kicker">Daily TCG market intelligence</p>
@@ -1030,13 +1029,12 @@ export default function Home() {
         />
       ) : (
         <SealedView
-          key={sealedRevision}
           signalView={signalView}
           strictness={strictness}
           scalperEnabled={scalperMode === "scalper"}
           favoritesOnly={favoritesOnly}
-          initialState={sealedState}
-          onQueryChange={updateSealedState}
+          state={sealedState}
+          onState={updateSealed}
         />
       )}
       <section className="method" id="method">
