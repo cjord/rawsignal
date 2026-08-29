@@ -175,7 +175,10 @@ out-rank earlier ones. The full audit (selector-level, grep-verified) found:
   scoped); the custom checkbox is implemented three times; popover chrome five ways
   with five different shadows; the up/down tone colors exist as **five different
   green/red pairs** (`#29b878/#e05454` ×61, plus `#16845b/#d24242`,
-  `#16875f/#c64747`, `#28a873`, and a dead pair).
+  `#16875f/#c64747`, `#28a873`, and the profit-pill pair `#087451/#b83131`).
+  Audit correction (wave 2): the original sweep flagged `.profit-pill`/
+  `.profit-positive`/`.profit-negative` as dead — they are live (the scalper
+  columns) and were kept.
 - **Tokens defined but unused**: `--control-height` and `--control-radius` have zero
   consumers while their literal values appear 3× and 27×; `.16s` appears 58× beside
   `--motion-fast`; 21 literal focus outlines beside `--focus-ring`. 17 distinct
@@ -297,33 +300,47 @@ assertions).
   contract (now asserted in HistoryPanel), and the signal-slider markup pin (now
   asserted in SlidingTabs).
 
+### Landed in wave 2 (same branch)
+
+- **Dead-CSS families sweep**: `.market-strip` (incl. its multi-select block), the
+  profit lab (`.profit-tools`/`.sealed-kpis`/`.input-*`/`.check-control`),
+  `.mode-tabs`, `.game-switch`, `.touch-open`, old sealed controls/search/view-row,
+  `.sealed-checks`/`.sealed-core-filters`/`.sealed-assumptions`/
+  `.sealed-market-strip`, `.sealed-history-*`, `.ranked-stat`, `.category-rail` —
+  every family independently re-verified by grep before deletion (which caught the
+  profit-pill false positive above). ~13,000 chars and ~55 `!important` removed.
+- **`db/ingestion-batch.ts`**: shared stats parsing, batch-size clamps, resume-read,
+  and failure tail across all five runners. The runners' loops deliberately stay
+  separate — integer cursors, chunk cursors, and the live `group:offset` budget walk
+  are genuinely different machines.
+- **Worker job runners**: one exported implementation per job body in
+  `staging-jobs.ts` (`runLiveJob`…`runHistoryJob`), shared by the ops adapter and
+  the cron tick; the triple asset-fetch helper is now one `fetchAssetJson`.
+- **`FullViewCardWrap`** replacing the copied full-view badge/star/link wrapper.
+- **Sealed sort fix**: clicking the displayed-active column right after leaving
+  scalper mode now toggles its direction instead of restarting at descending
+  (`changeSort` compares against `effectiveSort`).
+- **Adversarial verification pass**: four independent verifiers (ingestion
+  runners, worker jobs, CSS sweep, frontend fixes) attempted to refute
+  behavior-preservation. Verdict: preserved, no must-fix findings. Two of their
+  observations were applied before commit — `groupFetchCap` keeps its historical
+  un-floored clamp, and two leftover dead `.sealed-controls input` selector arms
+  were pruned from live rules. Accepted divergences on record: unified
+  "Asset source … unavailable" error text in ingestion diagnostics, invalid ops-job
+  names now 400 without pre-loading the snapshot (improvement), and fractional
+  graded budgets are floored in `stats_json` (fetch/spend behavior identical).
+
 ### Ready to execute — safe, no decision needed
 
-1. **Dead-CSS families sweep** (Agent-verified line map): `.market-strip`
-   (`globals.css:6,9,15,26,69,71`, `market-views.css:121-125,142`), profit lab
-   (`globals.css:34,39,40,41,53,69`), old sealed controls
-   (`globals.css:33,36,71,97,101,103`), `.touch-open`
-   (`globals.css:93,103,108,111,114`), `.sealed-checks`/`.sealed-core-filters`/
-   `.sealed-assumptions`/`.sealed-market-strip`
-   (`market-views.css:97,98,101,134,139,157,168,173,179,181`), `.mode-tabs`,
-   `.game-switch`, `.sealed-history-*`, `.ranked-stat`, `.category-rail`. ~14,000
-   chars. Needs per-rule surgery inside shared minified blocks — its own gated pass
-   with visual spot-checks.
-2. **`db/checkpointed-batch.ts`**: one cursor/stats/clamp/checkpoint/fail wrapper
-   for the five ingestion runners (behaviorally covered by existing tests).
-3. **Worker job registry**: collapse the duplicated dispatch bodies in
-   `staging-jobs.ts`/`scheduled-ingestion.ts` (~35 lines) plus the triple asset-fetch
-   helper.
-4. **Fallback-candidates + prefetch extraction** (page/SealedView, ~20 lines) and
-   `FullViewCardWrap` (~8 lines; 2 pin updates).
-5. **Dead-by-cascade grid template deletions** in globals (verified winners in later
+1. **Fallback-candidates + prefetch extraction** (page/SealedView, ~20 lines —
+   parallel-but-divergent, needs parameterizing the two variants).
+2. **Dead-by-cascade grid template deletions** in globals (verified winners in later
    sheets) — pair with Playwright screenshots at 620/760/900/1000px.
 
 ### Behavior-adjacent — do with a dedicated gate loop
 
 - `useCatalogHistory` bundling the history/signals hook stack (R3 — 6 pins).
-- `useSortState` + fixing the sealed `effectiveSort` stale-state wrong-direction
-  click (R6/R18).
+- `useSortState` unifying the page/sealed sort handlers (R6 — 4 pins).
 - `usePreference` hook replacing the 4-site strictness hydrate/write copies (D15).
 - Market option catalog module unifying page vs metrics tab lists (R14 — 2 pins).
 - SealedView dropping its `tcg-index.json` import + duplicate freshness fetch (R15).
