@@ -41,7 +41,7 @@ flowchart TB
     scripts["scripts/: validate · details · scalper · graded · io · cloudflare"]
     feeds["public/data/*.json (generated, last-good protected)"]
   end
-  tests["tests/: 152 node + 4 Playwright — behavioral suites + a slim source-contract file"]
+  tests["tests/: 156 node + 4 Playwright — behavioral suites + a slim source-contract file"]
   docs["docs/: maintained + gate-enforced"]
 
   pages --> prims --> dataL
@@ -142,7 +142,7 @@ word.
 
 ## Release gate
 
-`npm run check` = production build + 152 node tests + lint + 4 Playwright journeys.
+`npm run check` = production build + 156 node tests + lint + 4 Playwright journeys.
 The dev server must be stopped first (Playwright owns port 3000). A few suites still
 **regex-match raw source files** (`source-contracts` — the slim successor to the old
 `rendered-html` file, `scalper-mode`, `css-architecture`, `maintainer-docs`,

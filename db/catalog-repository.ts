@@ -1,6 +1,6 @@
 import type { Card, CatalogDetailEnrichment, DetailMetadataField, DetailPriceVariant, MarketSignal, PullRateConfig, SealedProduct } from "../core/domain/types.ts";
 import { createMemoryCatalogRepository, type CatalogRepository } from "../core/catalog-repository.ts";
-import type { CatalogDerived, SealedCatalogQuery, SinglesCatalogQuery } from "../core/catalog-query.ts";
+import { canonicalSealedType, sealedProductTypes, type CatalogDerived, type CatalogPage, type SealedCatalogQuery, type SinglesCatalogQuery } from "../core/catalog-query.ts";
 import { readGradedCard } from "./graded-ingestion.ts";
 import { readPeerAnchor } from "./peer-anchors.ts";
 import type { D1DatabaseLike } from "./repository.ts";
@@ -121,7 +121,7 @@ async function loadDerived(db: D1DatabaseLike, kind: "single" | "sealed", game: 
     ms.distance_bps as distanceBps,ms.cutoff_bps as cutoffBps
     from market_metrics mm join catalog_products p on p.product_id=mm.product_id
     left join market_signals ms on ms.product_id=mm.product_id and ms.side=? and ms.strictness=?
-    where p.kind=? and p.game=? order by mm.updated_at desc`).bind(side, options.strictness, kind, game);
+    where p.kind=? and p.game=? order by mm.updated_at desc, mm.variant asc, mm.condition asc`).bind(side, options.strictness, kind, game);
   const rows = (await statement.all<MetricRow>()).results ?? [], derived: Record<number, CatalogDerived> = {};
   for (const row of rows) if (!derived[row.productId]) derived[row.productId] = {
     change7: percent(row.change7Bps),
@@ -148,24 +148,115 @@ export async function readSealedFeed(db: D1DatabaseLike, game: string): Promise<
   return rows.map(toSealed).filter((product): product is SealedProduct => product !== null);
 }
 
+// Decision D5: SQL narrows the candidate set, the shared engine stays authoritative.
+// The invariant every pushed predicate MUST satisfy: the SQL rows are a SUPERSET of
+// what the engine's own filters would keep — the engine re-runs every exact predicate
+// (fuzzy text, precise float bounds, scenario math, movement, signal validity) over
+// the narrowed rows, so SQL may only ever widen, never tighten. Price bounds are
+// therefore pushed one cent wide of the requested dollars, product-type matching is
+// case-insensitive with the canonicalSealedType "Other" backstop reproduced, and the
+// signal gate is a bare EXISTS (toSignal's field checks re-run in the engine). Facets
+// are computed by dedicated DISTINCT queries because the engine derives them from the
+// PRE-filter market slice, which the narrowed candidates no longer represent.
+// tests/catalog-parity.test.mjs holds the D1 path equal to the pure engine over a
+// fixture database across the full option matrix.
+// The one-cent widening is sound for any cents value below 2^53 (float exactness);
+// real prices sit ~12 orders of magnitude under that, and the driver rejects larger.
+const centsFloor = (value: string) => {
+  const parsed = value.trim() === "" ? null : Number(value);
+  return parsed == null || !Number.isFinite(parsed) ? null : Math.floor(parsed * 100) - 1;
+};
+const centsCeil = (value: string) => {
+  const parsed = value.trim() === "" ? null : Number(value);
+  return parsed == null || !Number.isFinite(parsed) ? null : Math.ceil(parsed * 100) + 1;
+};
+const placeholders = (values: unknown[]) => values.map(() => "?").join(",");
+const canonicalTypesLower = sealedProductTypes.map(type => type.toLowerCase());
+
 export function createD1CatalogRepository(db: D1DatabaseLike, ingestionRunId?: string, pullRateConfig?: PullRateConfig): CatalogRepository {
+  const runClause = ingestionRunId ? " and p.ingestion_run_id=?" : "";
+  const runParams = ingestionRunId ? [ingestionRunId] : [];
   const productRows = async (kind: "single" | "sealed", game: string) => {
     const sql = ingestionRunId ? `${productsSql} and p.ingestion_run_id=?` : productsSql;
     const statement = db.prepare(sql).bind(...(ingestionRunId ? [kind, game, ingestionRunId] : [kind, game]));
     return (await statement.all<ProductRow>()).results ?? [];
   };
+  const signalClause = (options: SinglesCatalogQuery | SealedCatalogQuery, params: unknown[]) => {
+    if (options.signal === "leaderboard") return "";
+    params.push(options.signal, options.strictness);
+    return " and exists(select 1 from market_signals ms where ms.product_id=p.product_id and ms.side=? and ms.strictness=?)";
+  };
+  const singlesFacets = async (options: SinglesCatalogQuery): Promise<CatalogPage<Card>["facets"]> => {
+    const params: unknown[] = [options.market, ...runParams];
+    let where = `p.kind='single' and p.game=?${runClause} and cp.market_cents is not null`;
+    if (options.sections.length) { where += ` and coalesce(p.section,'all') in (${placeholders(options.sections)})`; params.push(...options.sections); }
+    const rows = (await db.prepare(`select distinct p.set_name as setName, coalesce(p.section,'all') as section
+      from catalog_products p join current_prices cp on cp.product_id=p.product_id where ${where}`).bind(...params).all<{ setName: string; section: string }>()).results ?? [];
+    return { sets: [...new Set(rows.map(row => row.setName))].sort(), sections: [...new Set(rows.map(row => row.section))].sort(), productTypes: [] };
+  };
+  const singlesCandidates = async (options: SinglesCatalogQuery) => {
+    const params: unknown[] = [options.market, ...runParams];
+    let where = ` and cp.market_cents is not null`;
+    if (options.sections.length) { where += ` and coalesce(p.section,'all') in (${placeholders(options.sections)})`; params.push(...options.sections); }
+    if (options.sets.length) { where += ` and p.set_name in (${placeholders(options.sets)})`; params.push(...options.sets); }
+    const min = centsFloor(options.minPrice), max = centsCeil(options.maxPrice);
+    if (min != null) { where += ` and cp.market_cents >= ?`; params.push(min); }
+    if (max != null) { where += ` and cp.market_cents <= ?`; params.push(max); }
+    where += signalClause(options, params);
+    const sql = `${productsSqlBase} where p.kind='single' and p.game=?${runClause}${where} order by p.product_id`;
+    return (await db.prepare(sql).bind(...params).all<ProductRow>()).results ?? [];
+  };
+  const sealedFacets = async (options: SealedCatalogQuery): Promise<CatalogPage<SealedProduct>["facets"]> => {
+    const rows = (await db.prepare(`select distinct p.set_name as setName, p.product_type as productType
+      from catalog_products p where p.kind='sealed' and p.game=?${runClause}`).bind(options.market, ...runParams).all<{ setName: string; productType: string | null }>()).results ?? [];
+    const types = [...new Set(rows.map(row => canonicalSealedType(row.productType ?? "Other")))];
+    types.sort((a, b) => (sealedProductTypes as readonly string[]).indexOf(a) - (sealedProductTypes as readonly string[]).indexOf(b));
+    return { sets: [...new Set(rows.map(row => row.setName))].sort(), sections: [], productTypes: types };
+  };
+  const sealedCandidates = async (options: SealedCatalogQuery) => {
+    const params: unknown[] = [options.market, ...runParams];
+    let where = "";
+    if (options.sets.length) { where += ` and p.set_name in (${placeholders(options.sets)})`; params.push(...options.sets); }
+    if (options.productTypes.length) {
+      // Superset of canonicalSealedType: case-insensitive canonical match, plus every
+      // off-vocabulary or null type. The second clause is UNCONDITIONAL because SQLite's
+      // NOCASE folds only ASCII — a category whose case variance involves a non-ASCII
+      // fold (JS toLowerCase folds U+212A to "k") is off-vocabulary to SQL but canonical
+      // to the engine, so it must survive to the engine's re-filter. Pure widening.
+      let clause = `coalesce(p.product_type,'Other') collate nocase in (${placeholders(options.productTypes)})`;
+      params.push(...options.productTypes);
+      clause += ` or lower(coalesce(p.product_type,'Other')) not in (${placeholders(canonicalTypesLower)})`;
+      params.push(...canonicalTypesLower);
+      where += ` and (${clause})`;
+    }
+    const valueExpr = options.basis === "median" ? "coalesce(cp.median_cents,cp.market_cents)" : "cp.market_cents";
+    const marketMin = centsFloor(options.marketMin), marketMax = centsCeil(options.marketMax);
+    if (marketMin != null) { where += ` and ${valueExpr} >= ?`; params.push(marketMin); }
+    if (marketMax != null) { where += ` and ${valueExpr} <= ?`; params.push(marketMax); }
+    const msrpMin = centsFloor(options.msrpMin), msrpMax = centsCeil(options.msrpMax);
+    if (msrpMin != null) { where += ` and sd.msrp_cents >= ?`; params.push(msrpMin); }
+    if (msrpMax != null) { where += ` and sd.msrp_cents <= ?`; params.push(msrpMax); }
+    // Any profit-shaped filter needs a non-null profit, which needs both MSRP and a value.
+    const profitFiltered = options.profitableOnly || [options.profitMin, options.profitMax, options.profitPctMin, options.profitPctMax].some(bound => bound.trim() !== "" && Number.isFinite(Number(bound)));
+    if (profitFiltered) where += ` and sd.msrp_cents is not null and ${valueExpr} is not null`;
+    where += signalClause(options, params);
+    const sql = `${productsSqlBase} where p.kind='sealed' and p.game=?${runClause}${where} order by p.product_id`;
+    return (await db.prepare(sql).bind(...params).all<ProductRow>()).results ?? [];
+  };
   return {
     async querySingles(options) {
-      const rows = await productRows("single", options.market);
+      const [facets, rows] = await Promise.all([singlesFacets(options), singlesCandidates(options)]);
       const cards = rows.map(toCard).filter((card): card is Card => card !== null);
       const derived = await loadDerived(db, "single", options.market, options);
-      return createMemoryCatalogRepository(cards, []).querySingles(options, derived);
+      const page = await createMemoryCatalogRepository(cards, []).querySingles(options, derived);
+      return { ...page, facets };
     },
     async querySealed(options) {
-      const rows = await productRows("sealed", options.market);
+      const [facets, rows] = await Promise.all([sealedFacets(options), sealedCandidates(options)]);
       const products = rows.map(toSealed).filter((product): product is SealedProduct => product !== null);
       const derived = await loadDerived(db, "sealed", options.market, options);
-      return createMemoryCatalogRepository([], products).querySealed(options, derived);
+      const page = await createMemoryCatalogRepository([], products).querySealed(options, derived);
+      return { ...page, facets };
     },
     async getDetail(kind,productId,market){
       const row=await db.prepare(`select p.product_id as productId,p.kind,p.game,p.section,p.name,p.set_name as setName,

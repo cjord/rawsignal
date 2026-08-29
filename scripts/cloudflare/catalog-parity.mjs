@@ -24,6 +24,10 @@ async function collect(base,testCase,fetcher){
   const body=await response.json();if(!Array.isArray(body.items)||!Number.isInteger(body.pages))throw new Error(`${testCase.name} returned an invalid catalog response`);
   records.push(...body.items.map(item=>canonical(item,testCase.params.mode)));pages=body.pages;source=body.source;facets=body.facets??facets;page++;
  }while(page<=pages);
+ // Name ties fall through to the server's internal candidate order, which is not part of
+ // the parity contract (D5 pinned it to product_id, older deployments used SELECT order) —
+ // re-sort by (name, productId) so cross-deployment comparisons stay tie-insensitive.
+ records.sort((a,b)=>String(a.name).localeCompare(String(b.name))||a.productId-b.productId);
  return{source,records,facets:{sets:sorted(facets.sets??[]),productTypes:sorted(facets.productTypes??[])}};
 }
 
