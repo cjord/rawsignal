@@ -6,7 +6,8 @@ import { normalizeSinglesGroup } from "../scripts/normalize/singles.mjs";
 // @ts-ignore
 import { normalizePokemonSealedProduct, normalizeRiftboundSealedProduct, preferredSealedPrice, sealedIdentity } from "../scripts/normalize/sealed.mjs";
 import { persistRecord } from "./daily-ingestion.ts";
-import { checkpointIngestion, completeIngestion, failIngestion, readRefreshCursor, startIngestion, type D1DatabaseLike } from "./repository.ts";
+import { clampBatchSize, markIngestionFailed, parseStatsJson, resumeCheckpoint } from "./ingestion-batch.ts";
+import { checkpointIngestion, completeIngestion, failIngestion, startIngestion, type D1DatabaseLike } from "./repository.ts";
 
 export type TcgcsvGroup = { groupId: number; name: string; publishedOn: string };
 export type TcgcsvClient = {
@@ -32,7 +33,6 @@ const categories = [{ id: 3, game: "pokemon" as const }, { id: 89, game: "riftbo
 export const JAPANESE_CATEGORY_ID = 85;
 export const JAPANESE_PROMOS_SECTION: [string, string] = ["japanese-promos", "Japanese Promos"];
 const japanesePromoGroup = (group: TcgcsvGroup) => /promo/i.test(group.name);
-const parseStats = (value: string | null | undefined): LiveStats => { try { return value ? JSON.parse(value) as LiveStats : {}; } catch { return {}; } };
 const parseCursor = (value: string | null | undefined) => { const match = /^(\d+):(\d+)$/.exec(value ?? ""); return match ? { group: Number(match[1]), offset: Number(match[2]) } : { group: 0, offset: 0 }; };
 
 async function buildWorkList(client: TcgcsvClient, now: Date): Promise<WorkEntry[]> {
@@ -99,15 +99,16 @@ async function existingRunRows(db: D1DatabaseLike, runId: string, ids: number[])
 }
 
 export async function runLiveDailyIngestionBatch(db: D1DatabaseLike, deps: LiveSyncDeps, options: { sourceUpdatedAt: string; batchSize?: number; groupFetchCap?: number; minimumRecords?: number; now?: Date }) {
-  const budgetTotal = Math.max(1, Math.min(100, Math.floor(options.batchSize ?? 80)));
+  const budgetTotal = clampBatchSize(options.batchSize, 80, 100);
+  // Not clampBatchSize: the cap is a loop bound, and the historical clamp never floored.
   const groupFetchCap = Math.max(1, Math.min(20, options.groupFetchCap ?? 12));
   const minimumRecords = options.minimumRecords ?? 10000;
   const now = options.now ?? new Date(), observedAt = now.toISOString(), asOfDate = observedAt.slice(0, 10);
   const runId = `live-daily:${options.sourceUpdatedAt.slice(0, 10)}`;
-  const checkpoint = await readRefreshCursor(db, "live-daily-progress");
-  const resumed = checkpoint?.ingestionRunId === runId;
-  let { group: groupIndex, offset: recordOffset } = resumed ? parseCursor(checkpoint?.cursor) : { group: 0, offset: 0 };
-  const prior = resumed ? parseStats(checkpoint?.statsJson) : {};
+  const resume = await resumeCheckpoint(db, "live-daily-progress", runId);
+  const resumed = resume.resumed;
+  let { group: groupIndex, offset: recordOffset } = parseCursor(resume.cursor);
+  const prior = parseStatsJson<LiveStats>(resume.statsJson);
   let recordsWritten = prior.recordsWritten ?? 0, duplicateDecisions = prior.duplicateDecisions ?? 0;
   const rejected: Record<string, number> = { ...(prior.rejected ?? {}) };
   if (!resumed) await startIngestion(db, runId, "tcgcsv-live", observedAt, { sourceUpdatedAt: options.sourceUpdatedAt, stats: { rejected: {} } });
@@ -151,8 +152,9 @@ export async function runLiveDailyIngestionBatch(db: D1DatabaseLike, deps: LiveS
     if (done) await completeIngestion(db, runId, "daily-market", new Date().toISOString(), workList.length, recordsWritten, Object.values(rejected).reduce((sum, count) => sum + count, 0), duplicateDecisions, stats);
     return { runId, cursor: `${groupIndex}:${recordOffset}`, entries: workList.length, entryIndex: groupIndex, done, processed, recordsWritten, duplicateDecisions };
   } catch (error) {
+    // The minimum-records guard already failed the run itself; everything else fails here.
     if (!(error instanceof Error && error.message.startsWith("Live snapshot below minimum records"))) {
-      await failIngestion(db, runId, new Date().toISOString(), error instanceof Error ? error.message : "Unknown live ingestion failure");
+      await markIngestionFailed(db, runId, error, "Unknown live ingestion failure");
     }
     throw error;
   }

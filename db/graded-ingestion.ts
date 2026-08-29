@@ -1,5 +1,6 @@
 import type { GradedCardData } from "../app/domain/types.ts";
-import { completeIngestion, failIngestion, startIngestion, type D1DatabaseLike } from "./repository.ts";
+import { clampBatchSize, markIngestionFailed } from "./ingestion-batch.ts";
+import { completeIngestion, startIngestion, type D1DatabaseLike } from "./repository.ts";
 
 // One PokemonPriceTracker card lookup costs 2 credits; the free tier grants 100/day. The
 // rotation refreshes the stalest slice of the top-value Pokémon singles each day, preferring
@@ -38,10 +39,10 @@ export function compactGrades(salesByGrade: unknown): GradedCardData["grades"] {
 type PoolRow = { productId: number; updatedAt: string | null };
 
 export async function runGradedRotationBatch(db: D1DatabaseLike, deps: GradedRotationDeps, options: { budget?: number; poolSize?: number; now?: Date } = {}) {
-  const budget = Math.max(2, Math.min(100, options.budget ?? 90));
+  const budget = clampBatchSize(options.budget, 90, 100, 2);
   // Research (audit Phase F): grading premiums matter for roughly the top 500-1,000 cards
   // by raw value. 600 keeps every card's refresh inside ~two weeks at 45 fetches/day.
-  const poolSize = Math.max(1, Math.min(1000, options.poolSize ?? 600));
+  const poolSize = clampBatchSize(options.poolSize, 600, 1000);
   const now = options.now ?? new Date(), startedAt = now.toISOString(), today = startedAt.slice(0, 10);
   const runId = `graded-rotation:${today}`;
   const wait = deps.wait ?? (ms => new Promise<void>(resolve => setTimeout(resolve, ms)));
@@ -82,7 +83,7 @@ export async function runGradedRotationBatch(db: D1DatabaseLike, deps: GradedRot
     await completeIngestion(db, runId, "graded-rotation", new Date().toISOString(), targets.length, updated, 0, 0, stats);
     return { runId, targets: targets.length, updated, spent, stopped, done: true };
   } catch (error) {
-    await failIngestion(db, runId, new Date().toISOString(), error instanceof Error ? error.message : "Unknown graded rotation failure");
+    await markIngestionFailed(db, runId, error, "Unknown graded rotation failure");
     throw error;
   }
 }

@@ -2,13 +2,12 @@ import { salesWindow } from "../app/domain/detail-metrics.ts";
 import { deriveHistoryMetrics } from "../app/domain/history-metrics.ts";
 import type { Card, CatalogDetailEnrichment, PriceHistory, PricePoint, SealedProduct, SignalStrictness } from "../app/domain/types.ts";
 import { marketSignal, type SignalLiquidity } from "../app/signal-utils.ts";
+import { clampBatchSize, markIngestionFailed, parseStatsJson, resumeCheckpoint } from "./ingestion-batch.ts";
 import {
   completeIngestion,
   checkpointIngestion,
   deleteMarketSignal,
-  failIngestion,
   readMarketLiquidity,
-  readRefreshCursor,
   startIngestion,
   upsertCard,
   upsertHistory,
@@ -131,22 +130,21 @@ export async function runDailyMarketIngestion(db: D1DatabaseLike, snapshot: Dail
     await completeIngestion(db, runId, "daily-market", observedAt, recordsSeen, recordsWritten, recordsRejected, snapshot.duplicateDecisions?.length ?? 0, stats);
     return { runId, recordsSeen, recordsWritten, ...stats };
   } catch (error) {
-    await failIngestion(db, runId, new Date().toISOString(), error instanceof Error ? error.message : "Unknown ingestion failure");
+    await markIngestionFailed(db, runId, error, "Unknown ingestion failure");
     throw error;
   }
 }
 
 type BatchStats = { observationsWritten?: number; signalsWritten?: number; signalEligibleProducts?: number };
-const parseBatchStats = (value: string | null | undefined): BatchStats => { try { return value ? JSON.parse(value) as BatchStats : {}; } catch { return {}; } };
 
 export async function runDailyMarketIngestionBatch(db: D1DatabaseLike, snapshot: DailyCatalogSnapshot, options: { batchSize?: number; now?: Date } = {}): Promise<DailyIngestionBatchResult> {
   validateSnapshot(snapshot);
   const now = options.now ?? new Date(), observedAt = now.toISOString(), asOfDate = observedAt.slice(0, 10), runId = `daily-market:${asOfDate}`;
   const records = [...snapshot.cards, ...snapshot.sealed], total = records.length;
-  const checkpoint = await readRefreshCursor(db, "daily-market-progress");
-  const cursor = checkpoint?.ingestionRunId === runId ? Math.max(0, Math.min(total, Number(checkpoint.cursor) || 0)) : 0;
-  const prior = checkpoint?.ingestionRunId === runId ? parseBatchStats(checkpoint.statsJson) : {};
-  const batchSize = Math.max(1, Math.min(100, Math.floor(options.batchSize ?? 50)));
+  const resume = await resumeCheckpoint(db, "daily-market-progress", runId);
+  const cursor = Math.max(0, Math.min(total, Number(resume.cursor) || 0));
+  const prior = parseStatsJson<BatchStats>(resume.statsJson);
+  const batchSize = clampBatchSize(options.batchSize, 50, 100);
   if (cursor === 0) await startIngestion(db, runId, snapshot.source, observedAt, {
     schemaVersion: snapshot.schemaVersion,
     sourceUpdatedAt: snapshot.sourceUpdatedAt,
@@ -169,7 +167,7 @@ export async function runDailyMarketIngestionBatch(db: D1DatabaseLike, snapshot:
     } else await checkpointIngestion(db, runId, "daily-market-progress", total, recordsWritten, String(recordsWritten), stats);
     return { runId, recordsSeen: total, recordsWritten, ...stats, cursor: recordsWritten, total, done, processed: batch.length };
   } catch (error) {
-    await failIngestion(db, runId, new Date().toISOString(), error instanceof Error ? error.message : "Unknown ingestion failure");
+    await markIngestionFailed(db, runId, error, "Unknown ingestion failure");
     throw error;
   }
 }

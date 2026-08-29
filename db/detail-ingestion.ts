@@ -1,8 +1,9 @@
 import { parseCatalogDetailEnrichments } from "../app/domain/contracts.ts";
-import { checkpointIngestion, completeIngestion, failIngestion, readRefreshCursor, startIngestion, upsertProductDetails, type D1DatabaseLike } from "./repository.ts";
+import { clampBatchSize, markIngestionFailed, parseStatsJson, resumeCheckpoint } from "./ingestion-batch.ts";
+import { checkpointIngestion, completeIngestion, startIngestion, upsertProductDetails, type D1DatabaseLike } from "./repository.ts";
 
 export type DetailChunkFetcher = (path: string) => Promise<unknown>;
-const parseStats = (value: string | null | undefined) => { try { return value ? JSON.parse(value) as { detailsWritten?: number; detailsSkipped?: number } : {}; } catch { return {}; } };
+type DetailStats = { detailsWritten?: number; detailsSkipped?: number };
 
 // product_details rows carry a foreign key to catalog_products; enrichment chunks can
 // reference products the catalog snapshot rejected (or scalping-only items), so each chunk
@@ -20,11 +21,11 @@ async function existingProductIds(db: D1DatabaseLike, ids: number[]) {
 // Cursor unit is the enrichment chunk file (~76 details each): one asset fetch plus a few
 // db.batch calls per chunk keeps every invocation far inside the Workers binding budget.
 export async function runDetailIngestionBatch(db: D1DatabaseLike, chunkPaths: string[], fetchChunk: DetailChunkFetcher, options: { batchSize?: number; sourceUpdatedAt: string; now?: Date }) {
-  const batchSize = Math.max(1, Math.min(10, Math.floor(options.batchSize ?? 4)));
+  const batchSize = clampBatchSize(options.batchSize, 4, 10);
   const now = options.now ?? new Date(), startedAt = now.toISOString(), runId = `product-details:${options.sourceUpdatedAt.slice(0, 10)}`;
-  const checkpoint = await readRefreshCursor(db, "product-details-progress");
-  const cursor = checkpoint?.ingestionRunId === runId ? Math.max(0, Math.min(chunkPaths.length, Number(checkpoint.cursor) || 0)) : 0;
-  const prior = checkpoint?.ingestionRunId === runId ? parseStats(checkpoint.statsJson) : {};
+  const resume = await resumeCheckpoint(db, "product-details-progress", runId);
+  const cursor = Math.max(0, Math.min(chunkPaths.length, Number(resume.cursor) || 0));
+  const prior = parseStatsJson<DetailStats>(resume.statsJson);
   if (cursor === 0) await startIngestion(db, runId, "detail-feed", startedAt, { sourceUpdatedAt: options.sourceUpdatedAt, stats: { totalChunks: chunkPaths.length } });
   const batch = chunkPaths.slice(cursor, cursor + batchSize);
   let processed = cursor, detailsWritten = prior.detailsWritten ?? 0, detailsSkipped = prior.detailsSkipped ?? 0;
@@ -44,7 +45,7 @@ export async function runDetailIngestionBatch(db: D1DatabaseLike, chunkPaths: st
     if (done) await completeIngestion(db, runId, "product-details", new Date().toISOString(), chunkPaths.length, detailsWritten, detailsSkipped, 0, stats);
     return { runId, cursor: processed, total: chunkPaths.length, done, processed: batch.length, detailsWritten, detailsSkipped };
   } catch (error) {
-    await failIngestion(db, runId, new Date().toISOString(), error instanceof Error ? error.message : "Unknown detail ingestion failure");
+    await markIngestionFailed(db, runId, error, "Unknown detail ingestion failure");
     throw error;
   }
 }
