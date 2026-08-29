@@ -85,14 +85,18 @@ async function fetchApiPages(handle: string): Promise<CollectrRawProduct[] | nul
 }
 
 // Full pagination relayed through the Browser Rendering worker (its real-Chrome
-// page-context fetches pass the WAF). Configured with two secrets on this Worker:
-// COLLECTR_FETCH_URL and COLLECTR_FETCH_TOKEN.
+// page-context fetches pass the WAF). Reached via the COLLECTR_FETCH service binding — a
+// same-account workers.dev fetch 404s, so a binding is required. COLLECTR_FETCH_TOKEN is
+// the shared bearer the worker gates on; COLLECTR_FETCH_URL is only a local-dev fallback.
+type FetchLike = { fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> };
 async function fetchBrowserPages(handle: string): Promise<{ raw: CollectrRawProduct[]; complete: boolean } | { error: string }> {
-  const { COLLECTR_FETCH_URL: fetchUrl, COLLECTR_FETCH_TOKEN: fetchToken } = env as unknown as { COLLECTR_FETCH_URL?: string; COLLECTR_FETCH_TOKEN?: string };
-  if (!fetchUrl || !fetchToken) return { error: "the full-import worker isn't configured on this deployment" };
+  const { COLLECTR_FETCH: binding, COLLECTR_FETCH_URL: fetchUrl, COLLECTR_FETCH_TOKEN: fetchToken } = env as unknown as { COLLECTR_FETCH?: FetchLike; COLLECTR_FETCH_URL?: string; COLLECTR_FETCH_TOKEN?: string };
+  if (!fetchToken || (!binding && !fetchUrl)) return { error: "the full-import worker isn't configured on this deployment" };
+  const target = `https://collectr-fetch/?profile=${encodeURIComponent(handle)}`;
+  const init: RequestInit = { headers: { Authorization: `Bearer ${fetchToken}` } };
   let response: Response;
   try {
-    response = await fetch(`${fetchUrl}?profile=${encodeURIComponent(handle)}`, { headers: { Authorization: `Bearer ${fetchToken}` } });
+    response = binding ? await binding.fetch(target, init) : await fetch(`${fetchUrl}?profile=${encodeURIComponent(handle)}`, init);
   } catch { return { error: "the full-import worker is unreachable" }; }
   let body: { pages?: unknown[]; complete?: boolean; failure?: string | null; error?: string };
   try { body = await response.json() as typeof body; } catch { return { error: `the full-import worker returned HTTP ${response.status}` }; }

@@ -12,6 +12,9 @@ test("staging config keeps Cron disabled and binds assets plus an isolated D1 da
  assert.equal(config.name,"raw-signal-staging");assert.equal(config.workers_dev,true);assert.equal(config.preview_urls,true);
  assert.deepEqual(config.triggers,{});assert.equal(config.assets.binding,"ASSETS");assert.deepEqual(config.assets.run_worker_first,["/data/*"]);assert.equal(config.images.binding,"IMAGES");assert.equal(config.version_metadata.binding,"CF_VERSION_METADATA");assert.equal(config.vars.ENVIRONMENT,"staging");assert.equal(config.d1_databases[0].binding,"DB");assert.equal(config.d1_databases[0].database_id,databaseId);assert.equal(config.d1_databases[0].migrations_dir,"../../drizzle");
  assert.equal("routes" in config,false);
+ // The Collectr full-import worker is reached by service binding (a same-account
+ // workers.dev subrequest 404s), and the binding must ride both environments.
+ assert.deepEqual(config.services,[{binding:"COLLECTR_FETCH",service:"raw-signal-collectr"}]);
 });
 
 test("production config requires an explicit hostname and never inherits a schedule",()=>{

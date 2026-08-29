@@ -26,6 +26,11 @@ export function prepareDeploymentConfig(base,{environment,databaseId,databaseNam
  // the guard cron; staging runs one only while deliberately testing ingestion changes.
  config.triggers=cron?.trim()?{crons:[cron.trim()]}:{};
  config.observability={...(config.observability??{}),enabled:true};
+ // Service binding to the standalone Browser Rendering worker that walks the full Collectr
+ // showcase API (workers/collectr-fetch). A binding — not a public workers.dev fetch — is
+ // required: a Worker's subrequest to another same-account workers.dev host 404s. One
+ // shared collectr worker serves both environments.
+ config.services=[{binding:"COLLECTR_FETCH",service:"raw-signal-collectr"}];
  if(environment==="production")config.routes=[{pattern:route.trim(),custom_domain:true}];else delete config.routes;
  return config;
 }
