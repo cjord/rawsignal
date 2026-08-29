@@ -4,7 +4,7 @@ import {useEffect,useRef,useState,type ReactNode} from "react";
 import {StrictnessControl} from "./SignalControls";
 import {setHoverPreviews,useHoverPreviews} from "./state/hover-previews";
 import {setScalperMode,useScalperMode} from "./state/scalper-mode";
-import type {SignalStrictness} from "./domain/types";
+import type {SignalStrictness} from "../core/domain/types";
 
 const marketLinks=[
  {key:"cards",label:"Cards",href:"/"},

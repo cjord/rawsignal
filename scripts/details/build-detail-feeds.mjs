@@ -6,7 +6,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createTcgcsvClient } from "../clients/tcgcsv.mjs";
+import { createTcgcsvClient } from "../../core/clients/tcgcsv.ts";
 import { publishValidatedFiles } from "../io/last-good.mjs";
 import { buildDetailFeeds } from "./enrichment.mjs";
 

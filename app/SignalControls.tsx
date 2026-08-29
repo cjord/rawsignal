@@ -1,6 +1,6 @@
 "use client";
 import SlidingTabs from "./SlidingTabs";
-import type {SignalSide,SignalStrictness,MarketSignal} from "./signal-utils";
+import type {SignalSide,SignalStrictness,MarketSignal} from "../core/signal-utils";
 
 // Favorites rides the same slider as a fourth, gold entry (user request 2026-08-28):
 // it is a filter, not a signal side, so it stays a separate flag the page owns.

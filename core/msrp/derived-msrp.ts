@@ -11,7 +11,7 @@
 
 const SV_ERA_START = 2023;
 
-const RULES = [
+const RULES: { type: string; pattern: RegExp; exclude: RegExp | null; prices: [number, number] }[] = [
   { type: "Elite Trainer Box", pattern: /\belite trainer box\b/i, exclude: /pokemon center/i, prices: [39.99, 49.99] },
   { type: "Booster Bundle", pattern: /\bbooster bundle\b/i, exclude: /\b(display|case)\b/i, prices: [23.94, 26.94] },
   { type: "Booster Box (36)", pattern: /\bbooster (box|display)\b/i, exclude: /\b(case|japanese)\b/i, prices: [143.64, 161.64] },
@@ -21,8 +21,8 @@ const RULES = [
 
 export const DERIVED_MSRP_SOURCE = "Standard pricing (derived)";
 
-export function derivedPokemonMsrp(name = "", year = null) {
-  if (!Number.isFinite(year) || year < 2020) return null;
+export function derivedPokemonMsrp(name = "", year: number | null = null): { msrp: number; msrpSource: string } | null {
+  if (year == null || !Number.isFinite(year) || year < 2020) return null;
   const eraIndex = year >= SV_ERA_START ? 1 : 0;
   for (const rule of RULES) {
     if (!rule.pattern.test(name)) continue;

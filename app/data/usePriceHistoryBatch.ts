@@ -1,9 +1,9 @@
 "use client";
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
-import {parsePriceHistory} from "../domain/contracts.ts";
-import {deriveHistoryMetrics} from "../domain/history-metrics.ts";
-import type {PriceHistory} from "../domain/types";
-import {mapWithConcurrency} from "../market-utils.ts";
+import {parsePriceHistory} from "../../core/domain/contracts.ts";
+import {deriveHistoryMetrics} from "../../core/domain/history-metrics.ts";
+import type {PriceHistory} from "../../core/domain/types";
+import {mapWithConcurrency} from "../../core/market-utils.ts";
 
 export type HistoryTarget={productId:number;printing:string;sealed?:boolean};
 export type HistoryStatus="idle"|"loading"|"partial"|"success"|"empty"|"error";

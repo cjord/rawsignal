@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import type { Metadata } from "next";
 import MetricsView from "../MetricsView";
 import { loadPullRateConfig } from "../data/load-detail";
-import { loadMetricsPayload } from "../data/metrics-service";
+import { loadMetricsPayload } from "../../db/metrics-service.ts";
 import type { D1DatabaseLike } from "../../db/repository";
 
 export const metadata: Metadata = {

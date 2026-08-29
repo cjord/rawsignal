@@ -1,10 +1,10 @@
 import {env} from "cloudflare:workers";
 import {createD1CatalogRepository} from "../../db/catalog-repository";
 import {publishedIngestion,type D1DatabaseLike} from "../../db/repository";
-import type {CatalogDetail,CatalogKind,PullRateConfig} from "../domain/types";
+import type {CatalogDetail,CatalogKind,PullRateConfig} from "../../core/domain/types";
 import {createFeedCatalogRepository} from "./feed-catalog-repository";
-import {parsePullRateConfig,parseSealedProducts} from "../domain/contracts";
-import {createMemoryCatalogRepository,type CatalogRepository} from "./catalog-repository";
+import {parsePullRateConfig,parseSealedProducts} from "../../core/domain/contracts";
+import {createMemoryCatalogRepository,type CatalogRepository} from "../../core/catalog-repository";
 
 type FetchLike=(input:RequestInfo|URL,init?:RequestInit)=>Promise<Response>;
 

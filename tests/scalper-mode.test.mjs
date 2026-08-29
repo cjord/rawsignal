@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { querySealedCatalog } from "../app/data/catalog-query.ts";
-import { parseSealedProducts } from "../app/domain/contracts.ts";
+import { querySealedCatalog } from "../core/catalog-query.ts";
+import { parseSealedProducts } from "../core/domain/contracts.ts";
 import { parseMarketQuery, serializeMarketQuery } from "../app/state/market-query.ts";
 
 const text = path => readFile(new URL(path, import.meta.url), "utf8");

@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { loadPullRateConfig } from "../../data/load-detail.ts";
-import { loadMetricsPayload } from "../../data/metrics-service.ts";
+import { loadMetricsPayload } from "../../../db/metrics-service.ts";
 import type { D1DatabaseLike } from "../../../db/repository.ts";
 
 export async function GET() {

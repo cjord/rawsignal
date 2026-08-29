@@ -1,7 +1,7 @@
-import { salesWindow } from "../app/domain/detail-metrics.ts";
-import { deriveHistoryMetrics } from "../app/domain/history-metrics.ts";
-import type { Card, CatalogDetailEnrichment, PriceHistory, PricePoint, SealedProduct, SignalStrictness } from "../app/domain/types.ts";
-import { marketSignal, type SignalLiquidity } from "../app/signal-utils.ts";
+import { salesWindow } from "../core/domain/detail-metrics.ts";
+import { deriveHistoryMetrics } from "../core/domain/history-metrics.ts";
+import type { Card, CatalogDetailEnrichment, PriceHistory, PricePoint, SealedProduct, SignalStrictness } from "../core/domain/types.ts";
+import { marketSignal, type SignalLiquidity } from "../core/signal-utils.ts";
 import { clampBatchSize, markIngestionFailed, parseStatsJson, resumeCheckpoint } from "./ingestion-batch.ts";
 import {
   completeIngestion,

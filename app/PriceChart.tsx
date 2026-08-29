@@ -1,7 +1,7 @@
 "use client";
 import {useId,useState} from "react";
-import {formatPercent,formatUsd,formatUtcDate} from "./domain/formatters";
-import type {PricePoint} from "./domain/types";
+import {formatPercent,formatUsd,formatUtcDate} from "../core/domain/formatters";
+import type {PricePoint} from "../core/domain/types";
 
 const rangeLabel=(days:7|30|90|365)=>days===365?"1Y":`${days}D`;
 

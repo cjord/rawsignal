@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { createFeedCatalogRepository } from "../app/data/feed-catalog-repository.ts";
-import { createMemoryCatalogRepository } from "../app/data/catalog-repository.ts";
-import { calculateSealedScenario, querySealedCatalog, querySinglesCatalog } from "../app/data/catalog-query.ts";
+import { createMemoryCatalogRepository } from "../core/catalog-repository.ts";
+import { calculateSealedScenario, querySealedCatalog, querySinglesCatalog } from "../core/catalog-query.ts";
 import { catalogRequestFromUrl, executeCatalogRequest } from "../app/data/catalog-service.ts";
-import { parseCards, parseSealedProducts } from "../app/domain/contracts.ts";
+import { parseCards, parseSealedProducts } from "../core/domain/contracts.ts";
 
 const json = async path => JSON.parse(await readFile(new URL(path, import.meta.url), "utf8"));
 

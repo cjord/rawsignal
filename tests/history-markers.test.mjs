@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { drawdownFromPeak, momentum, priceStreak, salesWindow, trendSlope, volatilityRange } from "../app/domain/detail-metrics.ts";
+import { drawdownFromPeak, momentum, priceStreak, salesWindow, trendSlope, volatilityRange } from "../core/domain/detail-metrics.ts";
 
 const day = index => `2026-08-${String(index).padStart(2, "0")}`;
 const series = prices => prices.map((price, index) => ({ date: day(index + 1), price }));
@@ -52,7 +52,7 @@ test("sales window aggregates trailing buckets and keeps missing prices out", ()
 });
 
 test("modeled fair value blends medians and listing with renormalized weights", async () => {
-  const { modeledFairValue, windowMedian } = await import("../app/domain/detail-metrics.ts");
+  const { modeledFairValue, windowMedian } = await import("../core/domain/detail-metrics.ts");
   const points = series([100, 100, 100, 100]);
   assert.equal(windowMedian(points, 90), 100);
   assert.equal(modeledFairValue(points, 100), 100);
@@ -68,7 +68,7 @@ test("modeled fair value blends medians and listing with renormalized weights", 
 });
 
 test("peer anchor projects the card's cohort position and gates on history depth", async () => {
-  const { MIN_PEER_OBSERVATIONS, peerAnchorValue } = await import("../app/domain/detail-metrics.ts");
+  const { MIN_PEER_OBSERVATIONS, peerAnchorValue } = await import("../core/domain/detail-metrics.ts");
   const points = series([100, 100, 100, 100]);
   const peer = { current: 60, cardCount: 8, avg30: 55, avg90: 50, observations: MIN_PEER_OBSERVATIONS };
   // card median 100 vs cohort 90D average 50 => 2x position; anchored to current cohort 60 => 120
@@ -80,7 +80,7 @@ test("peer anchor projects the card's cohort position and gates on history depth
 });
 
 test("demand trend compares the last thirty days against the prior thirty", async () => {
-  const { demandTrend } = await import("../app/domain/detail-metrics.ts");
+  const { demandTrend } = await import("../core/domain/detail-metrics.ts");
   const bucket = (date, quantity) => ({ date, quantity, low: null, high: null, lowWithShipping: null, highWithShipping: null });
   assert.equal(demandTrend([]), null);
   assert.equal(demandTrend([bucket("2026-08-20", 0)]), null);

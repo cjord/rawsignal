@@ -1,7 +1,7 @@
-import { createTcgcsvClient } from "./scripts/clients/tcgcsv.mjs";
-import { fetchJson } from "./scripts/clients/http-json.mjs";
+import { createTcgcsvClient } from "./core/clients/tcgcsv.ts";
+import { fetchJson } from "./core/clients/http-json.ts";
 import { publishCatalogSnapshot } from "./scripts/io/last-good.mjs";
-import { normalizePokemonSealedProduct, preferredSealedPrice, sealedIdentity } from "./scripts/normalize/sealed.mjs";
+import { normalizePokemonSealedProduct, preferredSealedPrice, sealedIdentity } from "./core/normalize/sealed.ts";
 import { ingestionManifest, validateCatalogSnapshot } from "./scripts/validate/catalog.mjs";
 
 const tracker = await fetchJson("https://tcg-price-tracker.shizukaziye.workers.dev/data/data.json", { headers: { "User-Agent": "RawSignal/7.0" } });

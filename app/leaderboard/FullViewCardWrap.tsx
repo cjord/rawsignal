@@ -3,7 +3,7 @@ import type {ReactNode} from "react";
 import FavoriteStar from "../FavoriteStar";
 import {SignalBadge} from "../SignalControls";
 import type {FavoriteEntry} from "../state/favorites";
-import type {MarketSignal} from "../signal-utils";
+import type {MarketSignal} from "../../core/signal-utils";
 
 // The full-view wrapper both leaderboards share: the signal badge and favorite star
 // pinned over a full-card detail link.

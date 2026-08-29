@@ -1,7 +1,5 @@
-import type { PeerAnchorStats } from "../app/domain/types.ts";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore -- the pure summarization stays in the .mjs module the local feed script uses
-import { summarizePeerHistory } from "../scripts/details/peer-history.mjs";
+import type { PeerAnchorStats } from "../core/domain/types.ts";
+import { summarizePeerHistory } from "../core/peer-history.ts";
 import type { D1DatabaseLike } from "./repository.ts";
 
 // Peer accumulation, D1 edition (docs/todo.md G1): price_observations already holds the
@@ -27,6 +25,6 @@ export async function readPeerAnchor(db: D1DatabaseLike, game: string, set: stri
   const maxCount = Math.max(...rows.map(row => row.count));
   const complete = rows.filter(row => row.count >= Math.ceil(maxCount * 0.8));
   if (!complete.length) return null;
-  const summary = (summarizePeerHistory({ cohort: complete }) as Record<string, PeerAnchorStats>).cohort;
+  const summary = summarizePeerHistory({ cohort: complete }).cohort;
   return summary ?? null;
 }

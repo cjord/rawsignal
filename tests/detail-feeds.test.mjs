@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildDetailFeeds, fallbackCardEnrichment, fallbackSealedEnrichment, productEnrichment } from "../scripts/details/enrichment.mjs";
-import { parseCatalogDetailEnrichments } from "../app/domain/contracts.ts";
+import { parseCatalogDetailEnrichments } from "../core/domain/contracts.ts";
 
 const group = { groupId: 24688, abbreviation: "PBL", publishedOn: "2026-07-17T00:00:00" };
 const product = {

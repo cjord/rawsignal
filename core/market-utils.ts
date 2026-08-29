@@ -1,5 +1,5 @@
 import {changeAtCutoff,extremaWithin,normalizePricePoints} from "./domain/history-metrics.ts";
-import type {PricePoint} from "./domain/types";
+import type {PricePoint} from "./domain/types.ts";
 
 export const normalized=(value:string)=>value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
 

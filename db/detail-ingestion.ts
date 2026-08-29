@@ -1,4 +1,4 @@
-import { parseCatalogDetailEnrichments } from "../app/domain/contracts.ts";
+import { parseCatalogDetailEnrichments } from "../core/domain/contracts.ts";
 import { clampBatchSize, markIngestionFailed, parseStatsJson, resumeCheckpoint } from "./ingestion-batch.ts";
 import { checkpointIngestion, completeIngestion, startIngestion, upsertProductDetails, type D1DatabaseLike } from "./repository.ts";
 

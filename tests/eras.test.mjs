@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {eraLabel,pokemonEra} from "../app/domain/eras.ts";
+import {eraLabel,pokemonEra} from "../core/domain/eras.ts";
 
 test("era mapping: prefixes win where a set declares its block, year breaks ties",()=>{
  // Prefix beats a boundary year in both directions.

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createMemoryCatalogRepository } from "../app/data/catalog-repository.ts";
+import { createMemoryCatalogRepository } from "../core/catalog-repository.ts";
 
 const card = (productId, overrides = {}) => ({
   productId, game: "pokemon", section: "illustration-rares", rarity: "Illustration Rare",
@@ -145,7 +145,7 @@ test("section-keyed pull rates distinguish tiers that share a rarity string", as
 });
 
 test("graded snapshots attach to card details and absent cards stay null", async () => {
-  const { parseGradedPriceFeed } = await import("../app/domain/contracts.ts");
+  const { parseGradedPriceFeed } = await import("../core/domain/contracts.ts");
   const graded = parseGradedPriceFeed({ entries: {
     1: { updatedAt: "2026-08-27", grades: {
       psa10: { count: 5, average: 100, median: 110, smartPrice: 105, confidence: "high", trend: "up", lastSaleDate: "2026-08-25" },

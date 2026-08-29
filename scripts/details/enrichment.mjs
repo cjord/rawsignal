@@ -1,5 +1,5 @@
 // Pure detail-feed construction. Fetching and file publishing stay in build-detail-feeds.mjs.
-// Output must satisfy parseCatalogDetailEnrichments in app/domain/contracts.ts.
+// Output must satisfy parseCatalogDetailEnrichments in core/domain/contracts.ts.
 
 const finiteOrNull = value => (Number.isFinite(value) ? value : null);
 const stringOrNull = value => (typeof value === "string" && value !== "" ? value : null);

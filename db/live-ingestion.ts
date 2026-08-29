@@ -1,10 +1,7 @@
-import type { Card, SealedProduct } from "../app/domain/types.ts";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore -- shared pure normalization stays in the .mjs modules the local sync scripts use
-import { normalizeSinglesGroup } from "../scripts/normalize/singles.mjs";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
-import { normalizePokemonSealedProduct, normalizeRiftboundSealedProduct, preferredSealedPrice, sealedIdentity } from "../scripts/normalize/sealed.mjs";
+import type { Card, SealedProduct } from "../core/domain/types.ts";
+import { normalizeSinglesGroup, type SinglesPriceRow, type SinglesSourceProduct } from "../core/normalize/singles.ts";
+import { normalizePokemonSealedProduct, normalizeRiftboundSealedProduct, preferredSealedPrice, sealedIdentity, type SealedPriceRow } from "../core/normalize/sealed.ts";
+import type { SealedSourceProduct } from "../core/sealed-product-utils.ts";
 import { persistRecord } from "./daily-ingestion.ts";
 import { clampBatchSize, markIngestionFailed, parseStatsJson, resumeCheckpoint } from "./ingestion-batch.ts";
 import { checkpointIngestion, completeIngestion, failIngestion, startIngestion, type D1DatabaseLike } from "./repository.ts";
@@ -52,7 +49,8 @@ async function buildWorkList(client: TcgcsvClient, now: Date): Promise<WorkEntry
 async function loadEntryRecords(entry: WorkEntry, deps: LiveSyncDeps, msrp: () => Promise<Map<number, unknown>>, curatedRiftbound: () => Promise<Map<number, SealedProduct>>, rejected: Record<string, number>): Promise<(Card | SealedProduct)[]> {
   if (entry.type === "bundled") return deps.loadBundledSealed(entry.market);
   const [products, prices] = await Promise.all([deps.client.products(entry.categoryId, entry.group.groupId), deps.client.prices(entry.categoryId, entry.group.groupId)]);
-  const normalized = normalizeSinglesGroup({ game: entry.game, group: entry.group, products, prices, fixedSection: entry.fixedSection ?? null }) as { cards: Card[]; rejected: Record<string, number> };
+  // Wire rows narrow once at this boundary; everything downstream is typed.
+  const normalized = normalizeSinglesGroup({ game: entry.game, group: entry.group, products: products as SinglesSourceProduct[], prices: prices as SinglesPriceRow[], fixedSection: entry.fixedSection ?? null });
   for (const [reason, count] of Object.entries(normalized.rejected)) rejected[reason] = (rejected[reason] ?? 0) + count;
   const records: (Card | SealedProduct)[] = [...normalized.cards].sort((a, b) => a.productId - b.productId);
   // Fixed-section categories (Japanese promos) contribute singles only — their sealed
@@ -67,13 +65,14 @@ async function loadEntryRecords(entry: WorkEntry, deps: LiveSyncDeps, msrp: () =
   const sealed: SealedProduct[] = [], seenIdentity = new Set<string>();
   const msrpById = entry.game === "pokemon" ? await msrp() : null;
   const curatedById = entry.game === "riftbound" ? await curatedRiftbound() : null;
-  for (const product of products) {
-    const price = preferredSealedPrice(pricesByProduct.get(Number(product.productId)));
-    const normalizedSealed = (entry.game === "pokemon"
-      ? normalizePokemonSealedProduct(product, entry.group, price, msrpById?.get(Number(product.productId)))
-      : normalizeRiftboundSealedProduct(product, entry.group, price, curatedById?.get(Number(product.productId)))) as SealedProduct | null;
+  for (const raw of products) {
+    const product = raw as SealedSourceProduct & { name: string };
+    const price = preferredSealedPrice(pricesByProduct.get(Number(product.productId)) as SealedPriceRow[] | undefined);
+    const normalizedSealed = entry.game === "pokemon"
+      ? normalizePokemonSealedProduct(product, entry.group, price, msrpById?.get(Number(product.productId)) as { msrp?: unknown } | undefined)
+      : normalizeRiftboundSealedProduct(product, entry.group, price, curatedById?.get(Number(product.productId)));
     if (!normalizedSealed) continue;
-    const identity = sealedIdentity(product, entry.group) as string;
+    const identity = sealedIdentity(product, entry.group);
     if (seenIdentity.has(identity)) continue;
     seenIdentity.add(identity);
     sealed.push(normalizedSealed);

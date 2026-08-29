@@ -1,16 +1,23 @@
-import { isPokemonSealedProduct, isRiftboundSealedProduct, normalizeProductType, normalizeRiftboundProductType, normalizedProductKey } from "../../sealed-product-utils.mjs";
-import { derivedPokemonMsrp } from "../msrp/derived-msrp.mjs";
-import verifiedMsrp from "../msrp/verified-msrp.mjs";
+import { isPokemonSealedProduct, isRiftboundSealedProduct, normalizeProductType, normalizeRiftboundProductType, normalizedProductKey, type SealedSourceGroup, type SealedSourceProduct } from "../sealed-product-utils.ts";
+import { derivedPokemonMsrp } from "../msrp/derived-msrp.ts";
+import verifiedMsrp from "../msrp/verified-msrp.ts";
+import type { SealedProduct } from "../domain/types.ts";
 
-const positive = value => Number(value) > 0 ? Number(value) : null;
-const groupYear = group => { const year = new Date(group?.publishedOn ?? "").getUTCFullYear(); return Number.isFinite(year) ? year : null; };
+// Pure sealed normalization from the TCGCSV group walks (converted from
+// scripts/normalize/sealed.mjs — decision D2; the sync scripts and the Worker share it).
+export type SealedPriceRow = { marketPrice?: unknown; midPrice?: unknown; subTypeName?: string };
+export type MsrpRecord = { msrp?: unknown };
+export type CuratedSealedRecord = { msrp?: number | null; msrpSource?: string | null };
 
-export function preferredSealedPrice(rows = []) {
+const positive = (value: unknown) => Number(value) > 0 ? Number(value) : null;
+const groupYear = (group: SealedSourceGroup | undefined) => { const year = new Date(group?.publishedOn ?? "").getUTCFullYear(); return Number.isFinite(year) ? year : null; };
+
+export function preferredSealedPrice(rows: SealedPriceRow[] = []) {
   const priced = rows.filter(row => positive(row.marketPrice) != null || positive(row.midPrice) != null);
   return priced.find(row => /normal|unopened|sealed/i.test(row.subTypeName ?? "")) ?? priced[0] ?? null;
 }
 
-export function normalizePokemonSealedProduct(product, group, price, msrpRecord) {
+export function normalizePokemonSealedProduct(product: SealedSourceProduct & { name: string }, group: SealedSourceGroup & { name: string }, price: SealedPriceRow | null | undefined, msrpRecord?: MsrpRecord | null): SealedProduct | null {
   if (!isPokemonSealedProduct(product, group)) return null;
   // MSRP precedence (audit Phase C, "verified + derived, badged"): the published-MSRP feed,
   // then the hand-curated verified table, then standard pricing derived from product type
@@ -43,7 +50,7 @@ export function normalizePokemonSealedProduct(product, group, price, msrpRecord)
 // Riftbound sealed normalizes from the same category-89 group walk the singles use. MSRP
 // comes from the curated bundled feed when the product is known there (Asmodee publishes
 // no machine-readable MSRP source); new upstream products carry null MSRP honestly.
-export function normalizeRiftboundSealedProduct(product, group, price, curatedRecord) {
+export function normalizeRiftboundSealedProduct(product: SealedSourceProduct & { name: string }, group: SealedSourceGroup & { name: string }, price: SealedPriceRow | null | undefined, curatedRecord?: CuratedSealedRecord | null): SealedProduct | null {
   if (!isRiftboundSealedProduct(product)) return null;
   const verified = curatedRecord?.msrp == null ? verifiedMsrp[`riftbound:${Number(product.productId)}`] : null;
   const msrp = positive(curatedRecord?.msrp) ?? positive(verified?.msrp), marketPrice = positive(price?.marketPrice), midPrice = positive(price?.midPrice);
@@ -65,7 +72,6 @@ export function normalizeRiftboundSealedProduct(product, group, price, curatedRe
   };
 }
 
-export function sealedIdentity(product, group) {
+export function sealedIdentity(product: SealedSourceProduct, group: { name: string }) {
   return normalizedProductKey(product, group.name);
 }
-

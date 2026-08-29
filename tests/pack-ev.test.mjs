@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {evRatio,packChaseEv} from "../app/domain/pack-ev.ts";
+import {evRatio,packChaseEv} from "../core/domain/pack-ev.ts";
 
 test("pack chase EV sums tier value per pack and stays null-honest",()=>{
  // A $75-average tier hit every 8 packs plus a $200-average tier hit every 40 packs.

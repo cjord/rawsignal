@@ -1,13 +1,9 @@
-import { parseCards, parseSealedProducts } from "../app/domain/contracts.ts";
-import type { Card, SealedProduct } from "../app/domain/types.ts";
+import { parseCards, parseSealedProducts } from "../core/domain/contracts.ts";
+import type { Card, SealedProduct } from "../core/domain/types.ts";
 import { fetchTcgplayerHistory } from "../app/data/tcgplayer-history-client.ts";
-import { allowedRarities } from "../app/state/market-query.ts";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore -- shared clients stay in the .mjs modules the local sync scripts use
-import { createTcgcsvClient } from "../scripts/clients/tcgcsv.mjs";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
-import { fetchJson } from "../scripts/clients/http-json.mjs";
+import { allowedRarities } from "../core/market-state.ts";
+import { createTcgcsvClient } from "../core/clients/tcgcsv.ts";
+import { fetchJson, fetchText } from "../core/clients/http-json.ts";
 import { runDailyMarketIngestionBatch, type DailyCatalogSnapshot } from "../db/daily-ingestion.ts";
 import { runDetailIngestionBatch } from "../db/detail-ingestion.ts";
 import { runGradedRotationBatch, type GradedRotationDeps } from "../db/graded-ingestion.ts";
@@ -20,15 +16,16 @@ import type { D1DatabaseLike } from "../db/repository.ts";
 const probeUserAgent = "RawSignal/7.0 (+validated daily market ingestion)";
 
 // TCGCSV publishes ~20:00 UTC daily; the probe timestamp is the live snapshot's identity.
+// Rides the shared retry policy (decision D8) like every other external fetch.
 export async function probeTcgcsvUpdatedAt(fetcher: typeof fetch = fetch): Promise<string> {
-  const response = await fetcher("https://tcgcsv.com/last-updated.txt", { headers: { "User-Agent": probeUserAgent } });
-  if (!response.ok) throw new Error(`TCGCSV last-updated probe failed: ${response.status}`);
-  return (await response.text()).trim();
+  return (await fetchText("https://tcgcsv.com/last-updated.txt", { fetcher, headers: { "User-Agent": probeUserAgent } })).trim();
 }
 
 export function liveSyncDeps(request: Request, assets: AssetsBinding): LiveSyncDeps {
   return {
-    client: createTcgcsvClient() as TcgcsvClient,
+    // Wire boundary: the generic TCGCSV rows narrow to the ingestion's group/product
+    // shapes here; the normalizers re-validate every field they read.
+    client: createTcgcsvClient() as unknown as TcgcsvClient,
     async fetchMsrp() {
       const tracker = await fetchJson("https://tcg-price-tracker.shizukaziye.workers.dev/data/data.json", { headers: { "User-Agent": "RawSignal/7.0" } }) as { items?: Record<string, unknown>[] };
       return new Map((tracker.items ?? []).filter(item => item.matched && Number(item.msrp) > 0).map(item => [Number(item.productId ?? item.id), item]));

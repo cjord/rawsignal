@@ -1,7 +1,7 @@
-import type { SealedProduct, Card } from "../domain/types.ts";
+import type { SealedProduct, Card } from "../../core/domain/types.ts";
 import { parseMarketQuery } from "../state/market-query.ts";
-import type { CatalogRepository } from "./catalog-repository.ts";
-import type { CatalogPage, SealedCatalogQuery, SinglesCatalogQuery } from "./catalog-query.ts";
+import type { CatalogRepository } from "../../core/catalog-repository.ts";
+import type { CatalogPage, SealedCatalogQuery, SinglesCatalogQuery } from "../../core/catalog-query.ts";
 
 export type CatalogRequest =
   | { kind: "single"; options: SinglesCatalogQuery }

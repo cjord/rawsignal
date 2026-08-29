@@ -1,4 +1,4 @@
-import type {PeerAnchorStats,PriceHistory,PricePoint,SalesBucket} from "./types";
+import type {PeerAnchorStats,PriceHistory,PricePoint,SalesBucket} from "./types.ts";
 
 export const distanceAbove=(value:number|null,low:number|null)=>value==null||low==null||low<=0?null:(value-low)/low*100;
 export const distanceBelow=(value:number|null,high:number|null)=>value==null||high==null||high<=0?null:(high-value)/high*100;

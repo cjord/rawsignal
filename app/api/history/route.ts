@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
-import {deriveHistoryMetrics} from "../../domain/history-metrics.ts";
+import {deriveHistoryMetrics} from "../../../core/domain/history-metrics.ts";
 import { fetchTcgplayerHistory } from "../../data/tcgplayer-history-client.ts";
 import { persistDerivedHistory } from "../../../db/daily-ingestion.ts";
 import { upsertHistory, type D1DatabaseLike } from "../../../db/repository.ts";

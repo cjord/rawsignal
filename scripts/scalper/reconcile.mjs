@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { createTcgcsvClient } from "../clients/tcgcsv.mjs";
+import { createTcgcsvClient } from "../../core/clients/tcgcsv.ts";
 import { prepareScalperCandidate, reconcileScalperWatchlist } from "./matcher.mjs";
 import { parseScalperWatchlist, watchlistCategoryHints } from "./watchlist.mjs";
 

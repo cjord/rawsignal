@@ -7,7 +7,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { publishValidatedFiles } from "../io/last-good.mjs";
-import { appendPeerHistory, dailyPeerAverages, summarizePeerHistory } from "./peer-history.mjs";
+import { appendPeerHistory, dailyPeerAverages, summarizePeerHistory } from "../../core/peer-history.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const readJson = async relative => JSON.parse(await fs.readFile(path.join(root, relative), "utf8"));

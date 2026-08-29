@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
-import {isPokemonSealedProduct, normalizeProductType, normalizedProductKey} from "../sealed-product-utils.mjs";
+import {isPokemonSealedProduct, normalizeProductType, normalizedProductKey} from "../core/sealed-product-utils.ts";
 
 test("normalizes common Pokémon sealed product types", () => {
   assert.equal(normalizeProductType("151 Booster Bundle"), "Booster Bundles");

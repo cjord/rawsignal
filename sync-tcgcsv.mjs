@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
-import { createTcgcsvClient } from "./scripts/clients/tcgcsv.mjs";
+import { createTcgcsvClient } from "./core/clients/tcgcsv.ts";
 import { publishCatalogSnapshot } from "./scripts/io/last-good.mjs";
-import { normalizeSinglesGroup } from "./scripts/normalize/singles.mjs";
+import { normalizeSinglesGroup } from "./core/normalize/singles.ts";
 import { ingestionManifest, validateCatalogSnapshot } from "./scripts/validate/catalog.mjs";
 
 // Category 85 is Japanese Pokémon (audit Phase E): only promo groups, as one fixed

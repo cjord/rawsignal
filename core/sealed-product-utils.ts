@@ -1,4 +1,15 @@
-const TYPE_RULES = [
+// Sealed product identification and category taxonomy for the TCGCSV group walks.
+export type SealedSourceProduct = {
+  productId?: unknown;
+  name?: string;
+  url?: string;
+  imageUrl?: string;
+  categoryId?: unknown;
+  extendedData?: { name: string; value?: unknown }[];
+};
+export type SealedSourceGroup = { name?: string; publishedOn?: string };
+
+const TYPE_RULES: [string, RegExp][] = [
   ["Booster Boxes", /\b(booster (box|display)|display box)\b/i],
   ["Booster Bundles", /\bbooster bundle\b/i],
   ["Booster Packs", /\b(booster pack|sleeved booster|double pack|checklane booster)\b/i],
@@ -22,7 +33,7 @@ export function normalizeProductType(name = "") {
   return TYPE_RULES.find(([, pattern]) => pattern.test(name))?.[0] ?? "Other";
 }
 
-export function isPokemonSealedProduct(product, group = {}) {
+export function isPokemonSealedProduct(product: SealedSourceProduct, group: SealedSourceGroup = {}) {
   if (product.categoryId != null && Number(product.categoryId) !== 3) return false;
   const identity = `${product.name ?? ""} ${group.name ?? ""} ${product.url ?? ""}`;
   if (NON_POKEMON.test(identity) || NON_PRODUCT.test(product.name ?? "")) return false;
@@ -30,13 +41,13 @@ export function isPokemonSealedProduct(product, group = {}) {
   return normalizeProductType(product.name) !== "Other";
 }
 
-export function normalizedProductKey(product, groupName = "") {
+export function normalizedProductKey(product: SealedSourceProduct, groupName = "") {
   return `${groupName}|${product.name}`.toLowerCase().replace(/[^a-z0-9|]+/g, " ").trim();
 }
 
 // Riftbound uses its own category taxonomy (established by the curated feed); rule order
 // matters — bundles before packs so "Sleeved Booster Pack Art Bundle" lands as a bundle.
-const RIFTBOUND_TYPE_RULES = [
+const RIFTBOUND_TYPE_RULES: [string, RegExp][] = [
   ["Cases", /\bcase\b/i],
   ["Collector bundles", /\b(player bundle|signature edition|art bundle|vault bundle|worlds bundle)\b/i],
   ["Gift boxes", /\b(gift box|lunar revel bundle)\b/i],
@@ -51,7 +62,7 @@ export function normalizeRiftboundProductType(name = "") {
 
 // Unlike Pokémon, "Other" stays includable (box sets live there in the curated taxonomy);
 // bulk lots are the one sealed-shaped Riftbound listing that is not a product.
-export function isRiftboundSealedProduct(product) {
+export function isRiftboundSealedProduct(product: SealedSourceProduct) {
   if (product.categoryId != null && Number(product.categoryId) !== 89) return false;
   if (NON_PRODUCT.test(product.name ?? "") || /\bbulk\b/i.test(product.name ?? "")) return false;
   if ((product.extendedData ?? []).some(field => /^(number|rarity)$/i.test(field.name) && String(field.value ?? "").trim())) return false;

@@ -7,9 +7,9 @@ import MarketRow from "./leaderboard/MarketRow";
 import ProductIdentity from "./leaderboard/ProductIdentity";
 import FavoriteStar from "./FavoriteStar";
 import {historyTargetKey,useHistoryOnce} from "./data/usePriceHistoryBatch";
-import {formatPercent,formatRarity,formatUsd} from "./domain/formatters";
+import {formatPercent,formatRarity,formatUsd} from "../core/domain/formatters";
 import {cardFavorite,sealedFavorite} from "./state/favorites";
-import type {Card,PriceHistory,SealedProduct} from "./domain/types";
+import type {Card,PriceHistory,SealedProduct} from "../core/domain/types";
 
 type TableView="medium"|"text";
 const tableViews:[{key:TableView;label:string;icon:string},{key:TableView;label:string;icon:string}]=[{key:"medium",label:"Medium",icon:"▤"},{key:"text",label:"Text",icon:"☷"}];

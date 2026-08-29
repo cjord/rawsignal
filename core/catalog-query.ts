@@ -1,6 +1,6 @@
-import { fuzzyTextMatch } from "../market-utils.ts";
-import type { Card, MarketSignal, PriceHistory, SealedMarket, SealedProduct, SignalSide, SignalStrictness, SinglesMarket } from "../domain/types.ts";
-import type { Direction, SealedSort, SinglesSort } from "../state/market-query.ts";
+import { fuzzyTextMatch } from "./market-utils.ts";
+import type { Card, MarketSignal, PriceHistory, SealedMarket, SealedProduct, SignalSide, SignalStrictness, SinglesMarket } from "./domain/types.ts";
+import type { Direction, SealedSort, SinglesSort } from "./market-state.ts";
 
 export type CatalogDerived = Pick<PriceHistory, "change7" | "change30" | "low30" | "high30"> & {
   signal: MarketSignal | null;

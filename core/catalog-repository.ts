@@ -1,5 +1,5 @@
-import type { Card, CatalogDetail, CatalogDetailEnrichment, CatalogKind, GradedCardData, PeerAnchorStats, PullRateConfig, RarityPullRate, SealedProduct } from "../domain/types.ts";
-import {exactTcgplayerUrl,marketRank,similarCards,similarSealed} from "../domain/detail.ts";
+import type { Card, CatalogDetail, CatalogDetailEnrichment, CatalogKind, GradedCardData, PeerAnchorStats, PullRateConfig, RarityPullRate, SealedProduct } from "./domain/types.ts";
+import {exactTcgplayerUrl,marketRank,similarCards,similarSealed} from "./domain/detail.ts";
 import { querySealedCatalog, querySinglesCatalog, type CatalogDerived, type CatalogPage, type SealedCatalogQuery, type SinglesCatalogQuery } from "./catalog-query.ts";
 
 export interface CatalogRepository {

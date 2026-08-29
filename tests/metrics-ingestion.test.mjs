@@ -4,7 +4,7 @@ import {DatabaseSync} from "node:sqlite";
 import test from "node:test";
 import {METRIC_SERIES,metricsBackfillStatements,readMetricSeries,runMetricsRollup} from "../db/metrics-ingestion.ts";
 import {publishedIngestion,startIngestion,upsertCard,upsertHistory,upsertSealedProduct} from "../db/repository.ts";
-import {loadMetricsPayload} from "../app/data/metrics-service.ts";
+import {loadMetricsPayload} from "../db/metrics-service.ts";
 
 class LocalStatement{
   constructor(statement){this.statement=statement;this.values=[]}

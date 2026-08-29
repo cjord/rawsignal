@@ -1,4 +1,4 @@
-import type { GradedCardData } from "../app/domain/types.ts";
+import type { GradedCardData } from "../core/domain/types.ts";
 import { clampBatchSize, markIngestionFailed } from "./ingestion-batch.ts";
 import { completeIngestion, startIngestion, type D1DatabaseLike } from "./repository.ts";
 
@@ -11,30 +11,10 @@ export type GradedRotationDeps = {
   wait?(ms: number): Promise<void>;
 };
 
-const money = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.round(value * 100) / 100 : null;
-const count = (value: unknown) => Number.isInteger(value) && (value as number) >= 0 ? value as number : null;
-
-export function compactGrades(salesByGrade: unknown): GradedCardData["grades"] {
-  const grades: GradedCardData["grades"] = {};
-  if (typeof salesByGrade !== "object" || salesByGrade === null) return grades;
-  for (const [key, stat] of Object.entries(salesByGrade as Record<string, unknown>)) {
-    if (typeof stat !== "object" || stat === null) continue;
-    const record = stat as Record<string, unknown>;
-    const sales = count(record.count);
-    if (!sales) continue;
-    const smart = (record.smartMarketPrice ?? {}) as Record<string, unknown>;
-    grades[key] = {
-      count: sales,
-      average: money(record.averagePrice),
-      median: money(record.medianPrice),
-      smartPrice: money(smart.price),
-      confidence: typeof smart.confidence === "string" ? smart.confidence : null,
-      trend: record.marketTrend === "up" || record.marketTrend === "down" ? record.marketTrend : null,
-      lastSaleDate: typeof record.lastSaleDate === "string" ? record.lastSaleDate.slice(0, 10) : null,
-    };
-  }
-  return grades;
-}
+// The compaction lives in core/graded.ts (shared with scripts/graded/sync-graded.mjs);
+// re-exported here for existing consumers.
+import { compactGrades } from "../core/graded.ts";
+export { compactGrades };
 
 type PoolRow = { productId: number; updatedAt: string | null };
 

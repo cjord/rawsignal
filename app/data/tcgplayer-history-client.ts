@@ -1,5 +1,5 @@
-import { deriveHistoryMetrics } from "../domain/history-metrics.ts";
-import type { PriceHistory } from "../domain/types.ts";
+import { deriveHistoryMetrics } from "../../core/domain/history-metrics.ts";
+import type { PriceHistory } from "../../core/domain/types.ts";
 import { mergeHistoryBuckets } from "../history-utils.ts";
 
 type Bucket = { marketPrice: string; bucketStartDate: string; quantitySold?: string; transactionCount?: string; lowSalePrice?: string; highSalePrice?: string; lowSalePriceWithShipping?: string; highSalePriceWithShipping?: string };

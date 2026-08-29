@@ -1,4 +1,4 @@
-import test from "node:test";import assert from "node:assert/strict";import {evaluateMarketSignal,marketSignal} from "../app/signal-utils.ts";
+import test from "node:test";import assert from "node:assert/strict";import {evaluateMarketSignal,marketSignal} from "../core/signal-utils.ts";
 const series=prices=>prices.map((price,index)=>({date:new Date(Date.UTC(2026,0,index+1)).toISOString().slice(0,10),price}));
 test("a bounced buy and an exact-high sell both explain their extreme",()=>{const buy=marketSignal(series([20,18,16,14,10,10.3]),"buy","balanced"),sell=marketSignal(series([10,12,14,16,18,20]),"sell","balanced");assert.match(buy.reason,/low/);assert.match(sell.reason,/high/);assert.equal(buy.confidence,"medium");assert.equal(sell.confidence,"medium")});
 test("falling knives are not buys: no bounce or a 7-day freefall waits for stabilization",()=>{

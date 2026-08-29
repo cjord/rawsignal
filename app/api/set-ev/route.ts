@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { loadPullRateConfig } from "../../data/load-detail.ts";
-import { loadSetEvRows } from "../../data/metrics-service.ts";
+import { loadSetEvRows } from "../../../db/metrics-service.ts";
 import { publishedIngestion, type D1DatabaseLike } from "../../../db/repository.ts";
 
 // Per-set chase EV (audit Phase C): a small feed the sealed view reads once to annotate

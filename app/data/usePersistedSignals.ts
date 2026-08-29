@@ -1,8 +1,8 @@
 "use client";
 /* eslint-disable react-hooks/set-state-in-effect -- remote signal readiness follows the requested market */
 import {useEffect,useMemo,useState} from "react";
-import type {CatalogDerived} from "./catalog-query.ts";
-import type {SealedMarket,SignalSide,SignalStrictness,SinglesGame} from "../domain/types.ts";
+import type {CatalogDerived} from "../../core/catalog-query.ts";
+import type {SealedMarket,SignalSide,SignalStrictness,SinglesGame} from "../../core/domain/types.ts";
 
 type SignalRecord={productId:number;change7Bps:number|null;change30Bps:number|null;low30Cents:number|null;high30Cents:number|null;side:"buy"|"sell";score:number;confidence:"high"|"medium"|"low";reason:string;detail:string;distanceBps:number;cutoffBps:number};
 type ResponseBody={ready:boolean;asOfDate?:string;records?:SignalRecord[]};

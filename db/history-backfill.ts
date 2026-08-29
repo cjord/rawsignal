@@ -1,5 +1,5 @@
-import type { PriceHistory } from "../app/domain/types.ts";
-import { mapWithConcurrency } from "../app/market-utils.ts";
+import type { PriceHistory } from "../core/domain/types.ts";
+import { mapWithConcurrency } from "../core/market-utils.ts";
 import { persistDerivedHistory } from "./daily-ingestion.ts";
 import { clampBatchSize, markIngestionFailed, parseStatsJson, resumeCheckpoint } from "./ingestion-batch.ts";
 import { checkpointIngestion, completeIngestion, startIngestion, upsertHistory, type D1DatabaseLike } from "./repository.ts";

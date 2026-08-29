@@ -1,5 +1,5 @@
 import {NextResponse} from "next/server";
-import type {CatalogKind} from "../../../domain/types.ts";
+import type {CatalogKind} from "../../../../core/domain/types.ts";
 import {loadCatalogDetail} from "../../../data/load-detail.ts";
 
 export async function GET(request:Request){

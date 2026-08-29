@@ -1,4 +1,4 @@
-import type {PriceHistory,PricePoint} from "./types";
+import type {PriceHistory,PricePoint} from "./types.ts";
 
 export type DerivedHistoryMetrics=Pick<PriceHistory,"change7"|"change30"|"change90"|"low30"|"high30"|"historyLow"|"historyHigh">;
 

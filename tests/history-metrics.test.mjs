@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {deriveHistoryMetrics,normalizePricePoints} from "../app/domain/history-metrics.ts";
+import {deriveHistoryMetrics,normalizePricePoints} from "../core/domain/history-metrics.ts";
 import {loadPriceHistoryBatch} from "../app/data/usePriceHistoryBatch.ts";
 
 const points=[

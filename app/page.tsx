@@ -10,7 +10,7 @@ import {
   type Direction,
 } from "./MarketUI";
 import HistoryPanel, { movementTone, standardHistoryMetrics } from "./HistoryPanel";
-import { normalized } from "./market-utils";
+import { normalized } from "../core/market-utils";
 import CardFilters, { type MovementFilters } from "./CardFilters";
 import TopBar from "./TopBar";
 import { SignalBadge, SignalTabs } from "./SignalControls";
@@ -18,18 +18,18 @@ import {
   marketSignal,
   type SignalSide,
   type SignalStrictness,
-} from "./signal-utils";
+} from "../core/signal-utils";
 import MultiSelectField from "./MultiSelectField";
 import PerPageSelect from "./PerPageSelect";
-import { parseCards } from "./domain/contracts";
-import { formatFullDate, formatGameName, formatPercent, formatRarity, formatUsd } from "./domain/formatters";
+import { parseCards } from "../core/domain/contracts";
+import { formatFullDate, formatGameName, formatPercent, formatRarity, formatUsd } from "../core/domain/formatters";
 import type {
   Card,
   PriceHistory,
   SealedMarket,
   SinglesMarket,
   SinglesView,
-} from "./domain/types";
+} from "../core/domain/types";
 import MarketTabs from "./MarketTabs";
 import { readStoredMarket, storeMarket } from "./state/market-memory";
 import { applyScalperMode, onScalperToggle, storedScalperMode, useScalperMode } from "./state/scalper-mode";
@@ -50,7 +50,7 @@ import { useFavoriteScope } from "./state/useFavorites";
 import {
   filterSinglesCandidates,
   querySinglesCatalog,
-} from "./data/catalog-query";
+} from "../core/catalog-query";
 import {
   usePriceHistoryBatch,
   usePriceHistoryPrefetch,

@@ -1,7 +1,7 @@
 import {headers} from "next/headers";
 import {cache} from "react";
 import type {Metadata} from "next";
-import type {CatalogDetail,CatalogKind} from "./domain/types";
+import type {CatalogDetail,CatalogKind} from "../core/domain/types";
 import {loadCatalogDetail} from "./data/load-detail";
 
 export async function detailOrigin(){const values=await headers(),host=values.get("host")??"localhost:3000",protocol=values.get("x-forwarded-proto")??(host.startsWith("localhost")?"http":"https");return `${protocol}://${host}`}

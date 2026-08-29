@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps -- preferences hydrate once from storage after mount */
 import { useEffect, useState } from "react";
-import type { SignalStrictness } from "../domain/types";
+import type { SignalStrictness } from "../../core/domain/types";
 
 // One hydrate/persist implementation for device preferences (signal strictness, the
 // buy-list tile size, ...). Returns [value, set, setViewOnly]: `set` persists to

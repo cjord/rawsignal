@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {DERIVED_MSRP_SOURCE,derivedPokemonMsrp} from "../scripts/msrp/derived-msrp.mjs";
-import {normalizePokemonSealedProduct} from "../scripts/normalize/sealed.mjs";
+import {DERIVED_MSRP_SOURCE,derivedPokemonMsrp} from "../core/msrp/derived-msrp.ts";
+import {normalizePokemonSealedProduct} from "../core/normalize/sealed.ts";
 
 test("standard pricing derives by product type and era, and refuses what it cannot know",()=>{
  // The SV boundary (2023) moved packs $3.99 -> $4.49 and ETBs $39.99 -> $49.99.

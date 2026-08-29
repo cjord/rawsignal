@@ -20,27 +20,7 @@ async function apiKey(){
  catch{throw new Error("Missing API key: set POKEMONPRICETRACKER_API_KEY or create .secrets/pokemonpricetracker-key")}
 }
 
-const money=value=>typeof value==="number"&&Number.isFinite(value)&&value>0?Math.round(value*100)/100:null;
-const count=value=>Number.isInteger(value)&&value>=0?value:null;
-
-function compactGrades(salesByGrade){
- const grades={};
- for(const [key,stat] of Object.entries(salesByGrade??{})){
-  if(typeof stat!=="object"||stat===null)continue;
-  const sales=count(stat.count);
-  if(!sales)continue;
-  grades[key]={
-   count:sales,
-   average:money(stat.averagePrice),
-   median:money(stat.medianPrice),
-   smartPrice:money(stat.smartMarketPrice?.price),
-   confidence:typeof stat.smartMarketPrice?.confidence==="string"?stat.smartMarketPrice.confidence:null,
-   trend:stat.marketTrend==="up"||stat.marketTrend==="down"?stat.marketTrend:null,
-   lastSaleDate:typeof stat.lastSaleDate==="string"?stat.lastSaleDate.slice(0,10):null,
-  };
- }
- return grades;
-}
+import {compactGrades} from "../../core/graded.ts";
 
 async function main(){
  const key=await apiKey();

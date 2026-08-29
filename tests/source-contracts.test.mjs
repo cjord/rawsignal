@@ -108,7 +108,7 @@ test("keeps rows and artwork non-navigational", async () => {
 
 test("keeps removed and paused features removed", async () => {
   const [page, sealed, layout, sync, rawIndex, queryState, catalogQuery] = await Promise.all([
-    read("app/page.tsx"), read("app/SealedView.tsx"), read("app/layout.tsx"), read("sync-tcgcsv.mjs"), read("tcg-index.json"), read("app/state/market-query.ts"), read("app/data/catalog-query.ts"),
+    read("app/page.tsx"), read("app/SealedView.tsx"), read("app/layout.tsx"), read("sync-tcgcsv.mjs"), read("tcg-index.json"), read("app/state/market-query.ts"), read("core/catalog-query.ts"),
   ]);
   // Magic stays paused on every active surface — no isolated UI, codec, index, or pipeline branch.
   for (const source of [page, sealed, layout]) assert.doesNotMatch(source, /value="magic"|Magic: The Gathering/);

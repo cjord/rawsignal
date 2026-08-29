@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {readFile,readdir} from "node:fs/promises";
 import {DatabaseSync} from "node:sqlite";
 import test from "node:test";
-import {parseCards,parseSealedProducts} from "../app/domain/contracts.ts";
+import {parseCards,parseSealedProducts} from "../core/domain/contracts.ts";
 import {readSectionFeed,readSealedFeed} from "../db/catalog-repository.ts";
 import {startIngestion,upsertCard,upsertSealedProduct} from "../db/repository.ts";
 import {liveFeedTarget} from "../worker/live-feeds.ts";

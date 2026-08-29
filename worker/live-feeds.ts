@@ -1,4 +1,4 @@
-import { allowedRarities } from "../app/state/market-query.ts";
+import { allowedRarities } from "../core/market-state.ts";
 import { readSectionFeed, readSealedFeed } from "../db/catalog-repository.ts";
 import { publishedIngestion } from "../db/repository.ts";
 import type { StagingJobEnv } from "./staging-jobs.ts";

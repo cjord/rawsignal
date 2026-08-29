@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { appendPeerHistory, COHORT_HISTORY_CAP, cohortKey, dailyPeerAverages, summarizePeerHistory } from "../scripts/details/peer-history.mjs";
-import { parsePeerAnchorFeed } from "../app/domain/contracts.ts";
+import { appendPeerHistory, COHORT_HISTORY_CAP, cohortKey, dailyPeerAverages, summarizePeerHistory } from "../core/peer-history.ts";
+import { parsePeerAnchorFeed } from "../core/domain/contracts.ts";
 
 const card = (productId, overrides = {}) => ({
   productId, game: "pokemon", set: "Test Set", rarity: "Illustration Rare", marketPrice: 10, ...overrides,

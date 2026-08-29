@@ -1,44 +1,16 @@
-import { deriveHistoryMetrics } from "../domain/history-metrics.ts";
-import { pokemonEra } from "../domain/eras.ts";
-import { evRatio, packChaseEv } from "../domain/pack-ev.ts";
-import type { PricePoint, PullRateConfig } from "../domain/types.ts";
-import { pullRateFor } from "./catalog-repository.ts";
-import { readMetricSeries, type MetricPoint } from "../../db/metrics-ingestion.ts";
-import { publishedIngestion, type D1DatabaseLike } from "../../db/repository.ts";
+import { deriveHistoryMetrics } from "../core/domain/history-metrics.ts";
+import { pokemonEra } from "../core/domain/eras.ts";
+import { evRatio, packChaseEv } from "../core/domain/pack-ev.ts";
+import type { PricePoint, PullRateConfig } from "../core/domain/types.ts";
+import { pullRateFor } from "../core/catalog-repository.ts";
+import { readMetricSeries, type MetricPoint } from "./metrics-ingestion.ts";
+import { publishedIngestion, type D1DatabaseLike } from "./repository.ts";
 
-// The /metrics payload (docs/todo.md H3/H4): materialized daily series plus same-day figures
-// computed from current rows. Everything is null-honest — a market without a backing series
-// reports null changes rather than an estimate. Rows carry game and kind so the client
-// composes any scope (mode × market) without another request; ALL-scope aggregates are sums
-// of these rows, with movement read from the combined index series.
-
-export type MetricsOverviewRow = {
-  key: string;
-  label: string;
-  game: string;
-  kind: "single" | "sealed";
-  trackedValue: number;
-  products: number;
-  change7: number | null;
-  change30: number | null;
-  change90: number | null;
-};
-export type MetricsSetRow = { set: string; game: string; trackedValue: number; medianPrice: number; cards: number; change30: number | null; sealedChange30: number | null; packPrice: number | null; packEv: number | null; evRatio: number | null };
-export type MetricsCategoryRow = { category: string; game: string; trackedValue: number; medianPrice: number; products: number; change7: number | null; change30: number | null; change90: number | null };
-export type MetricsEraRow = { era: string; trackedValue: number; cards: number; sets: number; change30: number | null };
-export type MetricsMomentumRow = { game: string; kind: "single" | "sealed"; tracked: number; advancers7: number; decliners7: number; advancers30: number; decliners30: number; atHistoricHigh: number; atHistoricLow: number };
-export type MetricsMover = { productId: number; name: string; set: string; game: string; kind: "single" | "sealed"; printing: string; image: string | null; price: number; mid: number | null; change: number; window: "7d" | "30d" | "90d"; direction: "up" | "down" };
-export type MetricsPayload = {
-  generatedAt: string;
-  rolledUpAt: string;
-  series: Record<string, PricePoint[]>;
-  overview: MetricsOverviewRow[];
-  sets: MetricsSetRow[];
-  sealedCategories: MetricsCategoryRow[];
-  eras: MetricsEraRow[];
-  momentum: MetricsMomentumRow[];
-  movers: MetricsMover[];
-};
+// The /metrics service (docs/todo.md H3/H4): materialized daily series plus same-day
+// figures computed from current rows — the largest SQL surface in the repo, so it lives
+// with the rest of the SQL (decision D4). The payload shapes are core domain contracts.
+import type { MetricsCategoryRow, MetricsEraRow, MetricsMomentumRow, MetricsMover, MetricsOverviewRow, MetricsPayload, MetricsSetRow } from "../core/domain/metrics.ts";
+export * from "../core/domain/metrics.ts";
 
 const toPoints = (points: MetricPoint[] | undefined): PricePoint[] => (points ?? []).map(point => ({ date: point.date, price: point.value }));
 const changes = (points: PricePoint[]) => {

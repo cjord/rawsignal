@@ -1,6 +1,6 @@
 import {changeAtCutoff} from "./domain/history-metrics.ts";
-import type {MarketSignal,PricePoint,SignalConfidence,SignalStrictness} from "./domain/types";
-export type {MarketSignal,SignalConfidence,SignalSide,SignalStrictness} from "./domain/types";
+import type {MarketSignal,PricePoint,SignalConfidence,SignalStrictness} from "./domain/types.ts";
+export type {MarketSignal,SignalConfidence,SignalSide,SignalStrictness} from "./domain/types.ts";
 
 const presets={conservative:{base:1.5,scale:.13,max:8,minScore:72},balanced:{base:2.25,scale:.2,max:12,minScore:58},aggressive:{base:3.5,scale:.28,max:18,minScore:44}} as const;
 const pct=(value:number)=>`${value.toFixed(1)}%`;

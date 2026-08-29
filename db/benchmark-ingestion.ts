@@ -1,3 +1,4 @@
+import { fetchJson } from "../core/clients/http-json.ts";
 import type { D1DatabaseLike } from "./repository.ts";
 
 // Daily S&P 500 benchmark (user decision 2026-08-28): Alpha Vantage's SPY daily series as
@@ -20,9 +21,8 @@ export function parseAlphaVantageDaily(payload: unknown): { date: string; closeC
 }
 
 export async function runBenchmarkIngestion(db: D1DatabaseLike, apiKey: string, fetcher: FetchLike = fetch) {
-  const response = await fetcher(`https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=SPY&outputsize=compact&apikey=${apiKey}`);
-  if (!response.ok) throw new Error(`Alpha Vantage request failed: ${response.status}`);
-  const payload = await response.json();
+  // Shared retry policy (decision D8); the caller already tolerates a thrown failure.
+  const payload = await fetchJson(`https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=SPY&outputsize=compact&apikey=${apiKey}`, { fetcher: fetcher as typeof fetch });
   const rows = parseAlphaVantageDaily(payload);
   // Rate-limit and error responses arrive as 200s with a Note/Information body — report,
   // never write garbage.

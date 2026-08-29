@@ -3,7 +3,8 @@
 // docs/msrp-sources.md. Values here outrank derived standard pricing but never overwrite
 // an MSRP the product feed already carries. Products whose only price is secondary-sourced
 // (flagged soft in the research) stay OUT of this table until a distributor publishes one.
-export default {
+export type VerifiedMsrpEntry = { msrp: number; source: string };
+const verifiedMsrp: Record<string, VerifiedMsrpEntry> = {
   "riftbound:658333": { msrp: 99.99, source: "Riot merch (Worlds Bundle 2025)" },
   "riftbound:635458": { msrp: 79.96, source: "PHD Games sheet 2025-03 (4×$19.99 deck display)" },
   "riftbound:678690": { msrp: 480, source: "UVS Games Spiritforged retailer PDF" },
@@ -21,3 +22,4 @@ export default {
   "riftbound:712806": { msrp: 120, source: "PHD Games sheet 2026-08" },
   "riftbound:712813": { msrp: 34.99, source: "PHD Games sheet 2026-08" },
 };
+export default verifiedMsrp;

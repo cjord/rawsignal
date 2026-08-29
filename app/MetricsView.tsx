@@ -15,12 +15,12 @@ import HistoryPopover from "./leaderboard/HistoryPopover";
 import ProductIdentity from "./leaderboard/ProductIdentity";
 import {favoriteKey,type FavoriteEntry} from "./state/favorites";
 import {historyTargetKey,useHistoryOnce,type HistoryTarget} from "./data/usePriceHistoryBatch";
-import {canonicalSealedType} from "./data/catalog-query";
-import {deriveHistoryMetrics} from "./domain/history-metrics";
-import {POKEMON_ERAS,eraLabel} from "./domain/eras";
-import {formatGameName,formatPercent,formatUsd} from "./domain/formatters";
-import type {PriceHistory,PricePoint,SignalStrictness} from "./domain/types";
-import type {MetricsCategoryRow,MetricsEraRow,MetricsMover,MetricsPayload,MetricsSetRow} from "./data/metrics-service";
+import {canonicalSealedType} from "../core/catalog-query";
+import {deriveHistoryMetrics} from "../core/domain/history-metrics";
+import {POKEMON_ERAS,eraLabel} from "../core/domain/eras";
+import {formatGameName,formatPercent,formatUsd} from "../core/domain/formatters";
+import type {PriceHistory,PricePoint,SignalStrictness} from "../core/domain/types";
+import type {MetricsCategoryRow,MetricsEraRow,MetricsMover,MetricsPayload,MetricsSetRow} from "../core/domain/metrics";
 
 type Mode=MetricsMode;
 type Market=MetricsMarket;

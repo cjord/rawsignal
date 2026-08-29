@@ -3,9 +3,9 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createTcgcsvClient } from "../scripts/clients/tcgcsv.mjs";
+import { createTcgcsvClient } from "../core/clients/tcgcsv.ts";
 import { publishCatalogSnapshot } from "../scripts/io/last-good.mjs";
-import { normalizeSinglesGroup } from "../scripts/normalize/singles.mjs";
+import { normalizeSinglesGroup } from "../core/normalize/singles.ts";
 import { ingestionManifest, validateCatalogSnapshot } from "../scripts/validate/catalog.mjs";
 
 const product = { productId: 101, name: "Pikachu", imageUrl: "https://example.com/p_200w.jpg", url: "https://example.com/p", extendedData: [{ name: "Rarity", value: "Illustration Rare" }, { name: "Number", value: "101/100" }] };

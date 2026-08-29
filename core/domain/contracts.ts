@@ -1,4 +1,4 @@
-import type { Card, CatalogDetailEnrichment, DetailMetadataField, DetailPriceVariant, DetailSource, GradedCardData, PeerAnchorStats, PriceHistory, PricePoint, PullRateConfig, SealedProduct } from "./types";
+import type { Card, CatalogDetailEnrichment, DetailMetadataField, DetailPriceVariant, DetailSource, GradedCardData, PeerAnchorStats, PriceHistory, PricePoint, PullRateConfig, SealedProduct } from "./types.ts";
 
 type JsonRecord = Record<string, unknown>;
 

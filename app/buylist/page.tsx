@@ -3,9 +3,9 @@ import {useMemo,useState,useEffect} from "react";
 import DeferredImage from "../DeferredImage";
 import TopBar from "../TopBar";
 import {SegmentedView} from "../MarketUI";
-import {formatGameName,formatUsd} from "../domain/formatters";
+import {formatGameName,formatUsd} from "../../core/domain/formatters";
 import {parseStrictness,STRICTNESS_KEY,usePreference} from "../state/usePreference";
-import type {SignalStrictness} from "../domain/types";
+import type {SignalStrictness} from "../../core/domain/types";
 import {buylistTotals,type FavoriteEntry} from "../state/favorites";
 import {useFavorites} from "../state/useFavorites";
 

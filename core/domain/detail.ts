@@ -1,4 +1,4 @@
-import type {Card,CatalogDetail,DetailMetadataField,DetailPriceVariant,SealedProduct,SimilarCatalogItem} from "./types";
+import type {Card,CatalogDetail,DetailMetadataField,DetailPriceVariant,SealedProduct,SimilarCatalogItem} from "./types.ts";
 
 type RawExtendedField={name?:unknown;displayName?:unknown;value?:unknown};
 

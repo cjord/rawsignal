@@ -19,24 +19,24 @@ import {
   marketSignal,
   type SignalSide,
   type SignalStrictness,
-} from "./signal-utils";
+} from "../core/signal-utils";
 import MultiSelectField from "./MultiSelectField";
 import PerPageSelect from "./PerPageSelect";
 import SaleScenario from "./SaleScenario";
-import { parseSealedProducts } from "./domain/contracts";
-import { formatFullDate, formatGameName, formatPercent, formatUsd } from "./domain/formatters";
+import { parseSealedProducts } from "../core/domain/contracts";
+import { formatFullDate, formatGameName, formatPercent, formatUsd } from "../core/domain/formatters";
 import type {
   PriceHistory,
   SealedMarket,
   SealedProduct,
   SealedView as SealedViewMode,
-} from "./domain/types";
+} from "../core/domain/types";
 import type { SealedQueryState } from "./state/market-query";
 import { useCatalogPage } from "./data/useCatalogPage";
 import {
   calculateSealedScenario,
   querySealedCatalog,
-} from "./data/catalog-query";
+} from "../core/catalog-query";
 import {
   usePriceHistoryBatch,
   usePriceHistoryPrefetch,

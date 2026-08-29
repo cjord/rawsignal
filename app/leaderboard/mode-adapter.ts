@@ -1,6 +1,6 @@
 import type {Direction} from "../MarketUI.tsx";
-import type {CatalogDerived} from "../data/catalog-query.ts";
-import type {PriceHistory,MarketSignal,SignalSide} from "../domain/types.ts";
+import type {CatalogDerived} from "../../core/catalog-query.ts";
+import type {PriceHistory,MarketSignal,SignalSide} from "../../core/domain/types.ts";
 import type {SortOption} from "./types.ts";
 
 type CatalogItem={productId:number};

@@ -1,7 +1,29 @@
-const extended = (product, key) => product.extendedData?.find(item => item.name === key)?.value ?? "";
-const positive = value => Number(value) > 0 ? Number(value) : null;
+import type { Card } from "../domain/types.ts";
+import type { SealedSourceGroup } from "../sealed-product-utils.ts";
 
-export function pokemonSection(rarity, year) {
+// Pure normalization of one TCGCSV group walk into typed Card records (converted from
+// scripts/normalize/singles.mjs — decision D2; the sync scripts and the Worker share
+// this implementation).
+export type SinglesSourceProduct = {
+  productId?: unknown;
+  name: string;
+  url?: string;
+  imageUrl?: string;
+  extendedData?: { name: string; value?: unknown }[];
+};
+export type SinglesPriceRow = {
+  productId?: unknown;
+  marketPrice?: unknown;
+  lowPrice?: unknown;
+  midPrice?: unknown;
+  highPrice?: unknown;
+  subTypeName?: string;
+};
+
+const extended = (product: SinglesSourceProduct, key: string) => String(product.extendedData?.find(item => item.name === key)?.value ?? "");
+const positive = (value: unknown) => Number(value) > 0 ? Number(value) : null;
+
+export function pokemonSection(rarity: string, year: number): [string, string] | null {
   if (/^Illustration Rare$/i.test(rarity)) return ["illustration-rares", "Illustration Rares"];
   if (/^Special Illustration Rare$/i.test(rarity)) return ["special-illustration-rares", "Special Illustration Rares"];
   if (/^Promo$/i.test(rarity)) return ["promos", "Promos"];
@@ -12,7 +34,7 @@ export function pokemonSection(rarity, year) {
   return year <= 2010 ? ["vintage", "Vintage"] : null;
 }
 
-export function riftboundSection(productName, rarity) {
+export function riftboundSection(productName: string, rarity: string): [string, string] | null {
   if (/\(Signature\)/i.test(productName)) return ["signatures", "Signatures"];
   if (/\(Overnumbered\)/i.test(productName)) return ["overnumbered", "Overnumbered"];
   if (/\(Alternate Art\)/i.test(productName)) return ["alt-arts", "Alt Arts"];
@@ -21,8 +43,8 @@ export function riftboundSection(productName, rarity) {
   return null;
 }
 
-function preferredPrices(prices) {
-  const byId = new Map();
+function preferredPrices(prices: SinglesPriceRow[]) {
+  const byId = new Map<number, SinglesPriceRow>();
   for (const price of prices) {
     if (!(Number(price.marketPrice) > 0)) continue;
     const previous = byId.get(Number(price.productId));
@@ -31,9 +53,16 @@ function preferredPrices(prices) {
   return byId;
 }
 
-export function normalizeSinglesGroup({ game, group, products, prices, previous = new Map(), fixedSection = null }) {
-  const cards = [], rejected = {}, labels = new Map(), priceById = preferredPrices(prices);
-  const reject = reason => rejected[reason] = (rejected[reason] ?? 0) + 1;
+export function normalizeSinglesGroup({ game, group, products, prices, previous = new Map(), fixedSection = null }: {
+  game: "pokemon" | "riftbound";
+  group: SealedSourceGroup & { name: string; publishedOn: string };
+  products: SinglesSourceProduct[];
+  prices: SinglesPriceRow[];
+  previous?: Map<string, number>;
+  fixedSection?: [string, string] | null;
+}): { cards: Card[]; rejected: Record<string, number>; labels: Map<string, string> } {
+  const cards: Card[] = [], rejected: Record<string, number> = {}, labels = new Map<string, string>(), priceById = preferredPrices(prices);
+  const reject = (reason: string) => rejected[reason] = (rejected[reason] ?? 0) + 1;
   const year = new Date(group.publishedOn).getFullYear();
   for (const product of products) {
     // Fixed-section groups (Japanese promos, audit Phase E) take every priced card in the

@@ -1,7 +1,7 @@
-import { parseCards, parseCatalogDetailEnrichments, parseGradedPriceFeed, parsePeerAnchorFeed, parsePullRateConfig, parseSealedProducts } from "../domain/contracts.ts";
-import type { Card, CatalogDetailEnrichment, SealedProduct } from "../domain/types.ts";
+import { parseCards, parseCatalogDetailEnrichments, parseGradedPriceFeed, parsePeerAnchorFeed, parsePullRateConfig, parseSealedProducts } from "../../core/domain/contracts.ts";
+import type { Card, CatalogDetailEnrichment, SealedProduct } from "../../core/domain/types.ts";
 import { allowedRarities } from "../state/market-query.ts";
-import { createMemoryCatalogRepository, type CatalogRepository } from "./catalog-repository.ts";
+import { createMemoryCatalogRepository, type CatalogRepository } from "../../core/catalog-repository.ts";
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 

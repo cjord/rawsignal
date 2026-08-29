@@ -1,6 +1,6 @@
-import type { Card, CatalogDetailEnrichment, DetailMetadataField, DetailPriceVariant, MarketSignal, PullRateConfig, SealedProduct } from "../app/domain/types.ts";
-import { createMemoryCatalogRepository, type CatalogRepository } from "../app/data/catalog-repository.ts";
-import type { CatalogDerived, SealedCatalogQuery, SinglesCatalogQuery } from "../app/data/catalog-query.ts";
+import type { Card, CatalogDetailEnrichment, DetailMetadataField, DetailPriceVariant, MarketSignal, PullRateConfig, SealedProduct } from "../core/domain/types.ts";
+import { createMemoryCatalogRepository, type CatalogRepository } from "../core/catalog-repository.ts";
+import type { CatalogDerived, SealedCatalogQuery, SinglesCatalogQuery } from "../core/catalog-query.ts";
 import { readGradedCard } from "./graded-ingestion.ts";
 import { readPeerAnchor } from "./peer-anchors.ts";
 import type { D1DatabaseLike } from "./repository.ts";

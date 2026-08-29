@@ -1,6 +1,6 @@
 "use client";
 import {useMemo} from "react";
-import {formatGameName} from "../domain/formatters";
+import {formatGameName} from "../../core/domain/formatters";
 
 // Set → market map for grouped filter options; headings only surface on the multi-game
 // scopes (a single market yields one group, which renders flat).

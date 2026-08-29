@@ -1,4 +1,4 @@
-import type {Card,CatalogDetailEnrichment,MarketSignal,PriceHistory,PricePoint,SealedProduct,SignalStrictness} from "../app/domain/types";
+import type {Card,CatalogDetailEnrichment,MarketSignal,PriceHistory,PricePoint,SealedProduct,SignalStrictness} from "../core/domain/types.ts";
 
 type Statement = {
   bind(...values: unknown[]): Statement;

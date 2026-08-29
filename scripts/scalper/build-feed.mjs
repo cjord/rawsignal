@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises";
-import { createTcgcsvClient } from "../clients/tcgcsv.mjs";
+import { createTcgcsvClient } from "../../core/clients/tcgcsv.ts";
 import { publishCatalogSnapshot } from "../io/last-good.mjs";
-import { preferredSealedPrice } from "../normalize/sealed.mjs";
+import { preferredSealedPrice } from "../../core/normalize/sealed.ts";
 import { ingestionManifest } from "../validate/catalog.mjs";
-import { normalizeProductType } from "../../sealed-product-utils.mjs";
+import { normalizeProductType } from "../../core/sealed-product-utils.ts";
 
 const readJson = async path => JSON.parse(await readFile(new URL(path, import.meta.url), "utf8"));
 const positive = value => Number(value) > 0 ? Number(value) : null;
