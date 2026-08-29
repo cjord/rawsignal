@@ -52,15 +52,24 @@ function SetTile({row,asOf,starred}:{row:SetDirectoryRow;asOf:string;starred:boo
  </a>;
 }
 
+function ChangePill({label,value}:{label:string;value:number|null}){
+ if(value==null)return null;
+ const tone=toneOf(value);
+ return <span className={`set-tile-change ${tone??""}`}><small>{label}</small><span className={`metrics-chip ${tone??""}`}>{formatPercent(value)}</span></span>;
+}
+
 function GroupSection({label,rows,asOf,favorites}:{label:string;rows:SetDirectoryRow[];asOf:string;favorites:ReadonlySet<string>}){
  // Era rollup: total tracked value plus the tracked-value-weighted mean of member sets'
- // 30D momentum — big sets move the era, minor sets don't swamp it (metrics era rule).
+ // momentum — big sets move the era, minor sets don't swamp it (metrics era rule).
  const tracked=rows.reduce((sum,row)=>sum+row.trackedValue,0);
- const weighted=rows.filter(row=>row.change30!=null&&row.trackedValue>0);
- const weightSum=weighted.reduce((sum,row)=>sum+row.trackedValue,0);
- const change30=weightSum>0?weighted.reduce((sum,row)=>sum+(row.change30 as number)*row.trackedValue,0)/weightSum:null;
+ const weightedChange=(key:"change7"|"change30")=>{
+  const members=rows.filter(row=>row[key]!=null&&row.trackedValue>0);
+  const weight=members.reduce((sum,row)=>sum+row.trackedValue,0);
+  return weight>0?members.reduce((sum,row)=>sum+(row[key] as number)*row.trackedValue,0)/weight:null;
+ };
  return <section className="set-group">
-  <header className="set-group-head"><h3>{label}</h3><span className="set-group-stats">{rows.length} set{rows.length===1?"":"s"}{tracked>0&&<> · {compactUsd(tracked)} tracked</>}{change30!=null&&<> · <em className={change30>0?"up":change30<0?"down":""}>{formatPercent(change30)} / 30d</em></>}</span></header>
+  <header className="set-group-head"><h3>{label}</h3><span className="set-group-stats">{rows.length} set{rows.length===1?"":"s"}{tracked>0&&<> · {compactUsd(tracked)} tracked</>}</span>
+   <span className="set-group-pills"><ChangePill label="7D" value={weightedChange("change7")}/><ChangePill label="30D" value={weightedChange("change30")}/></span></header>
   <div className="set-grid">{rows.map(row=><SetTile key={`${row.game}:${row.set}`} row={row} asOf={asOf} starred={favorites.has(setFavoriteKey(row.game,row.set))}/>)}</div>
  </section>;
 }

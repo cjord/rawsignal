@@ -7,21 +7,21 @@
 .set-group { margin: 18px 0 26px; }
 .set-group-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 12px;
   padding: 10px 0;
   border-bottom: 1px solid var(--line);
   margin-bottom: 14px;
+  flex-wrap: wrap;
 }
-.set-group-head h3 { margin: 0; font-size: var(--text-lg); letter-spacing: -.03em; }
+.set-group-head h3 { margin: 0; font-size: 1.375rem; letter-spacing: -.035em; }
 .set-group-stats { color: var(--gray); font-size: var(--text-xs); }
-.set-group-stats em { font-style: normal; font-weight: 750; }
-.set-group-stats em.up { color: var(--tone-up); }
-.set-group-stats em.down { color: var(--tone-down); }
+.set-group-pills { display: inline-flex; gap: 8px; margin-left: 2px; }
 
 .set-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 
 .set-tile {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -35,7 +35,7 @@
 .set-tile:hover { border-color: color-mix(in srgb, var(--blue) 40%, var(--line)); box-shadow: 0 6px 18px #10182812; }
 .set-tile:focus-visible { outline: 3px solid color-mix(in srgb, var(--blue) 60%, transparent); outline-offset: 2px; }
 
-.set-tile-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.set-tile-head { display: flex; align-items: center; gap: 12px; min-width: 0; padding-right: 34px; }
 .set-tile-logo { flex: 0 0 76px; height: 44px; position: relative; }
 .set-tile-logo .deferred-image, .set-logo-image { width: 76px; height: 44px; background: transparent; }
 .set-logo-image img { width: 100%; height: 100%; object-fit: contain; object-position: left center; }
@@ -60,19 +60,28 @@
 .set-tile-title { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .set-tile-title b { font-size: var(--text-base); line-height: 1.25; overflow-wrap: anywhere; }
 .set-tile-title small { color: var(--gray); font-size: var(--text-2xs); }
+/* The circular favorite pill from the large card view, pinned to the tile corner. */
 .set-star {
-  margin-left: auto;
-  border: 0;
-  background: transparent;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: 0 2px 10px #0003;
   color: var(--gray);
-  font-size: 1.05rem;
+  font-size: 1rem;
   cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 8px;
-  transition: color var(--motion-fast), background-color var(--motion-fast);
+  transition: color var(--motion-fast), border-color var(--motion-fast), background-color var(--motion-fast);
 }
-.set-star:hover { background: var(--soft); color: var(--tone-favorite); }
-.set-star.is-starred { color: var(--tone-favorite); }
+.set-star:hover { color: var(--tone-favorite); border-color: color-mix(in srgb, var(--tone-favorite) 45%, var(--line)); }
+.set-star.is-starred { color: var(--tone-favorite); border-color: color-mix(in srgb, var(--tone-favorite) 55%, var(--line)); }
 
 .set-tile-foot { display: flex; align-items: center; gap: 12px; min-width: 0; }
 /* Movement pills matching the cards large view: bordered, label + toned mono value,
