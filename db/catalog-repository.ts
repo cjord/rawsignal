@@ -173,6 +173,19 @@ const centsCeil = (value: string) => {
 const placeholders = (values: unknown[]) => values.map(() => "?").join(",");
 const canonicalTypesLower = sealedProductTypes.map(type => type.toLowerCase());
 
+// Tracked singles by TCGplayer product id, chunked to stay inside D1's bind limits
+// (Collectr import matching — collection sizes reach thousands of ids).
+export async function readCardsByIds(db: D1DatabaseLike, productIds: number[]): Promise<Card[]> {
+  const cards: Card[] = [];
+  for (let index = 0; index < productIds.length; index += 80) {
+    const chunk = productIds.slice(index, index + 80);
+    const rows = (await db.prepare(`${productsSqlBase} where p.kind='single' and p.product_id in (${chunk.map(() => "?").join(",")})`)
+      .bind(...chunk).all<ProductRow>()).results ?? [];
+    for (const row of rows) { const card = toCard(row); if (card) cards.push(card); }
+  }
+  return cards;
+}
+
 // One set's products of both kinds in domain shapes (sets view detail page).
 export async function readGameSetProducts(db: D1DatabaseLike, game: string, setName: string): Promise<{ cards: Card[]; sealed: SealedProduct[] }> {
   const rows = (await db.prepare(`${productsSqlBase} where p.game=? and p.set_name=? order by p.product_id`).bind(game, setName).all<ProductRow>()).results ?? [];

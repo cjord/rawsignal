@@ -1,0 +1,97 @@
+/* Collectr import page (2026-08-29): the form, summary tiles, and the import table
+   reuse the detail-section / leaderboard vocabulary; only import-specific glue lives
+   here. */
+.import-form { display: flex; gap: 10px; margin-top: 14px; }
+.import-input {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  min-width: 0;
+  height: var(--control-height, 44px);
+  padding: 0 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius, 9px);
+  background: var(--control);
+}
+.import-input > span { color: var(--gray); font-size: var(--text-sm); white-space: nowrap; }
+.import-input input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font-size: var(--text-base); }
+.import-input:focus-within { border-color: var(--blue); box-shadow: var(--focus-ring); }
+.import-run {
+  height: var(--control-height, 44px);
+  padding: 0 22px;
+  border: 1px solid var(--blue);
+  border-radius: var(--control-radius, 9px);
+  background: var(--blue);
+  color: #fff;
+  font: 750 var(--text-base) var(--font-sans);
+  cursor: pointer;
+  transition: filter var(--motion-fast);
+}
+.import-run:hover { filter: brightness(1.08); }
+.import-run:disabled { opacity: .6; cursor: progress; }
+.import-error { margin: 12px 0 0; color: var(--tone-down); font-size: var(--text-sm); }
+.import-skeletons { margin-top: 16px; }
+
+.import-summary-tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.import-actions { display: flex; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+.import-added { color: var(--tone-favorite); font-size: var(--text-sm); font-weight: 700; }
+
+.import-nav { flex-wrap: wrap; margin: 0 0 14px; }
+.import-filters { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.import-search { flex: 1; min-width: 220px; }
+.import-price { flex: 0 0 130px; }
+.import-price input { font: 700 var(--text-base) var(--font-mono); }
+
+.import-table .table-head.import-head {
+  display: grid;
+  grid-template-columns: minmax(230px, 1.8fr) minmax(140px, 1fr) 110px 110px 110px minmax(150px, 1fr);
+  column-gap: 10px;
+  padding: 10px 3px;
+  color: var(--gray);
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-weight: 800;
+}
+.import-row {
+  display: grid;
+  grid-template-columns: minmax(230px, 1.8fr) minmax(140px, 1fr) 110px 110px 110px minmax(150px, 1fr);
+  column-gap: 10px;
+  align-items: center;
+  padding: 9px 3px;
+  border-bottom: 1px solid var(--line);
+  position: relative;
+  min-width: 0;
+}
+.import-row .set-name { padding: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.import-row .market-price { text-align: left; padding: 0; }
+.import-cond { color: var(--gray); font-size: var(--text-xs); white-space: nowrap; }
+.import-collectr { font: 700 var(--text-base) var(--font-mono); }
+.import-collectr small { display: block; margin-top: 3px; color: var(--gray); font: 500 var(--text-2xs) var(--font-sans); }
+.import-signal { min-width: 0; }
+.import-signal .signal-badge { margin: 0; width: 100%; }
+.import-neutral { color: var(--gray); }
+.import-untracked {
+  font: 750 var(--text-2xs) var(--font-sans);
+  font-style: normal;
+  color: var(--tone-warn);
+  border: 1px solid color-mix(in srgb, var(--tone-warn) 45%, var(--line));
+  border-radius: 999px;
+  padding: 3px 9px;
+  white-space: nowrap;
+}
+.import-row.is-untracked .identity b { color: var(--gray); }
+.import-table.view-text .identity .deferred-image { display: none; }
+
+@media (max-width: 900px) {
+  .import-summary-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .import-table .table-head.import-head { display: none; }
+  .import-row { grid-template-columns: minmax(0, 1.6fr) 96px 96px; grid-template-rows: auto auto; }
+  .import-row .set-name, .import-row .import-cond { display: none; }
+  .import-signal { grid-column: 1 / -1; }
+}
+@media (max-width: 620px) {
+  .import-form { flex-direction: column; }
+  .import-summary-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

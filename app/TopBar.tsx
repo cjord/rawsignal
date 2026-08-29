@@ -11,6 +11,7 @@ const marketLinks=[
  {key:"sets",label:"Sets",href:"/sets",icon:"▦"},
  {key:"metrics",label:"Metrics",href:"/metrics",icon:"∿"},
  {key:"buylist",label:"Buy List",href:"/buylist",icon:"≡"},
+ {key:"import",label:"Import",href:"/import",icon:"⇪"},
 ] as const;
 export type TopBarActive=(typeof marketLinks)[number]["key"]|null;
 
