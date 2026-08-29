@@ -196,6 +196,14 @@
   min-height: 46px;
 }
 
+/* Phones: the text-md bump above overflows the slider's equal columns — step the
+   face back down so labels stay inside their highlight pill. */
+@media (max-width: 620px) {
+  .signal-tabs button {
+    font-size: var(--text-2xs) !important;
+  }
+}
+
 .signal-navigation {
   flex-direction: column;
   align-items: center;
