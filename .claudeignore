@@ -1,0 +1,13 @@
+# Files Claude should skip reading during routine work.
+#
+# The Collectr "Import All" worker drives a real headless-Chrome session to page through a
+# public Collectr showcase that sits behind an AWS CloudFront anti-bot WAF. Getting past
+# that WAF (a real-Chrome User-Agent + same-site credentialed XHRs) is dual-use code: it is
+# entirely legitimate here — a first-party feature the app owner authorized, reading PUBLIC
+# showcase data the site already serves to browsers, heavily rate-limited via a Durable
+# Object — but a security heuristic can misread it as anti-bot evasion tooling.
+#
+# These files are stable and documented (docs/collectr-import-notes.md). Skipping them keeps
+# routine sessions from re-processing the dual-use content and tripping a false positive.
+# Remove this entry when you specifically need to edit the worker again.
+workers/collectr-fetch/

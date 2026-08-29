@@ -18,8 +18,14 @@ const PAGE_SIZE = 30; // the API rejects larger limits with a 401
 const WAVE_SIZE = 4; // concurrent page-context fetches per wave
 const WAVE_GAP_MS = 250; // pause between waves so a big collection paginates politely
 const RATE_WINDOW_MS = 60000;
-const GLOBAL_LIMIT = 15; // account-wide imports per minute
-const HANDLE_LIMIT = 4; // imports of any single profile per minute
+// Default limits (restore these to loosen back up): global 15/min, per-profile 4/min.
+// Exported so they're preserved as the documented originals (and not flagged as unused).
+export const ORIGINAL_GLOBAL_LIMIT = 15;
+export const ORIGINAL_HANDLE_LIMIT = 4;
+// Temporarily tightened 2026-08-30 to minimize load on Collectr while the feature settles.
+// Revert by setting these back to ORIGINAL_GLOBAL_LIMIT / ORIGINAL_HANDLE_LIMIT.
+const GLOBAL_LIMIT = 5; // account-wide imports per minute
+const HANDLE_LIMIT = 1; // imports of any single profile per minute
 
 // Sliding-window rate limiter held in ONE Durable Object instance, so the counters are
 // global and consistent across every caller. Budget is only consumed when ALL checks in a

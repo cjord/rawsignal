@@ -17,6 +17,7 @@ import {usePersistedSignals} from "./data/usePersistedSignals";
 import {historyTargetKey,useHistoryOnce} from "./data/usePriceHistoryBatch";
 import {importDiff,readStoredImport,storeImport,type StoredCollectrImport} from "./state/collectr-import";
 import {cardFavorite} from "./state/favorites";
+import {useScalperMode} from "./state/scalper-mode";
 import {useFavorites} from "./state/useFavorites";
 import {parseStrictness,STRICTNESS_KEY,usePreference} from "./state/usePreference";
 import {formatFullDate,formatPercent,formatUsd} from "../core/domain/formatters";
@@ -65,6 +66,9 @@ export default function CollectrImportView(){
  const onSort=(col:SortCol)=>{if(col===sortCol)setSortDir(dir=>dir==="asc"?"desc":"asc");else{setSortCol(col);setSortDir("desc")}};
  const inputRef=useRef<HTMLInputElement>(null);
  const favorites=useFavorites();
+ // "Import All" spins up a real browser session per import, so it's gated behind Scalper
+ // mode (the power-user toggle) to keep casual traffic on the instant top-30 path.
+ const scalperMode=useScalperMode();
 
  // Restore the last import on arrival; a ?profile= deep link pre-fills the form and
  // waits for one explicit click (no surprise external fetches).
@@ -181,11 +185,11 @@ export default function CollectrImportView(){
   </header>
   <article className="detail-content">
    <section className="detail-section import-form-section"><header><span>Import</span><h2>Collectr Profile</h2></header>
-    <p className="detail-note">Paste a public Collectr showcase link or @handle. The import matches every raw single against tracked market data, flags what the sell signals say to move and what the buy signals say to hold, and can star the lot into your Buy List. Import Top 30 grabs the showcase&apos;s most valuable cards instantly; Import All walks the entire collection through a real browser session and takes longer. {payload?"Importing again replaces this page with the new profile.":"Graded cards and sealed products are skipped."}<InfoHint label="How matching works">Collectr and Raw Signal both key cards by TCGplayer product id, so matching is exact. Cards outside the tracked rarity sections show with a “not tracked” badge and Collectr&apos;s own value; they stay out of the Hold/Sell lenses and favorites.</InfoHint></p>
+    <p className="detail-note">Paste a public Collectr showcase link or @handle. The import matches every raw single against tracked market data, flags what the sell signals say to move and what the buy signals say to hold, and can star the lot into your Buy List. Import Top 30 grabs the showcase&apos;s most valuable cards instantly{scalperMode==="scalper"?"; Import All walks the entire collection through a real browser session and takes longer":""}. {payload?"Importing again replaces this page with the new profile.":"Graded cards and sealed products are skipped."}<InfoHint label="How matching works">Collectr and Raw Signal both key cards by TCGplayer product id, so matching is exact. Cards outside the tracked rarity sections show with a “not tracked” badge and Collectr&apos;s own value; they stay out of the Hold/Sell lenses and favorites.</InfoHint></p>
     <div className="import-form">
-     <label className="import-input"><span aria-hidden="true">⌕</span><input ref={inputRef} value={input} placeholder="https://app.getcollectr.com/showcase/profile/@yourhandle" onChange={event=>setInput(event.target.value)} onKeyDown={event=>{if(event.key==="Enter")runImport("full")}} aria-label="Collectr showcase link or handle"/></label>
+     <label className="import-input"><span aria-hidden="true">⌕</span><input ref={inputRef} value={input} placeholder="https://app.getcollectr.com/showcase/profile/@yourhandle" onChange={event=>setInput(event.target.value)} onKeyDown={event=>{if(event.key==="Enter")runImport(scalperMode==="scalper"?"full":"top")}} aria-label="Collectr showcase link or handle"/></label>
      <button type="button" className="import-run import-run-secondary" onClick={()=>runImport("top")} disabled={loading}>{phase==="top"?"Importing…":"Import Top 30"}</button>
-     <button type="button" className="import-run" onClick={()=>runImport("full")} disabled={loading}>{phase==="full"?"Importing…":"Import All"}</button>
+     {scalperMode==="scalper"&&<button type="button" className="import-run import-run-danger" onClick={()=>runImport("full")} disabled={loading}>{phase==="full"?"Importing…":"Import All"}</button>}
     </div>
     <p className="import-alt">or <label className="import-csv-link">import your Collectr Pro CSV export<input className="import-csv-input" type="file" accept=".csv,text/csv" disabled={loading} onChange={event=>{const file=event.target.files?.[0];event.target.value="";if(file)runCsv(file)}} aria-label="Import a Collectr Pro CSV export"/></label>{phase==="csv"&&" — importing…"}<InfoHint label="About CSV import">Collection CSV export needs a Collectr Pro subscription — in Collectr, open your collection and choose Export, then drop the file here. The file is parsed for matching only; nothing is stored server-side. No Pro? The showcase importers above work for any public profile.</InfoHint></p>
     {error&&<p className="import-error" role="alert">{error}</p>}
@@ -203,10 +207,12 @@ export default function CollectrImportView(){
        <button type="button" className="hot-add-button" onClick={addHold} disabled={!signalsReady||!holdIds.size}>★ Add Hold cards only</button>
       </div>
       {added&&<span className="import-added" role="status">{added}</span>}
-      <span className="section-aside"><span>Imported {new Date(payload.importedAt).toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"})}</span>{signalsReady&&buySignals.asOfDate&&<span>Signals as of {formatFullDate(buySignals.asOfDate)}</span>}</span>
      </div>
     </div>
-    <h2>Portfolio<InfoHint label="About these numbers">NM market sums our Near Mint market prices (× quantity) for matched cards only. The Collectr value is their condition-adjusted estimate for every imported card. Coverage counts cards matched to the tracked catalog.</InfoHint></h2></header>
+    <div className="import-header-title">
+     <h2>Portfolio<InfoHint label="About these numbers">NM market sums our Near Mint market prices (× quantity) for matched cards only. The Collectr value is their condition-adjusted estimate for every imported card. Coverage counts cards matched to the tracked catalog.</InfoHint></h2>
+     <span className="section-aside"><span>Imported {new Date(payload.importedAt).toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"})}</span>{signalsReady&&buySignals.asOfDate&&<span>Signals as of {formatFullDate(buySignals.asOfDate)}</span>}</span>
+    </div></header>
     <div className="detail-history-grid import-summary-tiles">
      <div className="detail-metric"><small>NM market</small><b>{usd(marketTotal)}</b><span>{matched.length} tracked cards</span></div>
      <div className="detail-metric"><small>Collectr value</small><b>{usd(payload.profile.collectrValue??collectrTotal)}</b><span>condition-adjusted</span></div>

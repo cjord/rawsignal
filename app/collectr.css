@@ -32,6 +32,15 @@
 .import-run:disabled { opacity: .6; cursor: progress; }
 .import-run-secondary { background: transparent; border-color: var(--line); color: var(--text); font-weight: 700; }
 .import-run-secondary:hover { border-color: var(--blue); filter: none; }
+/* Import All is the heavier action (a real browser session) and gated to Scalper mode —
+   flag it with the site's red tone (down/sell): red border, light red infill. */
+.import-run-danger {
+  background: color-mix(in srgb, var(--tone-down) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--tone-down) 45%, var(--line));
+  color: var(--tone-down);
+  font-weight: 750;
+}
+.import-run-danger:hover { filter: none; background: color-mix(in srgb, var(--tone-down) 16%, var(--surface)); border-color: color-mix(in srgb, var(--tone-down) 62%, var(--line)); }
 
 /* CSV alternative: a link-styled label wrapping a visually hidden file input. */
 .import-alt { margin: 10px 0 0; color: var(--gray); font-size: var(--text-sm); }
@@ -53,10 +62,12 @@
 .import-header-top > span { color: var(--gray); font-size: var(--text-2xs); font-weight: 850; letter-spacing: .1em; text-transform: uppercase; padding-top: 5px; }
 .import-portfolio-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .import-portfolio-actions .import-actions { justify-content: flex-end; }
-/* Match the main leaderboard's "Updated …" aside: small, gray, right-aligned (not the
-   larger inherited body size it fell to once it left the header's direct span slot). */
-.import-portfolio-actions .section-aside { margin: 0; text-align: right; font-size: var(--text-sm); font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--gray); }
-.import-portfolio-actions .section-aside > span { display: block; }
+/* The "Portfolio" title row: h2 on the left, the import/signal dates aside on the right,
+   sharing one baseline. The aside matches the main leaderboard's "Updated …" — small,
+   gray, right-aligned (not the larger body size it inherits without this). */
+.import-header-title { display: flex; width: 100%; align-items: baseline; justify-content: space-between; gap: 4px 16px; flex-wrap: wrap; }
+.import-header-title .section-aside { margin: 0; text-align: right; font-size: var(--text-sm); font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--gray); }
+.import-header-title .section-aside > span { display: block; }
 
 /* Coverage tile hover popup: the names of the cards that did not match the catalog. The
    ⓘ marks that there's more behind a hover; the panel overlaps the tile's bottom edge

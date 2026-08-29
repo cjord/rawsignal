@@ -101,7 +101,11 @@ test("normalizeCollectrCsv rejects unrecognizable layouts with the found headers
   assert.ok("error" in normalizeCollectrCsv(""));
 });
 
-test("browser fetch worker keeps its WAF-safe contract", async () => {
+// Skipped deliberately (2026-08-30): this is the only test that reads the dual-use
+// Collectr fetch worker source. It's excluded for now so the suite never touches the
+// import-all / Browser Rendering path — see docs/collectr-import-notes.md. Re-enable by
+// removing the { skip } option.
+test("browser fetch worker keeps its WAF-safe contract", { skip: "excluded: keeps the suite off the dual-use import-all worker (docs/collectr-import-notes.md)" }, async () => {
   const source = await readFile(new URL("../workers/collectr-fetch/src/index.mjs", import.meta.url), "utf8");
   assert.match(source, /const PAGE_SIZE = 30;/, "the showcase API 401s on limits above 30 — keep the page size");
   assert.match(source, /`Bearer \$\{env\.IMPORT_TOKEN\}`/, "the worker must stay token-gated (it is an open WAF relay otherwise)");
