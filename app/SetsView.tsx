@@ -11,14 +11,10 @@ import {parseStrictness,STRICTNESS_KEY,usePreference} from "./state/usePreferenc
 import {setGroupsFor} from "../core/domain/eras";
 import {formatGameName,formatPercent} from "../core/domain/formatters";
 import type {SetDirectoryRow,SetsDirectoryPayload} from "../core/domain/sets";
-import setLogos from "../public/data/set-logos.json";
+import {setLogoFor} from "./data/set-logos";
 
 const GAMES:Exclude<SetsMarket,"all">[]=["pokemon","riftbound","onepiece"];
 const marketTabOptions=SETS_MARKETS.map(item=>({key:item,label:item==="all"?"All":formatGameName(item)}));
-
-// Must mirror scripts/sets/sync-set-logos.mjs so lookups land on the generated keys.
-const normalizeSetName=(value:string)=>value.toLowerCase().replace(/&/g," and ").replace(/[^a-z0-9]+/g," ").trim();
-const logoFor=(game:string,set:string)=>game==="pokemon"?(setLogos as {sets:Record<string,{logo:string;symbol:string|null}>}).sets[normalizeSetName(set)]??null:null;
 
 const compactUsd=(value:number)=>value>=1_000_000?`$${(value/1_000_000).toFixed(2)}M`:value>=10_000?`$${Math.round(value/1000).toLocaleString()}k`:`$${Math.round(value).toLocaleString()}`;
 const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -39,7 +35,7 @@ function ChangeChip({value,window:windowLabel}:{value:number|null;window:string}
 }
 
 function SetTile({row,asOf,starred}:{row:SetDirectoryRow;asOf:string;starred:boolean}){
- const logo=logoFor(row.game,row.set);
+ const logo=setLogoFor(row.game,row.set);
  const release=releaseLine(row,asOf);
  const counts=[row.chase>0?`${row.chase} chase`:null,row.sealed>0?`${row.sealed} sealed`:null].filter(Boolean).join(" · ");
  return <a className="set-tile" href={`/sets/${row.game}/${row.slug}`}>

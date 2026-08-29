@@ -8,10 +8,8 @@ import {setGroupLabel} from "../core/domain/eras";
 import {formatGameName,formatPercent,formatUsd,formatUtcDate} from "../core/domain/formatters";
 import type {SetDetailPayload} from "../core/domain/sets";
 import type {PricePoint} from "../core/domain/types";
-import setLogos from "../public/data/set-logos.json";
+import {setLogoFor} from "./data/set-logos";
 
-const normalizeSetName=(value:string)=>value.toLowerCase().replace(/&/g," and ").replace(/[^a-z0-9]+/g," ").trim();
-const logoFor=(game:string,set:string)=>game==="pokemon"?(setLogos as {sets:Record<string,{logo:string;symbol:string|null}>}).sets[normalizeSetName(set)]??null:null;
 const indexFormat=(value:number)=>Math.round(value).toLocaleString();
 const NEW_SET_DAYS=60;
 
@@ -27,7 +25,7 @@ const tone=(value:number|null)=>value==null||value===0?undefined:value<0?"down":
 
 export default function SetDetailView({payload}:{payload:SetDetailPayload}){
  const [strictness,setStrictness]=usePreference(STRICTNESS_KEY,parseStrictness,"balanced");
- const logo=logoFor(payload.game,payload.set);
+ const logo=setLogoFor(payload.game,payload.set);
  const released=payload.releaseDate?new Date(`${payload.releaseDate}T00:00:00Z`):null;
  const ageDays=released?Math.floor((Date.parse(payload.generatedAt)-released.getTime())/86400000):null;
  const ageMonths=ageDays==null?null:Math.floor(ageDays/30.44);

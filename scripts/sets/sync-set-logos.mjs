@@ -7,7 +7,7 @@ import { writeFile } from "node:fs/promises";
 // tiles. Run manually when new Pokémon sets ship: node scripts/sets/sync-set-logos.mjs
 // The newest sets can lag on pokemontcg.io — a missing entry falls back gracefully.
 
-const normalize = value => value.toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim();
+const normalize = value => value.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim();
 
 async function fetchPage(page) {
   for (let attempt = 1; attempt <= 3; attempt++) {
