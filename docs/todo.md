@@ -913,6 +913,14 @@ Deferred to a later phase at the user's direction:
    Details) section; render it **only in scalper mode**; and let a **purchase price be
    entered manually** to replace the MSRP-derived total cost in the profit math.
 
+## J. Sets view backlog (added 2026-08-29)
+
+**J1. Sort control on `/sets` (user-deferred at planning, 2026-08-29).** A control on the
+sets browse page reordering set tiles WITHIN their era/category groups by release date
+(default), 30D momentum, or tracked value — groups keep their order, tiles re-rank
+inside them, so "which Scarlet & Violet set is moving" is answerable without scanning.
+Excluded from the initial build; revisit after the browse page has real usage.
+
 ## Decisions — resolved at review (2026-08-27)
 
 1. **B2**: Direct low **removed everywhere** (hero + printings table; field stays in data).

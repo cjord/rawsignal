@@ -109,6 +109,12 @@
 .metrics-legend span::before{content:"";width:14px;height:3px;border-radius:2px}
 .legend-pokemon::before{background:var(--blue)}
 .legend-riftbound::before{background:var(--purple)}
+.legend-line.legend-main::before{background:var(--blue)}
+.legend-line.chart-series-2::before{background:var(--purple)}
+.legend-line.chart-series-3::before{background:var(--tone-warn)}
+.legend-line.chart-series-sp::before{background:var(--gray)}
+.metrics-compare-grid{align-items:start}
+.metrics-compare-card .metrics-legend{flex-wrap:wrap;row-gap:6px}
 .metrics-page .detail-section .chart-canvas{min-height:180px}
 .metrics-page .detail-section>.chart-wrap .sparkline,.metrics-page .metrics-legend+.chart-wrap .sparkline{width:100%!important;height:190px}
 

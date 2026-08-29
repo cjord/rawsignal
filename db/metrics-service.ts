@@ -136,7 +136,7 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options
         row_number() over (partition by m.game order by m.totalCents desc) as gameRank
       from medians m left join setChange c on c.set_name=m.set_name and c.game=m.game
     )
-    select setName, game, totalCents, cards, medianCents, change30Bps from sized where gameRank <= 30 order by totalCents desc`).bind().all<SetRow>()).results ?? [];
+    select setName, game, totalCents, cards, medianCents, change30Bps from sized where gameRank <= 50 order by totalCents desc`).bind().all<SetRow>()).results ?? [];
 
   // Sealed-vs-singles divergence (audit H2): each set's sealed products' median 30D change,
   // read the same middle-rank way as the singles momentum above.

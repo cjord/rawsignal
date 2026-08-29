@@ -8,7 +8,7 @@ import {parseStrictness,STRICTNESS_KEY,usePreference} from "./state/usePreferenc
 import PriceChart from "./PriceChart";
 import TopBar from "./TopBar";
 import HistoryPanel,{standardHistoryMetrics,type HistoryMetric} from "./HistoryPanel";
-import {SegmentedView} from "./MarketUI";
+import {NumberedPagination,SegmentedView} from "./MarketUI";
 import FavoriteStar from "./FavoriteStar";
 import MarketRow from "./leaderboard/MarketRow";
 import HistoryPopover from "./leaderboard/HistoryPopover";
@@ -65,6 +65,28 @@ const rebaseSeries=(points:PricePoint[],from:string):PricePoint[]=>{
  if(!start||start.price<=0)return [];
  return points.filter(point=>point.date>=from).map(point=>({date:point.date,price:(point.price/start.price)*100}));
 };
+const indexPointsFormat=(value:number)=>value.toFixed(1);
+
+// Cross-market comparison: every market's index for the mode plus the S&P benchmark,
+// rebased to 100 at the first date ALL included series share, one line each. The line
+// classes pair with legend and tooltip swatches (metrics.css / globals chart block).
+const comparisonLineClass=(index:number,key:string)=>key===BENCHMARK_KEY?"chart-series-sp":index===1?"chart-series-2":"chart-series-3";
+function ComparisonCard({mode,series}:{mode:Mode;series:Record<string,PricePoint[]|undefined>}){
+ const marketKeys=METRICS_MARKETS[mode].filter(item=>item!=="all").map(item=>indexKey(mode,item));
+ const lines=[
+  ...marketKeys.filter(key=>(series[key]?.length??0)>1).map(key=>({key,label:INDEX_META[key].title,points:series[key] as PricePoint[]})),
+  ...((series[BENCHMARK_KEY]?.length??0)>1?[{key:BENCHMARK_KEY,label:"S&P 500 (SPY)",points:series[BENCHMARK_KEY] as PricePoint[]}]:[]),
+ ];
+ const from=lines.length?lines.map(line=>line.points[0].date).sort().at(-1)!:"";
+ const rebased=lines.map(line=>({...line,points:rebaseSeries(line.points,from)})).filter(line=>line.points.length>1);
+ const title=mode==="singles"?"Singles markets vs S&P":"Sealed markets vs S&P";
+ if(rebased.length<2)return <div className="metrics-index-card metrics-compare-card"><header><b>{title}</b></header><p className="detail-unavailable">The comparison needs overlapping rolled-up history across markets.</p></div>;
+ const [main,...overlays]=rebased;
+ return <div className="metrics-index-card metrics-compare-card"><header><b>{title}</b></header>
+  <div className="metrics-legend">{rebased.map((line,index)=><span key={line.key} className={`legend-line ${index===0?"legend-main":comparisonLineClass(index,line.key)}`}>{line.label}</span>)}</div>
+  <PriceChart points={main.points} overlays={overlays.map((line,index)=>({label:line.label,points:line.points,className:comparisonLineClass(index+1,line.key)}))} mainLabel={main.label} formatValue={indexPointsFormat} label={`${title} comparison`}/>
+  <p className="detail-note">Each line rebased to 100 at the first date every series shares. Values are index points, not dollars; hover reads all lines at once.</p></div>;
+}
 
 function IndexCard({seriesKey,points,medianPoints,benchmark}:{seriesKey:string;points:PricePoint[];medianPoints?:PricePoint[];benchmark?:PricePoint[]}){
  const meta=INDEX_META[seriesKey];
@@ -82,7 +104,7 @@ function IndexCard({seriesKey,points,medianPoints,benchmark}:{seriesKey:string;p
  return <div className={`metrics-index-card ${accumulating?"is-accumulating":""}`}><header><b>{meta.title}</b>
   {options.length>1&&!accumulating&&<div className="metrics-seg metrics-seg-small" role="tablist" aria-label={`${meta.title} series`}>{options.map(([key,label])=><button key={key} type="button" role="tab" aria-selected={active===key} className={active===key?"active":""} onClick={()=>setView(key)}>{label}</button>)}</div>}
   {latest&&active!=="sp"&&<span className="metrics-index-value">{formatUsd(latest.price)}</span>}</header>
-  {active==="sp"?(spBase.length>1&&spOverlay.length>1?<><div className="metrics-legend"><span className="legend-pokemon">{meta.title}</span><span className="legend-riftbound">S&amp;P 500 (SPY)</span></div><PriceChart points={spBase} overlay={spOverlay} label={`${meta.title} vs S&P`}/></>:<p className="detail-unavailable">The comparison needs overlapping history for both series.</p>)
+  {active==="sp"?(spBase.length>1&&spOverlay.length>1?<><div className="metrics-legend"><span className="legend-line legend-main">{meta.title}</span><span className="legend-line chart-series-sp">S&amp;P 500 (SPY)</span></div><PriceChart points={spBase} overlays={[{label:"S&P 500 (SPY)",points:spOverlay,className:"chart-series-sp"}]} mainLabel={meta.title} formatValue={indexPointsFormat} label={`${meta.title} vs S&P`}/></>:<p className="detail-unavailable">The comparison needs overlapping history for both series.</p>)
   :shown.length>1?<><PriceChart points={shown} label={`${meta.title} ${active}`}/><ChangeTiles {...deltas}/></>:<p className="detail-unavailable">History accumulating — one rolled-up day so far; the line grows daily.</p>}
   <p className="detail-note">{active==="sp"?"Both series rebased to 100 at the first shared date. S&P 500 via the SPY ETF (Alpha Vantage) — index points, not dollars.":active==="median"&&hasMedian?"Median tracked card price each day — the typical card, where the index tracks the top of the market.":meta.note}</p></div>;
 }
@@ -118,36 +140,43 @@ const compare=(a:number|string|null,b:number|string|null,direction:"asc"|"desc")
 type SetColumn="set"|"trackedValue"|"medianPrice"|"cards"|"change30"|"sealedChange30"|"evRatio";
 function SetTable({sets}:{sets:MetricsSetRow[]}){
  const {sort,direction,onSort}=useSort<SetColumn>("trackedValue");
+ const [page,setPage]=useState(1);
  const rows=useMemo(()=>[...sets].sort((a,b)=>compare(a[sort],b[sort],direction)),[sets,sort,direction]);
- return <div className="detail-table-scroll"><table className="detail-variants-table metrics-table"><thead><tr>
-  <SortTh label="Set" column="set" sort={sort} direction={direction} onSort={onSort}/>
+ const pages=Math.max(1,Math.ceil(rows.length/10)),current=Math.min(page,pages),visible=rows.slice((current-1)*10,current*10);
+ const sortAnd=(column:SetColumn)=>{setPage(1);onSort(column)};
+ return <><div className="detail-table-scroll"><table className="detail-variants-table metrics-table"><thead><tr>
+  <SortTh label="Set" column="set" sort={sort} direction={direction} onSort={sortAnd}/>
   <th scope="col">Game</th>
-  <SortTh label="Tracked value" column="trackedValue" sort={sort} direction={direction} onSort={onSort}/>
-  <SortTh label="Median card" column="medianPrice" sort={sort} direction={direction} onSort={onSort}/>
-  <SortTh label="Cards" column="cards" sort={sort} direction={direction} onSort={onSort}/>
-  <SortTh label="30D momentum" column="change30" sort={sort} direction={direction} onSort={onSort}/>
-  <SortTh label="Sealed 30D" column="sealedChange30" sort={sort} direction={direction} onSort={onSort}/>
-  <SortTh label="Pack EV" column="evRatio" sort={sort} direction={direction} onSort={onSort}/>
+  <SortTh label="Tracked value" column="trackedValue" sort={sort} direction={direction} onSort={sortAnd}/>
+  <SortTh label="Median card" column="medianPrice" sort={sort} direction={direction} onSort={sortAnd}/>
+  <SortTh label="Cards" column="cards" sort={sort} direction={direction} onSort={sortAnd}/>
+  <SortTh label="30D momentum" column="change30" sort={sort} direction={direction} onSort={sortAnd}/>
+  <SortTh label="Sealed 30D" column="sealedChange30" sort={sort} direction={direction} onSort={sortAnd}/>
+  <SortTh label="Pack EV" column="evRatio" sort={sort} direction={direction} onSort={sortAnd}/>
  </tr></thead><tbody>
-  {rows.map(row=><tr key={`${row.game}:${row.set}`}><th scope="row"><a href={`/?mode=singles&market=${row.game}&rarity=all&sets=${encodeURIComponent(row.set)}`}>{row.set}</a></th><td>{formatGameName(row.game)}</td><td>{compactUsd(row.trackedValue)}</td><td>{formatUsd(row.medianPrice)}</td><td>{row.cards.toLocaleString()}</td><td><span className={`metrics-chip ${tone(row.change30)??""}`}>{pct(row.change30)}</span></td><td><span className={`metrics-chip ${tone(row.sealedChange30)??""}`}>{pct(row.sealedChange30)}</span></td><td>{row.packEv!=null?<span className="metrics-ev">{formatUsd(row.packEv)}{row.evRatio!=null&&<em className={`metrics-chip ${row.evRatio>=1?"up":"down"}`}>{row.evRatio.toFixed(2)}×</em>}</span>:"N/A"}</td></tr>)}
- </tbody></table></div>;
+  {visible.map(row=><tr key={`${row.game}:${row.set}`}><th scope="row"><a href={`/?mode=singles&market=${row.game}&rarity=all&sets=${encodeURIComponent(row.set)}`}>{row.set}</a></th><td>{formatGameName(row.game)}</td><td>{compactUsd(row.trackedValue)}</td><td>{formatUsd(row.medianPrice)}</td><td>{row.cards.toLocaleString()}</td><td><span className={`metrics-chip ${tone(row.change30)??""}`}>{pct(row.change30)}</span></td><td><span className={`metrics-chip ${tone(row.sealedChange30)??""}`}>{pct(row.sealedChange30)}</span></td><td>{row.packEv!=null?<span className="metrics-ev">{formatUsd(row.packEv)}{row.evRatio!=null&&<em className={`metrics-chip ${row.evRatio>=1?"up":"down"}`}>{row.evRatio.toFixed(2)}×</em>}</span>:"N/A"}</td></tr>)}
+ </tbody></table></div>
+ {pages>1&&<NumberedPagination page={current} pages={pages} onChange={setPage} label="Set leaderboard pages"/>}</>;
 }
 
 type CategoryColumn="category"|"trackedValue"|"medianPrice"|"products"|"change7"|"change30"|"change90";
 function CategoryTable({categories}:{categories:MetricsCategoryRow[]}){
  const {sort,direction,onSort}=useSort<CategoryColumn>("trackedValue");
+ const [page,setPage]=useState(1);
  const rows=useMemo(()=>[...categories].sort((a,b)=>compare(a[sort],b[sort],direction)),[categories,sort,direction]);
- return <div className="detail-table-scroll"><table className="detail-variants-table metrics-table"><thead><tr>
-  <SortTh label="Category" column="category" sort={sort} direction={direction} onSort={onSort}/>
+ const pages=Math.max(1,Math.ceil(rows.length/10)),current=Math.min(page,pages),visible=rows.slice((current-1)*10,current*10);
+ const sortAnd=(column:CategoryColumn)=>{setPage(1);onSort(column)};
+ return <><div className="detail-table-scroll"><table className="detail-variants-table metrics-table"><thead><tr>
+  <SortTh label="Category" column="category" sort={sort} direction={direction} onSort={sortAnd}/>
   <th scope="col">Game</th>
-  <SortTh label="Tracked value" column="trackedValue" sort={sort} direction={direction} onSort={onSort}/>
-  <SortTh label="Median product" column="medianPrice" sort={sort} direction={direction} onSort={onSort}/>
-  <SortTh label="Products" column="products" sort={sort} direction={direction} onSort={onSort}/>
-  <SortTh label="7D momentum" column="change7" sort={sort} direction={direction} onSort={onSort}/>
-  <SortTh label="30D momentum" column="change30" sort={sort} direction={direction} onSort={onSort}/>
-  <SortTh label="90D momentum" column="change90" sort={sort} direction={direction} onSort={onSort}/>
+  <SortTh label="Tracked value" column="trackedValue" sort={sort} direction={direction} onSort={sortAnd}/>
+  <SortTh label="Median product" column="medianPrice" sort={sort} direction={direction} onSort={sortAnd}/>
+  <SortTh label="Products" column="products" sort={sort} direction={direction} onSort={sortAnd}/>
+  <SortTh label="7D momentum" column="change7" sort={sort} direction={direction} onSort={sortAnd}/>
+  <SortTh label="30D momentum" column="change30" sort={sort} direction={direction} onSort={sortAnd}/>
+  <SortTh label="90D momentum" column="change90" sort={sort} direction={direction} onSort={sortAnd}/>
  </tr></thead><tbody>
-  {rows.map(row=>{
+  {visible.map(row=>{
    // The leaderboard filters on normalized product types: resolve this category through
    // the same normalizer so the deep link lands on matching rows, not an empty list.
    const href=`/?mode=sealed&market=${row.game}&type=${encodeURIComponent(canonicalSealedType(row.category))}`;
@@ -159,7 +188,8 @@ function CategoryTable({categories}:{categories:MetricsCategoryRow[]}){
     <td><span className={`metrics-chip ${tone(row.change90)??""}`}>{pct(row.change90)}</span></td>
    </tr>;
   })}
- </tbody></table></div>;
+ </tbody></table></div>
+ {pages>1&&<NumberedPagination page={current} pages={pages} onChange={setPage} label="Category leaderboard pages"/>}</>;
 }
 
 const moverTarget=(mover:MetricsMover):HistoryTarget=>mover.kind==="single"?{productId:mover.productId,printing:mover.printing}:{productId:mover.productId,printing:"Sealed",sealed:true};
@@ -243,23 +273,12 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
   const scopedMovers=payload.movers.filter(mover=>mover.kind===kind&&mover.window===moversWindow&&(market==="all"||mover.game===market));
   const gainers=scopedMovers.filter(mover=>mover.direction==="up").sort((a,b)=>b.change-a.change).slice(0,8);
   const decliners=scopedMovers.filter(mover=>mover.direction==="down").sort((a,b)=>a.change-b.change).slice(0,8);
-  const sets=mode==="singles"?(market==="all"?[...payload.sets].sort((a,b)=>b.trackedValue-a.trackedValue).slice(0,30):payload.sets.filter(row=>row.game===market)):[];
+  const sets=mode==="singles"?(market==="all"?[...payload.sets].sort((a,b)=>b.trackedValue-a.trackedValue).slice(0,50):payload.sets.filter(row=>row.game===market)):[];
   const categories=mode==="sealed"?payload.sealedCategories.filter(row=>market==="all"||row.game===market):[];
   return {overview,combined,momentum,gainers,decliners,sets,categories};
  },[payload,series,kind,mode,market,moversWindow]);
  const moverTargets=useMemo(()=>scoped?[...scoped.gainers,...scoped.decliners].map(moverTarget):[],[scoped]);
  const moverHistory=useHistoryOnce(moverTargets);
-
- const compareKeys=market==="all"?[indexKey(mode,"pokemon"),indexKey(mode,"riftbound")]:null;
- const comparePokemon=compareKeys?series[compareKeys[0]]??[]:[];
- const compareRiftbound=compareKeys?series[compareKeys[1]]??[]:[];
- const rebaseFrom=compareRiftbound[0]?.date??"";
- const rebase=(points:PricePoint[])=>{
-  const start=points.find(point=>point.date>=rebaseFrom);
-  if(!start||start.price<=0)return [];
-  return points.filter(point=>point.date>=rebaseFrom).map(point=>({date:point.date,price:(point.price/start.price)*100}));
- };
- const pokemonBase=rebase(comparePokemon),riftboundBase=rebase(compareRiftbound);
 
  return <main className="detail-page metrics-page"><TopBar active="metrics" strictness={strictness} onStrictness={changeStrictness}/>
   <header className="masthead" id="top">
@@ -296,8 +315,11 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
     </div></>}</section>
    <section className="detail-section"><header><span>Equal-weighted indexes</span><h2>Indexes<InfoHint label="About the indexes">Each index is the mean of that day&apos;s top prices in its scope, rebalanced daily. Days observing too little of the market are excluded, which is why some series start later than others.</InfoHint></h2></header>
     <div className="metrics-index-grid">{visibleIndexKeys(mode,market).map(key=><IndexCard key={key} seriesKey={key} points={series[key]??[]} medianPoints={MEDIAN_FOR[key]?series[MEDIAN_FOR[key]]:undefined} benchmark={series[BENCHMARK_KEY]}/>)}</div></section>
-   {compareKeys&&<section className="detail-section"><header><span>Cross-market</span><h2>Pokémon vs Riftbound</h2></header>
-    {pokemonBase.length>1&&riftboundBase.length>1?<><div className="metrics-legend"><span className="legend-pokemon">{INDEX_META[compareKeys[0]].title}</span><span className="legend-riftbound">{INDEX_META[compareKeys[1]].title}</span></div><PriceChart points={pokemonBase} overlay={riftboundBase} label="base-100 comparison"/><p className="detail-note">Each game&apos;s equal-weighted index rebased to 100 at the first shared rollup date. Values are index points, not dollars.</p></>:<p className="detail-unavailable">The comparison needs rolled-up history for both games.</p>}</section>}
+   <section className="detail-section"><header><span>Cross-market</span><h2>Cross-Market vs S&amp;P<InfoHint label="About the comparison">Every market&apos;s equal-weighted index for the scope, with the S&amp;P 500 (via the SPY ETF) alongside, all rebased to 100 at the first date every line shares. Hover reads every line at the cursor date.</InfoHint></h2></header>
+    <div className="metrics-index-grid metrics-compare-grid">
+     <ComparisonCard mode={mode} series={series}/>
+     {market==="all"&&<ComparisonCard mode={mode==="singles"?"sealed":"singles"} series={series}/>}
+    </div></section>
    {mode==="singles"&&market==="pokemon"&&(payload.eras?.length??0)>0&&<section className="detail-section"><header><span>Pokémon by era</span><h2>Era performance<InfoHint label="About eras">Every tracked Pokémon set folded into its collector era (prefix first, release year otherwise). 30D momentum is the tracked-value-weighted mean of member sets&apos; median card changes — big sets move the era, minor sets don&apos;t swamp it.</InfoHint></h2></header><EraTable eras={payload.eras??[]}/></section>}
    {mode==="singles"?<section className="detail-section"><header><span>By set</span><h2>Set Leaderboard<InfoHint label="About the leaderboard">Top sets by tracked singles value. 30D momentum is the median of member cards&apos; 30-day changes; Sealed 30D is the same for the set&apos;s sealed products — a gap between them flags rotation between the two markets. Pack EV is the expected chase-card value of one booster from community pull-rate estimates times current singles prices (bulk excluded); the multiple compares it against the cheapest live pack price — above 1× means ripping beats buying the singles at these prices. Set names link to the filtered leaderboard.</InfoHint></h2></header><SetTable sets={scoped?.sets??[]}/></section>
    :<section className="detail-section"><header><span>By category</span><h2>Category Leaderboard<InfoHint label="About the leaderboard">Sealed products grouped by category. The median is the middle product price in the category; each momentum column is the median of member products&apos; changes over that window. Rows open the sealed leaderboard filtered to the category.</InfoHint></h2></header><CategoryTable categories={scoped?.categories??[]}/></section>}
