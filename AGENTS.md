@@ -34,10 +34,10 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - `app/hooks/useDisclosurePopover.ts`: the shared hover/touch/keyboard disclosure behavior for row history popovers.
 - `app/cards/[productId]/`, `app/sealed/[productId]/`, `app/ProductDetailPage.tsx`, `app/detail-route.ts`: product detail pages and their server-route metadata/validation helpers.
 - `app/detail-tables.tsx`: the sealed detail page's Chase cards and same-set sealed tables, reusing the leaderboard row shell in Medium/Text views. Chase cards are set cards priced above the set's cheapest plain booster-pack market price (top cards by value when no pack price exists), capped at twelve.
-- `app/domain/detail.ts`, `app/domain/detail-metrics.ts`, `app/data/load-detail.ts`: detail formatting, similarity scoring, and the D1 → scalping-feed → generated-feed detail resolution cascade.
+- `core/domain/detail.ts`, `core/domain/detail-metrics.ts`, `app/data/load-detail.ts`: detail formatting, similarity scoring, and the D1 → scalping-feed → generated-feed detail resolution cascade.
 - `app/not-found.tsx`: shared 404 surface.
-- `app/domain/`: shared market types, runtime feed contracts, and display formatters.
-- `app/data/catalog-query.ts`, `app/data/catalog-repository.ts`: shared Singles/Sealed query semantics and repository contract.
+- `core/domain/`: shared market types, runtime feed contracts, and display formatters.
+- `core/catalog-query.ts`, `core/catalog-repository.ts`: shared Singles/Sealed query semantics and repository contract.
 - `app/data/feed-catalog-repository.ts`, `app/data/catalog-service.ts`: bundled-feed adapter and transport-neutral catalog service.
 - `app/data/tcgplayer-history-client.ts`: shared annual/quarterly TCGplayer history loading used by the public API and staging backfill.
 - `app/data/usePersistedSignals.ts`, `app/api/signals/route.ts`: persisted Hot Buy/Hot Sell readiness gate and compact signal records.
@@ -61,8 +61,8 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - `docs/cloudflare-cutover.md`, `cloudflare/environments.json`, `scripts/cloudflare/`: direct-Cloudflare staging contract, generated-config preparation, and catalog parity checks.
 - `sync-tcgcsv.mjs`: generates Singles market data and `tcg-index.json` from TCGCSV.
 - `sync-sealed.mjs`: generates normalized Pokémon sealed-product data.
-- `sealed-product-utils.mjs`: market validation, deduplication, and product-type classification.
-- `scripts/clients/`, `scripts/normalize/`, `scripts/validate/`, `scripts/io/`: retrying source clients, pure normalization, validation manifests, and last-good publishing.
+- `core/sealed-product-utils.ts`: market validation, deduplication, and product-type classification.
+- `core/clients/`, `core/normalize/`, `scripts/validate/`, `scripts/io/`: retrying source clients, pure normalization, validation manifests, and last-good publishing.
 - `scripts/graded/sync-graded.mjs`: budgeted PokemonPriceTracker sync producing `public/data/graded-prices.json` (eBay graded-sale snapshots for the most valuable Pokémon singles, stalest-first rotation).
 - `scripts/scalper/`: the Scalper allowlist pipeline — `reconcile.mjs` and `build-feed.mjs` produce `public/data/sealed-scalping.json` from `approved-variants.json`, `supplemental-products.json`, and the review process in `docs/scalper-variant-review.md`.
 - `scripts/details/`: the detail-feed generator — `build-detail-feeds.mjs` (npm `data:build:details`, IO and flags) and `enrichment.mjs` (pure construction). It rebuilds `public/data/detail-manifest.json` plus `public/data/details/` from the bundled feeds, fetching TCGCSV per-group metadata and printing prices with `--enrich` and pruning stale chunks; `--require-fresh` exits with code 3 when TCGCSV has not published since the last sync.
@@ -103,7 +103,7 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - Never derive volume from price observations, listing counts, or history-point counts, and do not label anything as TCGplayer sales rank; rank remains unavailable.
 - Pull rates are curated community-measured estimates in `public/data/pull-rates.json` (packs per hit of any card of the rarity; per-card odds multiply by the set's rarity count). Every derived value must be labeled an estimate, uncurated rarities render as unavailable, and rates are never inferred from prices or card counts alone.
 - Graded prices come only from the PokemonPriceTracker API (eBay completed sales per grade), synced by `scripts/graded/sync-graded.mjs` into `public/data/graded-prices.json` under a per-run credit budget (free tier: 100/day, 2 per card). Label the provenance and update date wherever graded values appear, keep ungraded/graded data unblended, and render cards without a snapshot as unavailable. The API key lives in `.secrets/` (gitignored) or `POKEMONPRICETRACKER_API_KEY`; never commit it.
-- Modeled fair value is the documented transparent blend in `app/domain/detail-metrics.ts`: 90-day median 40%, 30-day median 24%, current median listing 16%, and set-rarity peer anchor 20%, renormalized over available components (exactly 50/30/20 while the anchor is unavailable). The anchor activates only once its cohort has 14 daily observations in `public/data/peer-context.json`, accumulated per TCGCSV publish date by `scripts/details/build-peer-context.mjs`. It must always be labeled a model, never a valuation guarantee, and renders nothing when no component exists. Do not add opaque or predictive components without an explicit user decision.
+- Modeled fair value is the documented transparent blend in `core/domain/detail-metrics.ts`: 90-day median 40%, 30-day median 24%, current median listing 16%, and set-rarity peer anchor 20%, renormalized over available components (exactly 50/30/20 while the anchor is unavailable). The anchor activates only once its cohort has 14 daily observations in `public/data/peer-context.json`, accumulated per TCGCSV publish date by `scripts/details/build-peer-context.mjs`. It must always be labeled a model, never a valuation guarantee, and renders nothing when no component exists. Do not add opaque or predictive components without an explicit user decision.
 - Calculate 7-, 30-, and 90-day changes from dated history observations using the nearest observation at or before the cutoff.
 - Calculate displayed 30-day low/high from the historical market series, not listing extremes.
 - Keep variants/printings explicit. Do not merge records solely because their names match.
@@ -156,7 +156,7 @@ npm run check
 
 It also runs lint and the Chromium browser suite (install its browser once with `npm run test:browser:install`). Fix new warnings introduced by the change; do not broaden scope to unrelated legacy warnings without approval.
 
-Note that `tests/rendered-html.test.mjs` and `tests/scalper-mode.test.mjs` include characterization assertions that regex-match raw component source. When reformatting or restructuring a matched file, update those regexes deliberately (keep them whitespace-tolerant) rather than weakening or deleting the assertion.
+Note that `tests/source-contracts.test.mjs` and `tests/scalper-mode.test.mjs` include characterization assertions that regex-match raw component source. When reformatting or restructuring a matched file, update those regexes deliberately (keep them whitespace-tolerant) rather than weakening or deleting the assertion.
 
 Add or update tests when changing:
 
