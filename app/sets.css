@@ -75,10 +75,13 @@
 .set-star.is-starred { color: var(--tone-favorite); }
 
 .set-tile-foot { display: flex; align-items: center; gap: 12px; min-width: 0; }
-/* Compact leaderboard-style chips: muted window label + toned mono value. */
-.set-tile-changes { display: flex; flex: 1; min-width: 0; gap: 16px; }
-.set-tile-change { display: inline-flex; align-items: baseline; gap: 5px; }
+/* Movement pills matching the cards large view: bordered, label + toned mono value,
+   border and wash tinted by direction. */
+.set-tile-changes { display: flex; flex: 1; min-width: 0; gap: 8px; }
+.set-tile-change { display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--soft); }
 .set-tile-change small { color: var(--gray); font: 800 var(--text-2xs) var(--font-sans); letter-spacing: .06em; }
+.set-tile-change.up { border-color: color-mix(in srgb, var(--tone-up) 38%, var(--line)); background: color-mix(in srgb, var(--tone-up) 7%, var(--soft)); }
+.set-tile-change.down { border-color: color-mix(in srgb, var(--tone-down) 38%, var(--line)); background: color-mix(in srgb, var(--tone-down) 7%, var(--soft)); }
 .set-tile-arrow { color: var(--gray); font-size: var(--text-md); font-weight: 750; transition: color var(--motion-fast), transform var(--motion-fast); }
 .set-tile:hover .set-tile-arrow { color: var(--blue); transform: translateX(2px); }
 

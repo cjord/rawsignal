@@ -44,8 +44,8 @@ function SetTile({row,asOf,starred}:{row:SetDirectoryRow;asOf:string;starred:boo
   </div>
   <div className="set-tile-foot">
    <div className="set-tile-changes">
-    <span className="set-tile-change"><small>7D</small><span className={`metrics-chip ${toneOf(row.change7)??""}`}>{pctLabel(row.change7)}</span></span>
-    <span className="set-tile-change"><small>30D</small><span className={`metrics-chip ${toneOf(row.change30)??""}`}>{pctLabel(row.change30)}</span></span>
+    <span className={`set-tile-change ${toneOf(row.change7)??""}`}><small>7D</small><span className={`metrics-chip ${toneOf(row.change7)??""}`}>{pctLabel(row.change7)}</span></span>
+    <span className={`set-tile-change ${toneOf(row.change30)??""}`}><small>30D</small><span className={`metrics-chip ${toneOf(row.change30)??""}`}>{pctLabel(row.change30)}</span></span>
    </div>
    <span className="set-tile-arrow" aria-hidden="true">→</span>
   </div>
