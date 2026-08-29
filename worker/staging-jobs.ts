@@ -84,22 +84,22 @@ async function equalTokens(left: string, right: string) {
   return difference === 0;
 }
 
-async function load<T>(request: Request, assets: AssetsBinding, filename: string, parse: (value: unknown) => T[]) {
-  const response = await assets.fetch(new Request(new URL(`/data/${filename}`, request.url), { headers: { Accept: "application/json" } }));
-  if (!response.ok) throw new Error(`Staging source ${filename} unavailable: ${response.status}`);
-  return parse(await response.json());
+// One asset reader for the ops adapter and the cron tick; the base URL only routes the
+// assets binding by pathname (any host works).
+export async function fetchAssetJson(assets: AssetsBinding, path: string, base: string): Promise<unknown> {
+  const response = await assets.fetch(new Request(new URL(path, base), { headers: { Accept: "application/json" } }));
+  if (!response.ok) throw new Error(`Asset source ${path} unavailable: ${response.status}`);
+  return response.json();
 }
 
-async function loadAsset(request: Request, assets: AssetsBinding, path: string): Promise<unknown> {
-  const response = await assets.fetch(new Request(new URL(path, request.url), { headers: { Accept: "application/json" } }));
-  if (!response.ok) throw new Error(`Staging source ${path} unavailable: ${response.status}`);
-  return response.json();
+async function load<T>(request: Request, assets: AssetsBinding, filename: string, parse: (value: unknown) => T[]) {
+  return parse(await fetchAssetJson(assets, `/data/${filename}`, request.url));
 }
 
 // The detail manifest maps `${kind}:${productId}` to its enrichment chunk; the sorted unique
 // chunk list is the detail-ingestion cursor space (stable for a given deploy).
 export async function loadDetailChunkPaths(request: Request, assets: AssetsBinding): Promise<string[]> {
-  const manifest = await loadAsset(request, assets, "/data/detail-manifest.json") as Record<string, string>;
+  const manifest = await fetchAssetJson(assets, "/data/detail-manifest.json", request.url) as Record<string, string>;
   return [...new Set(Object.values(manifest))].sort();
 }
 
@@ -119,6 +119,41 @@ export function historyTargets(snapshot: DailyCatalogSnapshot): HistoryBackfillT
   ];
 }
 
+// One implementation per job body. The ops adapter and the cron tick share these and
+// differ only in authentication, scheduling decisions, batch sizes, and reporting.
+export function runLiveJob(env: StagingJobEnv, request: Request, batchSize: number, sourceUpdatedAt: string) {
+  return runLiveDailyIngestionBatch(env.DB, liveSyncDeps(request, env.ASSETS), { sourceUpdatedAt, batchSize });
+}
+
+export async function runDetailsJob(env: StagingJobEnv, request: Request, batchSize: number, sourceUpdatedAt: string) {
+  const chunkPaths = await loadDetailChunkPaths(request, env.ASSETS);
+  return runDetailIngestionBatch(env.DB, chunkPaths, path => fetchAssetJson(env.ASSETS, path, request.url), { batchSize, sourceUpdatedAt });
+}
+
+// Callers gate on the key's presence (503 in the adapter, the scheduler's decision input).
+export function runGradedJob(env: StagingJobEnv, budget: number) {
+  return runGradedRotationBatch(env.DB, gradedRotationDeps(env.POKEMONPRICETRACKER_API_KEY!), { budget });
+}
+
+export async function runMetricsJob(env: StagingJobEnv, mode: "daily" | "backfill") {
+  const result = await runMetricsRollup(env.DB, { mode });
+  // The S&P benchmark rides the metrics cadence: one Alpha Vantage call per run, skipped
+  // entirely when no key is configured; a failed fetch never fails the rollup.
+  const benchmark = env.ALPHAVANTAGE_API_KEY
+    ? await runBenchmarkIngestion(env.DB, env.ALPHAVANTAGE_API_KEY).catch(error => ({ series: "benchmark:sp500", rows: 0, note: error instanceof Error ? error.message : "failed", done: false }))
+    : null;
+  return { ...result, benchmark };
+}
+
+export async function runHistoryJob(env: StagingJobEnv, request: Request, batchSize: number, sourceUpdatedAt: string) {
+  const snapshot = await loadStagingSnapshot(request, env.ASSETS, sourceUpdatedAt);
+  const targets = historyTargets(snapshot);
+  return runHistoryBackfillBatch(env.DB, targets, target => fetchTcgplayerHistory(target.productId, target.printing, Boolean(target.sealed)), {
+    batchSize,
+    sourceUpdatedAt: snapshot.sourceUpdatedAt,
+  });
+}
+
 export async function handleStagingJob(request: Request, env: StagingJobEnv): Promise<Response | null> {
   if (new URL(request.url).pathname !== path) return null;
   if (env.ENVIRONMENT !== "staging") return json({ error: "Not found" }, 404);
@@ -134,35 +169,24 @@ export async function handleStagingJob(request: Request, env: StagingJobEnv): Pr
     if (input.job === "live") {
       const requested = typeof input.batchSize === "number" ? input.batchSize : 80;
       const probed = await probeTcgcsvUpdatedAt();
-      const result = await runLiveDailyIngestionBatch(env.DB, liveSyncDeps(request, env.ASSETS), { sourceUpdatedAt: probed, batchSize: requested });
-      return json({ job: "live", result });
+      return json({ job: "live", result: await runLiveJob(env, request, requested, probed) });
     }
     if (input.job === "graded") {
       if (!env.POKEMONPRICETRACKER_API_KEY) return json({ error: "Graded rotation key is not configured" }, 503);
       const budget = typeof input.batchSize === "number" ? input.batchSize : 90;
-      const result = await runGradedRotationBatch(env.DB, gradedRotationDeps(env.POKEMONPRICETRACKER_API_KEY), { budget });
-      return json({ job: "graded", result });
+      return json({ job: "graded", result: await runGradedJob(env, budget) });
     }
     if (input.job === "metrics") {
-      const mode = input.batchSize === 0 ? "daily" : "backfill";
-      const result = await runMetricsRollup(env.DB, { mode });
-      // The S&P benchmark rides the metrics cadence: one Alpha Vantage call per run,
-      // skipped entirely when no key is configured.
-      const benchmark = env.ALPHAVANTAGE_API_KEY
-        ? await runBenchmarkIngestion(env.DB, env.ALPHAVANTAGE_API_KEY).catch(error => ({ series: "benchmark:sp500", rows: 0, note: error instanceof Error ? error.message : "failed", done: false }))
-        : null;
-      return json({ job: "metrics", result: { ...result, benchmark } });
+      return json({ job: "metrics", result: await runMetricsJob(env, input.batchSize === 0 ? "daily" : "backfill") });
     }
     if (input.job === "details") {
       const requested = typeof input.batchSize === "number" ? input.batchSize : 4;
-      const chunkPaths = await loadDetailChunkPaths(request, env.ASSETS);
-      const result = await runDetailIngestionBatch(env.DB, chunkPaths, path => loadAsset(request, env.ASSETS, path), { batchSize: requested, sourceUpdatedAt });
-      return json({ job: "details", result });
+      return json({ job: "details", result: await runDetailsJob(env, request, requested, sourceUpdatedAt) });
     }
-    const snapshot = await loadStagingSnapshot(request, env.ASSETS, sourceUpdatedAt);
     if (input.job === "daily") {
       const requested = typeof input.batchSize === "number" ? input.batchSize : 50;
       const batchSize = Math.max(1, Math.min(maxDailyBatchSize, Math.floor(requested)));
+      const snapshot = await loadStagingSnapshot(request, env.ASSETS, sourceUpdatedAt);
       return json({ job: "daily", result: await runDailyMarketIngestionBatch(env.DB, snapshot, { batchSize }) });
     }
     if (input.job === "history") {
@@ -170,12 +194,7 @@ export async function handleStagingJob(request: Request, env: StagingJobEnv): Pr
       // 60 targets × ~2 external fetches stays under the paid plan's 1000-subrequest limit;
       // the binding-call budget (~12 D1 ops per target) is the tighter ceiling.
       const batchSize = Math.max(1, Math.min(60, Math.floor(requested)));
-      const targets = historyTargets(snapshot);
-      const result = await runHistoryBackfillBatch(env.DB, targets, target => fetchTcgplayerHistory(target.productId, target.printing, Boolean(target.sealed)), {
-        batchSize,
-        sourceUpdatedAt: snapshot.sourceUpdatedAt,
-      });
-      return json({ job: "history", result });
+      return json({ job: "history", result: await runHistoryJob(env, request, batchSize, sourceUpdatedAt) });
     }
     return json({ error: "Job must be live, daily, history, details, graded, or metrics" }, 400);
   } catch (error) {
