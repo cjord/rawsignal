@@ -135,7 +135,7 @@
    the kicker span sits inside a wrapper, so the >header>span styling is replicated. */
 .set-index-head { justify-content: space-between; }
 .set-index-head > div > span { display: block; margin-bottom: 5px; color: var(--gray); font-size: var(--text-2xs); font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
-.set-index-head .section-aside { margin-left: auto; color: var(--gray); font-size: var(--text-xs); text-align: right; }
+.set-index-head .section-aside { flex: 1 0 auto; margin-left: auto; color: var(--gray); font-size: var(--text-xs); text-align: right; }
 
 @media (max-width: 1000px) { .set-detail-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 620px) {

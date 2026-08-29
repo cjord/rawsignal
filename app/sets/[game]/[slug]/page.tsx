@@ -11,7 +11,8 @@ const GAMES = new Set(["pokemon", "riftbound", "onepiece"]);
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const title = slug.split("-").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+  // Set-code tokens read as codes ("SV08"), everything else title-cased.
+  const title = slug.split("-").map(word => /^(?:sv|swsh|sm|me|hs|ex|bw|xy|dp|pop)\d*$/.test(word) ? word.toUpperCase() : word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
   return { title: `${title} Set — Raw Signal` };
 }
 
