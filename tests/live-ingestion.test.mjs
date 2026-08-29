@@ -80,7 +80,7 @@ const deps={
   async fetchMsrp(){return new Map([[201,{msrp:120,matched:true}]])},
   // The curated riftbound feed shares product 401 with the walked group (MSRP merge + dedupe).
   async loadBundledSealed(market){
-    if(market==="riftbound")return [{game:"riftbound",productId:401,name:"Rift Set - Booster Display",set:"Rift Set",category:"Booster boxes",image:null,url:"https://example.com/rbd",msrp:90,marketPrice:80,midPrice:82,profit:null,profitPct:null,msrpSource:"Asmodee/Riftbound MSRP"}];
+    if(market==="riftbound")return [{game:"riftbound",productId:401,name:"Rift Set - Booster Display",set:"Rift Set",category:"Booster Boxes",image:null,url:"https://example.com/rbd",msrp:90,marketPrice:80,midPrice:82,profit:null,profitPct:null,msrpSource:"Asmodee/Riftbound MSRP"}];
     return [{game:"onepiece",productId:402,name:"onepiece Fixture Box",set:"Bundle Set",category:"Booster Boxes",image:null,url:"https://example.com/b",msrp:null,marketPrice:80,midPrice:82,profit:null,profitPct:null,msrpSource:null}];
   },
 };
@@ -104,11 +104,11 @@ test("live ingestion walks groups with a record cursor and publishes once comple
   const sealedRow=await db.prepare("select msrp_cents as msrpCents from sealed_details where product_id=201").bind().first();
   assert.equal(sealedRow.msrpCents,12000);
   // The walked riftbound sealed row won over the bundled duplicate (its live price stands)
-  // and merged the curated MSRP; the classifier assigned the riftbound taxonomy label.
+  // and merged the curated MSRP; the classifier assigned the canonical taxonomy label (D3).
   const rift=await db.prepare(`select p.product_type as productType, cp.market_cents as marketCents, sd.msrp_cents as msrpCents
     from catalog_products p join current_prices cp on cp.product_id=p.product_id join sealed_details sd on sd.product_id=p.product_id
     where p.product_id=401`).bind().first();
-  assert.deepEqual({...rift},{productType:"Booster boxes",marketCents:8500,msrpCents:9000});
+  assert.deepEqual({...rift},{productType:"Booster Boxes",marketCents:8500,msrpCents:9000});
   // The Japanese promo landed in its fixed section with the rarity fallback; the JP
   // sealed-shaped listing stayed out of the catalog entirely.
   const jp=await db.prepare("select section, rarity from catalog_products where product_id=601").bind().first();

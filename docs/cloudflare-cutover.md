@@ -45,6 +45,16 @@ Apply committed migrations to staging:
 npx wrangler d1 migrations apply DB --remote --config dist/server/wrangler.staging.json
 ```
 
+**Ordering rule for data migrations** (0007 and any future data-rewriting migration):
+deploy the Worker FIRST, apply the migration second. Deploy-first leaves only a
+transient window (old strings render until the migration lands, then self-heal).
+Migrate-first is the dangerous order: an ingestion run from the still-deployed old
+Worker can re-write the old values, and wrangler will not re-apply an
+already-recorded migration — rows whose products later drop out of the upstream
+feeds would keep the old strings permanently. If a migrate-first sequence ever
+happens, re-run the migration's UPDATE statements by hand (they are idempotent)
+after the deploy.
+
 Do not enable a schedule yet. The staging Worker exposes `POST /__ops/staging-jobs` only when `ENVIRONMENT=staging`, requires the `STAGING_JOB_TOKEN` bearer secret, and returns `Cache-Control: no-store`. Configure the secret after the first staging deployment:
 
 ```powershell

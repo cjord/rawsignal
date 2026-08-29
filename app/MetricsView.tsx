@@ -133,10 +133,6 @@ function SetTable({sets}:{sets:MetricsSetRow[]}){
  </tbody></table></div>;
 }
 
-// Category names come from feed product types; a few arrive half-lowercased
-// ("Booster boxes") — display them title-cased without touching the data.
-const titleCase=(value:string)=>value.replace(/\b[a-z]/g,letter=>letter.toUpperCase());
-
 type CategoryColumn="category"|"trackedValue"|"medianPrice"|"products"|"change7"|"change30"|"change90";
 function CategoryTable({categories}:{categories:MetricsCategoryRow[]}){
  const {sort,direction,onSort}=useSort<CategoryColumn>("trackedValue");
@@ -156,7 +152,7 @@ function CategoryTable({categories}:{categories:MetricsCategoryRow[]}){
    // the same normalizer so the deep link lands on matching rows, not an empty list.
    const href=`/?mode=sealed&market=${row.game}&type=${encodeURIComponent(canonicalSealedType(row.category))}`;
    return <tr key={`${row.game}:${row.category}`} className="is-clickable" onClick={()=>{location.assign(href)}}>
-    <th scope="row"><a href={href} onClick={event=>event.stopPropagation()}>{titleCase(row.category)}</a></th>
+    <th scope="row"><a href={href} onClick={event=>event.stopPropagation()}>{row.category}</a></th>
     <td>{formatGameName(row.game)}</td><td>{compactUsd(row.trackedValue)}</td><td>{formatUsd(row.medianPrice)}</td><td>{row.products.toLocaleString()}</td>
     <td><span className={`metrics-chip ${tone(row.change7)??""}`}>{pct(row.change7)}</span></td>
     <td><span className={`metrics-chip ${tone(row.change30)??""}`}>{pct(row.change30)}</span></td>

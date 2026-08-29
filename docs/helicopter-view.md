@@ -34,7 +34,7 @@ flowchart TB
   subgraph backend["Worker + DB"]
     worker["worker/: index (fetch) · scheduled-ingestion (cron) · staging-jobs (ops) · live-feeds"]
     db["db/: schema · repository · readiness · ingestion modules · backfill"]
-    drizzle["drizzle/: migrations 0000-0006"]
+    drizzle["drizzle/: migrations 0000-0007"]
   end
   subgraph pipeline["Feed pipeline (node)"]
     sync["sync-tcgcsv.mjs · sync-sealed.mjs (roots)"]

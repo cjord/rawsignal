@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { parseMarketQuery } from "../app/state/market-query.ts";
+import { sealedProductTypes } from "../core/catalog-query.ts";
 
 // The slimmed successor to rendered-html.test.mjs (decision D7, 2026-08-29): only
 // genuine source contracts survive here — dependency bans, paused/removed-feature
@@ -149,6 +150,14 @@ test("keeps the generated feeds inside their contracts", async () => {
   assert.ok(regional.every(product => product.marketPrice === null && product.profit === null));
   // Pokemon feeds must not carry cross-market records.
   assert.doesNotMatch(await read("public/data/sealed-pokemon.json"), /Attack of the Vine|Lorcana/i);
+  // Every sealed feed speaks the canonical taxonomy (decision D3): a category outside
+  // sealedProductTypes silently buckets as "Other" now that the alias bridge is gone,
+  // so an off-vocabulary regeneration must fail loudly here instead.
+  for (const feed of ["sealed-pokemon", "sealed-riftbound", "sealed-onepiece", "sealed-scalping"]) {
+    const categories = [...new Set(JSON.parse(await read(`public/data/${feed}.json`)).map(product => product.category))];
+    const offVocabulary = categories.filter(category => !sealedProductTypes.includes(category));
+    assert.deepEqual(offVocabulary, [], `${feed} categories outside the canonical taxonomy`);
+  }
 });
 
 test("keeps resilient image fallback and data-saver respect", async () => {

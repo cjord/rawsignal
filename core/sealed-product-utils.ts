@@ -45,22 +45,24 @@ export function normalizedProductKey(product: SealedSourceProduct, groupName = "
   return `${groupName}|${product.name}`.toLowerCase().replace(/[^a-z0-9|]+/g, " ").trim();
 }
 
-// Riftbound uses its own category taxonomy (established by the curated feed); rule order
-// matters — bundles before packs so "Sleeved Booster Pack Art Bundle" lands as a bundle.
+// Riftbound name patterns differ from Pokémon's, but the emitted categories are the
+// shared canonical buckets (decision D3 — the old curated vocabulary and its alias
+// bridge are gone). Rule order matters — bundles before packs so "Sleeved Booster
+// Pack Art Bundle" lands as a bundle.
 const RIFTBOUND_TYPE_RULES: [string, RegExp][] = [
   ["Cases", /\bcase\b/i],
-  ["Collector bundles", /\b(player bundle|signature edition|art bundle|vault bundle|worlds bundle)\b/i],
-  ["Gift boxes", /\b(gift box|lunar revel bundle)\b/i],
-  ["Decks", /\bchampion deck\b/i],
-  ["Booster boxes", /\b(booster display|booster box)\b/i],
-  ["Boosters", /\b(booster pack|sleeved booster|promo pack)\b/i],
+  ["Collections", /\b(player bundle|signature edition|art bundle|vault bundle|worlds bundle)\b/i],
+  ["Boxes / Bundles", /\b(gift box|lunar revel bundle)\b/i],
+  ["Starter / Theme Decks", /\bchampion deck\b/i],
+  ["Booster Boxes", /\b(booster display|booster box)\b/i],
+  ["Booster Packs", /\b(booster pack|sleeved booster|promo pack)\b/i],
 ];
 
 export function normalizeRiftboundProductType(name = "") {
   return RIFTBOUND_TYPE_RULES.find(([, pattern]) => pattern.test(name))?.[0] ?? "Other";
 }
 
-// Unlike Pokémon, "Other" stays includable (box sets live there in the curated taxonomy);
+// Unlike Pokémon, "Other" stays includable (Riftbound box sets land in that bucket);
 // bulk lots are the one sealed-shaped Riftbound listing that is not a product.
 export function isRiftboundSealedProduct(product: SealedSourceProduct) {
   if (product.categoryId != null && Number(product.categoryId) !== 89) return false;
