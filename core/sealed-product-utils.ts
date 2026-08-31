@@ -70,3 +70,32 @@ export function isRiftboundSealedProduct(product: SealedSourceProduct) {
   if ((product.extendedData ?? []).some(field => /^(number|rarity)$/i.test(field.name) && String(field.value ?? "").trim())) return false;
   return true;
 }
+
+// One Piece (category 68) is sealed-only in the catalog — singles stay untracked (todo
+// L2). Bandai's line has its own vocabulary (double packs, deck sets, illustration
+// boxes, tin pack sets) mapped onto the shared canonical buckets. Rule order matters:
+// cases/displays outrank the products they contain ("Booster Box Case", "Deck Set
+// Display"), and the deck rule must not swallow "Double Pack Set".
+const ONEPIECE_TYPE_RULES: [string, RegExp][] = [
+  ["Cases", /\b(case|display)\b/i],
+  ["Booster Boxes", /\bbooster box\b/i],
+  ["Booster Packs", /\b(booster pack|sleeved booster|promotion pack|promo pack)\b/i],
+  ["Starter / Theme Decks", /\b(starter deck|ultra deck|deck set)\b/i],
+  ["Tins", /\btin\b/i],
+  ["Collections", /\b(collection|illustration box|anniversary set|premium box)\b/i],
+  ["Boxes / Bundles", /\b(double pack|gift box|box|bundle)\b/i],
+];
+
+export function normalizeOnePieceProductType(name = "") {
+  return ONEPIECE_TYPE_RULES.find(([, pattern]) => pattern.test(name))?.[0] ?? "Other";
+}
+
+// "Other" stays includable like Riftbound (the category is dedicated to One Piece, so
+// off-vocabulary items are still real sealed products); singles carry Number/Rarity
+// extendedData and accessories match the shared non-product patterns.
+export function isOnePieceSealedProduct(product: SealedSourceProduct) {
+  if (product.categoryId != null && Number(product.categoryId) !== 68) return false;
+  if (NON_PRODUCT.test(product.name ?? "") || /\bbulk\b/i.test(product.name ?? "")) return false;
+  if ((product.extendedData ?? []).some(field => /^(number|rarity)$/i.test(field.name) && String(field.value ?? "").trim())) return false;
+  return true;
+}

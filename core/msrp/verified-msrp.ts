@@ -21,5 +21,31 @@ const verifiedMsrp: Record<string, VerifiedMsrpEntry> = {
   "riftbound:711372": { msrp: 34.99, source: "PHD Games sheet 2026-06 + Coqui Hobby" },
   "riftbound:712806": { msrp: 120, source: "PHD Games sheet 2026-08" },
   "riftbound:712813": { msrp: 34.99, source: "PHD Games sheet 2026-08" },
+  // One Piece: Bandai-published MSRPs migrated 2026-08-31 from the retired hand-curated
+  // sealed-onepiece.json (its rows all carried "Published product MSRP") when the feed
+  // became generated from the full category-68 walk.
+  "onepiece:516299": { msrp: 24.99, source: "Bandai published MSRP" },
+  "onepiece:593446": { msrp: 24.99, source: "Bandai published MSRP" },
+  "onepiece:610116": { msrp: 19.99, source: "Bandai published MSRP" },
+  "onepiece:610117": { msrp: 19.99, source: "Bandai published MSRP" },
+  "onepiece:646591": { msrp: 20.99, source: "Bandai published MSRP" },
+  "onepiece:646592": { msrp: 20.99, source: "Bandai published MSRP" },
+  "onepiece:649748": { msrp: 24.99, source: "Bandai published MSRP" },
+  "onepiece:669241": { msrp: 24.99, source: "Bandai published MSRP" },
+  "onepiece:669242": { msrp: 24.99, source: "Bandai published MSRP" },
+  "onepiece:669278": { msrp: 12.99, source: "Bandai published MSRP" },
+  "onepiece:682789": { msrp: 12.99, source: "Bandai published MSRP" },
+  "onepiece:689341": { msrp: 4.99, source: "Bandai published MSRP" },
+  "onepiece:693364": { msrp: 12.99, source: "Bandai published MSRP" },
+  "onepiece:694721": { msrp: 24.99, source: "Bandai published MSRP" },
+  "onepiece:694722": { msrp: 24.99, source: "Bandai published MSRP" },
+  "onepiece:694893": { msrp: 19.99, source: "Bandai published MSRP" },
+  "onepiece:704757": { msrp: 15, source: "Bandai published MSRP" },
+  "onepiece:704885": { msrp: 19.99, source: "Bandai published MSRP" },
+  "onepiece:704889": { msrp: 19.99, source: "Bandai published MSRP" },
+  "onepiece:704890": { msrp: 19.99, source: "Bandai published MSRP" },
+  "onepiece:704893": { msrp: 19.99, source: "Bandai published MSRP" },
+  "onepiece:704894": { msrp: 19.99, source: "Bandai published MSRP" },
+  "onepiece:704897": { msrp: 19.99, source: "Bandai published MSRP" },
 };
 export default verifiedMsrp;

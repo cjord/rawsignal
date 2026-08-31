@@ -951,16 +951,43 @@ Others seen: VSTAR Universe (s12a), Shiny Treasure ex (sv4a), Pokémon 151 JP (s
 Japanese-exclusive. Ingesting the `pokemon-japan` sealed groups from TCGCSV would let the
 name fallback (and, once ids align, the id-join) match these.
 
-**L2. One Piece — full sealed + singles.** OP sealed is only ~23 products today
-(Illustration Boxes, Starter Decks, Double Packs, one booster pack); the main English OP
+**L2. One Piece — full sealed + singles. Sealed APPROVED 2026-08-31; singles deferred
+to its own phase.** OP sealed is only ~23 curated products today; the main English OP
 **booster boxes** are missing (e.g. "Carrying On His Will Booster Box" = TCGplayer 628352).
-And OP **singles aren't tracked at all** (0 rows) — so promos/parallels like
-Monkey.D.Luffy OP05-060 (557296), Boa Hancock OP07-038 (623618), Otama OP07-022 (545804)
-can never match. Add the full One Piece sealed groups and the One Piece singles catalog.
+Measured (see `docs/sealed-market-expansion.md`): cat 68 = 87 groups, 7,518 products,
+~420 sealed → +174 TCGCSV requests/day, +~400 history calls/day, +~15 cron ticks, **no
+migration** (the game check and onepiece⇒sealed check already fit). Plan: `sealedOnly`
+work entries in the live walk + `isOnePieceSealedProduct` normalizer + Bandai-derived
+MSRP table + full `sealed-onepiece.json` sync; downstream (SealedGame union, metrics
+index, sealed-page scope, Collectr import matching) is already plumbed.
+OP **singles** are still untracked (0 rows) — promos/parallels like Monkey.D.Luffy
+OP05-060 (557296), Boa Hancock OP07-038 (623618), Otama OP07-022 (545804) can never
+match. Fetch cost of singles is zero (same group payloads), but all singles = +7,100
+records and +~210 cron ticks/day (near the 720 cap) plus a catalog_products table
+rebuild (drop the onepiece⇒sealed check) and a full new singles market surface (rarity
+taxonomy, sections, market tab, enrichment, metrics, signals).
+**Singles plan of record (decided 2026-08-31): curated chase-rarity sections** — Alt
+Art / Manga / SEC / SP / parallels only (~1.5–2.5k records, +~50–80 ticks/day), the same
+section model Pokémon singles use. Scheduled as its own phase; not started.
+*Sealed IMPLEMENTED 2026-08-31:* category-68 `tcgcsv-sealed` walk entries in
+`db/live-ingestion.ts` (sealed-only, singles never normalized), `isOnePieceSealedProduct`
++ `normalizeOnePieceProductType`/`normalizeOnePieceSealedProduct`, curated Bandai MSRPs
+migrated to `verifiedMsrp["onepiece:*"]`, full generated `sealed-onepiece.json` via
+`npm run data:sync:sealed:onepiece` (420 products, 348 priced, replaces the curated 23).
 
-**L3. Magic: The Gathering sealed (maybe).** No MTG game is tracked (MTG paused). Collectr
-users hold MTG sealed — e.g. "Universes Beyond: FINAL FANTASY – Gift Bundle" (618899). If
-we want import coverage there, add MTG sealed ingestion. Lower priority than L1/L2.
+**L3. Magic: The Gathering sealed — DEFERRED 2026-08-31 (usage cost).** No MTG game is
+tracked. Collectr users hold MTG sealed — e.g. "Universes Beyond: FINAL FANTASY – Gift
+Bundle" (618899). Measured plan (full numbers in `docs/sealed-market-expansion.md`):
+cat 1 = 455 groups, ~178k products, only ~2,450 sealed (1.4% yield) → a daily
+sealed-only walk costs +910 TCGCSV requests, ~150–200 MB JSON downloaded (99% discarded
+singles), +~2,300 TCGplayer history calls, +~77 cron ticks — ~6× the One Piece cost.
+User call: too much usage for now. If revived: (a) migration required — the
+`catalog_products_game_check` blocks 'mtg', SQLite CHECK change = table rebuild, add an
+mtg⇒sealed check; (b) MSRP stays null (WotC abolished MSRP in 2019) except curated
+verified entries (Secret Lair, pre-2019); (c) cost levers — sealed-group cache (after
+one discovery walk, re-walk only groups holding ≥1 sealed + newly published groups,
+~30–40% savings) or a weekly walk; a modern-only cutoff barely helps (303/455 groups
+are 2015+); (d) everything else rides the OP `sealedOnly` rails.
 
 **L4. Retailer-exclusive Pokémon sealed gaps.** Some real TCGplayer SKUs aren't in our
 catalog even for English — e.g. "Costco Prismatic Evolutions 8-Pack Mini Tins" (653892).

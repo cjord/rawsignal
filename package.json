@@ -17,6 +17,7 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "data:sync:singles": "node sync-tcgcsv.mjs",
     "data:sync:sealed": "node sync-sealed.mjs",
+    "data:sync:sealed:onepiece": "node sync-sealed-onepiece.mjs",
     "data:reconcile:scalper": "node scripts/scalper/reconcile.mjs",
     "data:build:scalper": "node scripts/scalper/build-feed.mjs",
     "data:build:details": "node scripts/details/build-detail-feeds.mjs --enrich",

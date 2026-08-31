@@ -31,6 +31,7 @@ const groupA={groupId:10,name:"Fixture Set",publishedOn:"2026-01-01T00:00:00Z"};
 const groupB={groupId:11,name:"Promo Reprints",publishedOn:"2026-02-01T00:00:00Z"};
 const groupR={groupId:90,name:"Rift Set",publishedOn:"2026-03-01T00:00:00Z"};
 const groupJ={groupId:200,name:"SV-P Promotional Cards",publishedOn:"2026-04-01T00:00:00Z"};
+const groupO={groupId:300,name:"Carrying On His Will",publishedOn:"2026-05-01T00:00:00Z"};
 const fixtures={
   "3:10":{
     products:[
@@ -70,10 +71,21 @@ const fixtures={
       {productId:602,marketPrice:90,lowPrice:85,midPrice:92,highPrice:99,subTypeName:"Normal"},
     ],
   },
+  // One Piece (category 68) is sealed-only: the box lands, the single stays out entirely.
+  "68:300":{
+    products:[
+      {productId:501,name:"Carrying On His Will Booster Box",imageUrl:"https://example.com/op_200w.jpg",url:"https://example.com/op",extendedData:[]},
+      {productId:502,name:"Monkey.D.Luffy (PSA Magazine)",imageUrl:"",url:"",extendedData:[{name:"Number",value:"OP05-060"},{name:"Rarity",value:"SP"}]},
+    ],
+    prices:[
+      {productId:501,marketPrice:118,lowPrice:105,midPrice:120,highPrice:130,subTypeName:"Normal"},
+      {productId:502,marketPrice:55,lowPrice:50,midPrice:56,highPrice:60,subTypeName:"Normal"},
+    ],
+  },
 };
 const deps={
   client:{
-    async groups(categoryId){return categoryId===3?[groupA,groupB]:categoryId===89?[groupR]:[groupJ]},
+    async groups(categoryId){return categoryId===3?[groupA,groupB]:categoryId===89?[groupR]:categoryId===68?[groupO]:[groupJ]},
     async products(categoryId,groupId){return fixtures[`${categoryId}:${groupId}`].products},
     async prices(categoryId,groupId){return fixtures[`${categoryId}:${groupId}`].prices},
   },
@@ -92,8 +104,9 @@ test("live ingestion walks groups with a record cursor and publishes once comple
   assert.equal(await publishedIngestion(db,"daily-market"),null);
   const second=await runLiveDailyIngestionBatch(db,deps,{...options,batchSize:100});
   // Group A card+promo+sealed, promo reprint (dedup), riftbound card+walked sealed,
-  // japanese promo card, bundled riftbound duplicate (dedup), bundled onepiece.
-  assert.deepEqual({cursor:second.cursor,done:second.done,written:second.recordsWritten,duplicates:second.duplicateDecisions},{cursor:"6:0",done:true,written:7,duplicates:2});
+  // japanese promo card, walked onepiece sealed, bundled riftbound duplicate (dedup),
+  // bundled onepiece.
+  assert.deepEqual({cursor:second.cursor,done:second.done,written:second.recordsWritten,duplicates:second.duplicateDecisions},{cursor:"7:0",done:true,written:8,duplicates:2});
   const published=await publishedIngestion(db,"daily-market");
   assert.equal(published?.runId,"live-daily:2026-08-28");
   assert.equal(published?.sourceUpdatedAt,"2026-08-28T20:00:00Z");
@@ -114,6 +127,12 @@ test("live ingestion walks groups with a record cursor and publishes once comple
   const jp=await db.prepare("select section, rarity from catalog_products where product_id=601").bind().first();
   assert.deepEqual({...jp},{section:"japanese-promos",rarity:"Promo"});
   assert.equal(await db.prepare("select count(*) as n from catalog_products where product_id=602").bind().first().then(row=>row.n),0);
+  // The One Piece walk kept the sealed box (canonical taxonomy, live price) and the
+  // sealed-only rule kept the OP single out of the catalog entirely.
+  const op=await db.prepare(`select p.kind, p.game, p.product_type as productType, cp.market_cents as marketCents
+    from catalog_products p join current_prices cp on cp.product_id=p.product_id where p.product_id=501`).bind().first();
+  assert.deepEqual({...op},{kind:"sealed",game:"onepiece",productType:"Booster Boxes",marketCents:11800});
+  assert.equal(await db.prepare("select count(*) as n from catalog_products where product_id=502").bind().first().then(row=>row.n),0);
   const runs=await db.prepare("select count(distinct ingestion_run_id) as n from catalog_products").bind().first();
   assert.equal(runs.n,1);
 });

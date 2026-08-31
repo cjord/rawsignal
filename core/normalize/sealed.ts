@@ -1,4 +1,4 @@
-import { isPokemonSealedProduct, isRiftboundSealedProduct, normalizeProductType, normalizeRiftboundProductType, normalizedProductKey, type SealedSourceGroup, type SealedSourceProduct } from "../sealed-product-utils.ts";
+import { isOnePieceSealedProduct, isPokemonSealedProduct, isRiftboundSealedProduct, normalizeOnePieceProductType, normalizeProductType, normalizeRiftboundProductType, normalizedProductKey, type SealedSourceGroup, type SealedSourceProduct } from "../sealed-product-utils.ts";
 import { derivedPokemonMsrp } from "../msrp/derived-msrp.ts";
 import verifiedMsrp from "../msrp/verified-msrp.ts";
 import type { SealedProduct } from "../domain/types.ts";
@@ -69,6 +69,32 @@ export function normalizeRiftboundSealedProduct(product: SealedSourceProduct & {
     profit,
     profitPct: profit != null && msrp ? Number((profit / msrp * 100).toFixed(1)) : null,
     msrpSource: msrp == null ? null : (positive(curatedRecord?.msrp) != null ? (curatedRecord?.msrpSource ?? "Asmodee/Riftbound MSRP") : verified?.source ?? null),
+  };
+}
+
+// One Piece sealed normalizes from the category-68 group walk (sealed-only — todo L2).
+// Bandai publishes per-product MSRPs but no machine-readable feed; the ones we hold
+// verified live in the curated table keyed "onepiece:<id>" (seeded 2026-08-31 from the
+// retired hand-curated feed). New upstream products carry null MSRP honestly.
+export function normalizeOnePieceSealedProduct(product: SealedSourceProduct & { name: string }, group: SealedSourceGroup & { name: string }, price: SealedPriceRow | null | undefined): SealedProduct | null {
+  if (!isOnePieceSealedProduct(product)) return null;
+  const verified = verifiedMsrp[`onepiece:${Number(product.productId)}`];
+  const msrp = positive(verified?.msrp), marketPrice = positive(price?.marketPrice), midPrice = positive(price?.midPrice);
+  const profit = msrp != null && marketPrice != null ? Number((marketPrice - msrp).toFixed(2)) : null;
+  return {
+    game: "onepiece",
+    productId: Number(product.productId),
+    name: product.name,
+    set: group.name,
+    category: normalizeOnePieceProductType(product.name),
+    image: product.imageUrl?.replace("_200w", "_in_1000x1000") ?? null,
+    url: product.url ?? "",
+    msrp,
+    marketPrice,
+    midPrice,
+    profit,
+    profitPct: profit != null && msrp ? Number((profit / msrp * 100).toFixed(1)) : null,
+    msrpSource: msrp != null ? verified?.source ?? null : null,
   };
 }
 

@@ -1,6 +1,6 @@
 import type { Card, SealedProduct } from "../core/domain/types.ts";
 import { normalizeSinglesGroup, type SinglesPriceRow, type SinglesSourceProduct } from "../core/normalize/singles.ts";
-import { normalizePokemonSealedProduct, normalizeRiftboundSealedProduct, preferredSealedPrice, sealedIdentity, type SealedPriceRow } from "../core/normalize/sealed.ts";
+import { normalizeOnePieceSealedProduct, normalizePokemonSealedProduct, normalizeRiftboundSealedProduct, preferredSealedPrice, sealedIdentity, type SealedPriceRow } from "../core/normalize/sealed.ts";
 import type { SealedSourceProduct } from "../core/sealed-product-utils.ts";
 import { persistRecord } from "./daily-ingestion.ts";
 import { clampBatchSize, markIngestionFailed, parseStatsJson, resumeCheckpoint } from "./ingestion-batch.ts";
@@ -16,15 +16,24 @@ export type LiveSyncDeps = {
   client: TcgcsvClient;
   // Published-MSRP records keyed by productId; fetched lazily, only when a Pokémon group is processed.
   fetchMsrp(): Promise<Map<number, unknown>>;
-  // Riftbound and One Piece sealed have no upstream sync — the bundled curated feeds ride
-  // along as pseudo-groups so every catalog row stays stamped with the current run.
+  // The bundled feeds ride along as pseudo-groups after the walked categories so every
+  // catalog row stays stamped with the current run: riftbound merges curated MSRPs and
+  // keeps curated-only products alive; onepiece (walked since 2026-08-31, todo L2) keeps
+  // the bundled feed as the deploy-fallback safety net — first-occurrence dedupe means
+  // walked rows always win.
   loadBundledSealed(market: "riftbound" | "onepiece"): Promise<SealedProduct[]>;
 };
 
-type WorkEntry = { type: "tcgcsv"; categoryId: number; game: "pokemon" | "riftbound"; group: TcgcsvGroup; fixedSection?: [string, string] } | { type: "bundled"; market: "riftbound" | "onepiece" };
+type WorkEntry =
+  | { type: "tcgcsv"; categoryId: number; game: "pokemon" | "riftbound"; group: TcgcsvGroup; fixedSection?: [string, string] }
+  | { type: "tcgcsv-sealed"; categoryId: number; game: "onepiece"; group: TcgcsvGroup }
+  | { type: "bundled"; market: "riftbound" | "onepiece" };
 type LiveStats = { recordsWritten?: number; duplicateDecisions?: number; rejected?: Record<string, number> };
 
 const categories = [{ id: 3, game: "pokemon" as const }, { id: 89, game: "riftbound" as const }];
+// Sealed-only categories (todo L2): the walk keeps sealed rows and never runs the
+// singles normalizer — One Piece singles are a separate, curated-rarity phase.
+const sealedOnlyCategories = [{ id: 68, game: "onepiece" as const }];
 // Japanese Pokémon (TCGCSV category 85, audit Phase E): only the promo groups for now —
 // the stated priority — as one fixed section; the full JP catalog is a later decision.
 export const JAPANESE_CATEGORY_ID = 85;
@@ -42,6 +51,11 @@ async function buildWorkList(client: TcgcsvClient, now: Date): Promise<WorkEntry
   const japaneseGroups = (await client.groups(JAPANESE_CATEGORY_ID)).filter(group => japanesePromoGroup(group) && new Date(group.publishedOn) <= now);
   japaneseGroups.sort((a, b) => a.groupId - b.groupId);
   for (const group of japaneseGroups) entries.push({ type: "tcgcsv", categoryId: JAPANESE_CATEGORY_ID, game: "pokemon", group, fixedSection: JAPANESE_PROMOS_SECTION });
+  for (const category of sealedOnlyCategories) {
+    const groups = (await client.groups(category.id)).filter(group => new Date(group.publishedOn) <= now);
+    groups.sort((a, b) => a.groupId - b.groupId);
+    for (const group of groups) entries.push({ type: "tcgcsv-sealed", categoryId: category.id, game: category.game, group });
+  }
   entries.push({ type: "bundled", market: "riftbound" }, { type: "bundled", market: "onepiece" });
   return entries;
 }
@@ -49,6 +63,21 @@ async function buildWorkList(client: TcgcsvClient, now: Date): Promise<WorkEntry
 async function loadEntryRecords(entry: WorkEntry, deps: LiveSyncDeps, msrp: () => Promise<Map<number, unknown>>, curatedRiftbound: () => Promise<Map<number, SealedProduct>>, rejected: Record<string, number>): Promise<(Card | SealedProduct)[]> {
   if (entry.type === "bundled") return deps.loadBundledSealed(entry.market);
   const [products, prices] = await Promise.all([deps.client.products(entry.categoryId, entry.group.groupId), deps.client.prices(entry.categoryId, entry.group.groupId)]);
+  if (entry.type === "tcgcsv-sealed") {
+    const pricesById = new Map<number, Record<string, unknown>[]>();
+    for (const row of prices) { const id = Number(row.productId); const rows = pricesById.get(id) ?? []; rows.push(row); pricesById.set(id, rows); }
+    const sealed: SealedProduct[] = [], seenIdentity = new Set<string>();
+    for (const raw of products) {
+      const product = raw as SealedSourceProduct & { name: string };
+      const normalized = normalizeOnePieceSealedProduct(product, entry.group, preferredSealedPrice(pricesById.get(Number(product.productId)) as SealedPriceRow[] | undefined));
+      if (!normalized) continue;
+      const identity = sealedIdentity(product, entry.group);
+      if (seenIdentity.has(identity)) continue;
+      seenIdentity.add(identity);
+      sealed.push(normalized);
+    }
+    return sealed.sort((a, b) => a.productId - b.productId);
+  }
   // Wire rows narrow once at this boundary; everything downstream is typed.
   const normalized = normalizeSinglesGroup({ game: entry.game, group: entry.group, products: products as SinglesSourceProduct[], prices: prices as SinglesPriceRow[], fixedSection: entry.fixedSection ?? null });
   for (const [reason, count] of Object.entries(normalized.rejected)) rejected[reason] = (rejected[reason] ?? 0) + count;
