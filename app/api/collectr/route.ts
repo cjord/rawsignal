@@ -1,8 +1,8 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
-import { normalizeCollectrCsv, normalizeCollectrHandle, normalizeCollectrProducts, parseShowcaseHtml, parseShowcasePage, pickCsvMatch, type CollectrCard, type CollectrProfile, type CollectrRawProduct } from "../../../core/collectr.ts";
+import { firstNameToken, normalizeCollectrCsv, normalizeCollectrHandle, normalizeCollectrProducts, parseShowcaseHtml, parseShowcasePage, pickCsvMatch, pickFuzzyMatch, type CollectrCard, type CollectrProfile, type CollectrRawProduct, type MatchTier } from "../../../core/collectr.ts";
 import type { Card, SealedProduct, SinglesMarket } from "../../../core/domain/types.ts";
-import { readCardsByIds, readCardsByNames, readSealedByIds, readSealedByNames } from "../../../db/catalog-repository.ts";
+import { logImportMatches, readCardsByIds, readCardsByNames, readSealedByIds, readSealedByNames, readSinglesByNamePrefix, readSealedByNamePrefix, type ImportMatchLogEntry } from "../../../db/catalog-repository.ts";
 import { publishedIngestion, type D1DatabaseLike } from "../../../db/repository.ts";
 import { createFeedCatalogRepository } from "../../data/feed-catalog-repository.ts";
 import { CACHE_TIERS } from "../cache.ts";
@@ -32,6 +32,7 @@ const BROWSER_HEADERS = {
 
 export type CollectrMatch = {
   kind: "single" | "sealed";
+  matchTier: MatchTier;
   name: string;
   set: string;
   game: string;
@@ -55,8 +56,9 @@ export type CollectrImportPayload = {
   cards: CollectrImportCard[];
 };
 
-const toSingleMatch = (match: Card): CollectrMatch => ({
+const toSingleMatch = (match: Card, matchTier: MatchTier): CollectrMatch => ({
   kind: "single",
+  matchTier,
   name: match.name,
   set: match.set,
   game: match.game,
@@ -67,8 +69,9 @@ const toSingleMatch = (match: Card): CollectrMatch => ({
   detailPath: `/cards/${match.productId}`,
 });
 
-const toSealedMatch = (match: SealedProduct): CollectrMatch => ({
+const toSealedMatch = (match: SealedProduct, matchTier: MatchTier): CollectrMatch => ({
   kind: "sealed",
+  matchTier,
   name: match.name,
   set: match.set,
   game: match.game,
@@ -199,11 +202,35 @@ async function matchSealedByName(cards: CollectrCard[]): Promise<Map<number, Sea
   return matches;
 }
 
-// Resolve every normalized item to a catalog match: id-join first (singles + sealed), then
-// a name fallback for whatever the id-join missed. Name-resolved rows adopt the catalog id
-// so signals, history, and favorites line up. Shared by the showcase (GET) and CSV (POST)
-// paths so both get the same two-pass matching.
-async function resolveMatches(request: Request, cards: CollectrCard[]): Promise<CollectrImportCard[]> {
+// Fuzzy tier (D1-only): for items no id- or name-join reached, pull a bounded candidate
+// pool by first-name-token prefix and pick the best normalized/fuzzy match in JS.
+type FuzzyHit<T> = { product: T; tier: "normalized" | "fuzzy"; score: number };
+async function fuzzyMatch<T extends { productId: number; name: string; number?: string; set?: string }>(
+  cards: CollectrCard[],
+  fetchPool: (db: D1DatabaseLike, prefixes: string[]) => Promise<T[]>,
+): Promise<Map<number, FuzzyHit<T>>> {
+  const out = new Map<number, FuzzyHit<T>>();
+  if (!cards.length) return out;
+  const db = env.DB as unknown as D1DatabaseLike | undefined;
+  if (!db) return out;
+  try { if (!(await publishedIngestion(db))) return out; } catch { return out; }
+  const pool = (await fetchPool(db, cards.map(card => firstNameToken(card.name)))).map(product => ({ product, token: firstNameToken(product.name) }));
+  for (const card of cards) {
+    const token = firstNameToken(card.name);
+    if (!token) continue;
+    const candidates = pool.filter(entry => entry.token === token).map(entry => entry.product);
+    const hit = pickFuzzyMatch({ name: card.name, number: card.number, set: card.set }, candidates);
+    if (hit) out.set(card.productId, hit);
+  }
+  return out;
+}
+
+// Resolve every normalized item to a catalog match through three tiers — id-join, then
+// exact name, then normalized/fuzzy — for singles and sealed alike. Name/fuzzy-resolved
+// rows adopt the catalog id so signals, history, and favorites line up, and each carries
+// its matchTier. Returns the log entries for every non-id (fallback) match so the caller
+// can record them for manual review. Shared by the showcase (GET) and CSV (POST) paths.
+async function resolveMatches(request: Request, cards: CollectrCard[]): Promise<{ withMatches: CollectrImportCard[]; logEntries: ImportMatchLogEntry[] }> {
   const singles = cards.filter(card => card.kind === "single");
   const sealed = cards.filter(card => card.kind === "sealed");
   const [singleIds, sealedIds] = await Promise.all([
@@ -214,14 +241,37 @@ async function resolveMatches(request: Request, cards: CollectrCard[]): Promise<
     matchSinglesByName(singles.filter(card => !singleIds.has(card.productId))),
     matchSealedByName(sealed.filter(card => !sealedIds.has(card.productId))),
   ]);
-  return cards.map(card => {
+  const [singleFuzzy, sealedFuzzy] = await Promise.all([
+    fuzzyMatch<Card>(singles.filter(card => !singleIds.has(card.productId) && !singleNames.has(card.productId)), readSinglesByNamePrefix),
+    fuzzyMatch<SealedProduct>(sealed.filter(card => !sealedIds.has(card.productId) && !sealedNames.has(card.productId)), readSealedByNamePrefix),
+  ]);
+
+  const logEntries: ImportMatchLogEntry[] = [];
+  const withMatches = cards.map<CollectrImportCard>(card => {
     if (card.kind === "sealed") {
-      const match = sealedIds.get(card.productId) ?? sealedNames.get(card.productId);
-      return match ? { ...card, productId: match.productId, matched: toSealedMatch(match) } : { ...card, matched: null };
+      if (sealedIds.has(card.productId)) return { ...card, matched: toSealedMatch(sealedIds.get(card.productId)!, "id") };
+      const named = sealedNames.get(card.productId); const fuzzy = named ? null : sealedFuzzy.get(card.productId);
+      const product = named ?? fuzzy?.product; const tier: MatchTier | null = named ? "name" : fuzzy ? fuzzy.tier : null;
+      if (!product || !tier) return { ...card, matched: null };
+      logEntries.push({ collectrProductId: card.productId, matchedProductId: product.productId, kind: "sealed", matchTier: tier as "name" | "normalized" | "fuzzy", score: fuzzy ? fuzzy.score : null, collectrName: card.name, collectrSet: card.set, matchedName: product.name });
+      return { ...card, productId: product.productId, matched: toSealedMatch(product, tier) };
     }
-    const match = singleIds.get(card.productId) ?? singleNames.get(card.productId);
-    return match ? { ...card, productId: match.productId, matched: toSingleMatch(match) } : { ...card, matched: null };
+    if (singleIds.has(card.productId)) return { ...card, matched: toSingleMatch(singleIds.get(card.productId)!, "id") };
+    const named = singleNames.get(card.productId); const fuzzy = named ? null : singleFuzzy.get(card.productId);
+    const product = named ?? fuzzy?.product; const tier: MatchTier | null = named ? "name" : fuzzy ? fuzzy.tier : null;
+    if (!product || !tier) return { ...card, matched: null };
+    logEntries.push({ collectrProductId: card.productId, matchedProductId: product.productId, kind: "single", matchTier: tier as "name" | "normalized" | "fuzzy", score: fuzzy ? fuzzy.score : null, collectrName: card.name, collectrSet: card.set, matchedName: product.name });
+    return { ...card, productId: product.productId, matched: toSingleMatch(product, tier) };
   });
+  return { withMatches, logEntries };
+}
+
+// Persist the fallback-match log for later review; never let it break an import.
+async function recordMatchLog(entries: ImportMatchLogEntry[]): Promise<void> {
+  if (!entries.length) return;
+  const db = env.DB as unknown as D1DatabaseLike | undefined;
+  if (!db) return;
+  try { await logImportMatches(db, entries, new Date().toISOString()); } catch { /* audit is best-effort */ }
 }
 
 export async function GET(request: Request) {
@@ -265,7 +315,8 @@ export async function GET(request: Request) {
     });
   }
   const { cards, skippedGraded, skippedSealed } = normalizeCollectrProducts(raw);
-  const withMatches = await resolveMatches(request, cards);
+  const { withMatches, logEntries } = await resolveMatches(request, cards);
+  await recordMatchLog(logEntries);
   const payload: CollectrImportPayload = {
     profile: parsed.profile,
     importedAt: new Date().toISOString(),
@@ -289,7 +340,8 @@ export async function POST(request: Request) {
   if ("error" in parsedCsv) return NextResponse.json({ error: parsedCsv.error }, { status: 422 });
   const { cards, skippedGraded, skippedSealed } = parsedCsv;
 
-  const withMatches = await resolveMatches(request, cards);
+  const { withMatches, logEntries } = await resolveMatches(request, cards);
+  await recordMatchLog(logEntries);
   const singles = cards.filter(card => card.kind === "single");
   const sealed = cards.filter(card => card.kind === "sealed");
   const filename = typeof body.filename === "string" ? body.filename.replace(/\.csv$/i, "").trim() : "";

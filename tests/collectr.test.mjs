@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { cardNumberKey, normalizeCollectrCsv, normalizeCollectrHandle, normalizeCollectrProducts, parseCsv, parseShowcaseHtml, parseShowcasePage, pickCsvMatch } from "../core/collectr.ts";
+import { cardNumberKey, firstNameToken, nameSimilarity, normalizeCollectrCsv, normalizeCollectrHandle, normalizeCollectrProducts, normalizeName, parseCsv, parseShowcaseHtml, parseShowcasePage, pickCsvMatch, pickFuzzyMatch } from "../core/collectr.ts";
 
 // The fixture is a trimmed capture of the real @9wocep showcase page (2026-08-29): the
 // RSC push chunk holding the dehydrated getShowcaseProfile query — profile header plus
@@ -115,6 +115,44 @@ test("normalizeCollectrCsv rejects unrecognizable layouts with the found headers
 // Collectr fetch worker source. It's excluded for now so the suite never touches the
 // import-all / Browser Rendering path — see docs/collectr-import-notes.md. Re-enable by
 // removing the { skip } option.
+test("normalizeName folds accents/punctuation and nameSimilarity ranks sanely", () => {
+  assert.equal(normalizeName("Pokémon 151 — Booster Box (JP)"), "pokemon 151 booster box jp");
+  assert.equal(normalizeName("Sword & Shield"), "sword and shield");
+  assert.equal(firstNameToken("Flabébé δ"), "flabebe");
+  // Accent-only difference reads as identical.
+  assert.equal(nameSimilarity("Flabébé", "Flabebe"), 1);
+  assert.ok(nameSimilarity("Charizard ex", "Charizard EX ") === 1);
+  assert.ok(nameSimilarity("Charizard", "Charmander") < 0.6);
+});
+
+test("pickFuzzyMatch: normalized-equal, fuzzy threshold, and false-positive guards", () => {
+  // Accent fold → normalized tier.
+  const flabebe = pickFuzzyMatch({ name: "Flabébé", number: "83/162", set: "BREAKthrough" }, [
+    { productId: 1, name: "Flabebe", number: "83/162", set: "BREAKthrough" },
+    { productId: 2, name: "Floette", number: "84/162", set: "BREAKthrough" },
+  ]);
+  assert.deepEqual({ id: flabebe?.product.productId, tier: flabebe?.tier }, { id: 1, tier: "normalized" });
+  // Number disambiguates same normalized name.
+  const dup = pickFuzzyMatch({ name: "Pikachu", number: "58/102", set: "Base" }, [
+    { productId: 10, name: "Pikachu", number: "58/102", set: "Base Set" },
+    { productId: 11, name: "Pikachu", number: "60/102", set: "Base Set" },
+  ]);
+  assert.equal(dup?.product.productId, 10);
+  // Punctuation/spacing → fuzzy tier (not normalized-equal, but high similarity).
+  const vmax = pickFuzzyMatch({ name: "Pikachu V-MAX", number: "", set: "" }, [
+    { productId: 20, name: "Pikachu VMAX", number: "", set: "" },
+    { productId: 21, name: "Charizard VMAX", number: "", set: "" },
+  ]);
+  assert.equal(vmax?.product.productId, 20);
+  assert.ok(vmax?.tier === "fuzzy" || vmax?.tier === "normalized");
+  // No confident match → null (guards against wrong matches).
+  assert.equal(pickFuzzyMatch({ name: "Charizard", number: "", set: "" }, [
+    { productId: 30, name: "Charmander", number: "", set: "" },
+    { productId: 31, name: "Charmeleon", number: "", set: "" },
+  ]), null);
+  assert.equal(pickFuzzyMatch({ name: "Anything", number: "", set: "" }, []), null);
+});
+
 test("browser fetch worker keeps its WAF-safe contract", { skip: "excluded: keeps the suite off the dual-use import-all worker (docs/collectr-import-notes.md)" }, async () => {
   const source = await readFile(new URL("../workers/collectr-fetch/src/index.mjs", import.meta.url), "utf8");
   assert.match(source, /const PAGE_SIZE = 30;/, "the showcase API 401s on limits above 30 — keep the page size");

@@ -212,6 +212,49 @@ export async function readSealedByNames(db: D1DatabaseLike, names: string[]): Pr
   return sealed;
 }
 
+// Audit log of Collectr-import fallback matches (name/normalized/fuzzy) for later manual
+// review. Upserts, bumping seen_count on repeats. Best-effort — callers wrap in try/catch
+// so a missing table or write failure never breaks an import.
+export type ImportMatchLogEntry = {
+  collectrProductId: number; matchedProductId: number; kind: "single" | "sealed";
+  matchTier: "name" | "normalized" | "fuzzy"; score: number | null;
+  collectrName: string; collectrSet: string; matchedName: string;
+};
+export async function logImportMatches(db: D1DatabaseLike, entries: ImportMatchLogEntry[], now: string): Promise<void> {
+  if (!entries.length) return;
+  const statement = db.prepare(`insert into import_match_log (collectr_product_id,matched_product_id,kind,match_tier,score,collectr_name,collectr_set,matched_name,seen_count,first_seen,last_seen)
+    values (?,?,?,?,?,?,?,?,1,?,?)
+    on conflict(collectr_product_id,matched_product_id) do update set
+      seen_count=seen_count+1, last_seen=excluded.last_seen, match_tier=excluded.match_tier,
+      score=excluded.score, collectr_name=excluded.collectr_name, matched_name=excluded.matched_name`);
+  await db.batch(entries.map(entry => statement.bind(
+    entry.collectrProductId, entry.matchedProductId, entry.kind, entry.matchTier,
+    entry.score == null ? null : Math.round(entry.score * 1000), entry.collectrName, entry.collectrSet, entry.matchedName, now, now,
+  )));
+}
+
+// Candidate pool for the Collectr fuzzy-match tier: products whose name starts with any of
+// the given (already-lowercased) prefixes. Bounded — prefixes capped, each query LIMITed —
+// so the caller can normalize/fuzzy-compare in JS without scanning the whole catalog.
+async function catalogByNamePrefix(db: D1DatabaseLike, kind: "single" | "sealed", prefixes: string[]): Promise<ProductRow[]> {
+  const unique = [...new Set(prefixes.map(prefix => prefix.toLowerCase()).filter(prefix => prefix.length >= 3))].slice(0, 60);
+  const rows: ProductRow[] = [];
+  for (let index = 0; index < unique.length; index += 20) {
+    const chunk = unique.slice(index, index + 20);
+    const clause = chunk.map(() => "lower(p.name) like ?").join(" or ");
+    const result = (await db.prepare(`${productsSqlBase} where p.kind=? and (${clause}) limit 400`)
+      .bind(kind, ...chunk.map(prefix => `${prefix}%`)).all<ProductRow>()).results ?? [];
+    rows.push(...result);
+  }
+  return rows;
+}
+export async function readSinglesByNamePrefix(db: D1DatabaseLike, prefixes: string[]): Promise<Card[]> {
+  return (await catalogByNamePrefix(db, "single", prefixes)).map(toCard).filter((card): card is Card => card !== null);
+}
+export async function readSealedByNamePrefix(db: D1DatabaseLike, prefixes: string[]): Promise<SealedProduct[]> {
+  return (await catalogByNamePrefix(db, "sealed", prefixes)).map(toSealed).filter((product): product is SealedProduct => product !== null);
+}
+
 // Case-insensitive name lookup (Collectr CSV imports lacking TCGplayer ids). Chunked
 // like readCardsByIds; callers disambiguate same-name candidates by number/set.
 export async function readCardsByNames(db: D1DatabaseLike, names: string[]): Promise<Card[]> {

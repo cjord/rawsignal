@@ -321,3 +321,71 @@ export function pickCsvMatch<T extends { number: string; set: string }>(card: Pi
   }
   return pool.length === 1 ? pool[0] : null;
 }
+
+// ---------------------------------------------------------------------------
+// Fuzzy matching tier (below the exact id- and name-joins). How a match was reached; every
+// tier but "id" is a fallback worth logging for later manual review.
+export type MatchTier = "id" | "name" | "normalized" | "fuzzy";
+
+// Normalize a product name for comparison: fold accents, lowercase, & -> "and", drop
+// punctuation, collapse whitespace. Keeps word boundaries (unlike headerKey).
+export function normalizeName(value: string): string {
+  return value.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+    .replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+}
+export function firstNameToken(value: string): string {
+  return normalizeName(value).split(" ")[0] ?? "";
+}
+// Sørensen–Dice similarity on character bigrams of the two normalized names (0..1) —
+// tolerant of small edits and word reordering, language-agnostic.
+export function nameSimilarity(a: string, b: string): number {
+  const na = normalizeName(a).replace(/ /g, ""), nb = normalizeName(b).replace(/ /g, "");
+  if (na === nb) return na.length ? 1 : 0;
+  if (na.length < 2 || nb.length < 2) return 0;
+  const grams = (source: string) => {
+    const map = new Map<string, number>();
+    for (let index = 0; index < source.length - 1; index++) { const gram = source.slice(index, index + 2); map.set(gram, (map.get(gram) ?? 0) + 1); }
+    return map;
+  };
+  const ga = grams(na), gb = grams(nb);
+  let overlap = 0;
+  for (const [gram, count] of ga) { const other = gb.get(gram); if (other) overlap += Math.min(count, other); }
+  return (2 * overlap) / (na.length - 1 + nb.length - 1);
+}
+
+// Best fuzzy/normalized match for an item among candidates. normalized-equal wins outright
+// (disambiguated by number, then set); otherwise the top character-bigram similarity, but
+// only when it clears minScore AND clearly beats the runner-up, and (when both sides carry
+// a set) the sets are at least loosely similar — guarding against confident wrong matches.
+export function pickFuzzyMatch<T extends { productId: number; name: string; number?: string; set?: string }>(
+  card: { name: string; number: string; set: string },
+  candidates: T[],
+  minScore = 0.86,
+): { product: T; tier: "normalized" | "fuzzy"; score: number } | null {
+  if (!candidates.length) return null;
+  const target = normalizeName(card.name);
+  if (!target) return null;
+  let pool = candidates;
+  const number = cardNumberKey(card.number);
+  if (number) {
+    const byNumber = pool.filter(candidate => candidate.number != null && numbersAgree(number, cardNumberKey(candidate.number)));
+    if (byNumber.length) pool = byNumber;
+  }
+  const normEqual = pool.filter(candidate => normalizeName(candidate.name) === target);
+  if (normEqual.length === 1) return { product: normEqual[0], tier: "normalized", score: 1 };
+  if (normEqual.length > 1 && card.set) {
+    const bySet = normEqual.filter(candidate => normalizeName(candidate.set ?? "") === normalizeName(card.set));
+    if (bySet.length === 1) return { product: bySet[0], tier: "normalized", score: 1 };
+  }
+  let best: T | null = null, bestScore = -1, second = -1;
+  for (const candidate of pool) {
+    const score = nameSimilarity(card.name, candidate.name);
+    if (score > bestScore) { second = bestScore; best = candidate; bestScore = score; }
+    else if (score > second) second = score;
+  }
+  if (best && bestScore >= minScore && bestScore - second >= 0.06) {
+    if (card.set && best.set && nameSimilarity(card.set, best.set) < 0.5) return null;
+    return { product: best, tier: "fuzzy", score: Number(bestScore.toFixed(3)) };
+  }
+  return null;
+}

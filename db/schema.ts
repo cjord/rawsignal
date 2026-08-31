@@ -184,3 +184,26 @@ export const refreshState = sqliteTable("refresh_state", {
   ingestionRunId: text("ingestion_run_id").references(() => ingestionRuns.id),
   cursor: text("cursor"),
 });
+
+// Collectr-import fuzzy-match audit (2026-08-31): every match reached by a fallback tier
+// (name / normalized / fuzzy, i.e. NOT an exact id-join) is logged here for later manual
+// review, accumulating a seen_count across imports. No FK on matched_product_id — this is
+// a standalone audit trail that must survive catalog churn; collectr_product_id can be a
+// Collectr-internal synthetic id (10,000,000+), so it isn't a catalog reference either.
+export const importMatchLog = sqliteTable("import_match_log", {
+  collectrProductId: integer("collectr_product_id").notNull(),
+  matchedProductId: integer("matched_product_id").notNull(),
+  kind: text("kind", { enum: ["single", "sealed"] }).notNull(),
+  matchTier: text("match_tier", { enum: ["name", "normalized", "fuzzy"] }).notNull(),
+  score: integer("score"),
+  collectrName: text("collectr_name").notNull(),
+  collectrSet: text("collectr_set").notNull().default(""),
+  matchedName: text("matched_name").notNull().default(""),
+  seenCount: integer("seen_count").notNull().default(1),
+  firstSeen: text("first_seen").notNull(),
+  lastSeen: text("last_seen").notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.collectrProductId, table.matchedProductId] }),
+  check("import_match_log_tier_check", sql`${table.matchTier} in ('name','normalized','fuzzy')`),
+  index("idx_import_match_log_review").on(table.matchTier, table.lastSeen),
+]);
