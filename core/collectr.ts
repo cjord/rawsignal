@@ -34,7 +34,8 @@ export type CollectrProfile = {
 
 export type CollectrCard = {
   productId: number;
-  game: "pokemon" | "riftbound" | null;
+  kind: "single" | "sealed";
+  game: "pokemon" | "riftbound" | "onepiece" | null;
   collectrGame: string;
   name: string;
   set: string;
@@ -48,7 +49,16 @@ export type CollectrCard = {
   image: string | null;
 };
 
-const GAME_MAP: Record<string, CollectrCard["game"]> = { pokemon: "pokemon", riftbound: "riftbound" };
+// Map a Collectr category label ("Pokemon", "Riftbound", "One Piece Card Game") to a
+// tracked game, or null when we don't cover its singles/sealed. Hoisted so both the
+// showcase and CSV normalizers can use it.
+function collectrGameOf(value: string): CollectrCard["game"] {
+  const folded = value.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+  if (folded.includes("pokemon")) return "pokemon";
+  if (folded.includes("riftbound")) return "riftbound";
+  if (folded.includes("onepiece")) return "onepiece";
+  return null;
+}
 const toNumber = (value: unknown): number | null => {
   const parsed = typeof value === "string" ? Number(value) : typeof value === "number" ? value : NaN;
   return Number.isFinite(parsed) ? parsed : null;
@@ -63,27 +73,31 @@ export function isGradedRecord(record: CollectrRawProduct): boolean {
   return company !== "" || (gradeId !== "" && gradeId !== "52");
 }
 
-// Raw showcase records -> normalized cards. Graded copies and sealed rows are dropped
-// here by design (the import scope is raw singles); the caller reports the skip counts.
+// Raw showcase records -> normalized cards. Graded copies are dropped (import scope is raw
+// singles + sealed); sealed rows are KEPT and tagged kind:"sealed" (no rarity/number/
+// condition/printing). skippedSealed stays 0 now that sealed is imported — retained in the
+// return shape for callers.
 export function normalizeCollectrProducts(raw: CollectrRawProduct[]): { cards: CollectrCard[]; skippedGraded: number; skippedSealed: number } {
   const cards: CollectrCard[] = [];
-  let skippedGraded = 0, skippedSealed = 0;
+  let skippedGraded = 0;
+  const skippedSealed = 0;
   for (const record of raw) {
-    if (record.is_card === false || record.is_card === "false") { skippedSealed += 1; continue; }
-    if (isGradedRecord(record)) { skippedGraded += 1; continue; }
+    const sealed = record.is_card === false || record.is_card === "false";
+    if (!sealed && isGradedRecord(record)) { skippedGraded += 1; continue; }
     const productId = toNumber(record.product_id);
     if (productId == null) continue;
     const collectrGame = (record.catalog_category_name ?? "").trim();
     cards.push({
       productId,
-      game: GAME_MAP[collectrGame.toLowerCase()] ?? null,
+      kind: sealed ? "sealed" : "single",
+      game: collectrGameOf(collectrGame),
       collectrGame,
       name: (record.product_name ?? "").trim(),
       set: (record.catalog_group ?? "").trim(),
-      number: (record.card_number ?? "").trim(),
-      rarity: (record.rarity ?? "").trim(),
-      condition: record.card_condition?.trim() || null,
-      printing: record.product_sub_type?.trim() || null,
+      number: sealed ? "" : (record.card_number ?? "").trim(),
+      rarity: sealed ? "" : (record.rarity ?? "").trim(),
+      condition: sealed ? null : (record.card_condition?.trim() || null),
+      printing: sealed ? null : (record.product_sub_type?.trim() || null),
       quantity: Math.max(1, toNumber(record.quantity) ?? 1),
       collectrPrice: toNumber(record.market_price),
       collectrChange: toNumber(record.market_price_diff),
@@ -199,12 +213,6 @@ export function parseCsv(text: string): string[][] {
 }
 
 const headerKey = (value: string) => value.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9#]+/g, "");
-const csvGame = (value: string): CollectrCard["game"] => {
-  const folded = headerKey(value);
-  if (folded.includes("pokemon")) return "pokemon";
-  if (folded.includes("riftbound")) return "riftbound";
-  return null;
-};
 const CSV_FIELDS: Record<string, string[]> = {
   id: ["tcgplayerid", "tcgplayerproductid", "productid", "tcgid", "id"],
   name: ["productname", "cardname", "name", "card", "product"],
@@ -247,36 +255,41 @@ export function normalizeCollectrCsv(text: string): CollectrCsvImport | { error:
     return at == null ? "" : (row[at] ?? "").trim();
   };
   const cards: CollectrCard[] = [];
-  let skippedGraded = 0, skippedSealed = 0, hasIds = false;
+  let skippedGraded = 0, hasIds = false;
+  const skippedSealed = 0;
   for (let index = 1; index < rows.length; index++) {
     const row = rows[index];
     const name = cell(row, "name");
     if (!name) continue;
-    const kind = cell(row, "kind");
-    if (kind && !/single|card/i.test(kind)) { skippedSealed += 1; continue; }
-    const gradeCompany = cell(row, "gradeCompany");
-    const grade = cell(row, "grade");
-    if ((gradeCompany && !RAW_GRADE_VALUES.test(gradeCompany)) || (grade && !RAW_GRADE_VALUES.test(grade))) { skippedGraded += 1; continue; }
+    const kindCell = cell(row, "kind");
+    // A product-type column that isn't a single/card marks a sealed product; keep it.
+    const sealed = !!kindCell && !/single|card/i.test(kindCell);
+    if (!sealed) {
+      const gradeCompany = cell(row, "gradeCompany");
+      const grade = cell(row, "grade");
+      if ((gradeCompany && !RAW_GRADE_VALUES.test(gradeCompany)) || (grade && !RAW_GRADE_VALUES.test(grade))) { skippedGraded += 1; continue; }
+    }
     const productId = csvNumber(cell(row, "id"));
     if (productId != null && productId > 0) hasIds = true;
     const collectrGame = cell(row, "game");
     cards.push({
       productId: productId != null && productId > 0 ? productId : -index,
-      game: csvGame(collectrGame),
+      kind: sealed ? "sealed" : "single",
+      game: collectrGameOf(collectrGame),
       collectrGame,
       name,
       set: cell(row, "set"),
-      number: cell(row, "number"),
-      rarity: cell(row, "rarity"),
-      condition: cell(row, "condition") || null,
-      printing: cell(row, "printing") || null,
+      number: sealed ? "" : cell(row, "number"),
+      rarity: sealed ? "" : cell(row, "rarity"),
+      condition: sealed ? null : (cell(row, "condition") || null),
+      printing: sealed ? null : (cell(row, "printing") || null),
       quantity: Math.max(1, Math.round(csvNumber(cell(row, "quantity")) ?? 1)),
       collectrPrice: csvNumber(cell(row, "price")),
       collectrChange: null,
       image: null,
     });
   }
-  if (!cards.length) return { error: "No importable raw singles found in the CSV." };
+  if (!cards.length) return { error: "No importable cards or sealed products found in the CSV." };
   return { cards, skippedGraded, skippedSealed, hasIds };
 }
 

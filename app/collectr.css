@@ -93,8 +93,10 @@
 .import-coverage-pop li span { color: var(--gray); font-family: var(--font-mono); font-size: var(--text-2xs); }
 .import-coverage-pop p { margin: 8px 0 0; font-size: var(--text-2xs); color: var(--gray); }
 
-.import-nav { flex-wrap: wrap; margin: 0 0 14px; }
-.import-filters { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+/* A little breathing room under the scope/market/lens bar before the filters row. */
+.import-nav { flex-wrap: wrap; margin: 0 0 20px; }
+.import-filters { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+.import-filters .import-view-toggle { margin-left: auto; }
 .import-search { flex: 1; min-width: 220px; }
 .import-price { flex: 0 0 130px; }
 .import-price input { font: 700 var(--text-base) var(--font-mono); }

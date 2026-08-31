@@ -1,8 +1,8 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { normalizeCollectrCsv, normalizeCollectrHandle, normalizeCollectrProducts, parseShowcaseHtml, parseShowcasePage, pickCsvMatch, type CollectrCard, type CollectrProfile, type CollectrRawProduct } from "../../../core/collectr.ts";
-import type { Card, SinglesMarket } from "../../../core/domain/types.ts";
-import { readCardsByIds, readCardsByNames } from "../../../db/catalog-repository.ts";
+import type { Card, SealedProduct, SinglesMarket } from "../../../core/domain/types.ts";
+import { readCardsByIds, readCardsByNames, readSealedByIds, readSealedByNames } from "../../../db/catalog-repository.ts";
 import { publishedIngestion, type D1DatabaseLike } from "../../../db/repository.ts";
 import { createFeedCatalogRepository } from "../../data/feed-catalog-repository.ts";
 import { CACHE_TIERS } from "../cache.ts";
@@ -31,6 +31,7 @@ const BROWSER_HEADERS = {
 };
 
 export type CollectrMatch = {
+  kind: "single" | "sealed";
   name: string;
   set: string;
   game: string;
@@ -54,7 +55,8 @@ export type CollectrImportPayload = {
   cards: CollectrImportCard[];
 };
 
-const toMatch = (match: Card): CollectrMatch => ({
+const toSingleMatch = (match: Card): CollectrMatch => ({
+  kind: "single",
   name: match.name,
   set: match.set,
   game: match.game,
@@ -63,6 +65,18 @@ const toMatch = (match: Card): CollectrMatch => ({
   marketPrice: match.marketPrice,
   image: match.image || null,
   detailPath: `/cards/${match.productId}`,
+});
+
+const toSealedMatch = (match: SealedProduct): CollectrMatch => ({
+  kind: "sealed",
+  name: match.name,
+  set: match.set,
+  game: match.game,
+  section: "Sealed",
+  rarity: match.category,
+  marketPrice: match.marketPrice ?? 0,
+  image: match.image || null,
+  detailPath: `/sealed/${match.productId}`,
 });
 
 async function fetchApiPages(handle: string): Promise<CollectrRawProduct[] | null> {
@@ -125,6 +139,18 @@ async function matchCards(request: Request, ids: number[]): Promise<Map<number, 
   return matches;
 }
 
+// Sealed matching is D1-only (the published catalog): the bundled-feed fallback would need
+// the full sealed query surface for a dev-only path, so sealed rows simply stay unmatched
+// when D1 isn't published (a rare, transient window).
+async function matchSealed(ids: number[]): Promise<Map<number, SealedProduct>> {
+  const db = env.DB as unknown as D1DatabaseLike | undefined;
+  if (!db || !ids.length) return new Map();
+  try {
+    if (await publishedIngestion(db)) return new Map((await readSealedByIds(db, ids)).map(product => [product.productId, product]));
+  } catch { /* no D1 sealed matches this window */ }
+  return new Map();
+}
+
 // CSV rows without a TCGplayer id resolve by exact (case-insensitive) name, then
 // number/set disambiguation. Only the published D1 catalog supports this; the bundled
 // feed fallback stays id-only.
@@ -144,6 +170,29 @@ async function matchCsvByName(cards: CollectrCard[]): Promise<Map<number, Card>>
   for (const card of cards) {
     const pick = pickCsvMatch(card, byName.get(card.name.toLowerCase()) ?? []);
     if (pick) matches.set(card.productId, pick);
+  }
+  return matches;
+}
+
+// Sealed CSV rows without an id resolve by name, then set. D1-only.
+async function matchCsvSealedByName(cards: CollectrCard[]): Promise<Map<number, SealedProduct>> {
+  const matches = new Map<number, SealedProduct>();
+  if (!cards.length) return matches;
+  const db = env.DB as unknown as D1DatabaseLike | undefined;
+  if (!db) return matches;
+  try { if (!(await publishedIngestion(db))) return matches; } catch { return matches; }
+  const candidates = await readSealedByNames(db, cards.map(card => card.name));
+  const byName = new Map<string, SealedProduct[]>();
+  for (const candidate of candidates) {
+    const key = candidate.name.toLowerCase();
+    const bucket = byName.get(key);
+    if (bucket) bucket.push(candidate); else byName.set(key, [candidate]);
+  }
+  for (const card of cards) {
+    const pool = byName.get(card.name.toLowerCase()) ?? [];
+    // number is empty for sealed, so pickCsvMatch falls through to the set match.
+    const pick = pickCsvMatch(card, pool.map(product => ({ ...product, number: "" })));
+    if (pick) matches.set(card.productId, pick as unknown as SealedProduct);
   }
   return matches;
 }
@@ -189,10 +238,14 @@ export async function GET(request: Request) {
     });
   }
   const { cards, skippedGraded, skippedSealed } = normalizeCollectrProducts(raw);
-  const matches = await matchCards(request, cards.map(card => card.productId));
+  const [singleMatches, sealedMatches] = await Promise.all([
+    matchCards(request, cards.filter(card => card.kind === "single").map(card => card.productId)),
+    matchSealed(cards.filter(card => card.kind === "sealed").map(card => card.productId)),
+  ]);
   const withMatches: CollectrImportCard[] = cards.map(card => {
-    const match = matches.get(card.productId);
-    return { ...card, matched: match ? toMatch(match) : null };
+    if (card.kind === "sealed") { const match = sealedMatches.get(card.productId); return { ...card, matched: match ? toSealedMatch(match) : null }; }
+    const match = singleMatches.get(card.productId);
+    return { ...card, matched: match ? toSingleMatch(match) : null };
   });
   const payload: CollectrImportPayload = {
     profile: parsed.profile,
@@ -217,13 +270,24 @@ export async function POST(request: Request) {
   if ("error" in parsedCsv) return NextResponse.json({ error: parsedCsv.error }, { status: 422 });
   const { cards, skippedGraded, skippedSealed } = parsedCsv;
 
-  const matches = await matchCards(request, cards.filter(card => card.productId > 0).map(card => card.productId));
-  const nameMatches = await matchCsvByName(cards.filter(card => !matches.has(card.productId)));
+  const singles = cards.filter(card => card.kind === "single");
+  const sealed = cards.filter(card => card.kind === "sealed");
+  const [singleIdMatches, sealedIdMatches] = await Promise.all([
+    matchCards(request, singles.filter(card => card.productId > 0).map(card => card.productId)),
+    matchSealed(sealed.filter(card => card.productId > 0).map(card => card.productId)),
+  ]);
+  const [singleNameMatches, sealedNameMatches] = await Promise.all([
+    matchCsvByName(singles.filter(card => !singleIdMatches.has(card.productId))),
+    matchCsvSealedByName(sealed.filter(card => !sealedIdMatches.has(card.productId))),
+  ]);
   const withMatches: CollectrImportCard[] = cards.map(card => {
-    const match = matches.get(card.productId) ?? nameMatches.get(card.productId);
-    if (!match) return { ...card, matched: null };
     // Name-resolved rows adopt the catalog id so signals, history, and favorites line up.
-    return { ...card, productId: match.productId, matched: toMatch(match) };
+    if (card.kind === "sealed") {
+      const match = sealedIdMatches.get(card.productId) ?? sealedNameMatches.get(card.productId);
+      return match ? { ...card, productId: match.productId, matched: toSealedMatch(match) } : { ...card, matched: null };
+    }
+    const match = singleIdMatches.get(card.productId) ?? singleNameMatches.get(card.productId);
+    return match ? { ...card, productId: match.productId, matched: toSingleMatch(match) } : { ...card, matched: null };
   });
   const filename = typeof body.filename === "string" ? body.filename.replace(/\.csv$/i, "").trim() : "";
   const collectrValue = cards.reduce((sum, card) => sum + (card.collectrPrice ?? 0) * card.quantity, 0);
@@ -231,8 +295,8 @@ export async function POST(request: Request) {
     profile: {
       handle: "csv",
       name: filename || "Collectr CSV export",
-      totalCards: cards.length,
-      totalSealed: skippedSealed,
+      totalCards: singles.length,
+      totalSealed: sealed.length,
       totalGraded: skippedGraded,
       collectrValue: collectrValue > 0 ? Math.round(collectrValue * 100) / 100 : null,
     },

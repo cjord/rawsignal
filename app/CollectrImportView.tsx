@@ -16,7 +16,7 @@ import {SignalBadge} from "./SignalControls";
 import {usePersistedSignals} from "./data/usePersistedSignals";
 import {historyTargetKey,useHistoryOnce} from "./data/usePriceHistoryBatch";
 import {importDiff,readStoredImport,storeImport,type StoredCollectrImport} from "./state/collectr-import";
-import {cardFavorite} from "./state/favorites";
+import {cardFavorite,sealedFavorite} from "./state/favorites";
 import {useScalperMode} from "./state/scalper-mode";
 import {useFavorites} from "./state/useFavorites";
 import {parseStrictness,STRICTNESS_KEY,usePreference} from "./state/usePreference";
@@ -26,13 +26,15 @@ import type {CollectrImportCard,CollectrImportPayload} from "./api/collectr/rout
 type Lens="all"|"hold"|"sell";
 type ViewMode="medium"|"text";
 type ImportMarket="all"|"pokemon"|"riftbound";
-type SortCol="cond"|"card"|"signal"|"set"|"collectr"|"market"|"change7"|"change30";
+type Scope="all"|"singles"|"sealed";
+type SortCol="qty"|"card"|"signal"|"set"|"collectr"|"market"|"change7"|"change30";
 
 function SortHead({col,label,sortCol,sortDir,onSort}:{col:SortCol;label:string;sortCol:SortCol;sortDir:"asc"|"desc";onSort:(col:SortCol)=>void}){
  const active=sortCol===col;
  return <span role="columnheader" aria-sort={active?(sortDir==="asc"?"ascending":"descending"):"none"}><button type="button" onClick={()=>onSort(col)}>{label}<span className={`sort-mark ${active?"active":""}`} aria-hidden="true">{active?(sortDir==="asc"?"▲":"▼"):"◇"}</span></button></span>;
 }
 const MARKET_OPTIONS=[{key:"all",label:"All"},{key:"pokemon",label:"Pokémon"},{key:"riftbound",label:"Riftbound"}] as const;
+const SCOPE_OPTIONS=[{key:"all",label:"All"},{key:"singles",label:"Singles"},{key:"sealed",label:"Sealed"}];
 const LENS_OPTIONS=[{key:"all",label:"All cards"},{key:"hold",label:"Hold"},{key:"sell",label:"Hot Sells"}];
 const VIEW_OPTIONS:[{key:ViewMode;label:string;icon:string},{key:ViewMode;label:string;icon:string}]=[{key:"medium",label:"Medium",icon:"▤"},{key:"text",label:"Text",icon:"☷"}];
 const usd=(value:number|null|undefined)=>value==null?"—":formatUsd(value);
@@ -42,7 +44,9 @@ const cardGame=(card:CollectrImportCard):ImportMarket|null=>card.matched?(card.m
 
 function favoriteEntryFor(card:CollectrImportCard){
  const match=card.matched!;
- return cardFavorite({game:match.game,productId:card.productId,name:match.name,set:match.set,number:card.number,section:match.section,image:match.image,marketPrice:match.marketPrice});
+ return card.kind==="sealed"
+  ? sealedFavorite({game:match.game,productId:card.productId,name:match.name,set:match.set,image:match.image,marketPrice:match.marketPrice})
+  : cardFavorite({game:match.game,productId:card.productId,name:match.name,set:match.set,number:card.number,section:match.section,image:match.image,marketPrice:match.marketPrice});
 }
 
 export default function CollectrImportView(){
@@ -52,6 +56,7 @@ export default function CollectrImportView(){
  const [phase,setPhase]=useState<"idle"|"top"|"full"|"csv">("idle");
  const [error,setError]=useState<string|null>(null);
  const [market,setMarket]=useState<ImportMarket>("all");
+ const [scope,setScope]=useState<Scope>("all");
  const [lens,setLens]=useState<Lens>("all");
  const [view,setView]=useState<ViewMode>("medium");
  const [query,setQuery]=useState("");
@@ -83,7 +88,7 @@ export default function CollectrImportView(){
  const loading=phase!=="idle";
  const acceptPayload=(body:CollectrImportPayload)=>{
   setStored(storeImport(body));
-  setLens("all");setQuery("");setSetFilter([]);setMinPrice("");setMaxPrice("");
+  setLens("all");setScope("all");setQuery("");setSetFilter([]);setMinPrice("");setMaxPrice("");
   window.history.replaceState(null,"",body.source==="csv"?"/import":`/import?profile=@${body.profile.handle}`);
  };
  const runImport=async(mode:"top"|"full")=>{
@@ -113,12 +118,19 @@ export default function CollectrImportView(){
  const cards=useMemo(()=>payload?[...payload.cards].sort((a,b)=>effectivePrice(b)-effectivePrice(a)):[],[payload]);
  const buySignals=usePersistedSignals({kind:"single",market:"all",side:"buy",strictness});
  const sellSignals=usePersistedSignals({kind:"single",market:"all",side:"sell",strictness});
- const holdIds=useMemo(()=>new Set(cards.filter(card=>buySignals.derived[card.productId]?.signal).map(card=>card.productId)),[cards,buySignals.derived]);
- const sellIds=useMemo(()=>new Set(cards.filter(card=>sellSignals.derived[card.productId]?.signal).map(card=>card.productId)),[cards,sellSignals.derived]);
- const signalsReady=buySignals.ready&&sellSignals.ready;
+ const buySealed=usePersistedSignals({kind:"sealed",market:"all",side:"buy",strictness});
+ const sellSealed=usePersistedSignals({kind:"sealed",market:"all",side:"sell",strictness});
+ // Look up a card's signal in the right store: singles vs sealed have separate boards.
+ const buyDerivedFor=(card:CollectrImportCard)=>(card.kind==="sealed"?buySealed:buySignals).derived[card.productId];
+ const sellDerivedFor=(card:CollectrImportCard)=>(card.kind==="sealed"?sellSealed:sellSignals).derived[card.productId];
+ const holdIds=useMemo(()=>new Set(cards.filter(card=>(card.kind==="sealed"?buySealed:buySignals).derived[card.productId]?.signal).map(card=>card.productId)),[cards,buySignals,buySealed]);
+ const sellIds=useMemo(()=>new Set(cards.filter(card=>(card.kind==="sealed"?sellSealed:sellSignals).derived[card.productId]?.signal).map(card=>card.productId)),[cards,sellSignals,sellSealed]);
+ const signalsReady=buySignals.ready&&sellSignals.ready&&buySealed.ready&&sellSealed.ready;
 
  const min=minPrice.trim()===""?null:Number(minPrice),max=maxPrice.trim()===""?null:Number(maxPrice);
  const visible=useMemo(()=>cards.filter(card=>{
+  if(scope==="singles"&&card.kind!=="single")return false;
+  if(scope==="sealed"&&card.kind!=="sealed")return false;
   if(market!=="all"&&cardGame(card)!==market)return false;
   if(lens==="hold"&&!holdIds.has(card.productId))return false;
   if(lens==="sell"&&!sellIds.has(card.productId))return false;
@@ -130,7 +142,7 @@ export default function CollectrImportView(){
   if(min!=null&&Number.isFinite(min)&&price<min)return false;
   if(max!=null&&Number.isFinite(max)&&price>max)return false;
   return true;
- }),[cards,market,lens,holdIds,sellIds,query,setFilter,min,max]);
+ }),[cards,scope,market,lens,holdIds,sellIds,query,setFilter,min,max]);
 
  const matched=cards.filter(card=>card.matched);
  const unmatched=useMemo(()=>cards.filter(card=>!card.matched),[cards]);
@@ -144,14 +156,14 @@ export default function CollectrImportView(){
  },[cards,market]);
  const diff=stored?importDiff(stored):null;
 
- const historyTargets=useMemo(()=>visible.filter(card=>card.matched).slice(0,120).map(card=>({productId:card.productId,printing:card.printing??"Normal"})),[visible]);
+ const historyTargets=useMemo(()=>visible.filter(card=>card.matched).slice(0,120).map(card=>({productId:card.productId,printing:card.printing??"Normal",sealed:card.kind==="sealed"})),[visible]);
  const priceHistory=useHistoryOnce(historyTargets);
 
- const signalOf=(card:CollectrImportCard)=>lens==="sell"?sellSignals.derived[card.productId]?.signal:buySignals.derived[card.productId]?.signal??sellSignals.derived[card.productId]?.signal;
- const historyOf=(card:CollectrImportCard)=>card.matched?priceHistory[historyTargetKey({productId:card.productId,printing:card.printing??"Normal"})]:undefined;
+ const signalOf=(card:CollectrImportCard)=>lens==="sell"?sellDerivedFor(card)?.signal:buyDerivedFor(card)?.signal??sellDerivedFor(card)?.signal;
+ const historyOf=(card:CollectrImportCard)=>card.matched?priceHistory[historyTargetKey({productId:card.productId,printing:card.printing??"Normal",sealed:card.kind==="sealed"})]:undefined;
  const sortValue=(card:CollectrImportCard):number|string|null=>{
   switch(sortCol){
-   case "cond":return card.condition?card.condition.toLowerCase():null;
+   case "qty":return card.quantity;
    case "card":return (card.matched?.name??card.name).toLowerCase();
    case "set":return (card.matched?.set??card.set).toLowerCase();
    case "collectr":return card.collectrPrice;
@@ -168,15 +180,15 @@ export default function CollectrImportView(){
   const order=typeof av==="string"?av.localeCompare(String(bv)):Number(av)-Number(bv);
   return sortDir==="asc"?order:-order;
  // eslint-disable-next-line react-hooks/exhaustive-deps -- sortValue/signalOf/historyOf close over the deps listed
- }),[visible,sortCol,sortDir,lens,buySignals.derived,sellSignals.derived,priceHistory]);
+ }),[visible,sortCol,sortDir,lens,buySignals.derived,sellSignals.derived,buySealed.derived,sellSealed.derived,priceHistory]);
  const pages=Math.max(1,Math.ceil(sortedVisible.length/perPage));
  const safePage=Math.min(page,pages);
  const pageRows=useMemo(()=>sortedVisible.slice((safePage-1)*perPage,safePage*perPage),[sortedVisible,safePage,perPage]);
  // A changed filter, lens, market, sort, or page-size resets to the first page.
- useEffect(()=>{setPage(1)},[market,lens,query,setFilter,minPrice,maxPrice,sortCol,sortDir,perPage]);
+ useEffect(()=>{setPage(1)},[market,scope,lens,query,setFilter,minPrice,maxPrice,sortCol,sortDir,perPage]);
 
- const addAll=()=>{favorites.addMany(matched.map(favoriteEntryFor));setAdded(`Added ${matched.length} tracked cards to favorites.`)};
- const addHold=()=>{const holds=matched.filter(card=>holdIds.has(card.productId));favorites.addMany(holds.map(favoriteEntryFor));setAdded(`Added ${holds.length} Hold cards to favorites.`)};
+ const addAll=()=>{favorites.addMany(matched.map(favoriteEntryFor));setAdded(`Added ${matched.length} tracked items to favorites.`)};
+ const addHold=()=>{const holds=matched.filter(card=>holdIds.has(card.productId));favorites.addMany(holds.map(favoriteEntryFor));setAdded(`Added ${holds.length} Hold items to favorites.`)};
 
  return <main className="detail-page import-page"><TopBar active="import" strictness={strictness} onStrictness={setStrictness}/>
   <header className="masthead" id="top">
@@ -185,7 +197,7 @@ export default function CollectrImportView(){
   </header>
   <article className="detail-content">
    <section className="detail-section import-form-section"><header><span>Import</span><h2>Collectr Profile</h2></header>
-    <p className="detail-note">Paste a public Collectr showcase link or @handle. The import matches every raw single against tracked market data, flags what the sell signals say to move and what the buy signals say to hold, and can star the lot into your Buy List. Import Top 30 grabs the showcase&apos;s most valuable cards instantly{scalperMode==="scalper"?"; Import All walks the entire collection through a real browser session and takes longer":""}. {payload?"Importing again replaces this page with the new profile.":"Graded cards and sealed products are skipped."}<InfoHint label="How matching works">Collectr and Raw Signal both key cards by TCGplayer product id, so matching is exact. Cards outside the tracked rarity sections show with a “not tracked” badge and Collectr&apos;s own value; they stay out of the Hold/Sell lenses and favorites.</InfoHint></p>
+    <p className="detail-note">Paste a public Collectr showcase link or @handle. The import matches every card and sealed product against tracked market data, flags what the sell signals say to move and what the buy signals say to hold, and can star the lot into your Buy List. Import Top 30 grabs the showcase&apos;s most valuable items instantly{scalperMode==="scalper"?"; Import All walks the entire collection through a real browser session and takes longer":""}. {payload?"Importing again replaces this page with the new profile.":"Graded cards are skipped; sealed products are included."}<InfoHint label="How matching works">Collectr and Raw Signal both key products by TCGplayer product id, so matching is exact. Items outside the tracked catalog show with a “not tracked” badge and Collectr&apos;s own value; they stay out of the Hold/Sell lenses and favorites.</InfoHint></p>
     <div className="import-form">
      <label className="import-input"><span aria-hidden="true">⌕</span><input ref={inputRef} value={input} placeholder="https://app.getcollectr.com/showcase/profile/@yourhandle" onChange={event=>setInput(event.target.value)} onKeyDown={event=>{if(event.key==="Enter")runImport(scalperMode==="scalper"?"full":"top")}} aria-label="Collectr showcase link or handle"/></label>
      <button type="button" className="import-run import-run-secondary" onClick={()=>runImport("top")} disabled={loading}>{phase==="top"?"Importing…":"Import Top 30"}</button>
@@ -229,9 +241,9 @@ export default function CollectrImportView(){
    <section className="detail-section">
     <header><span>Signal check</span><h2>{lens==="hold"?"Hold — Do Not Sell These":lens==="sell"?"Sell Candidates":"All Imported Cards"}<InfoHint label="About the lenses">Hold lists cards with a live buy signal at your strictness — the market says they sit near a floor, the opposite of a good time to sell. Hot Sells lists cards with a live sell signal — near a historical high with retrace risk. Everything else is neutral: no strong signal either way.</InfoHint></h2></header>
     <div className="signal-navigation import-nav">
+     <SlidingTabs options={SCOPE_OPTIONS} selectedKey={scope} onSelect={key=>setScope(key as Scope)} label="Import scope"/>
      <MarketTabs className="import-market-tabs" options={MARKET_OPTIONS} value={market} onChange={next=>setMarket(next as ImportMarket)} label="Import market"/>
      <SlidingTabs options={LENS_OPTIONS} selectedKey={lens} onSelect={key=>setLens(key as Lens)} label="Signal lens" className={lens==="hold"?"tone-buy":lens==="sell"?"tone-sell":""}/>
-     <SegmentedView className="detail-table-views" value={view} onChange={setView} options={VIEW_OPTIONS} label="Row view"/>
     </div>
     {!signalsReady&&lens!=="all"&&<p className="detail-unavailable">{buySignals.resolved?"Persisted signals are refreshing (the nightly market walk is mid-run) — lenses return when today's snapshot publishes.":"Checking signals…"}</p>}
     <div className="import-filters">
@@ -239,10 +251,11 @@ export default function CollectrImportView(){
      <MultiSelectField className="toolbar-select" label="Sets" options={setOptions} selected={setFilter} onChange={setSetFilter} allLabel="All sets"/>
      <label className="import-input import-price"><span>Min $</span><input inputMode="decimal" value={minPrice} onChange={event=>setMinPrice(event.target.value)} aria-label="Minimum price"/></label>
      <label className="import-input import-price"><span>Max $</span><input inputMode="decimal" value={maxPrice} onChange={event=>setMaxPrice(event.target.value)} aria-label="Maximum price"/></label>
+     <SegmentedView className="detail-table-views import-view-toggle" value={view} onChange={setView} options={VIEW_OPTIONS} label="Row view"/>
     </div>
     <div className={`import-table view-${view}`}>
      <div className="table-head import-head" role="row">
-      <SortHead col="cond" label="Cond" sortCol={sortCol} sortDir={sortDir} onSort={onSort}/>
+      <SortHead col="qty" label="QTY" sortCol={sortCol} sortDir={sortDir} onSort={onSort}/>
       <SortHead col="card" label="Card" sortCol={sortCol} sortDir={sortDir} onSort={onSort}/>
       <SortHead col="signal" label="Signal" sortCol={sortCol} sortDir={sortDir} onSort={onSort}/>
       <SortHead col="set" label="Set" sortCol={sortCol} sortDir={sortDir} onSort={onSort}/>
@@ -259,9 +272,10 @@ export default function CollectrImportView(){
        const cardHistory=historyOf(card);
        const change7=match?cardHistory?.change7??null:null;
        const change30=match?cardHistory?.change30??null:null;
+       const meta=card.kind==="sealed"?(match?.rarity||"Sealed"):`${card.number||"—"} · ${card.rarity||"—"}${card.printing?` · ${card.printing}`:""}`;
        const body=<>
-        <span className="import-cond">{card.condition??"—"} · ×{card.quantity}</span>
-        <ProductIdentity className="identity" image={match?.image??card.image} alt="" title={match?.name??card.name} meta={`${card.number||"—"} · ${card.rarity||"—"}${card.printing?` · ${card.printing}`:""}`}/>
+        <span className="import-cond">{card.kind==="sealed"?`×${card.quantity}`:`${card.condition??"—"} · ×${card.quantity}`}</span>
+        <ProductIdentity className="identity" image={match?.image??card.image} alt="" title={match?.name??card.name} meta={meta}/>
         <span className="import-signal">{signal?<SignalBadge signal={signal}/>:<span className="import-neutral">{match?"—":""}</span>}</span>
         <span className="set-name">{match?.set??card.set}</span>
         <span className="import-collectr">{usd(card.collectrPrice)}</span>
@@ -271,7 +285,7 @@ export default function CollectrImportView(){
         <span className="row-star">{match?<FavoriteStar entry={favoriteEntryFor(card)}/>:null}</span>
        </>;
        return match?<a key={`${card.productId}-${rowKey}`} className="leader-row import-row" href={match.detailPath} aria-label={`View ${match.name} details`}>{body}
-        {cardHistory&&<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={match.image??""} alt={`${match.name} card`} label={`${match.name} price history`}><HistoryPanel title="Near Mint market history" subtitle={card.printing??"Normal"} points={cardHistory.points??[]} metrics={standardHistoryMetrics(match.marketPrice,null,cardHistory)}/></HistoryPopover>}
+        {cardHistory&&<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={match.image??""} alt={`${match.name} card`} label={`${match.name} price history`}><HistoryPanel title={card.kind==="sealed"?"Market price history":"Near Mint market history"} subtitle={card.kind==="sealed"?(match.rarity||"Sealed"):(card.printing??"Normal")} points={cardHistory.points??[]} metrics={standardHistoryMetrics(match.marketPrice,null,cardHistory)}/></HistoryPopover>}
        </a>:<div key={`${card.productId}-u-${rowKey}`} className="leader-row import-row is-untracked">{body}</div>;
       })}
       {!sortedVisible.length&&<p className="empty">Nothing matches the current lens and filters.</p>}

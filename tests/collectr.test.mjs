@@ -32,20 +32,25 @@ test("parses the dehydrated showcase payload out of real page HTML", async () =>
   assert.ok(charmander.collectrPrice > 100);
 });
 
-test("normalization drops graded and sealed records and tolerates junk", () => {
+test("normalization keeps singles + sealed, drops graded, tolerates junk", () => {
   const { cards, skippedGraded, skippedSealed } = normalizeCollectrProducts([
     { product_id: "100", catalog_category_name: "Pokemon", product_name: "Keeper", catalog_group: "Base Set", quantity: "2", market_price: "12.5", grade_id: "52" },
     { product_id: "101", catalog_category_name: "Pokemon", product_name: "SSR graded", grade_id: "9" },
     { product_id: "104", catalog_category_name: "Pokemon", product_name: "API graded", grade_id: null, grade_company: "9" },
-    { product_id: "102", catalog_category_name: "Pokemon", product_name: "Sealed Box", is_card: false },
+    { product_id: "102", catalog_category_name: "Pokemon", product_name: "Booster Box", catalog_group: "Base Set", quantity: "1", market_price: "400", is_card: false },
     { product_id: "not-a-number", catalog_category_name: "Pokemon", product_name: "Junk" },
-    { product_id: "103", catalog_category_name: "One Piece Card Game", product_name: "Unsupported Game" },
+    { product_id: "103", catalog_category_name: "One Piece Card Game", product_name: "OP Sealed", is_card: false },
   ]);
-  assert.equal(cards.length, 2);
-  assert.deepEqual({ id: cards[0].productId, qty: cards[0].quantity, price: cards[0].collectrPrice }, { id: 100, qty: 2, price: 12.5 });
-  assert.equal(cards[1].game, null);
+  assert.equal(cards.length, 3);
+  const keeper = cards.find(card => card.productId === 100);
+  assert.deepEqual({ kind: keeper.kind, qty: keeper.quantity, price: keeper.collectrPrice }, { kind: "single", qty: 2, price: 12.5 });
+  const box = cards.find(card => card.productId === 102);
+  assert.deepEqual({ kind: box.kind, game: box.game, cond: box.condition, price: box.collectrPrice }, { kind: "sealed", game: "pokemon", cond: null, price: 400 });
+  // One Piece has no singles here, but its sealed maps to the tracked onepiece game.
+  const op = cards.find(card => card.productId === 103);
+  assert.deepEqual({ kind: op.kind, game: op.game }, { kind: "sealed", game: "onepiece" });
   assert.equal(skippedGraded, 2);
-  assert.equal(skippedSealed, 1);
+  assert.equal(skippedSealed, 0);
 });
 
 test("parses direct API pages and normalizes handles", () => {
@@ -78,20 +83,25 @@ test("normalizeCollectrCsv maps tolerant headers and skips graded/sealed rows", 
   ].join("\r\n");
   const result = normalizeCollectrCsv(csv);
   assert.ok(!("error" in result), `unexpected error: ${"error" in result ? result.error : ""}`);
-  assert.equal(result.cards.length, 3);
+  assert.equal(result.cards.length, 4);
   assert.equal(result.skippedGraded, 1);
-  assert.equal(result.skippedSealed, 1);
+  assert.equal(result.skippedSealed, 0);
   assert.equal(result.hasIds, true);
   const charmander = result.cards[0];
   assert.deepEqual(
-    { id: charmander.productId, game: charmander.game, set: charmander.set, price: charmander.collectrPrice, printing: charmander.printing },
-    { id: 84208, game: "pokemon", set: "EX Dragon", price: 120.5, printing: "Holofoil" },
+    { id: charmander.productId, kind: charmander.kind, game: charmander.game, set: charmander.set, price: charmander.collectrPrice, printing: charmander.printing },
+    { id: 84208, kind: "single", game: "pokemon", set: "EX Dragon", price: 120.5, printing: "Holofoil" },
   );
   const ahri = result.cards[1];
   assert.deepEqual({ id: ahri.productId, game: ahri.game, qty: ahri.quantity }, { id: 664881, game: "riftbound", qty: 2 });
-  // Id-less rows get synthetic negative ids for later name resolution.
-  assert.ok(result.cards[2].productId < 0);
-  assert.equal(result.cards[2].name, "No Id Card");
+  // The "Sealed Product" row is now kept as a sealed item (no id → synthetic negative id).
+  const box = result.cards[2];
+  assert.deepEqual({ kind: box.kind, set: box.set, price: box.collectrPrice }, { kind: "sealed", set: "Evolving Skies", price: 400 });
+  assert.ok(box.productId < 0);
+  // Id-less single still gets a synthetic negative id for later name resolution.
+  const noId = result.cards[3];
+  assert.ok(noId.productId < 0);
+  assert.deepEqual({ name: noId.name, kind: noId.kind }, { name: "No Id Card", kind: "single" });
 });
 
 test("normalizeCollectrCsv rejects unrecognizable layouts with the found headers", () => {
