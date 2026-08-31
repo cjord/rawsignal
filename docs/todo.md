@@ -935,6 +935,38 @@ Collectr import table, the Hot Buy/Hot Sell boards, and single-card / sealed det
 Needs a definition of "very close together" (score delta and/or distance-to-cutoff
 threshold) before implementation.
 
+## L. Catalog coverage gaps (surfaced by the Collectr import, 2026-08-31)
+
+Diagnosed from the @srikaskrr test import: several unmatched items are real products we
+simply don't ingest. Matching is a TCGplayer product-id join, and a **name fallback now
+runs on the showcase path too** (commit adding sealed/singles name-fallback), which catches
+items we hold under a different id — but it can only match against catalogs we actually
+ingest. These are ingestion-scope gaps to close (each is a TCGCSV category we don't pull):
+
+**L1. Japanese sealed Pokémon.** We track **zero** JP sealed today (all ~2,692 Pokémon
+sealed rows are English/TCGplayer-English ids). Collectr lists JP boxes under its own
+synthetic ids (10,000,000+), but they DO exist on TCGplayer under the `pokemon-japan`
+categories — e.g. **Eevee Heroes Booster Box = TCGplayer 565351** (`pokemon-japan-s6a`).
+Others seen: VSTAR Universe (s12a), Shiny Treasure ex (sv4a), Pokémon 151 JP (sv2a), all
+Japanese-exclusive. Ingesting the `pokemon-japan` sealed groups from TCGCSV would let the
+name fallback (and, once ids align, the id-join) match these.
+
+**L2. One Piece — full sealed + singles.** OP sealed is only ~23 products today
+(Illustration Boxes, Starter Decks, Double Packs, one booster pack); the main English OP
+**booster boxes** are missing (e.g. "Carrying On His Will Booster Box" = TCGplayer 628352).
+And OP **singles aren't tracked at all** (0 rows) — so promos/parallels like
+Monkey.D.Luffy OP05-060 (557296), Boa Hancock OP07-038 (623618), Otama OP07-022 (545804)
+can never match. Add the full One Piece sealed groups and the One Piece singles catalog.
+
+**L3. Magic: The Gathering sealed (maybe).** No MTG game is tracked (MTG paused). Collectr
+users hold MTG sealed — e.g. "Universes Beyond: FINAL FANTASY – Gift Bundle" (618899). If
+we want import coverage there, add MTG sealed ingestion. Lower priority than L1/L2.
+
+**L4. Retailer-exclusive Pokémon sealed gaps.** Some real TCGplayer SKUs aren't in our
+catalog even for English — e.g. "Costco Prismatic Evolutions 8-Pack Mini Tins" (653892).
+Audit whether our sealed ingestion is dropping retailer exclusives (Costco/Sam's/Dollar
+General variants) or just missing recent additions.
+
 ## Decisions — resolved at review (2026-08-27)
 
 1. **B2**: Direct low **removed everywhere** (hero + printings table; field stays in data).
