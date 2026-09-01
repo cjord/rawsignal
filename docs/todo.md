@@ -943,13 +943,26 @@ runs on the showcase path too** (commit adding sealed/singles name-fallback), wh
 items we hold under a different id — but it can only match against catalogs we actually
 ingest. These are ingestion-scope gaps to close (each is a TCGCSV category we don't pull):
 
-**L1. Japanese sealed Pokémon.** We track **zero** JP sealed today (all ~2,692 Pokémon
-sealed rows are English/TCGplayer-English ids). Collectr lists JP boxes under its own
-synthetic ids (10,000,000+), but they DO exist on TCGplayer under the `pokemon-japan`
-categories — e.g. **Eevee Heroes Booster Box = TCGplayer 565351** (`pokemon-japan-s6a`).
-Others seen: VSTAR Universe (s12a), Shiny Treasure ex (sv4a), Pokémon 151 JP (sv2a), all
-Japanese-exclusive. Ingesting the `pokemon-japan` sealed groups from TCGCSV would let the
-name fallback (and, once ids align, the id-join) match these.
+**L1. Japanese sealed Pokémon — MEASURED 2026-08-31, option B IMPLEMENTED.** We tracked
+**zero** JP sealed (all ~2,692 Pokémon sealed rows were English ids); JP *singles* are
+tracked only as the 22 promo groups of category 85 (~1,184 priced "Japanese Promos").
+Collectr lists JP boxes under its own synthetic ids (10,000,000+), but they DO exist on
+TCGplayer category 85 — e.g. **Eevee Heroes Booster Box = TCGplayer 565351** (S6a,
+publishedOn 2021-05-28); VSTAR Universe (S12a 2022), Shiny Treasure ex (SV4a 2023),
+Pokémon 151 JP (SV2a 2023). Measured: category 85 has 456 groups (434 non-promo ≈
+18,500 products) but only **~254 sealed products (~224 priced, 1.4% yield)** — each JP
+set carries just booster box/pack + occasional premium trainer box. Tick cost scales
+with group count, not products, so the options were: A) full 434-group walk = +868
+req/day, +~41 cron ticks for ~254 keeps; **B) modern cutoff publishedOn ≥ 2020 (140
+groups, SWSH era on — covers every Collectr miss) = +280 req/day, +~15 ticks, ~150–180
+sealed — CHOSEN**; C) sealed-group cache (~+11 ticks, full coverage, new plumbing) —
+available later if completeness matters. JP sealed stays `game:"pokemon"` (no
+migration) and joins the English Pokémon sealed catalog/feed. JP promo groups remain
+singles-only (their ~6 sealed-shaped items stay out, unchanged). Full JP singles
+(~15,800 priced) would exceed the entire current singles catalog and blow the cron
+budget (+~263 history ticks — infeasible); curated JP chase rarities (AR/SAR/SR/UR,
+~3–4k records, +~80–105 ticks/day) is the only viable singles shape — unscheduled, and
+the priciest expansion on the board after MTG.
 
 **L2. One Piece — full sealed + singles. Sealed APPROVED 2026-08-31; singles deferred
 to its own phase.** OP sealed is only ~23 curated products today; the main English OP

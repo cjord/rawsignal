@@ -67,6 +67,26 @@ newly published groups (~30–40% savings), or walk weekly instead of daily.
    new rows start matching imports (e.g. "Carrying On His Will Booster Box"
    628352) with no import-side changes.
 
+## Japanese Pokémon (category 85) — measured 2026-08-31
+
+Tracked before this round: singles from the 22 promo groups only (~1,184 priced
+"Japanese Promos"); zero JP sealed. Available: 456 groups, 434 non-promo ≈ 18,500
+products = ~15,800 priced singles but only **~254 sealed (~224 priced, 1.4%)** — each
+JP set lists just box/pack (+ occasional premium trainer box) on TCGplayer.
+
+| Option | Req/day | Ticks/day | Sealed gained |
+|---|---|---|---|
+| A. Full 434-group walk | +868 | +~41 | ~254 |
+| **B. publishedOn ≥ 2020 (140 groups, SWSH on) — CHOSEN** | **+280** | **+~15** | **~150–180** |
+| C. Sealed-group cache after one discovery walk | +~250 | +~11 | ~254 (new plumbing) |
+
+Option B covers every Collectr §L1 miss (Eevee Heroes S6a 2021-05-28, VSTAR Universe
+2022, Shiny Treasure ex 2023, 151 JP 2023 — publishedOn is era-accurate). JP sealed
+stays `game:"pokemon"` — no migration, joins the English sealed catalog/feeds. Promo
+groups stay singles-only. Full JP singles (~15,800 priced, +~263 history ticks) would
+blow the 720-tick cron budget; curated chase rarities (~3–4k, +~80–105 ticks) is the
+only viable singles shape — deliberately unscheduled.
+
 ## One Piece: sealed-only vs singles+sealed
 
 Fetch cost is **identical** — the walk already downloads every product+price row

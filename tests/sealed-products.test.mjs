@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
-import {isOnePieceSealedProduct, isPokemonSealedProduct, normalizeOnePieceProductType, normalizeProductType, normalizedProductKey} from "../core/sealed-product-utils.ts";
-import {normalizeOnePieceSealedProduct} from "../core/normalize/sealed.ts";
+import {isJapaneseSealedProduct, isOnePieceSealedProduct, isPokemonSealedProduct, normalizeJapaneseProductType, normalizeOnePieceProductType, normalizeProductType, normalizedProductKey} from "../core/sealed-product-utils.ts";
+import {normalizeJapaneseSealedProduct, normalizeOnePieceSealedProduct} from "../core/normalize/sealed.ts";
 
 test("normalizes common Pokémon sealed product types", () => {
   assert.equal(normalizeProductType("151 Booster Bundle"), "Booster Bundles");
@@ -26,6 +26,22 @@ test("rejects cards and products from other markets", () => {
 
 test("preserves meaningful release variants in duplicate keys", () => {
   assert.notEqual(normalizedProductKey({name: "Poke Ball Tin (Q4 2024)"}, "Miscellaneous"), normalizedProductKey({name: "Poke Ball Tin (Q4 2025)"}, "Miscellaneous"));
+});
+
+test("Japanese sealed detection and taxonomy join the Pokémon vocabulary", () => {
+  assert.equal(normalizeJapaneseProductType("Eevee Heroes Booster Box"), "Booster Boxes");
+  assert.equal(normalizeJapaneseProductType("Shiny Treasure ex Booster Pack"), "Booster Packs");
+  // "Starter Set" is the JP starter-deck naming — English rules alone would bucket it Other.
+  assert.equal(normalizeJapaneseProductType("Ceruledge ex Stellar Tera Type Starter Set"), "Starter / Theme Decks");
+  assert.equal(normalizeJapaneseProductType("VStar Premium Trainer Box"), "Boxes / Bundles");
+  assert.equal(isJapaneseSealedProduct({categoryId: 85, name: "Eevee Heroes Booster Box", extendedData: []}), true);
+  // Singles (even rarity-less JP promos with a Number) and accessories stay out.
+  assert.equal(isJapaneseSealedProduct({categoryId: 85, name: "Victini - 288/SV-P", extendedData: [{name: "Number", value: "288/SV-P"}]}), false);
+  assert.equal(isJapaneseSealedProduct({categoryId: 85, name: "Eevee Heroes Deck Case", extendedData: []}), false);
+  assert.equal(isJapaneseSealedProduct({categoryId: 3, name: "Surging Sparks Booster Box", extendedData: []}), false);
+  const box = normalizeJapaneseSealedProduct({productId: 565351, name: "Eevee Heroes Booster Box", imageUrl: "", url: "https://example.com/jp", extendedData: []}, {name: "S6a: Eevee Heroes", publishedOn: "2021-05-28T00:00:00Z"}, {marketPrice: 480, subTypeName: "Normal"});
+  // Joins the English Pokémon sealed catalog; JP MSRPs are yen-denominated → honest null.
+  assert.deepEqual({game: box.game, category: box.category, marketPrice: box.marketPrice, msrp: box.msrp, profit: box.profit}, {game: "pokemon", category: "Booster Boxes", marketPrice: 480, msrp: null, profit: null});
 });
 
 test("normalizes One Piece sealed product types onto the canonical buckets", () => {

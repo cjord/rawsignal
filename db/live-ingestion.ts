@@ -1,7 +1,7 @@
 import type { Card, SealedProduct } from "../core/domain/types.ts";
 import { normalizeSinglesGroup, type SinglesPriceRow, type SinglesSourceProduct } from "../core/normalize/singles.ts";
-import { normalizeOnePieceSealedProduct, normalizePokemonSealedProduct, normalizeRiftboundSealedProduct, preferredSealedPrice, sealedIdentity, type SealedPriceRow } from "../core/normalize/sealed.ts";
-import type { SealedSourceProduct } from "../core/sealed-product-utils.ts";
+import { normalizeJapaneseSealedProduct, normalizeOnePieceSealedProduct, normalizePokemonSealedProduct, normalizeRiftboundSealedProduct, preferredSealedPrice, sealedIdentity, type SealedPriceRow } from "../core/normalize/sealed.ts";
+import { JAPANESE_SEALED_SINCE, type SealedSourceProduct } from "../core/sealed-product-utils.ts";
 import { persistRecord } from "./daily-ingestion.ts";
 import { clampBatchSize, markIngestionFailed, parseStatsJson, resumeCheckpoint } from "./ingestion-batch.ts";
 import { checkpointIngestion, completeIngestion, failIngestion, startIngestion, type D1DatabaseLike } from "./repository.ts";
@@ -26,19 +26,24 @@ export type LiveSyncDeps = {
 
 type WorkEntry =
   | { type: "tcgcsv"; categoryId: number; game: "pokemon" | "riftbound"; group: TcgcsvGroup; fixedSection?: [string, string] }
-  | { type: "tcgcsv-sealed"; categoryId: number; game: "onepiece"; group: TcgcsvGroup }
+  | { type: "tcgcsv-sealed"; categoryId: number; game: "onepiece" | "pokemon"; group: TcgcsvGroup }
   | { type: "bundled"; market: "riftbound" | "onepiece" };
 type LiveStats = { recordsWritten?: number; duplicateDecisions?: number; rejected?: Record<string, number> };
 
 const categories = [{ id: 3, game: "pokemon" as const }, { id: 89, game: "riftbound" as const }];
-// Sealed-only categories (todo L2): the walk keeps sealed rows and never runs the
-// singles normalizer — One Piece singles are a separate, curated-rarity phase.
-const sealedOnlyCategories = [{ id: 68, game: "onepiece" as const }];
 // Japanese Pokémon (TCGCSV category 85, audit Phase E): only the promo groups for now —
 // the stated priority — as one fixed section; the full JP catalog is a later decision.
 export const JAPANESE_CATEGORY_ID = 85;
 export const JAPANESE_PROMOS_SECTION: [string, string] = ["japanese-promos", "Japanese Promos"];
 const japanesePromoGroup = (group: TcgcsvGroup) => /promo/i.test(group.name);
+// Sealed-only categories (todo L1/L2): the walk keeps sealed rows and never runs the
+// singles normalizer — One Piece singles are a separate, curated-rarity phase, and the
+// JP promo groups keep their own singles-only fixed-section entries (skipGroup below
+// prevents double-walking them; their handful of sealed-shaped items stays out).
+const sealedOnlyCategories: { id: number; game: "onepiece" | "pokemon"; publishedSince?: string; skipGroup?: (group: TcgcsvGroup) => boolean }[] = [
+  { id: 68, game: "onepiece" },
+  { id: JAPANESE_CATEGORY_ID, game: "pokemon", publishedSince: JAPANESE_SEALED_SINCE, skipGroup: japanesePromoGroup },
+];
 const parseCursor = (value: string | null | undefined) => { const match = /^(\d+):(\d+)$/.exec(value ?? ""); return match ? { group: Number(match[1]), offset: Number(match[2]) } : { group: 0, offset: 0 }; };
 
 async function buildWorkList(client: TcgcsvClient, now: Date): Promise<WorkEntry[]> {
@@ -52,7 +57,11 @@ async function buildWorkList(client: TcgcsvClient, now: Date): Promise<WorkEntry
   japaneseGroups.sort((a, b) => a.groupId - b.groupId);
   for (const group of japaneseGroups) entries.push({ type: "tcgcsv", categoryId: JAPANESE_CATEGORY_ID, game: "pokemon", group, fixedSection: JAPANESE_PROMOS_SECTION });
   for (const category of sealedOnlyCategories) {
-    const groups = (await client.groups(category.id)).filter(group => new Date(group.publishedOn) <= now);
+    const since = category.publishedSince ? new Date(category.publishedSince) : null;
+    const groups = (await client.groups(category.id)).filter(group => {
+      const published = new Date(group.publishedOn);
+      return published <= now && (!since || published >= since) && !category.skipGroup?.(group);
+    });
     groups.sort((a, b) => a.groupId - b.groupId);
     for (const group of groups) entries.push({ type: "tcgcsv-sealed", categoryId: category.id, game: category.game, group });
   }
@@ -69,7 +78,10 @@ async function loadEntryRecords(entry: WorkEntry, deps: LiveSyncDeps, msrp: () =
     const sealed: SealedProduct[] = [], seenIdentity = new Set<string>();
     for (const raw of products) {
       const product = raw as SealedSourceProduct & { name: string };
-      const normalized = normalizeOnePieceSealedProduct(product, entry.group, preferredSealedPrice(pricesById.get(Number(product.productId)) as SealedPriceRow[] | undefined));
+      const price = preferredSealedPrice(pricesById.get(Number(product.productId)) as SealedPriceRow[] | undefined);
+      const normalized = entry.game === "onepiece"
+        ? normalizeOnePieceSealedProduct(product, entry.group, price)
+        : normalizeJapaneseSealedProduct(product, entry.group, price);
       if (!normalized) continue;
       const identity = sealedIdentity(product, entry.group);
       if (seenIdentity.has(identity)) continue;

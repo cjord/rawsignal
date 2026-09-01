@@ -1,4 +1,4 @@
-import { isOnePieceSealedProduct, isPokemonSealedProduct, isRiftboundSealedProduct, normalizeOnePieceProductType, normalizeProductType, normalizeRiftboundProductType, normalizedProductKey, type SealedSourceGroup, type SealedSourceProduct } from "../sealed-product-utils.ts";
+import { isJapaneseSealedProduct, isOnePieceSealedProduct, isPokemonSealedProduct, isRiftboundSealedProduct, normalizeJapaneseProductType, normalizeOnePieceProductType, normalizeProductType, normalizeRiftboundProductType, normalizedProductKey, type SealedSourceGroup, type SealedSourceProduct } from "../sealed-product-utils.ts";
 import { derivedPokemonMsrp } from "../msrp/derived-msrp.ts";
 import verifiedMsrp from "../msrp/verified-msrp.ts";
 import type { SealedProduct } from "../domain/types.ts";
@@ -69,6 +69,33 @@ export function normalizeRiftboundSealedProduct(product: SealedSourceProduct & {
     profit,
     profitPct: profit != null && msrp ? Number((profit / msrp * 100).toFixed(1)) : null,
     msrpSource: msrp == null ? null : (positive(curatedRecord?.msrp) != null ? (curatedRecord?.msrpSource ?? "Asmodee/Riftbound MSRP") : verified?.source ?? null),
+  };
+}
+
+// Japanese Pokémon sealed (category 85, todo L1 option B) joins the English Pokémon
+// sealed catalog under game "pokemon". Bandai Japan MSRPs are yen-denominated and have
+// no published USD feed, and the English derived-pricing table does not apply — MSRP is
+// null unless a hand-verified "pokemon:<id>" entry exists, so estimates are never
+// dressed as verified.
+export function normalizeJapaneseSealedProduct(product: SealedSourceProduct & { name: string }, group: SealedSourceGroup & { name: string }, price: SealedPriceRow | null | undefined): SealedProduct | null {
+  if (!isJapaneseSealedProduct(product)) return null;
+  const verified = verifiedMsrp[`pokemon:${Number(product.productId)}`];
+  const msrp = positive(verified?.msrp), marketPrice = positive(price?.marketPrice), midPrice = positive(price?.midPrice);
+  const profit = msrp != null && marketPrice != null ? Number((marketPrice - msrp).toFixed(2)) : null;
+  return {
+    game: "pokemon",
+    productId: Number(product.productId),
+    name: product.name,
+    set: group.name,
+    category: normalizeJapaneseProductType(product.name),
+    image: product.imageUrl?.replace("_200w", "_in_1000x1000") ?? null,
+    url: product.url ?? "",
+    msrp,
+    marketPrice,
+    midPrice,
+    profit,
+    profitPct: profit != null && msrp ? Number((profit / msrp * 100).toFixed(1)) : null,
+    msrpSource: msrp != null ? verified?.source ?? null : null,
   };
 }
 

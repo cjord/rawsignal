@@ -71,6 +71,28 @@ export function isRiftboundSealedProduct(product: SealedSourceProduct) {
   return true;
 }
 
+// Japanese Pokémon sealed (category 85, todo L1 option B): JP sealed joins the English
+// Pokémon sealed catalog (game stays "pokemon", no migration). Only SWSH-era-and-newer
+// set groups are walked — tick cost scales with group count (434 non-promo groups hold
+// just ~254 sealed) and the ≥2020 cutoff covers every observed Collectr miss for less
+// than half the walk; the full walk or a sealed-group cache stays available if
+// completeness ever matters. The JP line reuses the Pokémon taxonomy with one
+// vocabulary addition — "Starter Set" is the JP starter-deck naming. "Other" stays
+// excluded like English Pokémon: category 85 carries JP accessories (deck cases,
+// coins) that the shared non-product patterns don't all name.
+export const JAPANESE_SEALED_SINCE = "2020-01-01";
+export function normalizeJapaneseProductType(name = "") {
+  if (/\bstarter set\b/i.test(name)) return "Starter / Theme Decks";
+  return normalizeProductType(name);
+}
+
+export function isJapaneseSealedProduct(product: SealedSourceProduct) {
+  if (product.categoryId != null && Number(product.categoryId) !== 85) return false;
+  if (NON_PRODUCT.test(product.name ?? "") || /\b(bulk|deck case|card case)\b/i.test(product.name ?? "")) return false;
+  if ((product.extendedData ?? []).some(field => /^(number|rarity)$/i.test(field.name) && String(field.value ?? "").trim())) return false;
+  return normalizeJapaneseProductType(product.name) !== "Other";
+}
+
 // One Piece (category 68) is sealed-only in the catalog — singles stay untracked (todo
 // L2). Bandai's line has its own vocabulary (double packs, deck sets, illustration
 // boxes, tin pack sets) mapped onto the shared canonical buckets. Rule order matters:

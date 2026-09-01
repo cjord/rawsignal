@@ -90,8 +90,10 @@ test("sealed scenario calculations and filters share one implementation", async 
   assert.ok(sample);
   const scenario = { basis: "market", keepPct: 90, taxOn: true, taxRate: 8, shipping: 5 };
   const calculation = calculateSealedScenario(sample, scenario);
-  assert.equal(calculation.proceeds, sample.marketPrice * .9);
-  assert.equal(calculation.cost, sample.msrp * 1.08 + 5);
+  // Same algebra as the implementation (`* keepPct / 100`, `* (1 + rate / 100)`) — a
+  // shorthand like `* .9` takes a different float path and fails on some feed samples.
+  assert.equal(calculation.proceeds, sample.marketPrice * scenario.keepPct / 100);
+  assert.equal(calculation.cost, sample.msrp * (1 + scenario.taxRate / 100) + scenario.shipping);
   const profitable = querySealedCatalog(sealed, sealedOptions({ ...scenario, profitableOnly: true, sort: "profitPct" }));
   assert.ok(profitable.allItems.every(product => calculateSealedScenario(product, scenario).profit > 0));
 });

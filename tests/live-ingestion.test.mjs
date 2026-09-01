@@ -32,6 +32,10 @@ const groupB={groupId:11,name:"Promo Reprints",publishedOn:"2026-02-01T00:00:00Z
 const groupR={groupId:90,name:"Rift Set",publishedOn:"2026-03-01T00:00:00Z"};
 const groupJ={groupId:200,name:"SV-P Promotional Cards",publishedOn:"2026-04-01T00:00:00Z"};
 const groupO={groupId:300,name:"Carrying On His Will",publishedOn:"2026-05-01T00:00:00Z"};
+const groupJS={groupId:210,name:"S6a: Eevee Heroes",publishedOn:"2021-05-28T00:00:00Z"};
+// Pre-cutoff JP set group with NO fixture: walking it would throw, so a passing run
+// proves the ≥2020 sealed cutoff filters it out.
+const groupJOld={groupId:211,name:"XY-1: Collection X",publishedOn:"2013-12-13T00:00:00Z"};
 const fixtures={
   "3:10":{
     products:[
@@ -71,6 +75,18 @@ const fixtures={
       {productId:602,marketPrice:90,lowPrice:85,midPrice:92,highPrice:99,subTypeName:"Normal"},
     ],
   },
+  // Japanese set group (category 85, non-promo, ≥2020): sealed-only — the box lands
+  // under game "pokemon", the JP single stays out (JP singles remain promo-groups-only).
+  "85:210":{
+    products:[
+      {productId:701,name:"Eevee Heroes Booster Box",imageUrl:"https://example.com/eh_200w.jpg",url:"https://example.com/eh",extendedData:[]},
+      {productId:702,name:"Glaceon VMAX - 025/069",imageUrl:"",url:"",extendedData:[{name:"Number",value:"025/069"},{name:"Rarity",value:"RRR"}]},
+    ],
+    prices:[
+      {productId:701,marketPrice:480,lowPrice:430,midPrice:495,highPrice:540,subTypeName:"Normal"},
+      {productId:702,marketPrice:30,lowPrice:26,midPrice:31,highPrice:35,subTypeName:"Normal"},
+    ],
+  },
   // One Piece (category 68) is sealed-only: the box lands, the single stays out entirely.
   "68:300":{
     products:[
@@ -85,7 +101,7 @@ const fixtures={
 };
 const deps={
   client:{
-    async groups(categoryId){return categoryId===3?[groupA,groupB]:categoryId===89?[groupR]:categoryId===68?[groupO]:[groupJ]},
+    async groups(categoryId){return categoryId===3?[groupA,groupB]:categoryId===89?[groupR]:categoryId===68?[groupO]:[groupJ,groupJS,groupJOld]},
     async products(categoryId,groupId){return fixtures[`${categoryId}:${groupId}`].products},
     async prices(categoryId,groupId){return fixtures[`${categoryId}:${groupId}`].prices},
   },
@@ -104,9 +120,9 @@ test("live ingestion walks groups with a record cursor and publishes once comple
   assert.equal(await publishedIngestion(db,"daily-market"),null);
   const second=await runLiveDailyIngestionBatch(db,deps,{...options,batchSize:100});
   // Group A card+promo+sealed, promo reprint (dedup), riftbound card+walked sealed,
-  // japanese promo card, walked onepiece sealed, bundled riftbound duplicate (dedup),
-  // bundled onepiece.
-  assert.deepEqual({cursor:second.cursor,done:second.done,written:second.recordsWritten,duplicates:second.duplicateDecisions},{cursor:"7:0",done:true,written:8,duplicates:2});
+  // japanese promo card, walked onepiece sealed, walked japanese sealed, bundled
+  // riftbound duplicate (dedup), bundled onepiece.
+  assert.deepEqual({cursor:second.cursor,done:second.done,written:second.recordsWritten,duplicates:second.duplicateDecisions},{cursor:"8:0",done:true,written:9,duplicates:2});
   const published=await publishedIngestion(db,"daily-market");
   assert.equal(published?.runId,"live-daily:2026-08-28");
   assert.equal(published?.sourceUpdatedAt,"2026-08-28T20:00:00Z");
@@ -127,6 +143,14 @@ test("live ingestion walks groups with a record cursor and publishes once comple
   const jp=await db.prepare("select section, rarity from catalog_products where product_id=601").bind().first();
   assert.deepEqual({...jp},{section:"japanese-promos",rarity:"Promo"});
   assert.equal(await db.prepare("select count(*) as n from catalog_products where product_id=602").bind().first().then(row=>row.n),0);
+  // The Japanese sealed walk (≥2020 set groups) landed the box under game "pokemon"
+  // with honest null MSRP; the JP single stayed out (singles remain promo-groups-only),
+  // and the pre-cutoff group was never fetched (it has no fixture).
+  const jpSealed=await db.prepare(`select p.kind, p.game, p.product_type as productType, cp.market_cents as marketCents, sd.msrp_cents as msrpCents
+    from catalog_products p join current_prices cp on cp.product_id=p.product_id join sealed_details sd on sd.product_id=p.product_id
+    where p.product_id=701`).bind().first();
+  assert.deepEqual({...jpSealed},{kind:"sealed",game:"pokemon",productType:"Booster Boxes",marketCents:48000,msrpCents:null});
+  assert.equal(await db.prepare("select count(*) as n from catalog_products where product_id=702").bind().first().then(row=>row.n),0);
   // The One Piece walk kept the sealed box (canonical taxonomy, live price) and the
   // sealed-only rule kept the OP single out of the catalog entirely.
   const op=await db.prepare(`select p.kind, p.game, p.product_type as productType, cp.market_cents as marketCents
