@@ -8,6 +8,7 @@ import MultiSelectField from "./MultiSelectField";
 import PerPageSelect from "./PerPageSelect";
 import SlidingTabs from "./SlidingTabs";
 import TopBar from "./TopBar";
+import SiteFooter from "./SiteFooter";
 import HistoryPanel,{standardHistoryMetrics} from "./HistoryPanel";
 import HistoryPopover from "./leaderboard/HistoryPopover";
 import ProductIdentity from "./leaderboard/ProductIdentity";
@@ -190,7 +191,7 @@ export default function CollectrImportView(){
  const addAll=()=>{favorites.addMany(matched.map(favoriteEntryFor));setAdded(`Added ${matched.length} tracked items to favorites.`)};
  const addHold=()=>{const holds=matched.filter(card=>holdIds.has(card.productId));favorites.addMany(holds.map(favoriteEntryFor));setAdded(`Added ${holds.length} Hold items to favorites.`)};
 
- return <main className="detail-page import-page"><TopBar active="import" strictness={strictness} onStrictness={setStrictness}/>
+ return <><main className="detail-page import-page"><TopBar active="import" strictness={strictness} onStrictness={setStrictness}/>
   <header className="masthead" id="top">
    <p className="kicker">Collectr portfolio import</p>
    <h1>Your collection, <span>signal-checked.</span></h1>
@@ -294,5 +295,5 @@ export default function CollectrImportView(){
     {sortedVisible.length>perPage&&<div className="pagination-row"><NumberedPagination page={safePage} pages={pages} onChange={setPage} label="Imported cards pages"/><PerPageSelect label="Cards per page" value={perPage} onChange={setPerPage}/></div>}
    </section>
    </>}
-  </article></main>;
+  </article></main><SiteFooter/></>;
 }

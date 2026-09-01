@@ -4,6 +4,7 @@ import DeferredImage from "./DeferredImage";
 import InfoHint from "./InfoHint";
 import MarketTabs from "./MarketTabs";
 import TopBar from "./TopBar";
+import SiteFooter from "./SiteFooter";
 import {readStoredMarket,storeMarket} from "./state/market-memory";
 import {SETS_MARKETS,serializeSetsScope,useSetsScopeUrl,type SetsMarket} from "./state/sets-query";
 import {setFavoriteKey,toggleSetFavorite,useSetFavorites} from "./state/set-favorites";
@@ -99,7 +100,7 @@ export default function SetsView({payload}:{payload:SetsDirectoryPayload|null}){
  },[payload]);
  const games=market==="all"?GAMES:[market];
  const starredRows=useMemo(()=>(payload?.sets??[]).filter(row=>favorites.has(setFavoriteKey(row.game,row.set))&&(market==="all"||row.game===market)).sort(groupSort),[payload,favorites,market]);
- return <main className="detail-page sets-page"><TopBar active="sets" strictness={strictness} onStrictness={setStrictness}/>
+ return <><main className="detail-page sets-page"><TopBar active="sets" strictness={strictness} onStrictness={setStrictness}/>
   <header className="masthead" id="top">
    <p className="kicker">Every tracked set, by era</p>
    <h1>Sets, <span>mapped by market.</span></h1>
@@ -122,5 +123,5 @@ export default function SetsView({payload}:{payload:SetsDirectoryPayload|null}){
     </section>;
    })}
    </>}
-  </article></main>;
+  </article></main><SiteFooter/></>;
 }

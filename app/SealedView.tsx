@@ -175,7 +175,6 @@ export default function SealedView({
     perPage,
     page,
     view,
-    basis,
     keepPct,
     taxOn,
     taxRate,
@@ -203,7 +202,11 @@ export default function SealedView({
   const setPerPage = (perPage: number) => patch({ perPage });
   const setPage = (page: number) => patch({ page });
   const setView = (view: View) => patch({ view });
-  const setBasis = (basis: Basis) => patch({ basis });
+  // Market/Median toggle removed from the UI (todo N4 batch, 2026-09-01): the display
+  // basis is pinned to market pricing. The capability survives underneath — the URL
+  // codec still parses/serializes `basis`, the query and scenario layers stay
+  // parameterized — so a future surface can re-expose it without data work.
+  const basis: Basis = "market";
   const setKeepPct = (keepPct: number) => patch({ keepPct });
   const setTaxOn = (taxOn: boolean) => patch({ taxOn });
   const setTaxRate = (taxRate: number) => patch({ taxRate });
@@ -571,21 +574,6 @@ export default function SealedView({
                 <strong>{metrics.count.toLocaleString()}</strong> products · {usd(metrics.market)} combined market
               </span>
               <span className="sealed-updated">Updated {formatFullDate(freshIso)}</span>
-              <div className="price-basis" aria-label="Price basis">
-                <i aria-hidden="true" />
-                <button
-                  className={basis === "market" ? "active" : ""}
-                  onClick={() => setBasis("market")}
-                >
-                  Market
-                </button>
-                <button
-                  className={basis === "median" ? "active" : ""}
-                  onClick={() => setBasis("median")}
-                >
-                  Median
-                </button>
-              </div>
             </div>
           }
         />

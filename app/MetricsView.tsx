@@ -7,6 +7,7 @@ import {METRICS_MARKETS,serializeMetricsScope,useMetricsScopeUrl,type MetricsMar
 import {parseStrictness,STRICTNESS_KEY,usePreference} from "./state/usePreference";
 import PriceChart from "./PriceChart";
 import TopBar from "./TopBar";
+import SiteFooter from "./SiteFooter";
 import HistoryPanel,{standardHistoryMetrics,type HistoryMetric} from "./HistoryPanel";
 import {NumberedPagination,SegmentedView} from "./MarketUI";
 import FavoriteStar from "./FavoriteStar";
@@ -280,7 +281,7 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
  const moverTargets=useMemo(()=>scoped?[...scoped.gainers,...scoped.decliners].map(moverTarget):[],[scoped]);
  const moverHistory=useHistoryOnce(moverTargets);
 
- return <main className="detail-page metrics-page"><TopBar active="metrics" strictness={strictness} onStrictness={changeStrictness}/>
+ return <><main className="detail-page metrics-page"><TopBar active="metrics" strictness={strictness} onStrictness={changeStrictness}/>
   <header className="masthead" id="top">
    <p className="kicker">Daily TCG market intelligence</p>
    <h1>The card market, <span>without the noise.</span></h1>
@@ -324,5 +325,5 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
    {mode==="singles"?<section className="detail-section"><header><span>By set</span><h2>Set Leaderboard<InfoHint label="About the leaderboard">Top sets by tracked singles value. 30D momentum is the median of member cards&apos; 30-day changes; Sealed 30D is the same for the set&apos;s sealed products — a gap between them flags rotation between the two markets. Pack EV is the expected chase-card value of one booster from community pull-rate estimates times current singles prices (bulk excluded); the multiple compares it against the cheapest live pack price — above 1× means ripping beats buying the singles at these prices. Rows open the set&apos;s dedicated page.</InfoHint></h2></header><SetTable sets={scoped?.sets??[]}/></section>
    :<section className="detail-section"><header><span>By category</span><h2>Category Leaderboard<InfoHint label="About the leaderboard">Sealed products grouped by category. The median is the middle product price in the category; each momentum column is the median of member products&apos; changes over that window. Rows open the sealed leaderboard filtered to the category.</InfoHint></h2></header><CategoryTable categories={scoped?.categories??[]}/></section>}
    </>}
-  </article></main>;
+  </article></main><SiteFooter/></>;
 }

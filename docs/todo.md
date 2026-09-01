@@ -1099,6 +1099,18 @@ Files: the header block in `page.tsx`/`SealedView.tsx` + `LeaderboardHeader.tsx`
 `market-controls.css`/`globals.css` breakpoint work. Verify at 390px (Playwright
 phone-width spec guards overflow).
 
+**N1-N4 IMPLEMENTED 2026-09-01 (one batch).** Decisions taken at build: the
+Market/Median toggle was removed SITE-WIDE (user call), not just on mobile - display
+basis pinned to market in SealedView while the capability survives underneath (the URL
+codec still parses/serializes `basis`, query + scenario layers stay parameterized, so
+a future surface can re-expose it without data work); the `.price-basis` CSS blocks
+were deleted. N1: touch taps toggle the popup (second tap dismisses), a "View details
+->" link renders in every popup and hides on hover-capable devices; the double-tap
+shortcut was NOT added (fights iOS zoom heuristics). N4 uses `display:contents` on the
+header inner div so the aside orders between title and filter chips at <=620px.
+Verified at 375px emulation: no overflow, full-width section toggles (N2), footers on
+detail/metrics/sets/import/404 (N3).
+
 ## Decisions — resolved at review (2026-08-27)
 
 1. **B2**: Direct low **removed everywhere** (hero + printings table; field stays in data).

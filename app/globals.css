@@ -34,7 +34,6 @@
 @media(prefers-reduced-motion:reduce){.sealed-row,.sealed-product img{transition:none!important}}
 
 /* Price basis toggle */
-.price-basis{display:flex;gap:3px;padding:3px;background:var(--soft);border:1px solid var(--line);border-radius:10px}.price-basis button{border:0;background:transparent;padding:8px 13px;border-radius:7px;color:var(--gray);font-size:var(--text-sm);font-weight:800;cursor:pointer}.price-basis button.active{background:var(--blue);color:#fff;box-shadow:0 3px 10px #2e6cff33}
 
 /* Data-first image loading */
 .deferred-image{position:relative;display:inline-block;overflow:hidden;background:#eef0f3;border-radius:6px;isolation:isolate}.deferred-image::before{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 20%,#ffffffa8 46%,transparent 72%);transform:translateX(-110%);animation:image-placeholder 1.35s ease-in-out infinite}.deferred-image img{display:block;opacity:0;transition:opacity .24s ease,transform .22s cubic-bezier(.2,.75,.25,1);position:relative;z-index:1}.deferred-image.is-loaded::before{display:none}.deferred-image.is-loaded img{opacity:1}

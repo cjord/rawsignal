@@ -116,7 +116,6 @@
   @media(min-width:760px){.view-medium .identity>span,.view-text .identity>span,.sealed-view-medium .sealed-product>span,.sealed-view-text .sealed-product>span{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;align-items:center;column-gap:12px;width:100%}.view-medium .identity>span>b,.view-text .identity>span>b,.sealed-view-medium .sealed-product>span>b,.sealed-view-text .sealed-product>span>b{grid-column:1;grid-row:1}.view-medium .identity>span>small,.view-text .identity>span>small,.sealed-view-medium .sealed-product>span>small,.sealed-view-text .sealed-product>span>small{grid-column:1;grid-row:2}.view-medium .identity .signal-badge,.view-text .identity .signal-badge,.sealed-view-medium .sealed-product .signal-badge,.sealed-view-text .sealed-product .signal-badge{grid-column:2;grid-row:1 / span 2;margin:0;padding:7px 9px;align-self:center}.signal-card-wrap>.signal-badge{top:14px;right:48px;width:min(285px,28%);height:58px;justify-content:center;padding:9px 12px}.signal-card-wrap>.signal-badge b{font-size:var(--text-md)!important}.signal-card-wrap>.signal-badge small{font-size:var(--text-2xs)!important}}
   @media(max-width:620px){.product-toggle{width:100%;grid-template-columns:repeat(2,1fr)!important}.signal-navigation{align-items:center}.signal-tabs{min-width:0;width:100%}}
   @media(prefers-reduced-motion:reduce){.signal-slider{transition:none!important}}
-  .price-basis{position:relative;isolation:isolate;overflow:hidden}.price-basis>i{position:absolute;z-index:0;inset:3px auto 3px 3px;width:calc((100% - 6px - 3px)/2);border-radius:7px;background:var(--blue);box-shadow:0 3px 10px color-mix(in srgb,var(--blue) 32%,transparent);transition:transform .24s cubic-bezier(.2,.8,.2,1);pointer-events:none}.price-basis:has(button:last-child.active)>i{transform:translateX(calc(100% + 3px))}.price-basis button{position:relative;z-index:1}.price-basis button.active{background:transparent!important;box-shadow:none!important;color:#fff}
 
   /* v34: Option A — shared standalone selectors and focused analysis filters. */
   @media(hover:hover) and (pointer:fine) and (min-width:1000px){.view-medium .hover-card,.view-text .hover-card{right:auto;top:auto;bottom:calc(100% - 4px);transform:none}.view-medium .hover-card{left:116px}.view-text .hover-card{left:55px}.view-medium .leader-row[data-popup-place="below"] .hover-card,.view-text .leader-row[data-popup-place="below"] .hover-card{top:calc(100% - 4px);bottom:auto}.sealed-view-medium .sealed-hover-card,.sealed-view-text .sealed-hover-card{right:auto;top:auto;bottom:calc(100% - 4px)}.sealed-view-medium .sealed-hover-card{left:78px}.sealed-view-text .sealed-hover-card{left:55px}.sealed-view-medium .sealed-row[data-popup-place="below"] .sealed-hover-card,.sealed-view-text .sealed-row[data-popup-place="below"] .sealed-hover-card{top:calc(100% - 4px);bottom:auto}}
@@ -320,4 +319,36 @@
   }
   @media(max-width:620px){
     .multi-select.toolbar-select,.controls .card-filters,.sealed-toolbar .card-filters,.controls .view-toggle,.sealed-toolbar .view-toggle{grid-column:1;grid-row:auto}
+  }
+
+  /* N1 (2026-09-01): touch tap model — the popup carries the explicit navigation
+     affordance; hover-capable devices keep click-to-navigate and never see it. */
+  .market-row-open{display:block;margin:10px 14px 14px;padding:11px 14px;text-align:center;border:1px solid color-mix(in srgb,var(--blue) 48%,var(--line));border-radius:10px;background:color-mix(in srgb,var(--blue) 12%,var(--control));color:var(--text);font:750 var(--text-sm)/1 var(--font-sans);text-decoration:none}
+  .market-row-open:focus-visible{outline:3px solid color-mix(in srgb,var(--blue) 50%,transparent);outline-offset:2px}
+  @media(hover:hover) and (pointer:fine){.market-row-open{display:none}}
+
+  /* N3: condensed site-wide footer (the main page keeps its full variant; the base
+     `footer` element styles supply the dark band, brand, and paragraph treatment). */
+  .site-footer{margin-top:56px}
+  .site-footer-links{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:13px}
+  .site-footer-links a{color:#cfd1d6;font-size:var(--text-sm);font-weight:750;text-decoration:none}
+  .site-footer-links a:hover,.site-footer-links a:focus-visible{color:#fff;text-decoration:underline}
+
+  /* N4: phone header flow — 1 title · 2 details line · 3 filters. The header's inner
+     div dissolves (display:contents) so the aside orders between the title block and
+     the filter chips; both data lines run full-width instead of a narrow column. */
+  @media(max-width:620px){
+    .section-heading,.sealed-summary{flex-direction:column;align-items:stretch;gap:9px;padding:16px 0}
+    .section-heading>div,.sealed-summary>div{display:contents}
+    .section-heading .leader-filter-summary,.sealed-summary .leader-filter-summary{order:6;margin-top:0}
+    .section-heading .section-aside,.sealed-summary .sealed-aside{order:5}
+    .sealed-summary h2{font-size:1.4375rem;letter-spacing:-.04em;margin:2px 0;text-wrap:balance}
+    .section-heading h2{font-size:1.375rem}
+    .sealed-summary p{font-size:var(--text-sm)}
+    .sealed-aside{flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:3px 12px}
+    .sealed-count-line,.sealed-updated{white-space:normal}
+    .sealed-updated{margin-top:0}
+    .section-aside{text-align:left;display:flex;flex-wrap:wrap;gap:3px 10px}
+    .section-aside>span{display:inline}
+    .section-aside>span+span{margin-top:0}
   }
