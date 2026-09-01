@@ -1111,6 +1111,24 @@ header inner div so the aside orders between title and filter chips at <=620px.
 Verified at 375px emulation: no overflow, full-width section toggles (N2), footers on
 detail/metrics/sets/import/404 (N3).
 
+## O. Monetization & marketplace integration (added 2026-09-01, unplanned)
+
+**O1. eBay and TCGplayer affiliate links.** Convert the outbound product links into
+affiliate/partner-tagged URLs: the existing TCGplayer buttons (detail-page hero,
+leaderboard "View on TCGplayer") via the TCGplayer affiliate/impact program, and the
+eBay links from O2 via the eBay Partner Network (EPN campaign id on the URL). Needs:
+program signups + credentials (user), a small shared link-builder helper so tags apply
+consistently everywhere links render, and a disclosure line (footer/methodology) per
+program requirements. Scope and plan at review before implementation.
+
+**O2. eBay product links and integration.** Surface eBay alongside TCGplayer on
+product detail pages (and possibly rows): at minimum a search-style outbound link like
+the existing PriceCharting button (no API needed); deeper integration could use the
+eBay Browse/Finding APIs for live listings or sold-comps pricing next to the TCGplayer
+market price (API keys, rate limits, and a caching/ingestion path to size at review —
+sold-comps would be a genuinely differentiating data source but is the expensive half).
+Plan the link tier first; the API tier is its own phase.
+
 ## Decisions — resolved at review (2026-08-27)
 
 1. **B2**: Direct low **removed everywhere** (hero + printings table; field stays in data).
