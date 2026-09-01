@@ -904,6 +904,9 @@ Deferred to a later phase at the user's direction:
    the tap model currently conflicts: tapping a tile is expected to both reveal the history
    popup and navigate to the single card/sealed detail page. Decide one tap model (e.g.
    first tap = popup, explicit control = navigate) and apply it consistently.
+   **Tap model decided 2026-09-01 → planned as §N1** (tap = popup toggle, explicit
+   "View card" button in the popup navigates); the large-grid phone treatment itself
+   stays queued here.
 2. **View mode persists across list pages** — switching between Leaderboard / Hot Buys /
    Hot Sells and Singles/Sealed should keep the selected view mode (large/medium/text/full)
    instead of resetting per surface. Likely a localStorage device preference layered under
@@ -1051,6 +1054,50 @@ tick ≈ 104 subrequests of 1,000); tested (20 sealed groups complete in one bat
 under a pinned cap of 12). M2: cadence raised to `*/1 * * * *` in the runbook and
 deploy commands — **takes effect at the next production deploy** (cron is a
 deploy-time flag; nothing to change in code).
+
+## N. Mobile pass 2 + site footer (planned 2026-09-01, from user mobile review)
+
+**N1. Mobile tap model: tap = chart popup, explicit control = card view (resolves §I.1).**
+Current touch behavior in [MarketRow.tsx](../app/leaderboard/MarketRow.tsx): first tap
+reveals the popup, but a SECOND tap anywhere on the row navigates — closing the popup by
+tapping again accidentally opens the detail page. Decided model: on touch (no-hover)
+devices, tapping the row only toggles the popup open/closed; navigation happens through
+an explicit **"View card →" button rendered inside the popup** (HistoryPopover footer,
+touch-only — desktop hover behavior unchanged). Optional extra: double-tap (two taps
+≤350 ms) on the row as a power shortcut to navigate — deferred unless wanted; double-tap
+fights iOS zoom heuristics and is undiscoverable, the button is the primary affordance.
+Files: `useDisclosurePopover.ts` (touch branch of `onDetailClick` moves to
+toggle-close), `MarketRow.tsx`, `HistoryPopover.tsx` (+ the sealed/full-view variants),
+small CSS. Keyboard/focus and previews-off (click navigates) behavior stay as-is.
+
+**N2. Detail-page section view toggles too narrow on mobile.** The Medium/Text
+`SegmentedView` in the sealed detail "Chase Cards" and "More Sealed from {set}" headers
+([detail-tables.tsx:34](../app/detail-tables.tsx),:58 — `.detail-table-views`) renders
+cramped next to the h2 at phone width. Fix: at ≤560px the section header wraps
+(`flex-wrap`) and the toggle takes a full-width row with comfortable per-option hit
+targets (~44px min height); desktop unchanged. CSS-only in `detail.css`.
+
+**N3. Site-wide footer (mobile + desktop).** Only the main page has a footer
+([page.tsx:1092](../app/page.tsx)). Add a shared condensed `SiteFooter` component:
+brand + one provenance sentence (cached TCGplayer data, unavailable-not-estimated) +
+links (Rankings · Sets · Metrics · Buy List · Methodology → `/#method`). Render on:
+detail pages (ProductDetailPage), `/sets`, `/metrics`, the import page, and 404; the
+main page keeps its full footer (or swaps to shared + methodology anchor — decide at
+build). New `app/SiteFooter.tsx` + styles; server-renderable, no client state.
+
+**N4. Mobile leaderboard header restructure.** At phone width the header is a squeezed
+two-column layout: the h2 wraps one word per line ("Scalping / Obey / Products /
+Sealed"), and the aside ("110 products · $11,380 combined market / Updated …") burns a
+tall narrow column. Decided flow (single column at ≤560px):
+1. Title (smaller ramp step so multi-word market names fit, `text-wrap: balance`);
+2. One full-width details line: `110 products · $11,380 · Updated Aug 31` (wraps to two
+   lines at most);
+3. Controls row: filters + search; the **Market/Median** toggle moves DOWN into this
+   row on mobile instead of being removed (function kept, prominence dropped) — remove
+   only if it still crowds after the move (user flagged possible removal).
+Files: the header block in `page.tsx`/`SealedView.tsx` + `LeaderboardHeader.tsx`,
+`market-controls.css`/`globals.css` breakpoint work. Verify at 390px (Playwright
+phone-width spec guards overflow).
 
 ## Decisions — resolved at review (2026-08-27)
 
