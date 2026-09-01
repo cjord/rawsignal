@@ -27,10 +27,16 @@ export default function useDisclosurePopover({rootRef,panelRef,minimumHeight=320
  // tap's click handler runs, which then toggled the popup straight back closed (the
  // "two taps to open" bug). Touch reveal is owned entirely by the click handler.
  const onFocusCapture=()=>{if(supportsHover())reveal()};
- const onBlurCapture=(event:FocusEvent<HTMLDetailsElement>)=>{if(!containsRelated(event))setOpen(false)};
+ // On touch, tapping a control inside the open popup (e.g. the chart's 7D/30D/90D/1Y
+ // range buttons) blurs the row's link with a null relatedTarget — closing here would
+ // dismiss the popup before the button's own click lands. Remember presses that start
+ // inside the shell and let blur ignore the ones they cause.
+ const insidePressRef=useRef(0);
+ const onPointerDownCapture=(event:PointerEvent<HTMLDetailsElement>)=>{insidePressRef.current=event.timeStamp};
+ const onBlurCapture=(event:FocusEvent<HTMLDetailsElement>)=>{if(containsRelated(event))return;if(event.timeStamp-insidePressRef.current<500)return;setOpen(false)};
  const onKeyDown=(event:KeyboardEvent<HTMLDetailsElement>)=>{if(event.key!=="Escape")return;event.preventDefault();setOpen(false);rootRef.current?.querySelector("summary")?.focus()};
  const onToggle=(event:SyntheticEvent<HTMLDetailsElement>)=>setOpen(event.currentTarget.open);
  const onSummaryClick=(event:{detail:number;preventDefault:()=>void;target?:EventTarget|null})=>{if((event.target as Element|null)?.closest?.("a[href]"))return;if(event.detail>0&&supportsHover())event.preventDefault()};
  const dismiss=useCallback(()=>setOpen(false),[]);
- return{id,panelId:`market-popover-${id.replace(/:/g,"")}`,open,reveal,dismiss,placement,side,supportsHover,detailsProps:{open,onToggle,onPointerEnter,onPointerLeave,onFocusCapture,onBlurCapture,onKeyDown},summaryProps:{onClick:onSummaryClick}};
+ return{id,panelId:`market-popover-${id.replace(/:/g,"")}`,open,reveal,dismiss,placement,side,supportsHover,detailsProps:{open,onToggle,onPointerEnter,onPointerLeave,onPointerDownCapture,onFocusCapture,onBlurCapture,onKeyDown},summaryProps:{onClick:onSummaryClick}};
 }
