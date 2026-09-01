@@ -59,3 +59,43 @@ directionally but is noisier below $1):
    (45.8%), confirming the adaptive-cutoff/scoring machinery adds value over raw
    proximity — the problem is concentrated in the sell side and the top of the score
    scale.
+
+## Run `full-v2` — 2026-09-01 (challenger: P2 robust percentile extremes)
+
+Same grid as `full-v1` (16,982 products · 117 origins), evaluator `model:"v2"` —
+window extremes move from raw min/max to winsorized 10th/90th percentiles (research
+§15.1); presets unchanged (a 2,000-product calibration pair, `cal-v1-s2000` /
+`cal-v2-s2000`, showed buy coverage already comparable without retuning — the wider
+robust capture is offset by more `awaiting-stabilization` holds at the robust floor).
+v1 → v2 at the $5 floor:
+
+| strategy | side | n | med fwd30 | hit | top-20 precision |
+|---|---|---:|---:|---:|---:|
+| conservative | buy | 3,412 → 3,995 | 0.00% → +0.28% | 48.1% → 51.2% | 50.3% → 50.0% |
+| balanced | buy | 44,833 → 43,531 | +0.72% → +1.11% | 56.7% → **60.0%** | 52.0% → 51.2% |
+| aggressive | buy | 160,064 → 156,728 | +1.27% → +1.61% | 62.1% → **64.8%** | 52.5% → 52.9% |
+| balanced | sell | 709,197 → 819,322 | +1.50% → +1.42% | 19.7% → 21.8% | 18.2% → **33.0%** |
+
+### Findings
+
+1. **v2 dominates v1 on the buy side at comparable coverage**: hit +3–4pp at every
+   strictness, median fwd30 up ~50%, with n within ±17%. The glitch-mark failure mode
+   (one anomalous daily low defining "the low") is gone.
+2. **Calibration lifts ~3pp in every score quintile** (63.3% → 53.5% across quintiles
+   vs v1's 60.3% → 49.8%) but the shape is **still inverted** — top-ranked buys remain
+   the weakest. Robust extremes de-noise qualification; they do not fix top-of-scale
+   knife-catching. That stays P3's regime-evidence mandate.
+3. **Top-20 buy precision is flat** (~51–53%) and still loses to the cohort-median
+   baseline (66.4%) — the P4 mandate is unchanged.
+4. **Sell top-20 precision nearly doubles** (18.2% → 33.0%, now above random's ~26%):
+   robust highs stop one spiked mark from crowning the "high", so the top-scored sells
+   are real overextensions far more often. Overall sell hit (~22%) still trails the
+   random base rate because the model calls "sell" on most card-days in a rising
+   regime — the volume problem is P3's Breakout gate.
+5. Strictness still does not order performance (conservative 51.2% < balanced 60.0% <
+   aggressive 64.8%) — unchanged by extremes; revisit with P3 regime gates before
+   touching preset weights.
+
+**Verdict:** v2 is the standing challenger — strictly better or equal nearly
+everywhere, worse nowhere material. Production keeps serving v1; promotion waits on
+the P1b live shadow comparison per the champion/challenger plan.

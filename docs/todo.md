@@ -1206,6 +1206,17 @@ data — harness-first sequencing absorbs that wait.
 already powers volatility); keep raw extremes as displayed secondary facts; recalibrate
 preset cutoffs on the harness so board coverage stays comparable; update reason strings
 and the affected test suites. Fix the detail-panel liquidity gap.
+**Status: LANDED 2026-09-01.** `evaluateMarketSignal` now takes a `SignalContext`
+(`{liquidity, model}`; absent fields neutral) on every surface; the detail signal panel
+gates on liquidity from the history fetch's sale buckets (board/detail inconsistency
+closed). The v2 challenger (winsorized q10/q90 extremes, "typical low/high" reason
+strings) lives behind `model:"v2"`; production keeps serving v1 by default. Calibration
+check (`cal-*-s2000` pair) showed buy coverage comparable with presets unchanged, so
+`presetsV2` starts as a copy. Full harness run `full-v2` in `docs/backtests.md`:
+buy hit +3–4pp at every strictness at comparable coverage, sell top-20 precision
+18.2%→33.0%, calibration lifted ~3pp per quintile but still inverted (P3), cohort-median
+baseline still ahead of model buys (P4). v2 is the standing challenger — P1b (shadow
+writer) is now unblocked.
 
 **P3. Regime classification + full regime labels (§15.2).** Classify Falling /
 Improving / Breakout / Overextended (+ Spike/low-confidence) from momentum, robust

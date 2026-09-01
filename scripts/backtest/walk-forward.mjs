@@ -30,6 +30,8 @@ const TOP = Number(args.top ?? 20);
 const RUN = args.run ?? `wf-every${EVERY}${SAMPLE ? `-s${SAMPLE}` : ""}`;
 const MAX_MINUTES = Number(args["max-minutes"] ?? 0);
 const REPORT_ONLY = Boolean(args["report-only"]);
+const MODEL = args.model ?? "v1"; // evaluator variant (SignalContext.model)
+if (MODEL !== "v1" && MODEL !== "v2") { console.error(`unknown --model ${MODEL}`); process.exit(1); }
 const OUT_DIR = path.resolve("backups/backtests", RUN);
 const NDJSON = path.join(OUT_DIR, "model-signals.ndjson");
 const startedAt = Date.now();
@@ -145,14 +147,18 @@ if (!REPORT_ONLY) {
       if (prefixEnd < 2) continue;
       let prefix = null; // built lazily — most (product, origin, side) triples are far from extremes
       for (const side of ["buy", "sell"]) {
-        // Safe pre-filter: the evaluator's best window distance is bounded below by the
-        // smaller of the 30/90-day distances (30d ⊆ 90d ⊆ all-time extremes), and no
-        // preset cutoff exceeds 18% — beyond 25% nothing can qualify.
-        const near = side === "buy" ? Math.min(mat.dBuy30[i], mat.dBuy90[i]) : Math.min(mat.dSell30[i], mat.dSell90[i]);
-        if (Number.isFinite(near) && near > 25) { skippedFar++; continue; }
+        // Safe pre-filter (v1 only): the evaluator's best window distance is bounded below
+        // by the smaller of the 30/90-day distances (30d ⊆ 90d ⊆ all-time extremes), and no
+        // preset cutoff exceeds 18% — beyond 25% nothing can qualify. v2's winsorized
+        // distances are NOT bounded by raw distances (a glitch minimum inflates the raw
+        // distance while the robust floor sits at the price), so v2 evaluates everything.
+        if (MODEL === "v1") {
+          const near = side === "buy" ? Math.min(mat.dBuy30[i], mat.dBuy90[i]) : Math.min(mat.dSell30[i], mat.dSell90[i]);
+          if (Number.isFinite(near) && near > 25) { skippedFar++; continue; }
+        }
         prefix ??= points.slice(0, prefixEnd);
         for (let s = 0; s < 3; s++) {
-          const result = evaluateMarketSignal(prefix, side, strictnesses[s], p0, null);
+          const result = evaluateMarketSignal(prefix, side, strictnesses[s], p0, MODEL === "v1" ? null : { model: MODEL });
           evaluated++;
           if (result.eligible) signals.push([o, side === "buy" ? 0 : 1, s, result.signal.score, Math.round(result.signal.distance * 100), result.signal.confidence === "high" ? 2 : result.signal.confidence === "medium" ? 1 : 0]);
           else exclusions[result.code] = (exclusions[result.code] ?? 0) + 1;
@@ -217,8 +223,8 @@ function topKPrecision(rows, side, k) {
   return total ? hits / total : NaN;
 }
 
-const summary = { run: RUN, db: DB_PATH, every: EVERY, origins: nO, products: nP, top: TOP, minPrice: MIN_PRICE, liquidityGate: "not applied (no archived sales)", exclusions, strategies: {} };
-const lines = [`# Walk-forward report — ${RUN}${SUFFIX}`, "", `Origins: ${nO} (${isoOf(origins[0])} → ${isoOf(origins.at(-1))}, every ${EVERY}d) · products: ${nP} · price floor: ${MIN_PRICE ? `$${MIN_PRICE}` : "none"} · DB: \`${DB_PATH}\``, "", `Liquidity gate NOT applied historically (no archived sales) — uniform across strategies.`, `Buy success = forward 30d return > 0 (strong > +5%); sell success = forward 30d < 0. Excursion = worst-case dip after buys / further rise after sells (30d).`, "", "| strategy | side | n | med fwd7 | med fwd30 | med fwd90 | hit | strong | med excursion | top-20 precision |", "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|"];
+const summary = { run: RUN, model: MODEL, db: DB_PATH, every: EVERY, origins: nO, products: nP, top: TOP, minPrice: MIN_PRICE, liquidityGate: "not applied (no archived sales)", exclusions, strategies: {} };
+const lines = [`# Walk-forward report — ${RUN}${SUFFIX}`, "", `Model: ${MODEL} · Origins: ${nO} (${isoOf(origins[0])} → ${isoOf(origins.at(-1))}, every ${EVERY}d) · products: ${nP} · price floor: ${MIN_PRICE ? `$${MIN_PRICE}` : "none"} · DB: \`${DB_PATH}\``, "", `Liquidity gate NOT applied historically (no archived sales) — uniform across strategies.`, `Buy success = forward 30d return > 0 (strong > +5%); sell success = forward 30d < 0. Excursion = worst-case dip after buys / further rise after sells (30d).`, "", "| strategy | side | n | med fwd7 | med fwd30 | med fwd90 | hit | strong | med excursion | top-20 precision |", "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|"];
 
 function addStrategy(name, side, rows) {
   const stats = describe(rows, side);
