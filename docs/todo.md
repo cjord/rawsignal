@@ -1138,6 +1138,31 @@ every scoring change must beat the current model and the simple baselines out of
 on the harness** (staging previews allowed earlier); the detail panel keeps the
 **"Modeled Fair Value"** name (doc terminology rule amended).
 
+**Gated middle model (adopted 2026-09-01 follow-up).** The archive spans one market
+regime (Feb 2024→now, broadly rising), which cannot calibrate the research's ~6
+continuous weights per side without overfitting; weighted terms also renormalize
+messily when inputs are missing and churn every score on day one. So new intelligence
+lands as **gates and one-tier confidence modifiers** (~4 thresholds, each 1-D-sweepable
+on the harness and independently measurable), the current score core (proximity + swing
++ confidence) stays, and the §5 weighted blend is demoted to a **contingent v3** —
+adopted term-by-term only if the harness shows the gated model leaving measurable
+precision on the table.
+
+**Lifecycle weighting findings (research §§6–10, follow-up analysis).** For the
+established, board-eligible cards signals actually score (liquidity floor ⇒ mature
+history), pull rates/pack costs, sealed prices, same-character comparisons, and the
+cohort *level/center* all get **~0 score weight** — their information is already in the
+card's own price, and adding them re-counts it (§6.5 endogeneity loop: chase demand →
+sealed price → pull cost → card price). They live on as display/context (buy-vs-open
+pull-cost comparison, Cohort Position, Rarity Market Index) and as **new-card priors**
+for the deferred Phase-4 Early Value Estimate (cohort median as the anchor — the
+Overnumbered cohort clusters near $100 regardless of pull rates, i.e. within-cohort
+pull-difficulty β ≈ 0, which the harness can confirm; character premium starts 20–25%
+and tapers to ~0–3% by 60 observations; a character/icon field does not exist in the
+catalog and is a Phase-4 data-foundation task). One earned v3 candidate: extreme cohort
+band deviation (below the cohort's ~10th percentile AND stabilizing) as an extra Hot
+Buy evidence line — price-only, backtestable.
+
 Architecture note: `evaluateMarketSignal` is the single scoring path for the batch
 writer (`db/daily-ingestion.ts` → `market_signals`), the detail signal panel, and row
 badges. P2 introduces an optional `SignalContext` parameter (liquidity, cohort return,
@@ -1158,6 +1183,16 @@ snapshots since 2026-08-28) doubles as the live forward track record. Hard limit
 sales/liquidity features cannot be backtested (TCGplayer serves trailing-90D buckets
 only; archives carry no sales) — they get forward shadow-validation instead.
 
+**P1b. Champion/challenger shadow (starts as soon as P2 code exists).** The batch
+writer evaluates BOTH model variants per product per day (pure CPU on data already in
+hand); v1 keeps serving the boards; the challenger's top-100 per side is snapshotted
+daily alongside `signal_history` (a `model` column or parallel shadow table, ~200
+rows/day). Promotion requires the harness verdict AND the live shadow comparison
+(same cards, same days ⇒ forward-return differences are attributable to the model);
+after promotion the old model keeps running as the shadow so regressions surface in
+the same scoreboard, reversed. Meaningful forward comparison needs ~30+ days of shadow
+data — harness-first sequencing absorbs that wait.
+
 **P2. SignalContext refactor + robust percentile extremes (§15.1).** Replace raw
 `Math.min/max` window extremes with winsorized percentiles (the file's `quantile()`
 already powers volatility); keep raw extremes as displayed secondary facts; recalibrate
@@ -1173,17 +1208,35 @@ review; regime-driven qualification changes (Breakout suppresses/downgrades Hot 
 mirroring `awaiting-stabilization`) are harness-gated. URL codec gains the regime
 filter; keep exclusion evidence user-visible.
 
-**P4. Cohort-relative + index/breadth context terms (§15.3, §15.5).** Per-ingestion-run
-precomputed maps (cohort 30-day median return keyed game|set|rarity with min-cohort 8;
-set/game index returns + breadth from `market_daily_metrics`) feed `SignalContext` at
-the doc's ~15%/~10% starting weights — added one at a time, each required to beat the
-prior model on the harness. Respect §6.5 double-counting (consume relative return, not
-a second copy of cohort level deviation).
+**P4. Cohort-relative gate + index/breadth context (§15.3, §15.5) — gated, not weighted.**
+Calculations (decided 2026-09-01):
 
-**P5. Sales-aware refinements (§15.4).** Continuous confidence scaling from sales
-velocity (replacing the binary-only floor; floor stays as the eligibility gate);
-persist realized-sale median/percentile columns on `market_metrics` for sell-side
-reference pricing; demand-trend acceleration as regime evidence. Forward
+- *Cohort center (display/anchoring only — 0% of score):* `median(member market
+  prices)` with the 25th–75th band; membership ladder when a cohort has <8 members:
+  game|set|pull-tier → game|set|rarity → game|rarity|era → game|rarity. Median, not
+  mean — the Overnumbered tail (mean $125 vs median $97.61) is the proof case.
+- *Cohort return index (the signal input):* median of member **log returns**, not the
+  return of a mean price — `cohort 30d return = median over members(ln P(d) − ln
+  P(d−30))` — so one chase card's spike cannot move the cohort and membership churn
+  creates no phantom moves. The existing mean-based `dailyPeerAverages`
+  (`core/peer-history.ts`) stays for the display it feeds; the signal path gets a
+  median-based sibling. Fully backtestable (derivable retroactively from
+  `price_observations`).
+- *Relative term:* `relative 30d = ln(P_card(d)/P_card(d−30)) − cohort 30d median log
+  return`. Consumed as a **confidence dampener**: relative ≈ 0 means the move is
+  cohort-wide → drop confidence one tier with a visible reason ("moved with its
+  cohort: −11% vs cohort −9%"); a strongly card-specific move leaves confidence
+  untouched. Sealed cohorts (absent from the peer system) use a same-run product-type
+  median within set.
+- *Index/breadth:* set breadth (% of members with positive 30-day return, computable
+  today from `market_metrics`) serves as the Breakout qualifier in P3; set/game index
+  returns stay descriptive context. No ±15%/±10% weighted terms (v3 contingency only).
+
+**P5. Sales-aware refinements (§15.4) — middle version.** Binary liquidity floor stays
+as the eligibility gate; **one bump, not a curve**: ≥20 sales/30D lifts confidence one
+tier (a continuous curve has no historical data to fit). Persist realized-sale
+median/percentile columns on `market_metrics` for sell-side reference display;
+demand-trend acceleration (needs `sales30Prior`) as regime evidence in P3. Forward
 shadow-validation only (see P1 limit).
 
 Deferred (unchanged from research §15.7): character priors, Early Value Estimate,
