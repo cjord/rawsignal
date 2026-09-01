@@ -8,6 +8,7 @@ import { runDailyMarketIngestionBatch, type DailyCatalogSnapshot } from "../db/d
 import { runDetailIngestionBatch } from "../db/detail-ingestion.ts";
 import { runGradedRotationBatch, type GradedRotationDeps } from "../db/graded-ingestion.ts";
 import { runHistoryBackfillBatch, type HistoryBackfillTarget } from "../db/history-backfill.ts";
+import { dueHistoryTargets, readHistoryTargetRows } from "../db/history-targets.ts";
 import { runLiveDailyIngestionBatch, type LiveSyncDeps, type TcgcsvClient } from "../db/live-ingestion.ts";
 import { runBenchmarkIngestion } from "../db/benchmark-ingestion.ts";
 import { runMetricsRollup } from "../db/metrics-ingestion.ts";
@@ -142,12 +143,19 @@ export async function runMetricsJob(env: StagingJobEnv, mode: "daily" | "backfil
   return { ...result, benchmark };
 }
 
-export async function runHistoryJob(env: StagingJobEnv, request: Request, batchSize: number, sourceUpdatedAt: string) {
-  const snapshot = await loadStagingSnapshot(request, env.ASSETS, sourceUpdatedAt);
-  const targets = historyTargets(snapshot);
+export async function runHistoryJob(env: StagingJobEnv, request: Request, batchSize: number, sourceUpdatedAt: string, options: { all?: boolean } = {}) {
+  // Targets come from the live catalog, due-filtered by refresh tier (todo M5+M4);
+  // operator backfills pass all:true to refresh everything regardless of cadence. The
+  // bundled snapshot only backs an empty database (fresh sandbox, tests) — an empty
+  // DUE list on a populated catalog is a completed no-op day, not a fallback.
+  const rows = await readHistoryTargetRows(env.DB);
+  const targets = rows.length
+    ? dueHistoryTargets(rows, sourceUpdatedAt, options)
+    : historyTargets(await loadStagingSnapshot(request, env.ASSETS, sourceUpdatedAt));
   return runHistoryBackfillBatch(env.DB, targets, target => fetchTcgplayerHistory(target.productId, target.printing, Boolean(target.sealed)), {
     batchSize,
-    sourceUpdatedAt: snapshot.sourceUpdatedAt,
+    sourceUpdatedAt,
+    runIdPrefix: options.all ? undefined : "history-daily",
   });
 }
 
@@ -191,7 +199,9 @@ export async function handleStagingJob(request: Request, env: StagingJobEnv): Pr
       // 60 targets × ~2 external fetches stays under the paid plan's 1000-subrequest limit;
       // the binding-call budget (~12 D1 ops per target) is the tighter ceiling.
       const batchSize = Math.max(1, Math.min(60, Math.floor(requested)));
-      return json({ job: "history", result: await runHistoryJob(env, request, batchSize, sourceUpdatedAt) });
+      // Operator backfills refresh every priced product; the tier cadence applies only
+      // to the cron's self-started daily runs.
+      return json({ job: "history", result: await runHistoryJob(env, request, batchSize, sourceUpdatedAt, { all: true }) });
     }
     return json({ error: "Job must be live, daily, history, details, graded, or metrics" }, 400);
   } catch (error) {

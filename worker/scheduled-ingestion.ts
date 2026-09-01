@@ -40,6 +40,7 @@ export async function runScheduledIngestionTick(env: StagingJobEnv): Promise<{ a
     metricsTodayRunId: `metrics-rollup:${today}`,
     historyCheckpointRunId: historyCheckpoint?.ingestionRunId ?? null,
     historyPublishedRunId: historyPublished?.runId ?? null,
+    historyTodayRunId: `history-daily:${today}`,
   });
   if (action === "idle") return { action, detail: "No ingestion work due" };
   const syntheticRequest = new Request(assetsBase);
@@ -59,6 +60,13 @@ export async function runScheduledIngestionTick(env: StagingJobEnv): Promise<{ a
     const result = await runMetricsJob(env, "daily");
     return { action, detail: `${result.series} series, ${result.seriesRows} rows${result.benchmark?.done ? `, S&P ${result.benchmark.rows}d` : ""}` };
   }
-  const result = await runHistoryJob(env, syntheticRequest, 60, deploySnapshotUpdatedAt);
+  // Continue any checkpointed run under ITS OWN key and target-list mode — an operator
+  // backfill (`history-backfill:` prefix) rebuilds the full list, the cron's own daily
+  // run (`history-daily:`) the tier-due list — otherwise start today's tiered refresh.
+  const checkpointRunId = historyCheckpoint?.ingestionRunId ?? null;
+  const continuing = checkpointRunId != null && checkpointRunId !== historyPublished?.runId;
+  const tiered = !continuing || checkpointRunId!.startsWith("history-daily:");
+  const historyDate = continuing ? checkpointRunId!.slice(checkpointRunId!.indexOf(":") + 1) : today;
+  const result = await runHistoryJob(env, syntheticRequest, 60, historyDate, { all: !tiered });
   return { action, detail: `${result.cursor}/${result.total}${result.done ? " done" : ""}` };
 }

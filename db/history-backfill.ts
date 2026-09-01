@@ -27,9 +27,12 @@ export type HistoryBackfillTarget = {
 export type HistoryBackfillFetcher = (target: HistoryBackfillTarget) => Promise<PriceHistory>;
 type BackfillStats = { historiesWithData?: number; exactCoverage?: number; skippedMissingCatalog?: number; pointsWritten?: number };
 
-export async function runHistoryBackfillBatch(db: D1DatabaseLike, targets: HistoryBackfillTarget[], fetchHistory: HistoryBackfillFetcher, options: { batchSize?: number; sourceUpdatedAt: string; now?: Date } ) {
+export async function runHistoryBackfillBatch(db: D1DatabaseLike, targets: HistoryBackfillTarget[], fetchHistory: HistoryBackfillFetcher, options: { batchSize?: number; sourceUpdatedAt: string; now?: Date; runIdPrefix?: string } ) {
   const batchSize = clampBatchSize(options.batchSize, 25, 100);
-  const now = options.now ?? new Date(), startedAt = now.toISOString(), runId = `history-backfill:${options.sourceUpdatedAt.slice(0, 10)}`;
+  // Full operator backfills keep the historical "history-backfill" key; the cron's
+  // tier-scheduled daily runs use "history-daily" so a resumed checkpoint can be
+  // rebuilt with the same target-list mode it started with (todo M4).
+  const now = options.now ?? new Date(), startedAt = now.toISOString(), runId = `${options.runIdPrefix ?? "history-backfill"}:${options.sourceUpdatedAt.slice(0, 10)}`;
   const resume = await resumeCheckpoint(db, "history-backfill", runId);
   const cursor = Math.max(0, Number(resume.cursor) || 0);
   const priorStats = parseStatsJson<BackfillStats>(resume.statsJson);

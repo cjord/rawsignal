@@ -14,8 +14,11 @@ export type ScheduledAction = "live" | "details" | "graded" | "metrics" | "histo
 //   spends its own credit budget and stops on the API's rate headers.
 // - Metrics rollup: once per day, only after that day's live run completed — no fresh
 //   observations means nothing to roll up.
-// - History: the cron only CONTINUES a backfill that an operator started via the staging
-//   adapter (checkpoint exists, run not completed); it never starts one on its own.
+// - History: the cron CONTINUES any checkpointed, uncompleted run first (operator
+//   backfills keep the `history-backfill:` key). Once per day, after that day's live run
+//   and metrics rollup completed, it also STARTS a tier-scheduled refresh (todo M4,
+//   `history-daily:` key) over the due slice of the live catalog (todo M5) — a completed
+//   run of either kind dated today satisfies the day.
 export function decideScheduledAction(input: {
   probeUpdatedAt: string | null;
   livePublishedUpdatedAt: string | null;
@@ -32,6 +35,7 @@ export function decideScheduledAction(input: {
   metricsTodayRunId: string;
   historyCheckpointRunId: string | null;
   historyPublishedRunId: string | null;
+  historyTodayRunId: string;
 }): ScheduledAction {
   const liveTodayCompleted = input.livePublishedRunId === input.liveTodayRunId;
   if (!liveTodayCompleted && input.probeUpdatedAt != null && input.probeUpdatedAt !== input.livePublishedUpdatedAt) return "live";
@@ -41,5 +45,11 @@ export function decideScheduledAction(input: {
   if (input.gradedKeyConfigured && input.gradedPublishedRunId !== input.gradedTodayRunId) return "graded";
   if (liveTodayCompleted && input.metricsPublishedRunId !== input.metricsTodayRunId) return "metrics";
   if (input.historyCheckpointRunId && input.historyCheckpointRunId !== input.historyPublishedRunId) return "history";
+  // Daily tiered refresh (M4): starts only after today's live + metrics landed; any
+  // completed history run dated today — tiered or a full operator backfill — counts.
+  const historyDate = input.historyTodayRunId.slice(input.historyTodayRunId.indexOf(":") + 1);
+  const historyDoneToday = input.historyPublishedRunId?.endsWith(`:${historyDate}`) ?? false;
+  const metricsTodayCompleted = input.metricsPublishedRunId === input.metricsTodayRunId;
+  if (liveTodayCompleted && metricsTodayCompleted && !historyDoneToday) return "history";
   return "idle";
 }
