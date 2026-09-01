@@ -161,6 +161,24 @@ test("live ingestion walks groups with a record cursor and publishes once comple
   assert.equal(runs.n,1);
 });
 
+test("sealed-only categories use their own higher group-fetch cap (M3)",async()=>{
+  const db=new LocalD1(await migratedDatabase());
+  const sealedGroups=Array.from({length:20},(_,i)=>({groupId:1000+i,name:`OP Wave ${i}`,publishedOn:"2026-01-01T00:00:00Z"}));
+  const sealedDeps={
+    client:{
+      async groups(categoryId){return categoryId===68?sealedGroups:[]},
+      async products(_categoryId,groupId){return [{productId:groupId,name:`Wave ${groupId} Booster Box`,imageUrl:"",url:"",extendedData:[]}]},
+      async prices(_categoryId,groupId){return [{productId:groupId,marketPrice:100,lowPrice:90,midPrice:101,highPrice:110,subTypeName:"Normal"}]},
+    },
+    async fetchMsrp(){return new Map()},
+    async loadBundledSealed(){return []},
+  };
+  // 20 sealed groups exceed the singles-calibrated cap (12, pinned explicitly) but
+  // finish in ONE batch under the sealed cap — group count no longer taxes sealed walks.
+  const result=await runLiveDailyIngestionBatch(db,sealedDeps,{sourceUpdatedAt:"2026-08-31T20:00:00Z",batchSize:100,groupFetchCap:12,minimumRecords:5});
+  assert.deepEqual({done:result.done,written:result.recordsWritten},{done:true,written:20});
+});
+
 test("a truncated upstream day never publishes and resets the walk",async()=>{
   const db=new LocalD1(await migratedDatabase());
   await assert.rejects(()=>runLiveDailyIngestionBatch(db,deps,{sourceUpdatedAt:"2026-08-28T20:00:00Z",batchSize:100,minimumRecords:999}),/below minimum records/);

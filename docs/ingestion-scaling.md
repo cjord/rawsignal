@@ -98,3 +98,8 @@ See todo §M for status tracking. Ordered by recommended sequence:
 sealed would then fit); M4+M5 before the next singles expansion; M7+M8 with the next
 new game; M6 whenever chart depth for the new sealed matters; M9/M10 parked until
 MTG revives.
+
+**M1+M2+M3 implemented 2026-08-31** (see todo §M status note for the details); M2's
+`*/1` cadence activates at the next production deploy. Post-M1 expected steady state:
+D1 writes drop from ~1.5–2M/day to well under 200k/day; post-M2+M3 the tick budget is
+1,440/day with sealed walks ~3× faster — OP curated singles and MTG sealed both fit.

@@ -1036,6 +1036,20 @@ unchanged points per product nightly. Each item below is a proposal awaiting a c
 both fit) → M4+M5 before the next singles expansion → M7+M8 with the next new game
 → M6 when sealed chart depth matters → M9/M10 parked pending MTG.
 
+**Status 2026-08-31 — M1, M2, M3 IMPLEMENTED.** M1: `runHistoryBackfillBatch` reads
+each batch's stored min/max frontier per product/variant/condition and upserts only
+points newer than the max, older than the min (so a new product's first daily
+observation never blocks its deep backfill), or inside the trailing 7-day revision
+window (`HISTORY_REVISION_WINDOW_DAYS` — TCGplayer revises recent days); derived
+metrics still compute from the full fetched series; `pointsWritten` stat added and
+delta behavior contract-tested (31 points day one → 8 on the repeat run). M3:
+sealed-only (`tcgcsv-sealed`) entries count against their own
+`SEALED_GROUP_FETCH_CAP = 40` instead of the singles group cap (worst straddling
+tick ≈ 104 subrequests of 1,000); tested (20 sealed groups complete in one batch
+under a pinned cap of 12). M2: cadence raised to `*/1 * * * *` in the runbook and
+deploy commands — **takes effect at the next production deploy** (cron is a
+deploy-time flag; nothing to change in code).
+
 ## Decisions — resolved at review (2026-08-27)
 
 1. **B2**: Direct low **removed everywhere** (hero + printings table; field stays in data).

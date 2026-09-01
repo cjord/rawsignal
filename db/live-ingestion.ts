@@ -44,6 +44,10 @@ const sealedOnlyCategories: { id: number; game: "onepiece" | "pokemon"; publishe
   { id: 68, game: "onepiece" },
   { id: JAPANESE_CATEGORY_ID, game: "pokemon", publishedSince: JAPANESE_SEALED_SINCE, skipGroup: japanesePromoGroup },
 ];
+// Sealed-only groups yield ~1 record each, so the singles-calibrated group cap wasted
+// ticks walking them (todo M3) — they count against their own, higher cap. Worst-case
+// straddling tick: 12×2 + 40×2 ≈ 104 subrequests of the 1,000-per-invocation allowance.
+export const SEALED_GROUP_FETCH_CAP = 40;
 const parseCursor = (value: string | null | undefined) => { const match = /^(\d+):(\d+)$/.exec(value ?? ""); return match ? { group: Number(match[1]), offset: Number(match[2]) } : { group: 0, offset: 0 }; };
 
 async function buildWorkList(client: TcgcsvClient, now: Date): Promise<WorkEntry[]> {
@@ -158,10 +162,12 @@ export async function runLiveDailyIngestionBatch(db: D1DatabaseLike, deps: LiveS
   const curatedRiftbound = () => curatedRiftboundPromise ??= deps.loadBundledSealed("riftbound").then(items => new Map(items.map(item => [item.productId, item])));
   try {
     const workList = await buildWorkList(deps.client, now);
-    let remaining = budgetTotal, groupFetches = 0, processed = 0;
-    while (remaining > 0 && groupIndex < workList.length && groupFetches < groupFetchCap) {
+    let remaining = budgetTotal, groupFetches = 0, sealedGroupFetches = 0, processed = 0;
+    while (remaining > 0 && groupIndex < workList.length) {
       const entry = workList[groupIndex];
-      groupFetches++;
+      const sealedOnly = entry.type === "tcgcsv-sealed";
+      if (sealedOnly ? sealedGroupFetches >= SEALED_GROUP_FETCH_CAP : groupFetches >= groupFetchCap) break;
+      if (sealedOnly) sealedGroupFetches++; else groupFetches++;
       const records = await loadEntryRecords(entry, deps, msrp, curatedRiftbound, rejected);
       const slice = records.slice(recordOffset, recordOffset + remaining);
       const existing = slice.length ? await existingRunRows(db, runId, slice.map(record => record.productId)) : new Map<number, { kind: string; marketCents: number | null }>();

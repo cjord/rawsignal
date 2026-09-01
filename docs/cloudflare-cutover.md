@@ -26,7 +26,7 @@ Record the returned D1 UUIDs in the deployment environment or secret manager, no
 
 ## 2. Build and generate a staging config
 
-The vinext build produces the base Worker configuration. The preparation script converts it into an environment-specific config, binds static assets as `ASSETS`, selects the isolated D1 database, and clears all Cron triggers unless staging explicitly opts in (`--cron "*/2 * * * *"` or `RAW_SIGNAL_STAGING_CRON`); production never carries a schedule from this script. The Worker's `scheduled()` handler is a guard tick: it advances at most one checkpointed catalog batch when the deployed feed snapshot has not been fully ingested, continues an operator-started history backfill, and otherwise no-ops.
+The vinext build produces the base Worker configuration. The preparation script converts it into an environment-specific config, binds static assets as `ASSETS`, selects the isolated D1 database, and clears all Cron triggers unless staging explicitly opts in (`--cron "*/1 * * * *"` or `RAW_SIGNAL_STAGING_CRON`); production never carries a schedule from this script. The Worker's `scheduled()` handler is a guard tick: it advances at most one checkpointed catalog batch when the deployed feed snapshot has not been fully ingested, continues an operator-started history backfill, and otherwise no-ops.
 
 ```powershell
 npm run check
@@ -105,9 +105,11 @@ Do not deploy this config until staging parity, backup verification, DNS ownersh
 
 All slices of this runbook are done. Final topology: production Worker `raw-signal`
 serves `rawsignal.cards` (custom domain; workers.dev off; `ENVIRONMENT=production`;
-guard Cron `*/2`) on D1 `raw-signal-production`; sandbox Worker `raw-signal-staging`
-keeps its workers.dev URL and `raw-signal-staging` D1 with no schedule (stale by
-design — update only when deliberately testing ingestion changes).
+guard Cron `*/1` — raised from `*/2` per todo M2 on 2026-08-31, effective at the
+next production deploy; verified $0 against every billing meter) on D1
+`raw-signal-production`; sandbox Worker `raw-signal-staging` keeps its workers.dev
+URL and `raw-signal-staging` D1 with no schedule (stale by design — update only when
+deliberately testing ingestion changes).
 
 Execution notes from the split:
 

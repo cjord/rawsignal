@@ -128,3 +128,22 @@ test("history backfill checkpoints and only publishes signal readiness after com
   assert.deepEqual({...liquidity},{sales7:10,sales30:10});
   database.close();
 });
+
+test("history backfill writes only frontier deltas on repeat runs (M1)",async()=>{
+  const database=await migratedDatabase(),db=new LocalD1(database);
+  await runDailyMarketIngestion(db,{cards:[card],sealed:[],source:"fixture",sourceUpdatedAt:"2026-08-25",schemaVersion:1},new Date("2026-08-25T12:00:00Z"));
+  const targets=[{productId:card.productId,printing:card.printing,currentPrice:card.marketPrice}];
+  const points=Array.from({length:31},(_,day)=>({date:new Date(Date.UTC(2026,6,26+day)).toISOString().slice(0,10),price:10+day/10}));
+  const history=extra=>async target=>({points:[...points,...extra],variant:target.printing,condition:"Near Mint",coverage:"exact",change7:null,change30:null,change90:null,low30:null,high30:null,historyLow:null,historyHigh:null});
+  // Day 1: the walk stamped only today's observation, so the frontier (min=max=today)
+  // must NOT block the deep backfill — all 31 fetched points persist.
+  const first=await runHistoryBackfillBatch(db,targets,history([]),{batchSize:5,sourceUpdatedAt:"2026-08-25",now:new Date("2026-08-25T13:00:00Z")});
+  assert.deepEqual({done:first.done,pointsWritten:first.pointsWritten},{done:true,pointsWritten:31});
+  // Day 2: same series plus one new point. Only the new point and the 7-day revision
+  // window rewrite — not the ~30 unchanged interior points (the D1 rows-written fix).
+  const second=await runHistoryBackfillBatch(db,targets,history([{date:"2026-08-26",price:14}]),{batchSize:5,sourceUpdatedAt:"2026-08-26",now:new Date("2026-08-26T13:00:00Z")});
+  assert.deepEqual({done:second.done,pointsWritten:second.pointsWritten},{done:true,pointsWritten:8});
+  const stored=database.prepare("select count(*) as n from price_observations where product_id=?").get(card.productId);
+  assert.equal(stored.n,32);
+  database.close();
+});
