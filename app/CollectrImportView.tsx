@@ -286,7 +286,7 @@ export default function CollectrImportView(){
         <span className="row-star">{match?<FavoriteStar entry={favoriteEntryFor(card)}/>:null}</span>
        </>;
        return match?<a key={`${card.productId}-${rowKey}`} className="leader-row import-row" href={match.detailPath} aria-label={`View ${match.name} details`}>{body}
-        {cardHistory&&<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={match.image??""} alt={`${match.name} card`} label={`${match.name} price history`}><HistoryPanel title={card.kind==="sealed"?"Market price history":"Near Mint market history"} subtitle={card.kind==="sealed"?(match.rarity||"Sealed"):(card.printing??"Normal")} points={cardHistory.points??[]} metrics={standardHistoryMetrics(match.marketPrice,null,cardHistory)}/></HistoryPopover>}
+        {cardHistory&&<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={match.image??""} alt={`${match.name} card`} label={`${match.name} price history`}><HistoryPanel title={card.kind==="sealed"?"Market Price History":"Near Mint Market History"} subtitle={card.kind==="sealed"?(match.rarity||"Sealed"):(card.printing??"Normal")} points={cardHistory.points??[]} metrics={standardHistoryMetrics(match.marketPrice,null,cardHistory)}/></HistoryPopover>}
        </a>:<div key={`${card.productId}-u-${rowKey}`} className="leader-row import-row is-untracked">{body}</div>;
       })}
       {!sortedVisible.length&&<p className="empty">Nothing matches the current lens and filters.</p>}

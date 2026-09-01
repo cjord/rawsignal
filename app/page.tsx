@@ -159,23 +159,23 @@ function FullCard({
 }) {
   const values = [
     { label: "Market", value: usd(card.marketPrice) },
-    { label: "30D low", value: usd(history?.low30 ?? null) },
-    { label: "30D high", value: usd(history?.high30 ?? null) },
-    { label: "Hist low", value: usd(history?.historyLow ?? null) },
-    { label: "History high", value: usd(history?.historyHigh ?? null) },
+    { label: "30D Low", value: usd(history?.low30 ?? null) },
+    { label: "30D High", value: usd(history?.high30 ?? null) },
+    { label: "Hist Low", value: usd(history?.historyLow ?? null) },
+    { label: "History High", value: usd(history?.historyHigh ?? null) },
     { label: "Median", value: usd(card.midPrice) },
     {
-      label: "7 day",
+      label: "7 Day",
       value: pct(history?.change7 ?? null),
       tone: movementTone(history?.change7),
     },
     {
-      label: "30 day",
+      label: "30 Day",
       value: pct(history?.change30 ?? null),
       tone: movementTone(history?.change30),
     },
     {
-      label: "90 day",
+      label: "90 Day",
       value: pct(history?.change90 ?? null),
       tone: movementTone(history?.change90),
     },
@@ -208,7 +208,7 @@ function FullCard({
       }
       history={
         <HistoryPanel
-          title="Near Mint market history"
+          title="Near Mint Market History"
           subtitle={history?.variant ?? card.printing}
           points={history?.points ?? []}
           metrics={[]}
@@ -238,7 +238,7 @@ function HoverCard({
       label={`${card.name} price history`}
     >
       <HistoryPanel
-        title="Near Mint market history"
+        title="Near Mint Market History"
         subtitle={history?.variant ?? card.printing}
         points={history?.points ?? []}
         metrics={cardHistoryMetrics(card, history)}

@@ -205,7 +205,7 @@ function MoverTable({title,movers,history,empty}:{title:string;movers:MetricsMov
     const h=history[historyTargetKey(moverTarget(mover))];
     return <MarketRow className="metrics-mover-row" key={`${mover.window}:${mover.kind}:${mover.productId}`} href={mover.kind==="single"?`/cards/${mover.productId}`:`/sealed/${mover.productId}`} label={`View ${mover.name} details`}
      popover={<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={mover.image} alt={`${mover.name} ${mover.kind==="single"?"card":"product"}`} label={`${mover.name} price history`}>
-      <HistoryPanel title={mover.kind==="single"?"Near Mint market history":"Sealed market history"} subtitle={mover.kind==="single"?mover.printing:"Unopened"} points={h?.points??[]} metrics={moverMetrics(mover,h)}/>
+      <HistoryPanel title={mover.kind==="single"?"Near Mint Market History":"Sealed Market History"} subtitle={mover.kind==="single"?mover.printing:"Unopened"} points={h?.points??[]} metrics={moverMetrics(mover,h)}/>
      </HistoryPopover>}>
      <span className="mover-star"><FavoriteStar entry={moverFavorite(mover)}/></span>
      <ProductIdentity className="identity mover-identity" image={mover.image} alt="" title={mover.name} meta={`${mover.set} · ${formatGameName(mover.game)}`}/>

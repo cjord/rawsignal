@@ -22,12 +22,12 @@ export const standardHistoryMetrics=(marketPrice:number|null,midPrice:number|nul
  const usd=(value:number|null)=>formatUsd(value,unavailable);
  return [
   {label:"Market",value:usd(marketPrice)},
-  {label:"30D low",value:usd(history?.low30??null)},
-  {label:"30D high",value:usd(history?.high30??null)},
-  {label:"Hist low",value:usd(history?.historyLow??null)},
+  {label:"30D Low",value:usd(history?.low30??null)},
+  {label:"30D High",value:usd(history?.high30??null)},
+  {label:"Hist Low",value:usd(history?.historyLow??null)},
   {label:"Median",value:usd(midPrice)},
-  movementMetric("7 day",history?.change7,unavailable),
-  movementMetric("30 day",history?.change30,unavailable),
-  movementMetric("90 day",history?.change90,unavailable),
+  movementMetric("7 Day",history?.change7,unavailable),
+  movementMetric("30 Day",history?.change30,unavailable),
+  movementMetric("90 Day",history?.change90,unavailable),
  ];
 };

@@ -4,6 +4,8 @@ import {formatPercent,formatUsd,formatUtcDate} from "../core/domain/formatters";
 import type {PricePoint} from "../core/domain/types";
 
 const rangeLabel=(days:7|30|90|365)=>days===365?"1Y":`${days}D`;
+// Visible toolbar text follows the site's Title Case label convention; aria strings stay natural language.
+const titleCase=(text:string)=>text.replace(/(^|\s)[a-z]/g,match=>match.toUpperCase());
 
 export default function PriceChart({points,volumes,overlays,mainLabel,formatValue=formatUsd,large=false,label="market"}:{points:PricePoint[];volumes?:{date:string;quantity:number}[];overlays?:{label:string;points:PricePoint[];className?:string}[];mainLabel?:string;formatValue?:(value:number)=>string;large?:boolean;label?:string}){
  const gradientId=useId().replace(/:/g,""),[hovered,setHovered]=useState<number|null>(null),[range,setRange]=useState<7|30|90|365>(30);
@@ -44,7 +46,7 @@ export default function PriceChart({points,volumes,overlays,mainLabel,formatValu
   return `${xy[index].x},${Math.max(4,Math.min(74,70-((value-min)/span)*62)).toFixed(2)}`;
  }).join(" "):null;
  return <div className={`chart-wrap ${large?"chart-large":""}${deltaTone?` chart-${deltaTone}`:""}`}>
-  <div className="chart-toolbar"><div className={`chart-readout ${active?"visible":""}`}>{active?<><b>{formatValue(active.price)}</b><span>{formatUtcDate(active.date,true)}{activeQuantity!=null&&` · ${activeQuantity} sold`}</span></>:<><span>{rangeLabel(range)} {label} history</span>{delta!=null&&<b className={`chart-delta ${deltaTone}`}>{formatPercent(delta)}</b>}</>}</div><div className="chart-ranges" role="group" aria-label="Chart range">{([7,30,90,365] as const).map(days=><button key={days} className={range===days?"active":""} onClick={event=>{event.preventDefault();setRange(days)}}>{rangeLabel(days)}</button>)}</div></div>
+  <div className="chart-toolbar"><div className={`chart-readout ${active?"visible":""}`}>{active?<><b>{formatValue(active.price)}</b><span>{formatUtcDate(active.date,true)}{activeQuantity!=null&&` · ${activeQuantity} sold`}</span></>:<><span>{rangeLabel(range)} {titleCase(`${label} history`)}</span>{delta!=null&&<b className={`chart-delta ${deltaTone}`}>{formatPercent(delta)}</b>}</>}</div><div className="chart-ranges" role="group" aria-label="Chart range">{([7,30,90,365] as const).map(days=><button key={days} className={range===days?"active":""} onClick={event=>{event.preventDefault();setRange(days)}}>{rangeLabel(days)}</button>)}</div></div>
   <div className="chart-canvas"><span className="axis axis-high">{formatValue(max)}</span><div className="chart-plot"><svg className="sparkline" viewBox="0 0 240 76" preserveAspectRatio="none" role="img" aria-label={active?`${formatValue(active.price)} on ${active.date}`:`${rangeLabel(range)} ${label} price history, ${delta==null?"movement unavailable":`${formatPercent(delta)} over the range`}`} onPointerMove={move} onPointerLeave={()=>setHovered(null)} onClick={event=>event.preventDefault()}>
    <defs><linearGradient id={`chart-fill-${gradientId}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="var(--chart-line,var(--blue))" stopOpacity=".24"/><stop offset="1" stopColor="var(--chart-line,var(--blue))" stopOpacity="0"/></linearGradient></defs>
    <polygon className="chart-area" fill={`url(#chart-fill-${gradientId})`} points={`${xy[0].x},76 ${line} ${xy.at(-1)!.x},76`}/>

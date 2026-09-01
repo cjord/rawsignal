@@ -22,7 +22,11 @@ export default function useDisclosurePopover({rootRef,panelRef,minimumHeight=320
  // relatedTarget can be the Window (or other non-Node) when the pointer or focus exits the page; contains() rejects those.
  const containsRelated=(event:{currentTarget:HTMLDetailsElement;relatedTarget:EventTarget|null})=>event.relatedTarget instanceof Node&&event.currentTarget.contains(event.relatedTarget);
  const onPointerLeave=(event:PointerEvent<HTMLDetailsElement>)=>{if(event.pointerType==="mouse"&&supportsHover()&&!containsRelated(event)){cancelHoverTimer();setOpen(false)}};
- const onFocusCapture=()=>reveal();
+ // Focus-open is desktop/keyboard behavior only. On touch, the tap that should open the
+ // popup first focuses the row's link — revealing here would flip `open` before the same
+ // tap's click handler runs, which then toggled the popup straight back closed (the
+ // "two taps to open" bug). Touch reveal is owned entirely by the click handler.
+ const onFocusCapture=()=>{if(supportsHover())reveal()};
  const onBlurCapture=(event:FocusEvent<HTMLDetailsElement>)=>{if(!containsRelated(event))setOpen(false)};
  const onKeyDown=(event:KeyboardEvent<HTMLDetailsElement>)=>{if(event.key!=="Escape")return;event.preventDefault();setOpen(false);rootRef.current?.querySelector("summary")?.focus()};
  const onToggle=(event:SyntheticEvent<HTMLDetailsElement>)=>setOpen(event.currentTarget.open);

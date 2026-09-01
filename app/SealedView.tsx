@@ -410,16 +410,16 @@ export default function SealedView({
       movementMetric(label, value, "N/A");
     return (
       <HistoryPanel
-        title={h?.condition ?? "Sealed market history"}
+        title={h?.condition ?? "Sealed Market History"}
         subtitle={h?.variant ?? product.category}
         points={h?.points ?? []}
         label="sealed market"
         metrics={[
           { label: "MSRP", value: usd(product.msrp) },
           { label: basis === "market" ? "Market" : "Median", value: usd(result.value) },
-          { label: "30D low", value: usd(h?.low30 ?? null) },
-          { label: "30D high", value: usd(h?.high30 ?? null) },
-          { label: "Hist low", value: usd(h?.historyLow ?? null) },
+          { label: "30D Low", value: usd(h?.low30 ?? null) },
+          { label: "30D High", value: usd(h?.high30 ?? null) },
+          { label: "Hist Low", value: usd(h?.historyLow ?? null) },
           ...(setEv[`${product.game}|${product.set}`]?.packEv != null
             ? [{
                 label: "Set pack EV",
@@ -435,9 +435,9 @@ export default function SealedView({
                 { label: "Profit %", value: pct(result.profitPct), tone: movementTone(result.profitPct) },
               ]
             : []),
-          movement("7 day", h?.change7),
-          movement("30 day", h?.change30),
-          movement("90 day", h?.change90),
+          movement("7 Day", h?.change7),
+          movement("30 Day", h?.change30),
+          movement("90 Day", h?.change90),
         ]}
         large={large}
       />
