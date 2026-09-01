@@ -81,8 +81,11 @@ Defined in `app/styles/tokens.css` (dimensions/motion/stacking) and `app/globals
 - Press feedback (`:active`) may compress ≤1% scale; selected-state emphasis (e.g. the
   view-toggle's active icon) is allowed — the ban is on *hover* movement.
 - **Deliberate exception (2026-08-27, user-requested):** the detail-hero card art tilts
-  toward the cursor (rotateX/Y ≤ ~6°, mouse pointers only) as an interactive flourish.
-  It is not a hover lift, appears nowhere else, and is disabled under reduced motion.
+  toward the pointer (rotateX/Y ≤ ~6°) as an interactive flourish. Mouse pointers tilt on
+  hover; touch (added 2026-09-01, user-requested) tilts only after a ~220ms hold on the
+  art and then tracks the drag — a finger that wanders before the hold matures stays a
+  scroll. It is not a hover lift, appears nowhere else (detail pages only), and is
+  disabled under reduced motion.
 - The card-details expander animates open via `interpolate-size`/`::details-content`
   (progressive enhancement — unsupported browsers open instantly).
 - Sliding indicators (view toggle, signal tabs, price basis) animate `transform` with

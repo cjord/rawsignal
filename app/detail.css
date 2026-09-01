@@ -81,3 +81,7 @@
  .detail-market-table>header .detail-table-views{margin-left:0;flex-basis:100%;width:100%}
  .detail-market-table>header .detail-table-views button{min-height:42px}
 }
+
+/* Touch tilt (2026-09-01): the hero art's hold/drag tilt long-presses by design, so the
+   platform image callout and text selection must not fire on it. */
+.detail-art,.detail-art img{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
