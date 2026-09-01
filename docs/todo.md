@@ -1007,6 +1007,35 @@ catalog even for English — e.g. "Costco Prismatic Evolutions 8-Pack Mini Tins"
 Audit whether our sealed ingestion is dropping retailer exclusives (Costco/Sam's/Dollar
 General variants) or just missing recent additions.
 
+## M. Ingestion scaling & cost fixes (researched 2026-08-31)
+
+Full research in `docs/ingestion-scaling.md` (capacity model, Cloudflare billing
+analysis, TCGCSV bulk-archive evaluation). Constraints in one line: the cron has
+~200 spare ticks/day (fits ONE more expansion), the daily history job is a permanent
+per-product tax, and D1 **rows written** is the only billing meter near its included
+limit (~61M projected vs 50M — ~$11/cycle) because history re-upserts ~90–150
+unchanged points per product nightly. Each item below is a proposal awaiting a call.
+
+| # | Fix | Effort | Why |
+|---|---|---|---|
+| M1 | **Delta-only history writes** — persist only points newer than the stored max observed_date | S–M | cuts D1 writes ~97%; removes the only projected overage; bill stays $5 at any catalog size |
+| M2 | **Cron `*/2` → `*/1`** | XS | doubles tick budget to 1,440/day; verified $0 (requests/reads/CPU all ≪ included) |
+| M3 | **Sealed-only groupFetchCap 12 → ~40** | XS | sealed groups yield ~1 record; ~3× sealed-walk speed at ~80 of 1,000 allowed subrequests |
+| M4 | **Tiered history cadence** — hot/liquid daily, long tail every 3–7 days | M | catalog can ~3× without the history tax tripling; our own daily observations already capture the close |
+| M5 | **History targets from D1** instead of deploy-time bundled feeds | M | expansions stop requiring sync-script regen; coverage tracks the walk automatically |
+| M6 | **Archive sealed-history backfill (one-shot)** — TCGCSV daily price archives (4 MB, back to 2024-02-08) rebuilt locally for categories 68/85 | M | 2.5 years of daily history for the 587 new OP/JP sealed; TCGplayer's API is thin on sealed |
+| M7 | **Category registry** shared by walk + sync scripts + tests | M | next game becomes a config entry + normalizer instead of a five-file change |
+| M8 | **Widen the `catalog_products` game CHECK once** (mtg/yugioh/lorcana) | S | batches the per-game SQLite table-rebuild migration tax |
+| M9 | **Sealed-group cache** — re-walk only groups containing sealed + new groups | M | ~30–40% off sealed walks; build only if MTG revives |
+| M10 | **Archive-based daily bulk ingestion** (external job → D1/R2) | L | only at MTG-singles scale; archive is prices-only and can't decompress in a Worker |
+| M11 | **Cache buildWorkList per run** — group indexes currently re-fetched every tick | XS | drops ~1,250 pointless requests/day (free, but tidy) |
+| M12 | **Rejected-stats review report** — surface the walk's per-run rejection reasons | S | catches taxonomy drift; data already recorded, nobody reads it |
+| M13 | **§L4 classifier audit** — why Costco PE 8-Pack Mini Tins (653892) misses while the Costco 151 bundle lands | S | likely a name-pattern miss, not an ingestion-scope gap |
+
+**Recommended order:** M1 → M2+M3 (after which OP curated singles AND MTG sealed
+both fit) → M4+M5 before the next singles expansion → M7+M8 with the next new game
+→ M6 when sealed chart depth matters → M9/M10 parked pending MTG.
+
 ## Decisions — resolved at review (2026-08-27)
 
 1. **B2**: Direct low **removed everywhere** (hero + printings table; field stays in data).
