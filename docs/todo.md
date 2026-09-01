@@ -1129,6 +1129,66 @@ market price (API keys, rate limits, and a caching/ingestion path to size at rev
 sold-comps would be a genuinely differentiating data source but is the expensive half).
 Plan the link tier first; the API tier is its own phase.
 
+## P. Signal-model evolution (planned 2026-09-01; from docs/buy-sell-estimation-research.md §15)
+
+Source research: `docs/buy-sell-estimation-research.md` (baseline-revised 2026-09-01;
+original lives in `Documents\Test Project\docs`). Decisions taken at planning: **harness
+first**; **full regime labels** (boards + detail, with board filters); **production gate:
+every scoring change must beat the current model and the simple baselines out of sample
+on the harness** (staging previews allowed earlier); the detail panel keeps the
+**"Modeled Fair Value"** name (doc terminology rule amended).
+
+Architecture note: `evaluateMarketSignal` is the single scoring path for the batch
+writer (`db/daily-ingestion.ts` → `market_signals`), the detail signal panel, and row
+badges. P2 introduces an optional `SignalContext` parameter (liquidity, cohort return,
+set/game index return, breadth, sales trend — all optional, absence = neutral) so every
+surface shares one implementation. Known inconsistency to fix in P2: the detail panel
+currently evaluates without liquidity, so board-excluded illiquid cards can look
+qualifying on their own page.
+
+**P1. Walk-forward harness (prerequisite for every scoring change).**
+`scripts/backtest/` runner against the local max-profile DB (~13.5M observations, free
+locally): for each historical date, slice `price_observations` to only-then-known data,
+evaluate current + candidate model variants (variant flag on the evaluator — production
+and harness share code), record 7/30/90-day forward returns, report §11.2 metrics
+(median forward return, top-20 precision, MAE after buys, calibration,
+coverage-vs-precision per strictness) against four baselines: near-extreme, 30-day
+momentum, cohort median, random eligible. `signal_history` (daily top-100 board
+snapshots since 2026-08-28) doubles as the live forward track record. Hard limit:
+sales/liquidity features cannot be backtested (TCGplayer serves trailing-90D buckets
+only; archives carry no sales) — they get forward shadow-validation instead.
+
+**P2. SignalContext refactor + robust percentile extremes (§15.1).** Replace raw
+`Math.min/max` window extremes with winsorized percentiles (the file's `quantile()`
+already powers volatility); keep raw extremes as displayed secondary facts; recalibrate
+preset cutoffs on the harness so board coverage stays comparable; update reason strings
+and the affected test suites. Fix the detail-panel liquidity gap.
+
+**P3. Regime classification + full regime labels (§15.2).** Classify Falling /
+Improving / Breakout / Overextended (+ Spike/low-confidence) from momentum, robust
+trend slope, drawdown, and demand trend (needs a `sales30Prior` column on
+`market_metrics`, written when history runs carry buckets). Two shipping tracks:
+descriptive labels (boards + detail chips + board filters) ship on gate + staging
+review; regime-driven qualification changes (Breakout suppresses/downgrades Hot Sell,
+mirroring `awaiting-stabilization`) are harness-gated. URL codec gains the regime
+filter; keep exclusion evidence user-visible.
+
+**P4. Cohort-relative + index/breadth context terms (§15.3, §15.5).** Per-ingestion-run
+precomputed maps (cohort 30-day median return keyed game|set|rarity with min-cohort 8;
+set/game index returns + breadth from `market_daily_metrics`) feed `SignalContext` at
+the doc's ~15%/~10% starting weights — added one at a time, each required to beat the
+prior model on the harness. Respect §6.5 double-counting (consume relative return, not
+a second copy of cohort level deviation).
+
+**P5. Sales-aware refinements (§15.4).** Continuous confidence scaling from sales
+velocity (replacing the binary-only floor; floor stays as the eligibility gate);
+persist realized-sale median/percentile columns on `market_metrics` for sell-side
+reference pricing; demand-trend acceleration as regime evidence. Forward
+shadow-validation only (see P1 limit).
+
+Deferred (unchanged from research §15.7): character priors, Early Value Estimate,
+pull-difficulty score adjustments, execution-aware net returns.
+
 ## Decisions — resolved at review (2026-08-27)
 
 1. **B2**: Direct low **removed everywhere** (hero + printings table; field stays in data).
