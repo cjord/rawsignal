@@ -155,6 +155,14 @@
     background: var(--surface-raised);
   }
 
+  /* Large view (todo N1 follow-up): the tap ring belongs on the revealed chart card,
+     using the site's control focus language — blue border + --focus-ring glow. The
+     !important outbids this block's box-shadow reset above. */
+  .view-large .market-row-shell[open] .hover-card {
+    border-color: var(--blue) !important;
+    box-shadow: var(--focus-ring) !important;
+  }
+
   .market-row-shell[open] .hover-card-art,
   .market-row-shell[open] .sealed-hover-identity {
     display: none !important;
