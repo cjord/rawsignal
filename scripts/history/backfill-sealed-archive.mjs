@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { appendFile, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { preferredSealedPrice } from "../../core/normalize/sealed.ts";
 
@@ -94,7 +95,9 @@ for (const [index, date] of dates.entries()) {
   if (Date.now() > deadline) { outOfTime = true; break; }
   if (!await download(date)) { missingArchives++; await appendFile(NDJSON, `${JSON.stringify({ date, missing: true, rows: [] })}\n`); continue; }
   const dayRows = [];
-  const extracted = path.join(CACHE, `x-${date}`);
+  // Extract OUTSIDE the repo: the dev server's file watcher crashes (EBUSY) on
+  // transient files appearing under the project tree while it runs.
+  const extracted = path.join(os.tmpdir(), "rawsignal-archive-m6", date);
   await rm(extracted, { recursive: true, force: true });
   await mkdir(extracted, { recursive: true });
   try {
