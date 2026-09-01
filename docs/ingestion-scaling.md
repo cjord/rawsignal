@@ -121,3 +121,19 @@ weekly 8,174** → ~5,700 calls/day initially (~95 ticks of 1,440), drifting up 
 liquid products promote once sales data exists. Staging e2e: operator history batch
 derived 16,829 targets from D1 (`skippedMissingCatalog: 0`) and wrote only
 `pointsWritten: 20` for 5 full-history products — M5 and M1 confirmed live.
+
+**M6 executed 2026-09-01** (`scripts/history/backfill-sealed-archive.mjs`, one-shot).
+All 936 daily archives (2024-02-08 → 2026-08-31, ~3.8 GB, zero missing) downloaded
+with 8-way concurrency and extracted with Windows' built-in bsdtar (reads PPMd 7z —
+no 7-Zip install); the parse phase is resumable via an NDJSON progress log. Result:
+**279,945 daily observations for 574 sealed products** (420 One Piece + 154 Japanese)
+loaded into production `price_observations` (source `tcgcsv-archive`; INSERT OR
+IGNORE so API-sourced rows always win; catalog stubs seeded first for the FK — the
+next live run re-stamps them). Spot checks: Eevee Heroes Booster Box 612 points since
+2024-12-11, Carrying On His Will 472. `index:onepiece-sealed` re-backfilled: 191
+qualifying days (2026-02-23 →) at ~190 members, vs ~4 days before — earlier dates
+fail the 75%-coverage composition floor honestly. Side effect: the new sealed now
+have deep history, so they tier by price/sales instead of surging the daily tier as
+"thin". The archive cache in `backups/tcgcsv-archive/` makes extending the backfill
+to EN Pokémon/Riftbound sealed (categories 3/89 — would light up the other sealed
+indexes) a parse-only rerun if ever wanted.
