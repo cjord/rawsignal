@@ -1020,6 +1020,7 @@ unchanged points per product nightly. Each item below is a proposal awaiting a c
 |---|---|---|---|
 | M1 | **Delta-only history writes** — persist only points newer than the stored max observed_date | S–M | cuts D1 writes ~97%; removes the only projected overage; bill stays $5 at any catalog size |
 | M2 | **Cron `*/2` → `*/1`** | XS | doubles tick budget to 1,440/day; verified $0 (requests/reads/CPU all ≪ included) |
+| M4/M5 | **IMPLEMENTED 2026-08-31** — see `docs/ingestion-scaling.md` for the measured tier split, the dropped signal rule, and the production sales-null discovery | — | staging-verified; activates on next production deploy |
 | M3 | **Sealed-only groupFetchCap 12 → ~40** | XS | sealed groups yield ~1 record; ~3× sealed-walk speed at ~80 of 1,000 allowed subrequests |
 | M4 | **Tiered history cadence** — hot/liquid daily, long tail every 3–7 days | M | catalog can ~3× without the history tax tripling; our own daily observations already capture the close |
 | M5 | **History targets from D1** instead of deploy-time bundled feeds | M | expansions stop requiring sync-script regen; coverage tracks the walk automatically |

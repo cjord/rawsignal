@@ -103,3 +103,21 @@ MTG revives.
 `*/1` cadence activates at the next production deploy. Post-M1 expected steady state:
 D1 writes drop from ~1.5–2M/day to well under 200k/day; post-M2+M3 the tick budget is
 1,440/day with sealed walks ~3× faster — OP curated singles and MTG sealed both fit.
+
+**M5+M4 implemented 2026-08-31** (`db/history-targets.ts`, staging-verified). Two
+findings from measuring the tier rules against production data:
+1. **Signal-row presence is not selective** — 81% of the catalog (13.5k products)
+   carries a stored market_signals row across the strictness tiers, so "has a signal"
+   was dropped as a daily-tier criterion. Board visibility requires the ≥5-sales/30d
+   liquidity floor, which the sales rule already covers.
+2. **Production had NO sales counts at all** (`market_metrics.sales_30` null on every
+   row): the sales columns landed in migration 0006 AFTER the production seed's
+   history run, and under the old operator-only policy no history run ever executed
+   again — the liquidity gate has been running on nulls since 2026-08-28. M4's
+   self-started daily runs are what finally populates it (full coverage within one
+   week via the 3-day/weekly staggers, then tiers self-correct).
+Measured tier split (production, pre-bootstrap): **daily 2,464 · spread3 6,146 ·
+weekly 8,174** → ~5,700 calls/day initially (~95 ticks of 1,440), drifting up as
+liquid products promote once sales data exists. Staging e2e: operator history batch
+derived 16,829 targets from D1 (`skippedMissingCatalog: 0`) and wrote only
+`pointsWritten: 20` for 5 full-history products — M5 and M1 confirmed live.

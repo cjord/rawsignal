@@ -11,10 +11,14 @@ import type { D1DatabaseLike } from "./repository.ts";
 // already records every product's price and re-derives its signals from stored
 // observations, so a slower cadence only ages sales-velocity counts and late point
 // revisions. Tiers:
-//   daily   — products that matter now: active Hot Buy/Sell signal, liquid (sales_30 at
-//             or above the signal gate's floor), a big weekly move (movement promotion —
-//             a waking product must not stay stuck in a slow tier), or thin observation
-//             depth (new products need their deep backfill and early dailies).
+//   daily   — products that matter now: liquid (sales_30 at or above the signal gate's
+//             floor — which also covers everything the Hot boards can display, since
+//             board visibility requires that same floor; signal-row presence itself is
+//             NOT a criterion — measured 2026-08-31, 81% of the catalog carries a
+//             stored signal row across the strictness tiers), a big weekly move
+//             (movement promotion — a waking product must not stay stuck in a slow
+//             tier), or thin observation depth (new products need their deep backfill
+//             and early dailies).
 //   spread3 — the middle: anything with recent sales or a real price tag, every 3 days.
 //   weekly  — the illiquid tail, every 7 days.
 // Off-day members stagger by productId so each calendar day carries an even slice.
@@ -39,11 +43,10 @@ export type HistoryTargetRow = {
   sales30: number | null;
   change7Bps: number | null;
   depth: number;
-  hasSignal: number;
 };
 
-export function historyTier(row: Pick<HistoryTargetRow, "sales30" | "change7Bps" | "depth" | "hasSignal" | "marketCents">): HistoryTier {
-  if (row.hasSignal || (row.sales30 ?? 0) >= TIER_DAILY_SALES_30 || row.depth < TIER_DAILY_MIN_DEPTH) return "daily";
+export function historyTier(row: Pick<HistoryTargetRow, "sales30" | "change7Bps" | "depth" | "marketCents">): HistoryTier {
+  if ((row.sales30 ?? 0) >= TIER_DAILY_SALES_30 || row.depth < TIER_DAILY_MIN_DEPTH) return "daily";
   if (Math.abs(row.change7Bps ?? 0) >= TIER_DAILY_MOVE_BPS) return "daily";
   if ((row.sales30 ?? 0) > 0 || row.marketCents >= TIER_SPREAD3_MIN_CENTS) return "spread3";
   return "weekly";
@@ -64,8 +67,7 @@ const targetOf = (row: HistoryTargetRow): HistoryBackfillTarget => row.kind === 
 export async function readHistoryTargetRows(db: D1DatabaseLike): Promise<HistoryTargetRow[]> {
   return (await db.prepare(`select p.product_id as productId, p.kind, p.printing, cp.market_cents as marketCents,
       mm.sales_30 as sales30, mm.change_7_bps as change7Bps,
-      (select count(*) from price_observations po where po.product_id = p.product_id) as depth,
-      exists(select 1 from market_signals ms where ms.product_id = p.product_id) as hasSignal
+      (select count(*) from price_observations po where po.product_id = p.product_id) as depth
     from catalog_products p
     join current_prices cp on cp.product_id = p.product_id
     left join market_metrics mm on mm.product_id = p.product_id

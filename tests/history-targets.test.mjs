@@ -27,9 +27,8 @@ async function migratedDatabase(){
   return database;
 }
 
-test("history tiers classify by signal, liquidity, movement, and depth",()=>{
-  const base={sales30:null,change7Bps:null,depth:30,hasSignal:0,marketCents:500};
-  assert.equal(historyTier({...base,hasSignal:1}),"daily");
+test("history tiers classify by liquidity, movement, and depth",()=>{
+  const base={sales30:null,change7Bps:null,depth:30,marketCents:500};
   assert.equal(historyTier({...base,sales30:5}),"daily");
   assert.equal(historyTier({...base,depth:3}),"daily");          // new product needs depth fast
   assert.equal(historyTier({...base,change7Bps:-1200}),"daily"); // movement promotes a waking product
