@@ -175,8 +175,10 @@ export default function ProductDetailPage({detail,market,serverTiming}:{detail:C
  // native touchmove listener below keeps the browser from claiming the drag as a scroll.
  const artRef=useRef<HTMLDivElement>(null);
  const touchTilt=useRef<{timer:number|null;active:boolean;startX:number;startY:number}>({timer:null,active:false,startX:0,startY:0});
- const applyTilt=(clientX:number,clientY:number)=>{const element=artRef.current;if(!element)return;const rect=element.getBoundingClientRect(),x=(clientX-rect.left)/rect.width-.5,y=(clientY-rect.top)/rect.height-.5;element.style.setProperty("--tilt-x",`${(-y*9).toFixed(2)}deg`);element.style.setProperty("--tilt-y",`${(x*11).toFixed(2)}deg`)};
- const resetTilt=()=>{const element=artRef.current;if(element){element.style.setProperty("--tilt-x","0deg");element.style.setProperty("--tilt-y","0deg")}};
+ // One tilt engine for every pointer kind and both product kinds (card and sealed): the
+ // engaged art also enlarges slightly (--tilt-scale) while hovered or held.
+ const applyTilt=(clientX:number,clientY:number)=>{const element=artRef.current;if(!element)return;const rect=element.getBoundingClientRect(),x=(clientX-rect.left)/rect.width-.5,y=(clientY-rect.top)/rect.height-.5;element.style.setProperty("--tilt-x",`${(-y*9).toFixed(2)}deg`);element.style.setProperty("--tilt-y",`${(x*11).toFixed(2)}deg`);element.style.setProperty("--tilt-scale","1.035")};
+ const resetTilt=()=>{const element=artRef.current;if(element){element.style.setProperty("--tilt-x","0deg");element.style.setProperty("--tilt-y","0deg");element.style.setProperty("--tilt-scale","1")}};
  const endTouchTilt=()=>{const state=touchTilt.current;if(state.timer!=null){window.clearTimeout(state.timer);state.timer=null}if(state.active){state.active=false;resetTilt()}};
  const onArtDown=(event:React.PointerEvent<HTMLDivElement>)=>{if(event.pointerType==="mouse")return;if(window.matchMedia("(prefers-reduced-motion: reduce)").matches)return;const state=touchTilt.current;state.startX=event.clientX;state.startY=event.clientY;state.timer=window.setTimeout(()=>{state.timer=null;state.active=true;applyTilt(state.startX,state.startY)},220)};
  const onArtMove=(event:React.PointerEvent<HTMLDivElement>)=>{
