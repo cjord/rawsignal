@@ -171,6 +171,11 @@ if (!REPORT_ONLY) {
 }
 
 // --- aggregate + report ----------------------------------------------------------
+// Optional price floor, applied identically to every strategy at aggregation time.
+// Production's liquidity gate cannot be replayed (no archived sales); cheap cards are
+// its best proxy — without a floor, percentage metrics are dominated by sub-$1 noise.
+const MIN_PRICE = Number(args["min-price"] ?? 0);
+const SUFFIX = MIN_PRICE ? `-min${MIN_PRICE}` : "";
 const productIndex = new Map(products.map((id, index) => [id, index]));
 const modelRows = []; // {p,o,side,strict,score,fwd7,fwd30,fwd90,exc}
 for (const line of readFileSync(NDJSON, "utf8").split("\n")) {
@@ -180,6 +185,7 @@ for (const line of readFileSync(NDJSON, "utf8").split("\n")) {
   if (p == null) continue;
   for (const [o, side, strict, score] of parsed.s) {
     const i = at(p, o);
+    if (mat.p0[i] < MIN_PRICE) continue;
     modelRows.push({ p, o, side, strict, score, fwd7: mat.fwd7[i], fwd30: mat.fwd30[i], fwd90: mat.fwd90[i], exc: side === 0 ? mat.mae30[i] : mat.mfe30[i] });
   }
 }
@@ -211,8 +217,8 @@ function topKPrecision(rows, side, k) {
   return total ? hits / total : NaN;
 }
 
-const summary = { run: RUN, db: DB_PATH, every: EVERY, origins: nO, products: nP, top: TOP, liquidityGate: "not applied (no archived sales)", exclusions, strategies: {} };
-const lines = [`# Walk-forward report — ${RUN}`, "", `Origins: ${nO} (${isoOf(origins[0])} → ${isoOf(origins.at(-1))}, every ${EVERY}d) · products: ${nP} · DB: \`${DB_PATH}\``, "", `Liquidity gate NOT applied historically (no archived sales) — uniform across strategies.`, `Buy success = forward 30d return > 0 (strong > +5%); sell success = forward 30d < 0. Excursion = worst-case dip after buys / further rise after sells (30d).`, "", "| strategy | side | n | med fwd7 | med fwd30 | med fwd90 | hit | strong | med excursion | top-20 precision |", "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|"];
+const summary = { run: RUN, db: DB_PATH, every: EVERY, origins: nO, products: nP, top: TOP, minPrice: MIN_PRICE, liquidityGate: "not applied (no archived sales)", exclusions, strategies: {} };
+const lines = [`# Walk-forward report — ${RUN}${SUFFIX}`, "", `Origins: ${nO} (${isoOf(origins[0])} → ${isoOf(origins.at(-1))}, every ${EVERY}d) · products: ${nP} · price floor: ${MIN_PRICE ? `$${MIN_PRICE}` : "none"} · DB: \`${DB_PATH}\``, "", `Liquidity gate NOT applied historically (no archived sales) — uniform across strategies.`, `Buy success = forward 30d return > 0 (strong > +5%); sell success = forward 30d < 0. Excursion = worst-case dip after buys / further rise after sells (30d).`, "", "| strategy | side | n | med fwd7 | med fwd30 | med fwd90 | hit | strong | med excursion | top-20 precision |", "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|"];
 
 function addStrategy(name, side, rows) {
   const stats = describe(rows, side);
@@ -234,7 +240,7 @@ function baselineRows(side, rankOf) {
     const candidates = [];
     for (let p = 0; p < nP; p++) {
       const i = at(p, o);
-      if (!Number.isFinite(mat.p0[i]) || !Number.isFinite(mat.fwd30[i])) continue;
+      if (!Number.isFinite(mat.p0[i]) || mat.p0[i] < MIN_PRICE || !Number.isFinite(mat.fwd30[i])) continue;
       const rank = rankOf(i, p, o);
       if (Number.isFinite(rank)) candidates.push({ p, o, side, rank, fwd7: mat.fwd7[i], fwd30: mat.fwd30[i], fwd90: mat.fwd90[i], exc: side === 0 ? mat.mae30[i] : mat.mfe30[i] });
     }
@@ -265,6 +271,6 @@ if (balancedBuys.length >= 25) {
 }
 lines.push("", `Exclusion tallies (evaluator): ${JSON.stringify(exclusions)}`, "");
 
-writeFileSync(path.join(OUT_DIR, "report.md"), lines.join("\n"));
-writeFileSync(path.join(OUT_DIR, "summary.json"), JSON.stringify(summary, null, 1));
-log(`report → ${path.join(OUT_DIR, "report.md")}`);
+writeFileSync(path.join(OUT_DIR, `report${SUFFIX}.md`), lines.join("\n"));
+writeFileSync(path.join(OUT_DIR, `summary${SUFFIX}.json`), JSON.stringify(summary, null, 1));
+log(`report → ${path.join(OUT_DIR, `report${SUFFIX}.md`)}`);

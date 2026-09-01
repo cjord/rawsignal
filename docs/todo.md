@@ -1182,6 +1182,14 @@ momentum, cohort median, random eligible. `signal_history` (daily top-100 board
 snapshots since 2026-08-28) doubles as the live forward track record. Hard limit:
 sales/liquidity features cannot be backtested (TCGplayer serves trailing-90D buckets
 only; archives carry no sales) — they get forward shadow-validation instead.
+**Status: LANDED 2026-09-01.** `scripts/backtest/walk-forward.mjs` + `lib.mjs`
+(unit-tested), resumable NDJSON slices, `--min-price` floor as the liquidity proxy,
+`npm run backtest:walk`. First full run (`full-v1`, 16,982 products × 117 weekly
+origins, ~818k evaluator calls) is analyzed in `docs/backtests.md` — headline: the
+sell side is worse than random (18% top-20 precision vs 26%), buy-score calibration is
+inverted (higher score → lower hit rate), strictness presets don't order performance,
+and the cohort-median baseline beats the model's buys. P2/P3 priorities confirmed with
+data.
 
 **P1b. Champion/challenger shadow (starts as soon as P2 code exists).** The batch
 writer evaluates BOTH model variants per product per day (pure CPU on data already in
