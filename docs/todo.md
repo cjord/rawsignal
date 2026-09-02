@@ -1305,6 +1305,19 @@ TCGplayer's low/high buckets, so the range is what's honest to store; the demand
 regime evidence landed in P3). Unbacktestable by design — validates through the P1b
 live shadow.
 
+**P6. Score recalibration — v2.1 turn confirmation (2026-09-02). Status: LANDED
+(gate green, 198 tests).** Feature-dump-driven (walk-forward `--features` +
+`scripts/backtest/calibrate.mjs`): proximity proved anti-predictive, so the v2 score is
+now evidence-weighted turn confirmation (7-day turn ×5 cap 25 · 30-day turn ×1.5 cap
+15 · breadth ×.25 · confidence 20/10 · swing cap 15 · sell pull-back ×1.25 cap 10),
+gates harden to "bounce confirmed" (buy: ≥1% off robust low, week ≥0) and the new
+`awaiting-rollover` sell gate (≥0.4% off robust high, week ≤0; breakouts keep their
+specific evidence); minScores 55/45/35. `full-v21` verdict (docs/backtests.md):
+balanced buys 71.0% hit / +2.79% (beats every baseline), sells cut 97.5% in volume at
+47.5% hit / 50.6% top-20 (best baseline 31.2%). Known residual: the top score quintile
+dips (64.6%) — saturated turn terms select overheated bounces, so conservative
+underperforms balanced; next calibration candidate. The live shadow now runs v2.1.
+
 Deferred (unchanged from research §15.7): character priors, Early Value Estimate,
 pull-difficulty score adjustments, execution-aware net returns.
 

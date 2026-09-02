@@ -162,6 +162,44 @@ nothing regressed.
    does not chase cohort laggards. Closing that gap is the contingent v3 (weighted
    cohort term) — which this archive's single regime still cannot calibrate safely.
 
+## Run `full-v21` — 2026-09-02 (challenger recalibration: v2.1 turn confirmation)
+
+A feature dump (3,000 products, ~337k near-extreme card-days, `--features` +
+`scripts/backtest/calibrate.mjs`) showed proximity-to-the-extreme is ANTI-predictive
+(sitting on the low: 40% hit; 1–12% off it: ~70%) while turn confirmation, cohort
+breadth, and confidence order forward returns cleanly. v2.1 therefore: hardened buy
+gate (≥1% off the robust low AND week ≥ 0), NEW mirror sell gate `awaiting-rollover`
+(≥0.4% off the robust high AND week ≤ 0), and an evidence-weighted score replacing
+the proximity-led one (turn strength 25 + 30-day turn 15 + breadth 25 + confidence
+20/10 + swing 15 [+ pull-back 10 for sells]); minScores 55/45/35. Confirming full run
+(formula fitted on the sample, confirmed out-of-sample on the full grid), v2c → v2.1
+at the $5 floor (balanced):
+
+| | n | med fwd30 | hit | top-20 precision |
+|---|---:|---:|---:|---:|
+| buy | 43,218 → 59,115 | +1.12% → **+2.79%** | 60.1% → **71.0%** | 51.8% → **60.7%** |
+| sell | 757,373 → **19,156** | +1.21% → **0.00%** | 22.1% → **47.5%** | 32.2% → **50.6%** |
+
+### Findings
+
+1. **Buys now beat every baseline on hit rate** (71.0% vs cohort-median 66.4%,
+   momentum 62.3%, random 51.7%) with 2.5× the median forward return and MORE
+   coverage — the gate drops knife-catchers while the score admits confirmed bounces
+   the proximity score under-ranked. Aggressive top-20 64.7% closes to within 1.7pp of
+   the cohort-median baseline.
+2. **The sell side is finally a signal**: 97.5% volume cut, hit rate more than
+   doubled to ~47–49% at every strictness (best baseline: 31.2%), top-20 precision
+   50.6%, and zero median adverse drift after a "sell".
+3. **Calibration is nearly flat-and-high instead of inverted** (72.6/73.2/73.4/71.2/
+   64.6% by quintile). The top quintile still dips — maxed-out turn terms select
+   overheated bounces — and conservative (which selects exactly those rows via
+   minScore 55) underperforms balanced (62.9% vs 71.0%). Remaining work: soften the
+   7-day-term saturation or rank conservative differently.
+4. Same standing caveats as ever: single rising regime, no historical liquidity, marks
+   not executions — and one round of formula-fitting on a subsample of this same
+   archive (mitigated by the full-grid confirmation, the coarse round-number weights,
+   and the live shadow, which now runs v2.1 and provides the true out-of-sample test).
+
 ## Program summary — v1 → v2 (P1–P5 complete, 2026-09-02)
 
 All runs on the identical grid (16,982 products × 117 weekly origins, $5 floor).

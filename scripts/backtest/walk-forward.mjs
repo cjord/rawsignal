@@ -16,7 +16,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { evaluateMarketSignal } from "../../core/signal-utils.ts";
 import { classifyRegime } from "../../core/domain/regime.ts";
-import { dayNum, isoOf, asofIndex, priceAsOf, forwardReturn, excursion, extremeDistances, median, cohortKeyOf, cohortFallbackKeyOf, mulberry32, hashStr } from "./lib.mjs";
+import { dayNum, isoOf, asofIndex, priceAsOf, forwardReturn, excursion, extremeDistances, median, quantileSorted, cohortKeyOf, cohortFallbackKeyOf, mulberry32, hashStr } from "./lib.mjs";
 
 const args = {};
 for (let i = 2; i < process.argv.length; i++) {
@@ -33,6 +33,14 @@ const MAX_MINUTES = Number(args["max-minutes"] ?? 0);
 const REPORT_ONLY = Boolean(args["report-only"]);
 const MODEL = args.model ?? "v1"; // evaluator variant (SignalContext.model)
 if (MODEL !== "v1" && MODEL !== "v2") { console.error(`unknown --model ${MODEL}`); process.exit(1); }
+// --features: instead of evaluating preset models, dump one feature row per
+// (product, origin, side) whose robust best-window distance is within FEATURE_CAP —
+// the raw material for offline score calibration (docs/backtests.md). Feature rows are
+// computed harness-side with lib helpers; the calibrated formula gets re-implemented in
+// the evaluator and confirmed by a standard run, so helper drift cannot leak into
+// production conclusions.
+const FEATURES = Boolean(args.features);
+const FEATURE_CAP = 25; // % distance beyond which neither side can ever qualify
 const OUT_DIR = path.resolve("backups/backtests", RUN);
 const NDJSON = path.join(OUT_DIR, "model-signals.ndjson");
 const startedAt = Date.now();
@@ -159,6 +167,41 @@ if (existsSync(NDJSON)) for (const line of readFileSync(NDJSON, "utf8").split("\
 }
 const exclusions = {};
 
+// One feature row per near-extreme (product, origin, side): the raw distances, moves,
+// and context the calibration analysis fits against forward returns.
+function featureRow(days, prices, lo, hi, day, p0, side, cohort, i) {
+  const w = cut => { const from = firstIdxAtOrAfter(days, day - cut, lo, hi); return prices.slice(from, hi + 1).filter(v => v > 0); };
+  const w30 = w(30), w90 = w(90), all = prices.slice(lo, hi + 1).filter(v => v > 0);
+  if (all.length < 2) return null;
+  const robust = prices_ => { const s = [...prices_].sort((a, b) => a - b); return { lo: quantileSorted(s, .1), hi: quantileSorted(s, .9), med: quantileSorted(s, .5) }; };
+  const dist = ex => side === 0 ? (p0 / ex - 1) * 100 : (1 - p0 / ex) * 100;
+  const cands = [w30, w90, all].filter(x => x.length >= 2).map(robust).map(r => ({ r, d: Math.max(0, dist(side === 0 ? r.lo : r.hi)) }));
+  if (!cands.length) return null;
+  const best = cands.sort((a, b) => a.d - b.d)[0];
+  if (best.d > FEATURE_CAP) return null;
+  const swing = side === 0 ? (best.r.hi - p0) / best.r.hi * 100 : (p0 - best.r.lo) / best.r.lo * 100;
+  const range = r => r.med ? (r.hi - r.lo) / r.med * 100 : 0;
+  const vol = .6 * (w30.length >= 2 ? range(robust(w30)) : 0) + .4 * (w90.length >= 2 ? range(robust(w90)) : 0);
+  const conf = w90.length >= 12 && all.length >= 30 ? 2 : w30.length >= 5 ? 1 : 0;
+  const pAt = back => priceAsOf(days.slice(lo, hi + 1), prices.slice(lo, hi + 1), day - back);
+  const p7 = pAt(7), p30 = pAt(30);
+  const mean30 = w30.length >= 2 ? w30.reduce((a, b) => a + b, 0) / w30.length : NaN;
+  const peak90 = w90.length ? Math.max(...w90) : NaN;
+  return {
+    d: round2(best.d), sw: round2(swing), vol: round2(vol), conf,
+    c7: Number.isFinite(p7) && p7 > 0 ? round2((p0 / p7 - 1) * 100) : null,
+    c30: Number.isFinite(p30) && p30 > 0 ? round2((p0 / p30 - 1) * 100) : null,
+    mom: Number.isFinite(mean30) && mean30 > 0 ? round2((p0 / mean30 - 1) * 100) : null,
+    dd: Number.isFinite(peak90) && peak90 > 0 ? round2((p0 / peak90 - 1) * 100) : null,
+    rel: cohort && Number.isFinite(p30) && p30 > 0 ? round2((Math.log(p0 / p30) - cohort.logReturn30) * 100) : null,
+    br: cohort ? Math.round(cohort.breadth) : null,
+    p0: round2(p0),
+    f7: mat.fwd7[i], f30: mat.fwd30[i], f90: mat.fwd90[i],
+  };
+}
+const round2 = value => Math.round(value * 100) / 100;
+const firstIdxAtOrAfter = (days, day, lo, hi) => { let a = lo, b = hi + 1; while (a < b) { const m = (a + b) >> 1; if (days[m] >= day) b = m; else a = m + 1; } return a; };
+
 if (!REPORT_ONLY) {
   let evaluated = 0, skippedFar = 0;
   for (let p = 0; p < nP; p++) {
@@ -167,11 +210,25 @@ if (!REPORT_ONLY) {
     const { days, prices } = seriesByProduct.get(id);
     const points = days.map((day, i) => ({ date: isoOf(day), price: prices[i] }));
     const signals = [];
+    const featureRows = [];
     for (let o = 0; o < nO; o++) {
       const i = at(p, o), p0 = mat.p0[i];
       if (!Number.isFinite(p0)) continue;
       const prefixEnd = asofIndex(days, origins[o]) + 1;
       if (prefixEnd < 2) continue;
+      if (FEATURES) {
+        const cohort = cohortAt(p, o);
+        for (const side of [0, 1]) {
+          const row = featureRow(days, prices, 0, prefixEnd - 1, origins[o], p0, side, cohort, i);
+          if (row) {
+            const prefix = points.slice(0, prefixEnd);
+            const reading = classifyRegime(prefix, p0, null, cohort?.breadth);
+            featureRows.push({ o, s: side, rg: reading?.regime ?? null, ...row });
+            evaluated++;
+          }
+        }
+        continue;
+      }
       let prefix = null; // built lazily — most (product, origin, side) triples are far from extremes
       for (const side of ["buy", "sell"]) {
         // Safe pre-filter (v1 only): the evaluator's best window distance is bounded below
@@ -198,7 +255,7 @@ if (!REPORT_ONLY) {
         }
       }
     }
-    appendFileSync(NDJSON, JSON.stringify({ p: id, s: signals }) + "\n");
+    appendFileSync(NDJSON, JSON.stringify(FEATURES ? { p: id, f: featureRows } : { p: id, s: signals }) + "\n");
     done.add(id);
     if (p % 500 === 499) log(`model ${done.size}/${nP} (evals ${evaluated}, prefiltered ${skippedFar})`);
     if (MAX_MINUTES > 0 && Date.now() - startedAt > MAX_MINUTES * 60_000) {
@@ -208,6 +265,7 @@ if (!REPORT_ONLY) {
   }
   log(`model pass complete (evals ${evaluated}, prefiltered ${skippedFar})`);
 }
+if (FEATURES) { log(`feature dump complete → ${NDJSON}`); process.exit(0); }
 
 // --- aggregate + report ----------------------------------------------------------
 // Optional price floor, applied identically to every strategy at aggregation time.

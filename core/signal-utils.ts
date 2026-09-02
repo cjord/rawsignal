@@ -5,14 +5,15 @@ export type {MarketSignal,SignalConfidence,SignalSide,SignalStrictness} from "./
 
 const presets={conservative:{base:1.5,scale:.13,max:8,minScore:72},balanced:{base:2.25,scale:.2,max:12,minScore:58},aggressive:{base:3.5,scale:.28,max:18,minScore:44}} as const;
 // v2 anchors extremes on winsorized 10th/90th percentiles (research §15.1) instead of raw
-// min/max, so measured distances shrink; cutoffs are recalibrated on the walk-forward
-// harness (docs/backtests.md) to keep board coverage comparable to v1.
-const presetsV2={conservative:{base:1.5,scale:.13,max:8,minScore:72},balanced:{base:2.25,scale:.2,max:12,minScore:58},aggressive:{base:3.5,scale:.28,max:18,minScore:44}} as const;
+// min/max. v2.1 recalibration (feature-dump evidence, docs/backtests.md): the score is
+// evidence-weighted turn confirmation, on a different scale than v1 — minScores map to
+// the calibrated decile boundaries (top ~55%/~45%/~35% of the gated pool).
+const presetsV2={conservative:{base:1.5,scale:.13,max:8,minScore:55},balanced:{base:2.25,scale:.2,max:12,minScore:45},aggressive:{base:3.5,scale:.28,max:18,minScore:35}} as const;
 const pct=(value:number)=>`${value.toFixed(1)}%`;
 const quantile=(sorted:number[],q:number)=>{if(!sorted.length)return 0;const i=(sorted.length-1)*q,lo=Math.floor(i),hi=Math.ceil(i);return sorted[lo]+(sorted[hi]-sorted[lo])*(i-lo)};
 const windowPrices=(points:PricePoint[],days:number)=>{if(!points.length)return[];const end=new Date(`${points.at(-1)!.date}T00:00:00Z`),start=new Date(end);start.setUTCDate(start.getUTCDate()-days);return points.filter(p=>new Date(`${p.date}T00:00:00Z`)>=start&&p.price>0).map(p=>p.price)};
 
-export type SignalExclusionCode="missing-current-price"|"insufficient-history"|"insufficient-liquidity"|"awaiting-stabilization"|"breakout-continuation"|"outside-adaptive-cutoff"|"below-minimum-score";
+export type SignalExclusionCode="missing-current-price"|"insufficient-history"|"insufficient-liquidity"|"awaiting-stabilization"|"awaiting-rollover"|"breakout-continuation"|"outside-adaptive-cutoff"|"below-minimum-score";
 export type SignalLiquidity={sales7:number|null;sales30:number|null};
 // Hot boards require real transaction backing (user decision 2026-08-28): at least 5
 // completed sales in 30 days AND one in the last 7 — a signal on a card nobody trades has
@@ -73,24 +74,36 @@ export function evaluateMarketSignal(points:PricePoint[],side:"buy"|"sell",stric
  const candidates=[{days:30,prices:p30},{days:90,prices:p90},{days:0,prices:all}].filter(x=>x.prices.length>=2).map(x=>{const s=robust?[...x.prices].sort((a,b)=>a-b):null;return{...x,sorted:s,extreme:extrema(x.prices,s)}}).map(x=>({...x,distance:Math.max(0,distance(x.extreme))}));
  if(!candidates.length)return{eligible:false,signal:null,code:"insufficient-history",detail:`${all.length} usable history point${all.length===1?"":"s"}; at least 2 are required.`,confidence};
  const best=candidates.sort((a,b)=>a.distance-b.distance)[0],opposite=robust?quantile(best.sorted!,side==="buy"?.9:.1):side==="buy"?Math.max(...best.prices):Math.min(...best.prices),swing=side==="buy"?(opposite-current)/opposite*100:(current-opposite)/opposite*100;
- const exact=best.distance<=.15,proximity=Math.max(0,1-best.distance/cutoff),score=Math.round(Math.min(100,proximity*62+Math.min(24,Math.max(0,swing)*.8)+(confidence==="high"?14:confidence==="medium"?8:3)));
- // A price sitting on its running low, or still in freefall, is a falling knife, not a buy
- // (audit C2): buys need bounce evidence — visibly off the low and not collapsing this week.
+ const exact=best.distance<=.15;
+ // Scores. v1: proximity-led (unchanged, still serving production). v2.1: evidence-led
+ // turn confirmation — the feature dump showed proximity is ANTI-predictive (sitting on
+ // the low hits 40%, 1–12% off it hits ~70%), while a confirmed bounce/fade, cohort
+ // breadth, and confidence order forward returns cleanly (docs/backtests.md).
+ const clampTo=(value:number|null|undefined,lo:number,hi:number)=>Math.min(hi,Math.max(lo,value??0));
+ const change7=changeAtCutoff(sorted,7),change30v=changeAtCutoff(sorted,30);
+ const breadth=context?.cohort?.breadth??50;
+ const turn=side==="buy"?1:-1; // buys score the up-turn, sells the down-turn
+ const score=robust
+  ?Math.round(Math.min(100,clampTo(turn*(change7??0),0,5)*5+clampTo(turn*(change30v??0),0,10)*1.5+(side==="buy"?breadth:100-breadth)*.25+(confidence==="high"?(side==="buy"?20:10):confidence==="medium"?5:0)+clampTo(swing,0,15)+(side==="sell"?clampTo(best.distance,0,8)*1.25:0)))
+  :Math.round(Math.min(100,Math.max(0,1-best.distance/cutoff)*62+Math.min(24,Math.max(0,swing)*.8)+(confidence==="high"?14:confidence==="medium"?8:3)));
+ // Turn-confirmation gates. v1 buys keep the original stabilization rule (audit C2).
+ // v2.1 hardens it (≥1% off the low AND a flat-or-up week — null change7 is unconfirmed)
+ // and adds the mirror-image sell gate: ≥0.4% off the high AND a flat-or-down week; a
+ // price still printing highs with momentum up is continuation, not overextension.
  if(side==="buy"){
-  const change7=changeAtCutoff(sorted,7),falling=change7!=null&&change7<=-5;
-  if(best.distance<.5||falling){
-   const detail=falling?`Down ${pct(Math.abs(change7))} over 7 days; buys wait for stabilization.`:`Price sits on the ${best.days?`${best.days}-day`:"historic"} low with no bounce yet; buys wait for stabilization.`;
+  const falling=change7!=null&&change7<=-5;
+  const waiting=robust?(best.distance<1||change7==null||change7<0):(best.distance<.5||falling);
+  if(waiting){
+   const detail=falling||(robust&&change7!=null&&change7<0)?`Down ${pct(Math.abs(change7!))} over 7 days; buys wait for stabilization.`:`Price sits on the ${best.days?`${best.days}-day`:"historic"} low with no ${robust?"confirmed bounce":"bounce yet"}; buys wait for stabilization.`;
    return{eligible:false,signal:null,code:"awaiting-stabilization",detail,confidence,distance:best.distance,cutoff,score};
   }
  }
- if(best.distance>cutoff)return{eligible:false,signal:null,code:"outside-adaptive-cutoff",detail:`${pct(best.distance)} from the nearest ${side==="buy"?"low":"high"}; ${pct(cutoff)} is the ${strictness} cutoff.`,confidence,distance:best.distance,cutoff,score};
- // v2 sell gate (todo P3, mirrors awaiting-stabilization): a price accelerating through
- // its high is a breakout in progress, not overextension — the full-v1/v2 backtests show
- // near-a-high alone is anti-signal in a rising regime. Sells wait for momentum to fade.
- if(robust&&side==="sell"){
+ if(robust&&side==="sell"&&(best.distance<.4||change7==null||change7>0)){
   const reading=context?.regime!==undefined?context.regime:classifyRegime(sorted,current,context?.demand,context?.cohort?.breadth);
   if(reading?.regime==="breakout")return{eligible:false,signal:null,code:"breakout-continuation",detail:`${reading.detail} Sells wait for momentum to fade.`,confidence,distance:best.distance,cutoff,score};
+  return{eligible:false,signal:null,code:"awaiting-rollover",detail:change7!=null&&change7>0?`Up ${pct(change7)} over 7 days at the high; sells wait for the roll-over.`:`Price sits at the ${best.days?`${best.days}-day`:"historic"} high with no confirmed roll-over; sells wait for fading momentum.`,confidence,distance:best.distance,cutoff,score};
  }
+ if(best.distance>cutoff)return{eligible:false,signal:null,code:"outside-adaptive-cutoff",detail:`${pct(best.distance)} from the nearest ${side==="buy"?"low":"high"}; ${pct(cutoff)} is the ${strictness} cutoff.`,confidence,distance:best.distance,cutoff,score};
  if(score<preset.minScore)return{eligible:false,signal:null,code:"below-minimum-score",detail:`Signal score ${score} is below the ${strictness} minimum of ${preset.minScore}.`,confidence,distance:best.distance,cutoff,score};
  const period=best.days?`${best.days}-day`:"historic",label=`${robust?"typical ":""}${side==="buy"?"low":"high"}`,reason=exact?`${robust?"At the":"New"} ${period} ${label}`:`Within ${pct(best.distance)} of ${period} ${label}`;
  return{eligible:true,signal:{side,score,confidence,reason,detail:`${pct(swing)} ${side==="buy"?"below":"above"} the opposite ${period} extreme · ${pct(cutoff)} ${strictness} cutoff${cohortNote}`,distance:best.distance,cutoff}};

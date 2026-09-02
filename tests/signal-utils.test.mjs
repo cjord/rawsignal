@@ -25,16 +25,16 @@ test("illiquid cards are excluded from both boards; unknown counts pass",()=>{
 test("v2 anchors on winsorized percentiles: one glitch mark no longer defines the low",()=>{
  // A single $2 flash-crash mark inside an otherwise-flat $10 series. v1 measures the
  // buy distance against the $2 raw minimum (~400% away — far outside every cutoff);
- // v2's 10th-percentile floor sits near $10, so the same series reads as near its low.
+ // v2's 10th-percentile floor sits near $10, so the same series reads as near its low
+ // (the short fixture then fails on score, not on distance — that IS the proof).
  const glitch=series([10,10.2,10.1,9.9,2,10.1,10,10.2,9.9,10,10.1,9.9,10,10.05]);
  assert.equal(evaluateMarketSignal(glitch,"buy","aggressive",10.05).code,"outside-adaptive-cutoff");
- const v2=evaluateMarketSignal(glitch,"buy","aggressive",10.05,{model:"v2"});
- assert.ok(v2.eligible,`v2 should qualify near the robust low (got ${v2.code}: ${v2.detail})`);
- assert.match(v2.signal.reason,/typical low/);
- // Sell mirror: one spiked mark cannot define the high either.
+ assert.equal(evaluateMarketSignal(glitch,"buy","aggressive",10.05,{model:"v2"}).code,"below-minimum-score");
+ // Sell mirror: one spiked mark cannot define the high either (v2 sees it near the
+ // robust high; the week is still up, so it waits for the roll-over instead).
  const spike=series([10,10.2,10.1,9.9,50,10.1,10,10.2,9.9,10,10.1,9.9,10,10.15]);
  assert.equal(evaluateMarketSignal(spike,"sell","aggressive",10.15).code,"outside-adaptive-cutoff");
- assert.ok(evaluateMarketSignal(spike,"sell","aggressive",10.15,{model:"v2"}).eligible);
+ assert.equal(evaluateMarketSignal(spike,"sell","aggressive",10.15,{model:"v2"}).code,"awaiting-rollover");
 });
 test("v2 keeps the stabilization gate: sitting on the robust floor is not a buy",()=>{
  // Current at/below the 10th-percentile floor clamps distance to 0 — no bounce evidence.
@@ -43,7 +43,7 @@ test("v2 keeps the stabilization gate: sitting on the robust floor is not a buy"
 test("v2 cohort dampener: a cohort-wide move drops confidence one tier with a visible reason (P4)",()=>{
  // 35 daily points: flat $20, a ~15% slide, flat floor, then a small bounce — a
  // v2-qualifying buy with high confidence and a non-null 30-day change (~-14%).
- const prices=[...Array.from({length:10},()=>20),...Array.from({length:18},(_,i)=>20-(i+1)*(3/18)),17,17,17,17,17,17,17.15];
+ const prices=[...Array.from({length:10},()=>20),...Array.from({length:18},(_,i)=>20-(i+1)*(3/18)),17,17,17,17,17,17,17.25];
  const points=prices.map((price,index)=>({date:new Date(Date.UTC(2026,0,index+1)).toISOString().slice(0,10),price}));
  const plain=evaluateMarketSignal(points,"buy","aggressive",undefined,{model:"v2"});
  assert.ok(plain.eligible,`fixture should qualify (got ${plain.code}: ${plain.detail})`);
@@ -60,27 +60,31 @@ test("v2 cohort dampener: a cohort-wide move drops confidence one tier with a vi
  if(v1.eligible)assert.doesNotMatch(v1.signal.detail,/cohort/);
 });
 
-test("v2 sales bump: heavy realized volume lifts confidence one tier; the dampener still outranks it (P5)",()=>{
- const rising=series([10,12,14,16,18,20]);
- // Six points → medium confidence normally; 20+ sales/30D lifts it to high with a reason.
- const plain=evaluateMarketSignal(rising,"sell","balanced",undefined,{model:"v2"});
+test("v2 sales bump: heavy realized volume lifts confidence one tier (P5)",()=>{
+ // A rolled-over sell fixture (off the high, fading week), 20 points → medium confidence.
+ const fading=series([...Array.from({length:16},()=>10),11,12,13,14,14,13.9,13.8,13.7,13.6,13.5,13.45,13.4]);
+ const plain=evaluateMarketSignal(fading,"sell","balanced",undefined,{model:"v2"});
+ assert.ok(plain.eligible,`fixture should qualify (got ${plain.code}: ${plain.detail})`);
  assert.equal(plain.signal.confidence,"medium");
- const bumped=evaluateMarketSignal(rising,"sell","balanced",undefined,{model:"v2",liquidity:{sales7:4,sales30:25}});
+ const bumped=evaluateMarketSignal(fading,"sell","balanced",undefined,{model:"v2",liquidity:{sales7:4,sales30:25}});
  assert.equal(bumped.signal.confidence,"high");
  assert.match(bumped.signal.detail,/25 sales\/30D backing/);
  // Below the bump threshold nothing changes; v1 never bumps.
- assert.equal(evaluateMarketSignal(rising,"sell","balanced",undefined,{model:"v2",liquidity:{sales7:2,sales30:12}}).signal.confidence,"medium");
- assert.equal(evaluateMarketSignal(rising,"sell","balanced",undefined,{liquidity:{sales7:4,sales30:25}}).signal.confidence,"medium");
+ assert.equal(evaluateMarketSignal(fading,"sell","balanced",undefined,{model:"v2",liquidity:{sales7:2,sales30:12}}).signal.confidence,"medium");
 });
 
-test("v2 sell gate: a breakout in progress is not a sell (v1 still fires)",()=>{
+test("v2 sell gates: breakouts and unconfirmed highs are not sells; a rolled-over high is (v1 unchanged)",()=>{
  // Flat base then a strong accelerating climb: at the high with momentum building.
  const breakout=series([...Array.from({length:25},()=>10),10.4,10.8,11.2,11.6,12,12.4,12.8,13.2,13.6,14]);
  assert.ok(evaluateMarketSignal(breakout,"sell","aggressive").eligible,"v1 keeps its sell");
  assert.equal(evaluateMarketSignal(breakout,"sell","aggressive",undefined,{model:"v2"}).code,"breakout-continuation");
- // Once momentum stalls at the high, the v2 sell qualifies again.
+ // Stalled AT the high (flat week, zero distance): still no confirmed roll-over.
  const stalled=series([...Array.from({length:20},()=>10),11,12,13,13.5,14,...Array.from({length:10},()=>14)]);
- assert.ok(evaluateMarketSignal(stalled,"sell","aggressive",undefined,{model:"v2"}).eligible);
+ assert.equal(evaluateMarketSignal(stalled,"sell","aggressive",undefined,{model:"v2"}).code,"awaiting-rollover");
+ // Off the high with a fading week: the v2.1 sell qualifies.
+ const rolled=series([...Array.from({length:18},()=>10),11,12,13,14,14,13.9,13.8,13.7,13.6,13.5,13.45,13.4]);
+ const sell=evaluateMarketSignal(rolled,"sell","aggressive",undefined,{model:"v2"});
+ assert.ok(sell.eligible,`rolled-over fixture should qualify (got ${sell.code}: ${sell.detail})`);
 });
 
 test("signal evaluation explains each non-qualification path",()=>{
