@@ -1324,8 +1324,11 @@ per-side minScores (buy 83/74/63, sell 72/56/41). Result: monotone calibration
 (72→74% hit, +2.7→+4.6% by quintile), balanced buys 73.3%/+3.45% with top-20 70.5%
 (beats cohort-median at last), sells 51.0% hit with negative median drift. Cross-market
 validation DB (JP chase rarities + MTG mythics/day-one-$5 rares, 18,828 targets,
-`scripts/local-db/build-ext-db.mjs` → max-ext.sqlite) in build for the generalization
-check; the live shadow runs v2.2.
+`scripts/local-db/build-ext-db.mjs` → max-ext.sqlite, 21.98M observations) built;
+generalization run `ext-v22` PASSED (docs/backtests.md): buys 69.2% hit / sells 59.8%
+with −1.78% median on never-seen JP + MTG markets, beating every baseline — including
+where the simple heuristics collapse (momentum 38.6%, near-extreme 23.9%). The live
+shadow runs v2.2 and remains the only different-regime test.
 
 Deferred (unchanged from research §15.7): character priors, Early Value Estimate,
 pull-difficulty score adjustments, execution-aware net returns.

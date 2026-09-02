@@ -235,6 +235,37 @@ cohort is strength, which breadth already rewards); minScores become per-side, a
    database (JP chase rarities + MTG mythics/day-one rares, in build) are the
    remaining independent checks before promotion.
 
+## Run `ext-v22` — 2026-09-02 (cross-market generalization: JP Pokémon + Magic)
+
+New local-only validation universe (`max-ext.sqlite`, `scripts/local-db/build-ext-db.mjs`):
+18,828 products / 21.98M observations from the cached archives — Japanese Pokémon
+chase rarities (2,844: SAR/AR/SR/UR/HR/CHR/CSR + vintage specials) and Magic (15,984:
+all Mythics + Rares that were ≥$5 on the FIRST archive day, a pre-window cut with no
+survivorship bias). v2.2 was calibrated entirely on English Pokémon/Riftbound/OP —
+these markets are pure out-of-domain. Same grid, same $5 floor (balanced):
+
+| | n | med fwd30 | hit | top-20 | best baseline (this universe) |
+|---|---:|---:|---:|---:|---:|
+| buy | 17,642 | +2.46% | **69.2%** | **66.8%** | cohort-median 63.3% |
+| sell | 18,649 | **−1.78%** | **59.8%** | **61.1%** | random 37.8% |
+
+### Findings
+
+1. **The turn-confirmation edge generalizes.** Buy hit 69.2% (home: 73.3%) against a
+   weaker universe base rate; sells actually IMPROVE out-of-domain (59.8% vs 51.0%,
+   median −1.78%) — MTG's rotation-driven declines give confirmed roll-overs more to
+   catch. Every strictness beats every baseline on both sides.
+2. **The baselines collapse where the model doesn't**: momentum-loser chasing — the
+   strongest simple strategy in English Pokémon (62%) — hits only 38.6% here, and
+   near-extreme buying 23.9%. The model's mechanism survives a market where the
+   simple heuristics die, which is the strongest evidence yet that it is mechanism,
+   not archive artifact.
+3. Calibration holds out-of-domain (67.9→70.0% hit, +2.06→+3.14% median by quintile),
+   slightly flatter than at home — expected without refitting.
+4. Caveat: same time window and broadly the same macro backdrop as the home archive;
+   the segments are new but the era is not. The live shadow remains the only test of a
+   different regime.
+
 ## Program summary — v1 → v2 (P1–P5 complete, 2026-09-02)
 
 All runs on the identical grid (16,982 products × 117 weekly origins, $5 floor).
