@@ -88,6 +88,10 @@ test("daily ingestion is idempotent, observable, and publishes complete signal c
   const signal=database.prepare("select side,strictness,coverage,observation_date as observationDate from market_signals where product_id=1 and side='sell' and strictness='balanced'").get();
   assert.deepEqual({...signal},{side:"sell",strictness:"balanced",coverage:"exact",observationDate:"2026-08-25"});
   assert.equal(database.prepare("select count(*) as count from market_signals where product_id=1 and side='buy'").get().count,0);
+  // Champion/challenger shadow (P1b): the same pass writes the v2 challenger's balanced
+  // evaluation — a two-point rising series is a fresh-high sell for v2 as well.
+  assert.equal(database.prepare("select count(*) as count from shadow_signals where product_id=1 and side='sell'").get().count,1);
+  assert.equal(database.prepare("select count(*) as count from shadow_signals where product_id=1 and side='buy'").get().count,0);
   const published=await publishedIngestion(db);
   assert.equal(published.runId,"daily-market:2026-08-25");
   assert.equal(published.recordsRejected,2);

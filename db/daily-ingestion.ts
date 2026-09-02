@@ -8,6 +8,8 @@ import {
   completeIngestion,
   checkpointIngestion,
   deleteMarketSignal,
+  deleteShadowSignal,
+  upsertShadowSignal,
   readMarketLiquidity,
   startIngestion,
   upsertCard,
@@ -87,6 +89,14 @@ export async function persistDerivedHistory(db: D1DatabaseLike, productId: numbe
       await upsertMarketSignal(db, productId, strictness, signal, asOfDate, history.coverage, points.at(-1)?.date ?? asOfDate);
       signalsWritten++;
     } else await deleteMarketSignal(db, productId, side, strictness);
+  }
+  // Champion/challenger shadow (todo P1b): evaluate the v2 challenger at balanced on the
+  // same data in the same pass — pure CPU. v1 keeps serving; these rows only feed the
+  // daily shadow snapshot so promotion can rest on a same-cards, same-days comparison.
+  for (const side of ["buy", "sell"] as const) {
+    const shadow = marketSignal(points, side, "balanced", currentPrice, { liquidity, demand, regime: reading, model: "v2" });
+    if (shadow) await upsertShadowSignal(db, productId, shadow, asOfDate, updatedAt);
+    else await deleteShadowSignal(db, productId, side);
   }
   return { signalsWritten, eligible: points.length >= 2 };
 }

@@ -123,6 +123,22 @@ export async function upsertMarketSignal(db:D1DatabaseLike,productId:number,stri
       toBasisPoints(signal.distance),toBasisPoints(signal.cutoff),asOfDate,observationDate,coverage).run();
 }
 
+// Champion/challenger shadow rows (todo P1b): the v2 challenger's balanced evaluations,
+// never served — snapshotted daily by the metrics rollup for the live scoreboard.
+export async function upsertShadowSignal(db:D1DatabaseLike,productId:number,signal:MarketSignal,asOfDate:string,updatedAt:string){
+  await db.prepare(`insert into shadow_signals (product_id,side,score,confidence,reason,detail,distance_bps,cutoff_bps,as_of_date,updated_at)
+    values (?,?,?,?,?,?,?,?,?,?) on conflict(product_id,side) do update set
+    score=excluded.score,confidence=excluded.confidence,reason=excluded.reason,detail=excluded.detail,
+    distance_bps=excluded.distance_bps,cutoff_bps=excluded.cutoff_bps,as_of_date=excluded.as_of_date,
+    updated_at=excluded.updated_at`).bind(
+      productId,signal.side,signal.score,signal.confidence,signal.reason,signal.detail,
+      toBasisPoints(signal.distance),toBasisPoints(signal.cutoff),asOfDate,updatedAt).run();
+}
+
+export async function deleteShadowSignal(db:D1DatabaseLike,productId:number,side:"buy"|"sell"){
+  await db.prepare("delete from shadow_signals where product_id=? and side=?").bind(productId,side).run();
+}
+
 export async function deleteMarketSignal(db:D1DatabaseLike,productId:number,side:"buy"|"sell",strictness:SignalStrictness){
   await db.prepare("delete from market_signals where product_id=? and side=? and strictness=?").bind(productId,side,strictness).run();
 }

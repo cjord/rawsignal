@@ -47,6 +47,8 @@ Persisted signals become authoritative only when the independent `history-signal
 
 `scripts/backtest/walk-forward.mjs` (`npm run backtest:walk`) replays the local max-profile archive through the production evaluator for walk-forward validation; findings land in `docs/backtests.md`.
 
+The champion/challenger shadow (todo P1b) runs live: daily ingestion also evaluates the v2 challenger into `shadow_signals`, the metrics rollup snapshots its top-100 boards into `shadow_signal_history` beside the champion's `signal_history`, and `npm run shadow:scoreboard` compares forward returns (promotion needs the harness verdict plus ~30 days of shadow overlap).
+
 ### Presentation
 
 `app/page.tsx` composes the application shell and Singles adapter. `app/SealedView.tsx` adapts the same shared leaderboard, control, filter, disclosure, pagination, history, and signal primitives for unopened products.

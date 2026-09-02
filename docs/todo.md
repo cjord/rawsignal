@@ -1200,6 +1200,15 @@ rows/day). Promotion requires the harness verdict AND the live shadow comparison
 after promotion the old model keeps running as the shadow so regressions surface in
 the same scoreboard, reversed. Meaningful forward comparison needs ~30+ days of shadow
 data — harness-first sequencing absorbs that wait.
+**Status: LANDED 2026-09-01 (gate green).** `persistDerivedHistory` evaluates the v2
+challenger (balanced, both sides, sharing the day's regime reading) into
+`shadow_signals`; the daily metrics rollup snapshots the challenger's top-100 boards
+into `shadow_signal_history` beside the champion's `signal_history` snapshot
+(migration `drizzle/0010_shadow_signals.sql` — **apply with 0009 at next deploy**;
+shadow data starts accruing on the first post-deploy ingestion + rollup).
+`npm run shadow:scoreboard` (`scripts/backtest/shadow-scoreboard.mjs --db <sqlite>`)
+reads any local/backup database and reports champion vs challenger forward returns,
+including the exclusive-picks split, with a 30-day readiness gate.
 
 **P2. SignalContext refactor + robust percentile extremes (§15.1).** Replace raw
 `Math.min/max` window extremes with winsorized percentiles (the file's `quantile()`

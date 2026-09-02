@@ -32,7 +32,8 @@
     "cloudflare:prepare:staging": "node scripts/cloudflare/prepare-deployment.mjs --environment staging",
     "cloudflare:prepare:production": "node scripts/cloudflare/prepare-deployment.mjs --environment production",
     "cloudflare:parity": "node scripts/cloudflare/catalog-parity.mjs",
-    "backtest:walk": "node scripts/backtest/walk-forward.mjs"
+    "backtest:walk": "node scripts/backtest/walk-forward.mjs",
+    "shadow:scoreboard": "node scripts/backtest/shadow-scoreboard.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",

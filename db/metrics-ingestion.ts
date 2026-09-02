@@ -90,9 +90,21 @@ export async function runMetricsRollup(db: D1DatabaseLike, options: { mode: "dai
         where s.strictness='balanced' and cp.market_cents is not null
       ) where rank <= 100
       on conflict(observed_date, side, product_id) do update set score=excluded.score, price_cents=excluded.price_cents, rank=excluded.rank`).bind(today).run();
+    // Champion/challenger shadow (todo P1b): snapshot the v2 challenger's top-100 boards
+    // the same way, into the parallel table — same day, same ranking rule, so forward
+    // return differences are attributable to the model alone.
+    await db.prepare(`insert into shadow_signal_history (observed_date, side, strictness, product_id, score, price_cents, rank)
+      select ?, side, 'balanced', product_id, score, cents, rank from (
+        select s.side, s.product_id, s.score, cp.market_cents cents,
+          row_number() over (partition by s.side order by s.score desc, s.product_id) rank
+        from shadow_signals s join current_prices cp on cp.product_id=s.product_id
+        where cp.market_cents is not null
+      ) where rank <= 100
+      on conflict(observed_date, side, product_id) do update set score=excluded.score, price_cents=excluded.price_cents, rank=excluded.rank`).bind(today).run();
     const snapshots = await db.prepare("select count(*) as n from signal_history where observed_date=?").bind(today).first<{ n: number }>();
-    await completeIngestion(db, runId, "metrics-rollup", new Date().toISOString(), series.length, rowsWritten, 0, 0, { mode: options.mode, seriesRows: rowsWritten, signalSnapshots: snapshots?.n ?? 0 });
-    return { runId, mode: options.mode, series: series.length, seriesRows: rowsWritten, signalSnapshots: snapshots?.n ?? 0, done: true };
+    const shadowSnapshots = await db.prepare("select count(*) as n from shadow_signal_history where observed_date=?").bind(today).first<{ n: number }>();
+    await completeIngestion(db, runId, "metrics-rollup", new Date().toISOString(), series.length, rowsWritten, 0, 0, { mode: options.mode, seriesRows: rowsWritten, signalSnapshots: snapshots?.n ?? 0, shadowSnapshots: shadowSnapshots?.n ?? 0 });
+    return { runId, mode: options.mode, series: series.length, seriesRows: rowsWritten, signalSnapshots: snapshots?.n ?? 0, shadowSnapshots: shadowSnapshots?.n ?? 0, done: true };
   } catch (error) {
     await failIngestion(db, runId, new Date().toISOString(), error instanceof Error ? error.message : "Unknown metrics rollup failure");
     throw error;

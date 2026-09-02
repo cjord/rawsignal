@@ -151,6 +151,42 @@ export const marketSignals = sqliteTable("market_signals", {
   index("idx_market_signals_rank").on(table.side, table.strictness, table.score),
 ]);
 
+// Champion/challenger shadow (todo P1b): the v2 challenger's current balanced
+// evaluations per product. Never served — exists so the daily rollup can snapshot the
+// challenger's top-100 boards next to the champion's for a live forward comparison.
+export const shadowSignals = sqliteTable("shadow_signals", {
+  productId: integer("product_id").notNull().references(() => catalogProducts.productId, { onDelete: "cascade" }),
+  side: text("side", { enum: ["buy", "sell"] }).notNull(),
+  score: integer("score").notNull(),
+  confidence: text("confidence", { enum: ["high", "medium", "low"] }).notNull(),
+  reason: text("reason").notNull(),
+  detail: text("detail").notNull(),
+  distanceBps: integer("distance_bps").notNull(),
+  cutoffBps: integer("cutoff_bps").notNull(),
+  asOfDate: text("as_of_date").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.productId, table.side] }),
+  check("shadow_signals_side_check", sql`${table.side} in ('buy','sell')`),
+]);
+
+// The challenger's daily top-100 snapshots, mirroring signal_history exactly so the
+// scoreboard compares same-day cohorts; a parallel table keeps the champion's public
+// track record untouched. After a promotion the tables swap roles, not shapes.
+export const shadowSignalHistory = sqliteTable("shadow_signal_history", {
+  observedDate: text("observed_date").notNull(),
+  side: text("side", { enum: ["buy", "sell"] }).notNull(),
+  strictness: text("strictness").notNull(),
+  productId: integer("product_id").notNull().references(() => catalogProducts.productId, { onDelete: "cascade" }),
+  score: integer("score").notNull(),
+  priceCents: integer("price_cents").notNull(),
+  rank: integer("rank").notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.observedDate, table.side, table.productId] }),
+  check("shadow_signal_history_side_check", sql`${table.side} in ('buy','sell')`),
+  index("idx_shadow_signal_history_product").on(table.productId, table.observedDate),
+]);
+
 // Daily top-of-board snapshots (audit C3): the public track record accrues from the day
 // this table exists — the top 100 per side at balanced strictness, with the price that day.
 export const signalHistory = sqliteTable("signal_history", {
