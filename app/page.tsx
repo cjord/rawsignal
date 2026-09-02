@@ -12,8 +12,9 @@ import {
 import HistoryPanel, { movementTone, standardHistoryMetrics } from "./HistoryPanel";
 import { normalized } from "../core/market-utils";
 import CardFilters, { type MovementFilters } from "./CardFilters";
+import { REGIME_LABELS, type MarketRegime } from "../core/domain/regime";
 import TopBar from "./TopBar";
-import { SignalBadge, SignalTabs } from "./SignalControls";
+import { RegimeChip, SignalBadge, SignalTabs } from "./SignalControls";
 import {
   marketSignal,
   type SignalSide,
@@ -283,6 +284,7 @@ export default function Home() {
   const [minPrice, setMinPrice] = useState(""),
     [maxPrice, setMaxPrice] = useState(""),
     [selectedSets, setSelectedSets] = useState<string[]>([]),
+    [selectedRegimes, setSelectedRegimes] = useState<string[]>([]),
     [movement, setMovement] = useState<MovementFilters>({
       up7: false,
       down7: false,
@@ -316,6 +318,7 @@ export default function Home() {
     setMinPrice(state.minPrice);
     setMaxPrice(state.maxPrice);
     setSelectedSets(state.sets);
+    setSelectedRegimes(state.regimes);
     setMovement({
       up7: state.up7,
       down7: state.down7,
@@ -397,6 +400,7 @@ export default function Home() {
       minPrice,
       maxPrice,
       sets: selectedSets,
+      regimes: selectedRegimes,
       up7: movement.up7,
       down7: movement.down7,
       up30: movement.up30,
@@ -420,6 +424,7 @@ export default function Home() {
     minPrice,
     maxPrice,
     selectedSets,
+    selectedRegimes,
     movement,
     sealedState,
     writeUrl,
@@ -462,6 +467,7 @@ export default function Home() {
           sections: selectedRarities,
           query,
           sets: selectedSets,
+          regimes: selectedRegimes,
           minPrice,
           maxPrice,
           up7: movement.up7,
@@ -483,6 +489,7 @@ export default function Home() {
       selectedRarities,
       query,
       selectedSets,
+      selectedRegimes,
       minPrice,
       maxPrice,
       movement,
@@ -515,7 +522,7 @@ export default function Home() {
         ? "full persisted coverage"
         : `${fallbackCandidates.length.toLocaleString()}/${eligible.length.toLocaleString()} stratified candidates evaluated`;
   const broadHistory =
-    Object.values(movement).some(Boolean) || signalView !== "leaderboard";
+    Object.values(movement).some(Boolean) || selectedRegimes.length > 0 || signalView !== "leaderboard";
   const historyCards = persistedSignals.ready
     ? visible
     : broadHistory
@@ -533,6 +540,7 @@ export default function Home() {
     setGame(next);
     setSelectedRarities(defaultRarities[next]);
     setSelectedSets([]);
+    setSelectedRegimes([]);
     setQuery("");
     setSort("market");
     setDirection("desc");
@@ -689,6 +697,11 @@ export default function Home() {
       key: `set:${set}`,
       label: set,
       clear: () => setSelectedSets(selectedSets.filter((value) => value !== set)),
+    })),
+    ...selectedRegimes.map((regime) => ({
+      key: `regime:${regime}`,
+      label: REGIME_LABELS[regime as MarketRegime] ?? regime,
+      clear: () => setSelectedRegimes(selectedRegimes.filter((value) => value !== regime)),
     })),
     movement.up7
       ? {
@@ -877,10 +890,16 @@ export default function Home() {
                   setMovement(value);
                   setPage(1);
                 }}
+                regimes={selectedRegimes}
+                onRegimes={(value) => {
+                  setSelectedRegimes(value);
+                  setPage(1);
+                }}
                 onReset={() => {
                   setMinPrice("");
                   setMaxPrice("");
                   setSelectedSets([]);
+                  setSelectedRegimes([]);
                   setMovement({
                     up7: false,
                     down7: false,
@@ -985,6 +1004,7 @@ export default function Home() {
                 {columnSignal && (
                   <span className="signal-cell">
                     <SignalBadge signal={signal} />
+                    <RegimeChip regime={derived[c.productId]?.regime} />
                   </span>
                 )}
                 <span className="set-name">

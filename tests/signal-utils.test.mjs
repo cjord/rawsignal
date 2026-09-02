@@ -40,6 +40,15 @@ test("v2 keeps the stabilization gate: sitting on the robust floor is not a buy"
  // Current at/below the 10th-percentile floor clamps distance to 0 — no bounce evidence.
  assert.equal(evaluateMarketSignal(series([20,18,16,14,12,10]),"buy","aggressive",undefined,{model:"v2"}).code,"awaiting-stabilization");
 });
+test("v2 sell gate: a breakout in progress is not a sell (v1 still fires)",()=>{
+ // Flat base then a strong accelerating climb: at the high with momentum building.
+ const breakout=series([...Array.from({length:25},()=>10),10.4,10.8,11.2,11.6,12,12.4,12.8,13.2,13.6,14]);
+ assert.ok(evaluateMarketSignal(breakout,"sell","aggressive").eligible,"v1 keeps its sell");
+ assert.equal(evaluateMarketSignal(breakout,"sell","aggressive",undefined,{model:"v2"}).code,"breakout-continuation");
+ // Once momentum stalls at the high, the v2 sell qualifies again.
+ const stalled=series([...Array.from({length:20},()=>10),11,12,13,13.5,14,...Array.from({length:10},()=>14)]);
+ assert.ok(evaluateMarketSignal(stalled,"sell","aggressive",undefined,{model:"v2"}).eligible);
+});
 
 test("signal evaluation explains each non-qualification path",()=>{
  assert.equal(evaluateMarketSignal([],"buy","balanced").code,"missing-current-price");

@@ -11,8 +11,8 @@ export type SealedSort="name"|"signal"|"set"|"msrp"|"market"|"low"|"high"|"chang
 // `favorites` is the slider's Favorites lens (decision D12): shareable URL state like
 // the signal side, serialized only when on.
 type SharedState={signal:SignalSide;strictness:SignalStrictness;favorites:boolean};
-export type SinglesQueryState=SharedState&{mode:"singles";market:SinglesMarket;rarities:string[];view:SinglesView;sort:SinglesSort;direction:Direction;page:number;perPage:number;query:string;minPrice:string;maxPrice:string;sets:string[];up7:boolean;down7:boolean;up30:boolean;down30:boolean};
-export type SealedQueryState=SharedState&{mode:"sealed";market:SealedMarket;productTypes:string[];view:SealedView;sort:SealedSort;direction:Direction;page:number;perPage:number;query:string;sets:string[];marketMin:string;marketMax:string;msrpMin:string;msrpMax:string;profitMin:string;profitMax:string;profitPctMin:string;profitPctMax:string;basis:"market"|"median";keepPct:number;taxOn:boolean;taxRate:number;shipping:number;profitableOnly:boolean};
+export type SinglesQueryState=SharedState&{mode:"singles";market:SinglesMarket;rarities:string[];view:SinglesView;sort:SinglesSort;direction:Direction;page:number;perPage:number;query:string;minPrice:string;maxPrice:string;sets:string[];regimes:string[];up7:boolean;down7:boolean;up30:boolean;down30:boolean};
+export type SealedQueryState=SharedState&{mode:"sealed";market:SealedMarket;productTypes:string[];view:SealedView;sort:SealedSort;direction:Direction;page:number;perPage:number;query:string;sets:string[];regimes:string[];marketMin:string;marketMax:string;msrpMin:string;msrpMax:string;profitMin:string;profitMax:string;profitPctMin:string;profitPctMax:string;basis:"market"|"median";keepPct:number;taxOn:boolean;taxRate:number;shipping:number;profitableOnly:boolean};
 export type MarketQueryState=SinglesQueryState|SealedQueryState;
 
 // The "all" scope unions both games (visual pass rework 2026-08-28): defaults combine

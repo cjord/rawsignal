@@ -79,7 +79,7 @@ TCGCSV and approved MSRP sources
        Singles and Sealed leaderboard adapters
 ```
 
-The browser currently uses bundled feeds as its reliable catalog source. The catalog API can use D1 only after a complete published ingestion run is available. Hot Buy and Hot Sell use persisted signals only after the independent `history-signals` readiness marker exists; otherwise the interface reports bounded, stratified fallback coverage.
+Production serves the catalog, history, and signals from D1 (responses report `X-Raw-Signal-Source: database`); bundled feeds remain the automatic fallback for a fresh environment or an incomplete ingestion run. Hot Buy and Hot Sell use persisted signals once the independent `history-signals` readiness marker exists — live in production since 2026-08-28 — otherwise the interface reports bounded, stratified fallback coverage. Every product also carries a descriptive market-regime label (Falling / Improving / Breakout / Overextended / Spike / Steady) shown as chips and filterable on the boards.
 
 See [Architecture](docs/architecture.md), [Hosting decision](docs/adr/001-hosting-and-database.md), [Cloudflare cutover](docs/cloudflare-cutover.md), and [Signal eligibility](docs/signal-eligibility.md) for the complete contracts.
 

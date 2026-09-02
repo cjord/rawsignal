@@ -1,32 +1,20 @@
 # Roadmap and deferred work
 
-Status notes captured 2026-08-27. This file records agreed plans and open decisions that are
-not yet implemented, so future sessions can resume without re-deriving them. Update or remove
-entries as they land.
+Status notes captured 2026-08-27; header refreshed 2026-09-01. This file records agreed
+plans and open decisions that are not yet implemented, so future sessions can resume
+without re-deriving them. Update or remove entries as they land. The signal-model roadmap
+(walk-forward harness, champion/challenger promotion, regimes, cohort evidence) lives in
+`docs/todo.md` §P, with run evidence in `docs/backtests.md`.
 
-## 1. D1 staging backfill continuation
+## 1. D1 backfill and cutover — DONE (production live 2026-08-28+)
 
-The staging Worker (`raw-signal-staging`) and its migrated D1 database exist; ingestion is
-proven with bounded live batches, but the bootstrap is incomplete and both readiness markers
-are absent, so every public API intentionally serves bundled feeds. The full runbook is
-`docs/cloudflare-cutover.md`; the remaining sequence is:
-
-1. **Catalog ingestion to completion** — repeat `POST /__ops/staging-jobs` with
-   `{"job":"daily","batchSize":80}` until `done: true`. Checkpointed per batch; publishes the
-   `daily-market` readiness marker (with row-count integrity check) only when complete.
-2. **History backfill to completion** — `{"job":"history","batchSize":20}` against its durable
-   cursor until all eligible products are processed; publishes `history-signals`. This is one
-   TCGplayer fetch per product/printing (~13k singles), so it spans hundreds of resumable
-   invocations over days.
-3. **Parity proof** — `npm run cloudflare:parity` against the Sites production baseline; must
-   match records, counts, and facets with the candidate reporting `source: "database"`.
-4. **Durable continuation** — the anticipated paid-plan Cloudflare Workflow (resumable steps,
-   monitoring, usage limits) replaces manual staging-job invocations. Implement only on
-   explicit request, per AGENTS.md.
-
-Blocked on: user-supplied Wrangler login and `STAGING_JOB_TOKEN`, plus explicit authorization
-to mutate Cloudflare state. Payoff: D1-served catalog/history/signals, accumulating per-day
-observation history (unblocks item 4 below), and data refreshes without redeploys.
+Production (`raw-signal` @ rawsignal.cards, minutely guarded cron) serves catalog,
+history, and signals from D1 with both readiness markers published; daily live ingestion
+and the tiered history cadence run on the checkpointed cron (`docs/ingestion-scaling.md`).
+Bundled feeds remain the automatic fallback path only. Staging (`raw-signal-staging`)
+stays cheap: no cron, deliberately stale D1, used for pre-production review. The paid-plan
+Cloudflare Workflow idea from the original sequence remains not implemented — the plain
+cron + checkpointed jobs approach replaced it (decision G1).
 
 ## 2. Daily detail-feed regeneration — BACKLOG (user deferred 2026-08-27)
 

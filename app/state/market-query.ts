@@ -10,12 +10,13 @@ export type HistoryWriteMode="replace"|"push"|"skip";
 const singlesViews:SinglesView[]=["large","medium","text","full"],sealedViews:SealedView[]=["medium","text","full"];
 const singlesSorts:SinglesSort[]=["name","signal","set","market","low","high","change7","change30"],sealedSorts:SealedSort[]=["name","signal","set","msrp","market","low","high","change7","change30","profit","profitPct"];
 const signals:SignalSide[]=["leaderboard","buy","sell"],strictnesses:SignalStrictness[]=["conservative","balanced","aggressive"];
+const regimeValues=["falling","improving","breakout","overextended","spike","steady"];
 const pageSizes=[20,30,40,50];
 const list=(value:string|null)=>value?.split("|").map(item=>item.trim()).filter(Boolean)??[];
 const choice=<T extends string>(value:string|null,allowed:readonly T[],fallback:T)=>allowed.includes(value as T)?value as T:fallback;
 const positiveInt=(value:string|null,fallback:number)=>{const parsed=Number(value);return Number.isInteger(parsed)&&parsed>0?parsed:fallback};
 const finiteNumber=(value:string|null,fallback:number)=>{const parsed=Number(value);return value!==null&&Number.isFinite(parsed)?parsed:fallback};
-const shared=(params:URLSearchParams)=>({signal:choice(params.get("signal"),signals,"leaderboard"),strictness:choice(params.get("strictness"),strictnesses,"balanced"),favorites:params.has("favorites")});
+const shared=(params:URLSearchParams)=>({signal:choice(params.get("signal"),signals,"leaderboard"),strictness:choice(params.get("strictness"),strictnesses,"balanced"),favorites:params.has("favorites"),regimes:list(params.get("regime")).filter(value=>regimeValues.includes(value))});
 
 export function parseMarketQuery(input:string|URLSearchParams):MarketQueryState{
  const params=typeof input==="string"?new URLSearchParams(input.startsWith("?")?input.slice(1):input):input;
@@ -32,6 +33,7 @@ export function serializeMarketQuery(state:MarketQueryState){
  if(state.favorites)params.set("favorites","1");
  setOptional(params,"q",state.query);
  if(state.sets.length)params.set("sets",state.sets.join("|"));
+ if(state.regimes.length)params.set("regime",state.regimes.join("|"));
  if(state.mode==="singles"){
   params.set("rarity",state.rarities.length?state.rarities.join("|"):"all");setOptional(params,"minPrice",state.minPrice);setOptional(params,"maxPrice",state.maxPrice);
   for(const key of ["up7","down7","up30","down30"] as const)if(state[key])params.set(key,"1");

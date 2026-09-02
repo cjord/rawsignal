@@ -1,5 +1,6 @@
-import { salesWindow } from "../core/domain/detail-metrics.ts";
+import { demandTrend, salesWindow } from "../core/domain/detail-metrics.ts";
 import { deriveHistoryMetrics } from "../core/domain/history-metrics.ts";
+import { classifyRegime } from "../core/domain/regime.ts";
 import type { Card, CatalogDetailEnrichment, PriceHistory, PricePoint, SealedProduct, SignalStrictness } from "../core/domain/types.ts";
 import { marketSignal, type SignalLiquidity } from "../core/signal-utils.ts";
 import { clampBatchSize, markIngestionFailed, parseStatsJson, resumeCheckpoint } from "./ingestion-batch.ts";
@@ -74,10 +75,14 @@ export async function persistDerivedHistory(db: D1DatabaseLike, productId: numbe
   const liquidity: SignalLiquidity | null = sales?.buckets
     ? { sales7: salesWindow(sales.buckets, 7).quantity, sales30: salesWindow(sales.buckets, 30).quantity }
     : ((await readMarketLiquidity(db, productId, variant, condition)) ?? null);
-  await upsertMarketMetrics(db, productId, variant, condition, asOfDate, history, updatedAt, sales?.buckets ? { sales7: liquidity?.sales7 ?? null, sales30: liquidity?.sales30 ?? null } : undefined);
+  // Regime + demand trend (todo P3): demand comes from this fetch's buckets when present
+  // (absence stays neutral); the regime label is recomputed from points on every pass.
+  const demand = sales?.buckets ? demandTrend(sales.buckets) : null;
+  const reading = classifyRegime(points, currentPrice, demand);
+  await upsertMarketMetrics(db, productId, variant, condition, asOfDate, history, updatedAt, sales?.buckets ? { sales7: liquidity?.sales7 ?? null, sales30: liquidity?.sales30 ?? null, sales30Prior: demand?.prior ?? null } : undefined, reading?.regime ?? null);
   let signalsWritten = 0;
   for (const strictness of strictnesses) for (const side of ["buy", "sell"] as const) {
-    const signal = marketSignal(points, side, strictness, currentPrice, { liquidity });
+    const signal = marketSignal(points, side, strictness, currentPrice, { liquidity, demand, regime: reading });
     if (signal) {
       await upsertMarketSignal(db, productId, strictness, signal, asOfDate, history.coverage, points.at(-1)?.date ?? asOfDate);
       signalsWritten++;

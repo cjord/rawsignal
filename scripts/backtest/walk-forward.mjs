@@ -15,6 +15,7 @@ import { existsSync, mkdirSync, readFileSync, appendFileSync, writeFileSync } fr
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { evaluateMarketSignal } from "../../core/signal-utils.ts";
+import { classifyRegime } from "../../core/domain/regime.ts";
 import { dayNum, isoOf, asofIndex, priceAsOf, forwardReturn, excursion, extremeDistances, median, cohortKeyOf, mulberry32, hashStr } from "./lib.mjs";
 
 const args = {};
@@ -157,8 +158,13 @@ if (!REPORT_ONLY) {
           if (Number.isFinite(near) && near > 25) { skippedFar++; continue; }
         }
         prefix ??= points.slice(0, prefixEnd);
+        // v2 sell gate consumes the regime; classify once per (product, origin) and hand
+        // the reading in, instead of letting the evaluator re-classify per strictness.
+        const context = MODEL === "v1" ? null
+          : side === "sell" ? { model: MODEL, regime: classifyRegime(prefix, p0) }
+          : { model: MODEL };
         for (let s = 0; s < 3; s++) {
-          const result = evaluateMarketSignal(prefix, side, strictnesses[s], p0, MODEL === "v1" ? null : { model: MODEL });
+          const result = evaluateMarketSignal(prefix, side, strictnesses[s], p0, context);
           evaluated++;
           if (result.eligible) signals.push([o, side === "buy" ? 0 : 1, s, result.signal.score, Math.round(result.signal.distance * 100), result.signal.confidence === "high" ? 2 : result.signal.confidence === "medium" ? 1 : 0]);
           else exclusions[result.code] = (exclusions[result.code] ?? 0) + 1;

@@ -11,7 +11,8 @@ import {
   type Direction,
 } from "./MarketUI";
 import SealedFilters from "./SealedFilters";
-import { SignalBadge } from "./SignalControls";
+import { REGIME_LABELS, type MarketRegime } from "../core/domain/regime";
+import { RegimeChip, SignalBadge } from "./SignalControls";
 import FavoriteStar from "./FavoriteStar";
 import { sealedFavorite } from "./state/favorites";
 import { useFavoriteScope } from "./state/useFavorites";
@@ -161,6 +162,7 @@ export default function SealedView({
   const {
     query,
     sets: selectedSets,
+    regimes: selectedRegimes,
     productTypes: selectedTypes,
     marketMin,
     marketMax,
@@ -187,6 +189,7 @@ export default function SealedView({
   const patch = (partial: Partial<SealedQueryState>) => onState((current) => ({ ...current, ...partial }));
   const setQuery = (query: string) => patch({ query });
   const setSelectedSets = (sets: string[]) => patch({ sets });
+  const setSelectedRegimes = (regimes: string[]) => patch({ regimes });
   const setSelectedTypes = (productTypes: string[]) => patch({ productTypes });
   const setMarketMin = (marketMin: string) => patch({ marketMin });
   const setMarketMax = (marketMax: string) => patch({ marketMax });
@@ -306,6 +309,7 @@ export default function SealedView({
           productTypes: selectedTypes,
           query,
           sets: selectedSets,
+          regimes: selectedRegimes,
           marketMin,
           marketMax,
           msrpMin,
@@ -328,6 +332,7 @@ export default function SealedView({
       selectedTypes,
       query,
       selectedSets,
+      selectedRegimes,
       marketMin,
       marketMax,
       msrpMin,
@@ -463,6 +468,11 @@ export default function SealedView({
       key: `set:${set}`,
       label: set,
       clear: () => setSelectedSets(selectedSets.filter((value) => value !== set)),
+    })),
+    ...selectedRegimes.map((regime) => ({
+      key: `regime:${regime}`,
+      label: REGIME_LABELS[regime as MarketRegime] ?? regime,
+      clear: () => setSelectedRegimes(selectedRegimes.filter((value) => value !== regime)),
     })),
     marketMin || marketMax
       ? {
@@ -681,8 +691,14 @@ export default function SealedView({
               setProfitPctMax(value);
               setPage(1);
             }}
+            regimes={selectedRegimes}
+            onRegimes={(value) => {
+              setSelectedRegimes(value);
+              setPage(1);
+            }}
             onReset={() => {
               setSelectedSets([]);
+              setSelectedRegimes([]);
               setMarketMin("");
               setMarketMax("");
               setMsrpMin("");
@@ -812,6 +828,7 @@ export default function SealedView({
             {columnSignal && (
               <span className="sealed-signal-cell">
                 <SignalBadge signal={signal!} />
+                <RegimeChip regime={derived[product.productId]?.regime} />
               </span>
             )}
             <span className="sealed-category">{product.set}</span>

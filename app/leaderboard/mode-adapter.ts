@@ -1,18 +1,19 @@
 import type {Direction} from "../MarketUI.tsx";
 import type {CatalogDerived} from "../../core/catalog-query.ts";
+import {classifyRegime} from "../../core/domain/regime.ts";
 import type {PriceHistory,MarketSignal,SignalSide} from "../../core/domain/types.ts";
 import type {SortOption} from "./types.ts";
 
 type CatalogItem={productId:number};
 type SignalResolver<T extends CatalogItem>=(item:T)=>MarketSignal|null;
 
-const unavailableDerived:CatalogDerived={change7:null,change30:null,low30:null,high30:null,signal:null};
+const unavailableDerived:CatalogDerived={change7:null,change30:null,low30:null,high30:null,regime:null,signal:null};
 
 export function buildCatalogDerived<T extends CatalogItem>(items:T[],history:Record<number,PriceHistory>,persisted:{ready:boolean;derived:Record<number,CatalogDerived>},signalFor:SignalResolver<T>){
  return Object.fromEntries(items.map(item=>{
   if(persisted.ready)return[item.productId,persisted.derived[item.productId]??unavailableDerived];
   const itemHistory=history[item.productId];
-  return[item.productId,{change7:itemHistory?.change7??null,change30:itemHistory?.change30??null,low30:itemHistory?.low30??null,high30:itemHistory?.high30??null,signal:signalFor(item)} satisfies CatalogDerived];
+  return[item.productId,{change7:itemHistory?.change7??null,change30:itemHistory?.change30??null,low30:itemHistory?.low30??null,high30:itemHistory?.high30??null,regime:itemHistory?.points?classifyRegime(itemHistory.points)?.regime??null:null,signal:signalFor(item)} satisfies CatalogDerived];
  })) as Record<number,CatalogDerived>;
 }
 

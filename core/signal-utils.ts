@@ -1,4 +1,5 @@
 import {changeAtCutoff} from "./domain/history-metrics.ts";
+import {classifyRegime,type RegimeDemand,type RegimeReading} from "./domain/regime.ts";
 import type {MarketSignal,PricePoint,SignalConfidence,SignalStrictness} from "./domain/types.ts";
 export type {MarketSignal,SignalConfidence,SignalSide,SignalStrictness} from "./domain/types.ts";
 
@@ -11,7 +12,7 @@ const pct=(value:number)=>`${value.toFixed(1)}%`;
 const quantile=(sorted:number[],q:number)=>{if(!sorted.length)return 0;const i=(sorted.length-1)*q,lo=Math.floor(i),hi=Math.ceil(i);return sorted[lo]+(sorted[hi]-sorted[lo])*(i-lo)};
 const windowPrices=(points:PricePoint[],days:number)=>{if(!points.length)return[];const end=new Date(`${points.at(-1)!.date}T00:00:00Z`),start=new Date(end);start.setUTCDate(start.getUTCDate()-days);return points.filter(p=>new Date(`${p.date}T00:00:00Z`)>=start&&p.price>0).map(p=>p.price)};
 
-export type SignalExclusionCode="missing-current-price"|"insufficient-history"|"insufficient-liquidity"|"awaiting-stabilization"|"outside-adaptive-cutoff"|"below-minimum-score";
+export type SignalExclusionCode="missing-current-price"|"insufficient-history"|"insufficient-liquidity"|"awaiting-stabilization"|"breakout-continuation"|"outside-adaptive-cutoff"|"below-minimum-score";
 export type SignalLiquidity={sales7:number|null;sales30:number|null};
 // Hot boards require real transaction backing (user decision 2026-08-28): at least 5
 // completed sales in 30 days AND one in the last 7 — a signal on a card nobody trades has
@@ -22,8 +23,12 @@ export type SignalModel="v1"|"v2";
 // Every surface (batch writer, detail panel, row badges, backtest harness) evaluates
 // through this one context object; absent fields are neutral. `model` selects the
 // champion ("v1", the default production model) or the challenger under shadow
-// evaluation ("v2", robust percentile extremes — todo P1b/P2).
-export type SignalContext={liquidity?:SignalLiquidity|null;model?:SignalModel};
+// evaluation ("v2", robust percentile extremes + breakout sell gate — todo P1b/P2/P3).
+// `demand` is the trailing-30 vs prior-30 sales trend when the caller has buckets.
+// `regime` lets a caller that already classified the series (batch writer, harness)
+// share the reading instead of re-classifying per side/strictness; undefined = compute
+// here, an explicit null = no usable regime (gate stays neutral).
+export type SignalContext={liquidity?:SignalLiquidity|null;model?:SignalModel;demand?:RegimeDemand|null;regime?:RegimeReading|null};
 
 export function evaluateMarketSignal(points:PricePoint[],side:"buy"|"sell",strictness:SignalStrictness,currentOverride?:number|null,context?:SignalContext|null):SignalEvaluation{
  const liquidity=context?.liquidity,robust=context?.model==="v2";
@@ -54,6 +59,13 @@ export function evaluateMarketSignal(points:PricePoint[],side:"buy"|"sell",stric
   }
  }
  if(best.distance>cutoff)return{eligible:false,signal:null,code:"outside-adaptive-cutoff",detail:`${pct(best.distance)} from the nearest ${side==="buy"?"low":"high"}; ${pct(cutoff)} is the ${strictness} cutoff.`,confidence,distance:best.distance,cutoff,score};
+ // v2 sell gate (todo P3, mirrors awaiting-stabilization): a price accelerating through
+ // its high is a breakout in progress, not overextension — the full-v1/v2 backtests show
+ // near-a-high alone is anti-signal in a rising regime. Sells wait for momentum to fade.
+ if(robust&&side==="sell"){
+  const reading=context?.regime!==undefined?context.regime:classifyRegime(sorted,current,context?.demand);
+  if(reading?.regime==="breakout")return{eligible:false,signal:null,code:"breakout-continuation",detail:`${reading.detail} Sells wait for momentum to fade.`,confidence,distance:best.distance,cutoff,score};
+ }
  if(score<preset.minScore)return{eligible:false,signal:null,code:"below-minimum-score",detail:`Signal score ${score} is below the ${strictness} minimum of ${preset.minScore}.`,confidence,distance:best.distance,cutoff,score};
  const period=best.days?`${best.days}-day`:"historic",label=`${robust?"typical ":""}${side==="buy"?"low":"high"}`,reason=exact?`${robust?"At the":"New"} ${period} ${label}`:`Within ${pct(best.distance)} of ${period} ${label}`;
  return{eligible:true,signal:{side,score,confidence,reason,detail:`${pct(swing)} ${side==="buy"?"below":"above"} the opposite ${period} extreme · ${pct(cutoff)} ${strictness} cutoff`,distance:best.distance,cutoff}};

@@ -52,6 +52,11 @@ Defined in `app/styles/tokens.css` (dimensions/motion/stacking) and `app/globals
   (+ optional muted hint). Tone classes `.up`/`.down` color the value only.
 - **Chip/pill**: 999px radius, 1px border, `--control` fill; active/positive states tint via
   `color-mix` with the accent at 10–15% — tint the fill, don't swap to solid color blocks.
+- **Regime chip** (`.regime-chip`): the chip anatomy carrying a market-regime label —
+  quieter than a signal badge, tone-mapped to the existing palette (improving/`--tone-buy`,
+  falling/`--tone-sell`, overextended & spike/`--tone-warn` with spike dashed,
+  breakout/`--blue`, steady gray). Descriptive context, never a recommendation; the
+  evidence sentence rides the `title` tooltip.
 - **Data table** (`.detail-variants-table`): right-aligned mono cells, uppercase micro
   headers on `--control`, row borders `--line`, active row tinted with blue at ~9%.
 - **Popover / hover card**: `--surface-raised`, 1px border, 12–14px radius, strong shadow,

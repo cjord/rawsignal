@@ -1,9 +1,11 @@
 import { fuzzyTextMatch } from "./market-utils.ts";
+import type { MarketRegime } from "./domain/regime.ts";
 import type { Card, MarketSignal, PriceHistory, SealedMarket, SealedProduct, SignalSide, SignalStrictness, SinglesMarket } from "./domain/types.ts";
 import type { Direction, SealedSort, SinglesSort } from "./market-state.ts";
 
 export type CatalogDerived = Pick<PriceHistory, "change7" | "change30" | "low30" | "high30"> & {
   signal: MarketSignal | null;
+  regime?: MarketRegime | null;
 };
 
 export type CatalogPage<T> = {
@@ -25,6 +27,7 @@ export type SinglesCatalogQuery = {
   sections: string[];
   query: string;
   sets: string[];
+  regimes?: string[];
   minPrice: string;
   maxPrice: string;
   up7: boolean;
@@ -62,6 +65,7 @@ export type SealedCatalogQuery = SealedScenario & {
   productTypes: string[];
   query: string;
   sets: string[];
+  regimes?: string[];
   marketMin: string;
   marketMax: string;
   msrpMin: string;
@@ -164,6 +168,7 @@ export function querySinglesCatalog(cards: Card[], options: SinglesCatalogQuery,
     const metrics = derived[card.productId];
     return movementMatches(metrics?.change7, options.up7, options.down7)
       && movementMatches(metrics?.change30, options.up30, options.down30)
+      && (!options.regimes?.length || Boolean(metrics?.regime && options.regimes.includes(metrics.regime)))
       && (options.signal === "leaderboard" || Boolean(metrics?.signal));
   });
   // Hot boards list every qualifying signal (top-N curation removed 2026-08-28): the
@@ -223,6 +228,7 @@ export function querySealedCatalog(products: SealedProduct[], options: SealedCat
       && (profitPctMin == null || calculation.profitPct != null && calculation.profitPct >= profitPctMin)
       && (profitPctMax == null || calculation.profitPct != null && calculation.profitPct <= profitPctMax)
       && (!options.profitableOnly || (calculation.profit ?? -Infinity) > 0)
+      && (!options.regimes?.length || Boolean(metrics?.regime && options.regimes.includes(metrics.regime)))
       && (options.signal === "leaderboard" || Boolean(metrics?.signal));
   });
   filtered.sort((a, b) => {

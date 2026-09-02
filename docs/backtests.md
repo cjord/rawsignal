@@ -99,3 +99,35 @@ v1 → v2 at the $5 floor:
 **Verdict:** v2 is the standing challenger — strictly better or equal nearly
 everywhere, worse nowhere material. Production keeps serving v1; promotion waits on
 the P1b live shadow comparison per the champion/challenger plan.
+
+## Run `full-v2r` — 2026-09-01 (challenger: P3 breakout sell gate added to v2)
+
+Same grid; v2 now carries the `breakout-continuation` sell gate (`core/domain/regime.ts`
+classifies price-only Breakout at each origin; a sell near the high with accelerating
+momentum is suppressed). Buy side is bit-identical to `full-v2` by construction. Sell
+side, v2 → v2r at the $5 floor (balanced):
+
+- n 819,322 → 752,506 (−8.2%; ~67k sells suppressed as breakouts)
+- hit 21.8% → 22.0%; median fwd30 after "sell" +1.42% → +1.23% (−14% adverse drift);
+  median excursion 2.30% → 2.08%. Same direction at every strictness.
+- top-20 precision 33.0% → 32.0% (flat within noise).
+
+### Findings
+
+1. **The gate removes exactly the right sells.** The 66,816 suppressed balanced sells
+   were followed by a **median +5.43% further rise** (mean +8.97%) over 30 days; only
+   19.8% ever declined. Against the kept pool's +1.23%, the gate is cleanly separating
+   breakout continuation from overextension — the research §3.5 distinction, confirmed
+   walk-forward.
+2. **Aggregate sell metrics move modestly** because the gate trims 8% of an enormous
+   pool: the sell side's remaining problem is volume (it still fires on most card-days
+   in a rising regime and still trails random's 27.6% hit). The volume fix is
+   tightening what counts as a sell candidate at all — P4 cohort evidence and cutoff
+   recalibration territory — not more suppression of qualified sells.
+3. Regime label distribution on current live data (local build, 16.5k products):
+   ~42% steady, ~41% overextended, ~10% falling, ~3% improving, ~2% spike, ~1.5%
+   breakout — the Breakout label is appropriately rare.
+
+**Verdict:** the gate earns its place in the challenger (kept sells are strictly less
+wrong; what it rejects is demonstrably continuation). v2 = robust extremes + breakout
+sell gate going into P1b shadow; labels ship descriptively regardless of promotion.

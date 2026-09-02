@@ -45,6 +45,9 @@ The gate's Playwright specs boot against whichever profile is active; both pass.
 
 ## Notes
 
+- The max profile is the walk-forward backtest archive: `npm run backtest:walk`
+  (`scripts/backtest/walk-forward.mjs`) reads it read-only; raw run reports live under
+  `backups/backtests/<run>/` (local-only) and findings in `docs/backtests.md`.
 - Rebuild cadence: whenever feeds regenerate or a migration lands, rerun
   `db:local:build` (parse only needs re-running for NEW archive days — it resumes).
 - The stale `.wrangler/m12-d1/` experiment dir was deleted 2026-09-01.

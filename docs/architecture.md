@@ -6,7 +6,7 @@ Raw Signal presents market intelligence for raw trading cards and unopened produ
 
 ## Runtime and hosting
 
-The application is React 19 and TypeScript compiled by vinext into a Cloudflare Worker. Production is the directly managed Worker `raw-signal` serving `https://rawsignal.cards` on the production D1 database, with a guarded `*/2` cron advancing daily ingestion in checkpointed batches. A sandbox Worker `raw-signal-staging` stays on workers.dev with its own deliberately stale D1 (no cron) for cheap pre-production review. OpenAI Sites is dormant: `.openai/hosting.json` and Sites build compatibility are retained only as a rollback path (see [Cloudflare cutover](cloudflare-cutover.md)).
+The application is React 19 and TypeScript compiled by vinext into a Cloudflare Worker. Production is the directly managed Worker `raw-signal` serving `https://rawsignal.cards` on the production D1 database, with a guarded minutely cron advancing daily ingestion in checkpointed batches. A sandbox Worker `raw-signal-staging` stays on workers.dev with its own deliberately stale D1 (no cron) for cheap pre-production review. OpenAI Sites is dormant: `.openai/hosting.json` and Sites build compatibility are retained only as a rollback path (see [Cloudflare cutover](cloudflare-cutover.md)).
 
 `worker/index.ts` is the Worker entry point. It delegates application requests to vinext, retains the Cloudflare image-optimization route, and mounts the scheduled-ingestion cron handler plus the staging-only ops adapter. `vite.config.ts` supplies a local placeholder D1 binding without encoding production resource identifiers.
 
@@ -39,9 +39,13 @@ Production reads D1 (catalog, sealed, and signals report `source: "database"`); 
 
 `/api/history` normalizes TCGplayer history, preferring durable observations when they exist and caching successful upstream fallback data. `core/domain/history-metrics.ts` derives 7-, 30-, and 90-day changes plus extrema from dated observations.
 
-`core/signal-utils.ts` is the single Buy/Sell scoring implementation. It evaluates proximity, adaptive volatility cutoffs, opposite-extreme price swing, strictness, and coverage confidence. It also returns explicit non-qualification reasons for diagnostics.
+`core/signal-utils.ts` is the single Buy/Sell scoring implementation, called by the batch writer, the detail panel, row badges, and the backtest harness through one optional `SignalContext` (liquidity floor, demand trend, model variant; absent fields are neutral). The production model (v1) evaluates proximity, adaptive volatility cutoffs, opposite-extreme price swing, strictness, coverage confidence, a buy-side stabilization gate, and the 5/30D + 1/7D liquidity floor, returning explicit non-qualification reasons for diagnostics. A challenger (v2: winsorized percentile extremes, breakout sell gate) rides the same code behind `model:"v2"` and serves nothing until promoted (todo §P; evidence in `docs/backtests.md`).
 
-Persisted signals become authoritative only when the independent `history-signals` completion marker exists. Before that marker, `app/data/signal-coverage.ts` selects at most 400 proportional, price-stratified candidates and the interface discloses that transitional coverage.
+`core/domain/regime.ts` classifies every product's market regime (Falling / Improving / Breakout / Overextended / Spike / Steady) from momentum, change windows, drawdown, and the optional demand trend. The label persists on `market_metrics.regime`, surfaces as chips (board signal cells, history popovers, detail page), and is a board filter (`regime=` URL param). Labels are descriptive; only the v2 challenger consumes them for scoring.
+
+Persisted signals become authoritative only when the independent `history-signals` completion marker exists (published in production since 2026-08-28). Before that marker, `app/data/signal-coverage.ts` selects at most 400 proportional, price-stratified candidates and the interface discloses that transitional coverage.
+
+`scripts/backtest/walk-forward.mjs` (`npm run backtest:walk`) replays the local max-profile archive through the production evaluator for walk-forward validation; findings land in `docs/backtests.md`.
 
 ### Presentation
 

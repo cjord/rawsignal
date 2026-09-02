@@ -115,6 +115,12 @@ export const marketMetrics = sqliteTable("market_metrics", {
   // written when a history fetch carries them, preserved across sales-less daily upserts.
   sales7: integer("sales_7"),
   sales30: integer("sales_30"),
+  // Days 31–60 of the same 90-day bucket window (todo P3): sales_30 vs sales_30_prior is
+  // the demand trend feeding regime classification. Preserved like the other counts.
+  sales30Prior: integer("sales_30_prior"),
+  // Market regime label (falling/improving/breakout/overextended/spike/steady) computed
+  // from price history at write time; recomputed on every upsert that carries points.
+  regime: text("regime"),
   updatedAt: text("updated_at").notNull(),
 }, (table) => [
   primaryKey({ columns: [table.productId, table.variant, table.condition] }),

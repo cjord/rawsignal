@@ -136,7 +136,7 @@ async function matchCards(request: Request, ids: number[]): Promise<Map<number, 
   const repository = await createFeedCatalogRepository(new URL(request.url).origin, assets ? assets.fetch.bind(assets) : fetch);
   const matches = new Map<number, Card>();
   for (const market of ["pokemon", "riftbound"] as SinglesMarket[]) {
-    const page = await repository.querySingles({ market, sections: [], query: "", sets: [], minPrice: "", maxPrice: "", up7: false, down7: false, up30: false, down30: false, signal: "leaderboard", strictness: "balanced", sort: "market", direction: "desc", page: 1, perPage: 50 });
+    const page = await repository.querySingles({ market, sections: [], query: "", sets: [], regimes: [], minPrice: "", maxPrice: "", up7: false, down7: false, up30: false, down30: false, signal: "leaderboard", strictness: "balanced", sort: "market", direction: "desc", page: 1, perPage: 50 });
     for (const card of page.allItems) matches.set(card.productId, card);
   }
   return matches;

@@ -1226,6 +1226,22 @@ descriptive labels (boards + detail chips + board filters) ship on gate + stagin
 review; regime-driven qualification changes (Breakout suppresses/downgrades Hot Sell,
 mirroring `awaiting-stabilization`) are harness-gated. URL codec gains the regime
 filter; keep exclusion evidence user-visible.
+**Status: code LANDED 2026-09-01 (gate green, 195 tests); awaiting staging review +
+the `full-v2r` harness verdict.** `core/domain/regime.ts` classifies the six regimes
+(sweepable `REGIME_THRESHOLDS`; flat series guarded steady by a ≥5% spread
+requirement; cooling demand vetoes Breakout). Labels persist via
+`market_metrics.regime` + `sales_30_prior` (migration `drizzle/0009_regime_demand.sql`
+— **apply to staging/prod D1 at next deploy**; the column fills on the next ingestion
+pass), flow through `CatalogDerived.regime` with a client-side fallback, and render as
+chips (board signal cells, history popovers, detail Price History header) with a
+`regime=` URL filter on both boards. The v2 challenger gained the
+`breakout-continuation` sell gate (verified end-to-end locally, including the
+demand-aware detail chip). Harness snapshot `full-v2r` (v2 = robust extremes +
+breakout gate) landed in `docs/backtests.md`: the gate suppressed ~67k balanced sells
+whose median forward-30 was **+5.43%** (only 19.8% declined) — cleanly separating
+breakout continuation from overextension. Remaining sell-side weakness is volume
+(P4/P5 scope). Awaiting staging review of the labels; P1b shadow can start on the
+final v2.
 
 **P4. Cohort-relative gate + index/breadth context (§15.3, §15.5) — gated, not weighted.**
 Calculations (decided 2026-09-01):

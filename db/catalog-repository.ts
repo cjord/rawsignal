@@ -33,6 +33,7 @@ type MetricRow = {
   change30Bps: number | null;
   low30Cents: number | null;
   high30Cents: number | null;
+  regime: string | null;
   updatedAt: string;
   side: "buy" | "sell" | null;
   score: number | null;
@@ -117,7 +118,7 @@ async function loadDerived(db: D1DatabaseLike, kind: "single" | "sealed", game: 
   const side = options.signal === "leaderboard" ? "buy" : options.signal;
   const statement = db.prepare(`select mm.product_id as productId,mm.change_7_bps as change7Bps,
     mm.change_30_bps as change30Bps,mm.low_30_cents as low30Cents,mm.high_30_cents as high30Cents,
-    mm.updated_at as updatedAt,ms.side,ms.score,ms.confidence,ms.reason,ms.detail,
+    mm.regime,mm.updated_at as updatedAt,ms.side,ms.score,ms.confidence,ms.reason,ms.detail,
     ms.distance_bps as distanceBps,ms.cutoff_bps as cutoffBps
     from market_metrics mm join catalog_products p on p.product_id=mm.product_id
     left join market_signals ms on ms.product_id=mm.product_id and ms.side=? and ms.strictness=?
@@ -128,6 +129,7 @@ async function loadDerived(db: D1DatabaseLike, kind: "single" | "sealed", game: 
     change30: percent(row.change30Bps),
     low30: dollars(row.low30Cents),
     high30: dollars(row.high30Cents),
+    regime: (row.regime as CatalogDerived["regime"]) ?? null,
     signal: options.signal === "leaderboard" ? null : toSignal(row),
   };
   return derived;

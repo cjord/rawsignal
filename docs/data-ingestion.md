@@ -30,7 +30,8 @@ Both commands access external services and can rewrite generated feeds. Review v
 - upserts catalog identities and current prices idempotently;
 - records one dated observation for every available market price;
 - recalculates 7-, 30-, and 90-day metrics and extrema;
-- replaces all Conservative, Balanced, and Aggressive Buy/Sell signals, deleting signals that no longer qualify;
+- classifies and stores the market-regime label (`market_metrics.regime`) from the same points, plus the demand-trend counts (`sales_30_prior` alongside `sales_7`/`sales_30`) when the fetch carried sale buckets;
+- replaces all Conservative, Balanced, and Aggressive Buy/Sell signals, deleting signals that no longer qualify (evaluated with the liquidity floor and demand trend via `SignalContext`);
 - records coverage, observation date, counts, rejection totals, duplicate decisions, and source freshness;
 - advances `refresh_state` only after every record succeeds.
 
