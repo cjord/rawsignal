@@ -19,13 +19,18 @@ export const REGIME_THRESHOLDS={
  reboundDrawdown:-10, // at least this far off the 90-day peak to qualify as a recovery…
  reboundChange7:2,    // …turning up at least this much on the week = Improving
  demandCooling:-15,   // demand change at/below this vetoes Breakout / confirms Overextended
+ breadthFloor:40,     // Breakout needs ≥ this % of cohort members rising over 30d (when known)
 } as const;
 
 const pct=(value:number)=>`${value>0?"+":""}${value.toFixed(1)}%`;
 const quantile=(sorted:number[],q:number)=>{if(!sorted.length)return 0;const i=(sorted.length-1)*q,lo=Math.floor(i),hi=Math.ceil(i);return sorted[lo]+(sorted[hi]-sorted[lo])*(i-lo)};
 const dayMs=86_400_000,timestamp=(date:string)=>Date.parse(`${date}T00:00:00Z`);
 
-export function classifyRegime(points:PricePoint[],currentOverride?:number|null,demand?:RegimeDemand|null):RegimeReading|null{
+// `breadth` (todo P4, §15.5): % of the product's cohort with a positive 30-day return.
+// A rally the whole cohort shares supports Breakout; a lone spike near the high does not
+// — low breadth downgrades the would-be Breakout to the overextension checks. Absent =
+// neutral (price evidence alone can still classify Breakout).
+export function classifyRegime(points:PricePoint[],currentOverride?:number|null,demand?:RegimeDemand|null,breadth?:number|null):RegimeReading|null{
  const sorted=[...points].filter(p=>p.price>0).sort((a,b)=>a.date.localeCompare(b.date));
  const current=currentOverride??sorted.at(-1)?.price;
  if(!current||!Number.isFinite(current)||sorted.length<2)return null;
@@ -46,8 +51,9 @@ export function classifyRegime(points:PricePoint[],currentOverride?:number|null,
  const spread=median90?(robustHigh-robustLow)/median90*100:0;
  const nearHigh=robustHigh>0&&spread>=5&&(1-current/robustHigh)*100<=t.nearHighPct;
  if(nearHigh){
-  const accelerating=change7!=null&&momentum!=null&&change7>=t.hotChange7&&momentum>=t.hotMomentum&&!cooling;
-  if(accelerating)return{regime:"breakout",detail:`Accelerating through the 90-day high: ${pct(change7)} this week, ${pct(momentum)} above the 30-day average${demand&&demand.change>=15?`, sales up ${pct(demand.change)}`:""}.`};
+  const breadthOk=breadth==null||breadth>=t.breadthFloor;
+  const accelerating=change7!=null&&momentum!=null&&change7>=t.hotChange7&&momentum>=t.hotMomentum&&!cooling&&breadthOk;
+  if(accelerating)return{regime:"breakout",detail:`Accelerating through the 90-day high: ${pct(change7)} this week, ${pct(momentum)} above the 30-day average${breadth!=null&&breadth>=t.breadthFloor?`, ${breadth.toFixed(0)}% of its cohort rising`:""}${demand&&demand.change>=15?`, sales up ${pct(demand.change)}`:""}.`};
   const weakening=change7==null||momentum==null||change7<=t.coolChange7||momentum<=0||cooling;
   if(weakening)return{regime:"overextended",detail:`At the 90-day high with fading momentum${change7!=null?` (${pct(change7)} this week)`:""}${cooling?`; sales cooling ${pct(demand!.change)}`:""}.`};
   return{regime:"steady",detail:`Near the 90-day high with mixed momentum (${pct(change7)} this week).`};

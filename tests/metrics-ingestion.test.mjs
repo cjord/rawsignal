@@ -3,7 +3,7 @@ import {readFile,readdir} from "node:fs/promises";
 import {DatabaseSync} from "node:sqlite";
 import test from "node:test";
 import {METRIC_SERIES,metricsBackfillStatements,readMetricSeries,runMetricsRollup} from "../db/metrics-ingestion.ts";
-import {publishedIngestion,startIngestion,upsertCard,upsertHistory,upsertSealedProduct} from "../db/repository.ts";
+import {publishedIngestion,readCohortStats,startIngestion,upsertCard,upsertHistory,upsertSealedProduct} from "../db/repository.ts";
 import {loadMetricsPayload} from "../db/metrics-service.ts";
 
 class LocalStatement{
@@ -45,6 +45,13 @@ test("metrics rollup writes per-date index and median rows and skips sparse date
   await db.prepare("insert into market_signals (product_id, side, strictness, score, confidence, reason, detail, distance_bps, cutoff_bps, as_of_date, observation_date, coverage) values (1,'buy','balanced',88,'high','Within 1% of 30-day low','fixture',100,225,'2026-08-28','2026-08-28','exact')").bind().run();
   // Challenger row (P1b): the rollup snapshots the shadow board in the parallel table.
   await db.prepare("insert into shadow_signals (product_id, side, score, confidence, reason, detail, distance_bps, cutoff_bps, as_of_date, updated_at) values (2,'buy',74,'medium','Within 2% of 90-day typical low','fixture',200,225,'2026-08-28','now')").bind().run();
+  // Cohort fixture (P4): eight same-cohort members with known 30-day changes.
+  const cohortBps=[-500,-300,-100,100,200,300,400,600];
+  for(let index=0;index<cohortBps.length;index++){
+    const id=100+index;
+    await upsertCard(db,card(id,25),"2026-08-28T00:00:00Z","live-daily:seed");
+    await db.prepare("insert into market_metrics (product_id, variant, condition, as_of_date, coverage, change_30_bps, updated_at) values (?,?,?,?,?,?,?)").bind(id,"Holofoil","Near Mint","2026-08-28","exact",cohortBps[index],"now").run();
+  }
   const result=await runMetricsRollup(db,{mode:"backfill",series:testSeries});
   assert.equal(result.done,true);
   // The rollup snapshots the day's balanced boards for the signal track record.
@@ -54,6 +61,17 @@ test("metrics rollup writes per-date index and median rows and skips sparse date
   assert.equal(result.shadowSnapshots,1);
   const shadow=await db.prepare("select side, strictness, product_id as productId, score, rank from shadow_signal_history").bind().first();
   assert.deepEqual({...shadow},{side:"buy",strictness:"balanced",productId:2,score:74,rank:1});
+  // Cohort stats (P4): both ladder rungs materialize with the median and breadth.
+  assert.equal(result.cohorts,2);
+  const rung=await db.prepare("select members, median_change30_bps as median, breadth_pct as breadth from cohort_stats where cohort_key='single|pokemon|Fixture Set|Illustration Rare'").bind().first();
+  assert.deepEqual({...rung},{members:8,median:150,breadth:63});
+  const fallback=await db.prepare("select members from cohort_stats where cohort_key='single|pokemon|Illustration Rare'").bind().first();
+  assert.equal(fallback.members,8);
+  // The lookup prefers the set rung and converts to the evaluator's shape:
+  // ln(1 + 150bps) ≈ 0.014889, breadth passthrough.
+  const looked=await readCohortStats(db,100);
+  assert.ok(Math.abs(looked.logReturn30-Math.log(1.015))<1e-9);
+  assert.equal(looked.breadth,63);
   const series=await readMetricSeries(db);
   // Index = mean of the top 2 prices (100, 50); the sparse day never appears.
   assert.deepEqual(series["index:test"],[{date:day(1),value:75,members:2}]);

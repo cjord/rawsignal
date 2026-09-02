@@ -131,3 +131,57 @@ side, v2 → v2r at the $5 floor (balanced):
 **Verdict:** the gate earns its place in the challenger (kept sells are strictly less
 wrong; what it rejects is demonstrably continuation). v2 = robust extremes + breakout
 sell gate going into P1b shadow; labels ship descriptively regardless of promotion.
+
+## Run `full-v2c` — 2026-09-02 (challenger: P4 cohort dampener + breadth qualifier)
+
+Same grid; v2 adds the cohort confidence dampener (a ≥5% own move within 3% log of the
+cohort's median move drops confidence one tier) and cohort breadth as the Breakout
+qualifier (<40% of the cohort rising vetoes Breakout, so such spikes stay sellable).
+v2r → v2c at the $5 floor (balanced):
+
+| | n | med fwd30 | hit | top-20 precision |
+|---|---:|---:|---:|---:|
+| buy | 43,531 → 43,218 | +1.11% → +1.12% | 60.0% → 60.1% | 51.2% → **51.8%** |
+| sell | 752,506 → 757,373 | +1.23% → +1.21% | 22.0% → 22.1% | 32.0% → 32.2% |
+
+Aggressive buy top-20 52.9% → 53.6%; everything else flat or marginally better;
+nothing regressed.
+
+### Findings
+
+1. **The dampener demotes exactly the right buys.** The 758 balanced buys it dampened
+   but left qualifying hit only **46.6%** (median fwd30 −0.54%) vs the pool's 60.1% —
+   cohort-wide dips masquerading as card-specific value. The 312 it pushed below the
+   score minimum hit 54.2% (median +0.83%) — also below-average picks. Confidence is
+   now doing ranking work the raw score could not.
+2. **Aggregate lift is small by design** — the gated middle model moves one confidence
+   tier for a minority of signals rather than reweighting every score. The top-20 gain
+   (+0.6pp at balanced and aggressive) comes from the weak rows sinking in rank.
+3. **The cohort-median baseline still leads model buys** (66.4% vs ~52% top-20). The
+   dampener narrows nothing structural: it removes cohort-driven false positives but
+   does not chase cohort laggards. Closing that gap is the contingent v3 (weighted
+   cohort term) — which this archive's single regime still cannot calibrate safely.
+
+## Program summary — v1 → v2 (P1–P5 complete, 2026-09-02)
+
+All runs on the identical grid (16,982 products × 117 weekly origins, $5 floor).
+Final challenger v2 = winsorized q10/q90 extremes + breakout sell gate + cohort
+dampener + breadth qualifier (+ sales bump, shadow-only). Champion v1 unchanged.
+
+| balanced | v1 | final v2 |
+|---|---:|---:|
+| buy hit | 56.7% | **60.1%** |
+| buy median fwd30 | +0.72% | **+1.12%** |
+| buy top-20 precision | 52.0% | 51.8% |
+| sell hit | 19.7% | **22.1%** |
+| sell top-20 precision | 18.2% | **32.2%** |
+| adverse drift after "sell" (med fwd30) | +1.50% | **+1.21%** |
+| calibration top quintile hit | 49.8% | 53.7% |
+
+Conservative buys 48.1% → 51.3%, aggressive 62.1% → 64.8%. Unbacktestable additions
+(sales bump; live liquidity gating) validate through the P1b shadow — promotion
+requires ~30 days of shadow overlap on top of this harness verdict. Open items for a
+future v3: score calibration is still not monotone (proximity remains over-weighted at
+the top of the scale), and a cohort-laggard term could chase the cohort-median
+baseline's 66% buy hit — both need either multi-regime data or the live shadow to
+calibrate without overfitting this rising-market archive.

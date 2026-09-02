@@ -90,6 +90,28 @@ export async function runMetricsRollup(db: D1DatabaseLike, options: { mode: "dai
         where s.strictness='balanced' and cp.market_cents is not null
       ) where rank <= 100
       on conflict(observed_date, side, product_id) do update set score=excluded.score, price_cents=excluded.price_cents, rank=excluded.rank`).bind(today).run();
+    // Cohort statistics (todo P4): median 30-day change + rising-member breadth per
+    // ladder cohort (set rung, then the game|rarity fallback rung), rebuilt whole each
+    // rollup from market_metrics. Tomorrow's signal walk consumes them via
+    // SignalContext.cohort — a day of trailing lag by design.
+    await db.prepare("delete from cohort_stats").run();
+    const rungKey = withSet => `p.kind||'|'||p.game||'|'||${withSet ? "p.set_name||'|'||" : ""}(case when p.kind='single' then coalesce(p.rarity,'?') else coalesce(p.product_type,'?') end)`;
+    for (const withSet of [true, false]) {
+      await db.prepare(`insert into cohort_stats (cohort_key, as_of_date, members, median_change30_bps, breadth_pct)
+        select key, ?, max(n),
+          cast(round(avg(bps) filter (where rn=(n+1)/2 or rn=(n+2)/2)) as integer),
+          cast(round(100.0*sum(bps>0)/max(n)) as integer)
+        from (
+          select ${rungKey(withSet)} key, mm.change_30_bps bps,
+            row_number() over (partition by ${rungKey(withSet)} order by mm.change_30_bps) rn,
+            count(*) over (partition by ${rungKey(withSet)}) n
+          from market_metrics mm join catalog_products p on p.product_id=mm.product_id
+          where mm.change_30_bps is not null
+        ) group by key having max(n)>=8
+        on conflict(cohort_key) do update set as_of_date=excluded.as_of_date, members=excluded.members,
+          median_change30_bps=excluded.median_change30_bps, breadth_pct=excluded.breadth_pct`).bind(today).run();
+    }
+    const cohorts = await db.prepare("select count(*) as n from cohort_stats").first<{ n: number }>();
     // Champion/challenger shadow (todo P1b): snapshot the v2 challenger's top-100 boards
     // the same way, into the parallel table — same day, same ranking rule, so forward
     // return differences are attributable to the model alone.
@@ -103,8 +125,8 @@ export async function runMetricsRollup(db: D1DatabaseLike, options: { mode: "dai
       on conflict(observed_date, side, product_id) do update set score=excluded.score, price_cents=excluded.price_cents, rank=excluded.rank`).bind(today).run();
     const snapshots = await db.prepare("select count(*) as n from signal_history where observed_date=?").bind(today).first<{ n: number }>();
     const shadowSnapshots = await db.prepare("select count(*) as n from shadow_signal_history where observed_date=?").bind(today).first<{ n: number }>();
-    await completeIngestion(db, runId, "metrics-rollup", new Date().toISOString(), series.length, rowsWritten, 0, 0, { mode: options.mode, seriesRows: rowsWritten, signalSnapshots: snapshots?.n ?? 0, shadowSnapshots: shadowSnapshots?.n ?? 0 });
-    return { runId, mode: options.mode, series: series.length, seriesRows: rowsWritten, signalSnapshots: snapshots?.n ?? 0, shadowSnapshots: shadowSnapshots?.n ?? 0, done: true };
+    await completeIngestion(db, runId, "metrics-rollup", new Date().toISOString(), series.length, rowsWritten, 0, 0, { mode: options.mode, seriesRows: rowsWritten, signalSnapshots: snapshots?.n ?? 0, shadowSnapshots: shadowSnapshots?.n ?? 0, cohorts: cohorts?.n ?? 0 });
+    return { runId, mode: options.mode, series: series.length, seriesRows: rowsWritten, signalSnapshots: snapshots?.n ?? 0, shadowSnapshots: shadowSnapshots?.n ?? 0, cohorts: cohorts?.n ?? 0, done: true };
   } catch (error) {
     await failIngestion(db, runId, new Date().toISOString(), error instanceof Error ? error.message : "Unknown metrics rollup failure");
     throw error;

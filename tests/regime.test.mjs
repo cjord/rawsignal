@@ -40,3 +40,15 @@ test("cooling demand vetoes breakout",()=>{
  const cooled=classifyRegime(breakout,null,{recent:5,prior:30,change:-83.3});
  assert.equal(cooled?.regime,"overextended");
 });
+
+test("low cohort breadth vetoes breakout; broad participation supports it (P4)",()=>{
+ const breakout=series([...flat(10,25),10.4,10.8,11.2,11.6,12,12.4,12.8,13.2,13.6,14]);
+ // A lone spike while only 20% of the cohort rises is not a breakout.
+ assert.notEqual(classifyRegime(breakout,null,null,20)?.regime,"breakout");
+ // The same shape with 60% of the cohort rising keeps the label (and cites the breadth).
+ const supported=classifyRegime(breakout,null,null,60);
+ assert.equal(supported?.regime,"breakout");
+ assert.match(supported.detail,/60% of its cohort rising/);
+ // Unknown breadth stays neutral — price evidence alone still classifies.
+ assert.equal(classifyRegime(breakout)?.regime,"breakout");
+});

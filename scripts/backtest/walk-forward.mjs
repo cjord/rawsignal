@@ -16,7 +16,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { evaluateMarketSignal } from "../../core/signal-utils.ts";
 import { classifyRegime } from "../../core/domain/regime.ts";
-import { dayNum, isoOf, asofIndex, priceAsOf, forwardReturn, excursion, extremeDistances, median, cohortKeyOf, mulberry32, hashStr } from "./lib.mjs";
+import { dayNum, isoOf, asofIndex, priceAsOf, forwardReturn, excursion, extremeDistances, median, cohortKeyOf, cohortFallbackKeyOf, mulberry32, hashStr } from "./lib.mjs";
 
 const args = {};
 for (let i = 2; i < process.argv.length; i++) {
@@ -103,18 +103,35 @@ for (let p = 0; p < nP; p++) {
   if (p % 2000 === 1999) log(`pass A ${p + 1}/${nP}`);
 }
 
-// cohort medians per origin (>=8 members), then per-product deviation from median
+// cohort medians per origin (>=8 members), then per-product deviation from median.
+// P4 adds the signal-side cohort stats per origin: median 30-day log return and
+// rising-member breadth, with the game|rarity fallback rung when the set cohort is thin.
 const COHORT_MIN = 8;
+const cohortLog = new Map(), cohortBreadth = new Map(); // key -> Float32Array(nO), NaN = unknown
+const statsFor = key => {
+  let log_ = cohortLog.get(key);
+  if (!log_) { log_ = new Float32Array(nO).fill(NaN); cohortLog.set(key, log_); const b = new Float32Array(nO).fill(NaN); cohortBreadth.set(key, b); }
+  return { log: log_, breadth: cohortBreadth.get(key) };
+};
 for (let o = 0; o < nO; o++) {
-  const groups = new Map();
+  const groups = new Map(), returns = new Map();
   for (let p = 0; p < nP; p++) {
-    const p0 = mat.p0[at(p, o)];
+    const i = at(p, o), p0 = mat.p0[i];
     if (!Number.isFinite(p0)) continue;
-    const key = cohortKeyOf(catalog.get(products[p]));
-    (groups.get(key) ?? groups.set(key, []).get(key)).push(p0);
+    const row = catalog.get(products[p]);
+    for (const key of [cohortKeyOf(row), cohortFallbackKeyOf(row)]) {
+      (groups.get(key) ?? groups.set(key, []).get(key)).push(p0);
+      if (Number.isFinite(mat.ret30[i])) (returns.get(key) ?? returns.set(key, []).get(key)).push(mat.ret30[i]);
+    }
   }
   const medians = new Map();
   for (const [key, values] of groups) if (values.length >= COHORT_MIN) medians.set(key, median(values));
+  for (const [key, values] of returns) if (values.length >= COHORT_MIN) {
+    const stats = statsFor(key);
+    // median of log returns = log of the median return (log is monotone).
+    stats.log[o] = Math.log(1 + median(values));
+    stats.breadth[o] = values.filter(value => value > 0).length / values.length * 100;
+  }
   for (let p = 0; p < nP; p++) {
     const i = at(p, o), p0 = mat.p0[i];
     if (!Number.isFinite(p0)) continue;
@@ -122,6 +139,15 @@ for (let o = 0; o < nO; o++) {
     if (center) mat.cohortDev[i] = p0 / center - 1;
   }
 }
+// Per-product cohort lookup for the model pass: set rung when it has stats, else fallback.
+const cohortAt = (p, o) => {
+  const row = catalog.get(products[p]);
+  for (const key of [cohortKeyOf(row), cohortFallbackKeyOf(row)]) {
+    const log_ = cohortLog.get(key);
+    if (log_ && Number.isFinite(log_[o])) return { logReturn30: log_[o], breadth: cohortBreadth.get(key)[o] };
+  }
+  return null;
+};
 log("pass A + cohorts done");
 
 // --- model pass (expensive, resumable) -------------------------------------------
@@ -158,11 +184,12 @@ if (!REPORT_ONLY) {
           if (Number.isFinite(near) && near > 25) { skippedFar++; continue; }
         }
         prefix ??= points.slice(0, prefixEnd);
-        // v2 sell gate consumes the regime; classify once per (product, origin) and hand
-        // the reading in, instead of letting the evaluator re-classify per strictness.
+        // v2 consumes the regime and cohort stats; classify once per (product, origin)
+        // and hand the reading in, instead of letting the evaluator redo it per strictness.
+        const cohort = MODEL === "v1" ? null : cohortAt(p, o);
         const context = MODEL === "v1" ? null
-          : side === "sell" ? { model: MODEL, regime: classifyRegime(prefix, p0) }
-          : { model: MODEL };
+          : side === "sell" ? { model: MODEL, cohort, regime: classifyRegime(prefix, p0, null, cohort?.breadth) }
+          : { model: MODEL, cohort };
         for (let s = 0; s < 3; s++) {
           const result = evaluateMarketSignal(prefix, side, strictnesses[s], p0, context);
           evaluated++;

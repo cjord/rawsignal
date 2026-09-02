@@ -84,6 +84,11 @@ export function quantileSorted(sorted, q) {
 export const cohortKeyOf = row =>
   `${row.kind}|${row.game}|${row.setName}|${row.kind === "single" ? (row.rarity ?? "?") : (row.productType ?? "?")}`;
 
+// Ladder fallback rung (todo P4): when the set-scoped cohort is too small, widen to the
+// game-wide rarity/product-type cohort.
+export const cohortFallbackKeyOf = row =>
+  `${row.kind}|${row.game}|${row.kind === "single" ? (row.rarity ?? "?") : (row.productType ?? "?")}`;
+
 // Deterministic PRNG for the random baseline.
 export function mulberry32(seed) {
   let a = seed >>> 0;

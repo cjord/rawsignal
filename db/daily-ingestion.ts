@@ -10,6 +10,7 @@ import {
   deleteMarketSignal,
   deleteShadowSignal,
   upsertShadowSignal,
+  readCohortStats,
   readMarketLiquidity,
   startIngestion,
   upsertCard,
@@ -79,12 +80,16 @@ export async function persistDerivedHistory(db: D1DatabaseLike, productId: numbe
     : ((await readMarketLiquidity(db, productId, variant, condition)) ?? null);
   // Regime + demand trend (todo P3): demand comes from this fetch's buckets when present
   // (absence stays neutral); the regime label is recomputed from points on every pass.
+  // Cohort stats (todo P4) come from the previous rollup — one day of trailing lag by
+  // design; a missing row (fresh database, pre-0011) stays neutral.
   const demand = sales?.buckets ? demandTrend(sales.buckets) : null;
-  const reading = classifyRegime(points, currentPrice, demand);
-  await upsertMarketMetrics(db, productId, variant, condition, asOfDate, history, updatedAt, sales?.buckets ? { sales7: liquidity?.sales7 ?? null, sales30: liquidity?.sales30 ?? null, sales30Prior: demand?.prior ?? null } : undefined, reading?.regime ?? null);
+  const cohort = (await readCohortStats(db, productId).catch(() => null)) ?? null;
+  const reading = classifyRegime(points, currentPrice, demand, cohort?.breadth);
+  const realized = sales?.buckets ? salesWindow(sales.buckets, 30) : null;
+  await upsertMarketMetrics(db, productId, variant, condition, asOfDate, history, updatedAt, sales?.buckets ? { sales7: liquidity?.sales7 ?? null, sales30: liquidity?.sales30 ?? null, sales30Prior: demand?.prior ?? null, realizedLow30: realized?.low ?? null, realizedHigh30: realized?.high ?? null } : undefined, reading?.regime ?? null);
   let signalsWritten = 0;
   for (const strictness of strictnesses) for (const side of ["buy", "sell"] as const) {
-    const signal = marketSignal(points, side, strictness, currentPrice, { liquidity, demand, regime: reading });
+    const signal = marketSignal(points, side, strictness, currentPrice, { liquidity, demand, regime: reading, cohort });
     if (signal) {
       await upsertMarketSignal(db, productId, strictness, signal, asOfDate, history.coverage, points.at(-1)?.date ?? asOfDate);
       signalsWritten++;
@@ -94,7 +99,7 @@ export async function persistDerivedHistory(db: D1DatabaseLike, productId: numbe
   // same data in the same pass — pure CPU. v1 keeps serving; these rows only feed the
   // daily shadow snapshot so promotion can rest on a same-cards, same-days comparison.
   for (const side of ["buy", "sell"] as const) {
-    const shadow = marketSignal(points, side, "balanced", currentPrice, { liquidity, demand, regime: reading, model: "v2" });
+    const shadow = marketSignal(points, side, "balanced", currentPrice, { liquidity, demand, regime: reading, cohort, model: "v2" });
     if (shadow) await upsertShadowSignal(db, productId, shadow, asOfDate, updatedAt);
     else await deleteShadowSignal(db, productId, side);
   }

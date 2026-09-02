@@ -28,7 +28,18 @@ export type SignalModel="v1"|"v2";
 // `regime` lets a caller that already classified the series (batch writer, harness)
 // share the reading instead of re-classifying per side/strictness; undefined = compute
 // here, an explicit null = no usable regime (gate stays neutral).
-export type SignalContext={liquidity?:SignalLiquidity|null;model?:SignalModel;demand?:RegimeDemand|null;regime?:RegimeReading|null};
+// `cohort` (todo P4, §15.3): the cohort's median 30-day log return and rising-member
+// breadth, from the ladder cohort the product belongs to; absent = neutral.
+export type SignalCohort={logReturn30:number|null;breadth:number|null;label?:string};
+export type SignalContext={liquidity?:SignalLiquidity|null;model?:SignalModel;demand?:RegimeDemand|null;regime?:RegimeReading|null;cohort?:SignalCohort|null};
+// v2 cohort dampener (todo P4): when the card's own 30-day move is material but matches
+// its cohort's median move, the move is cohort-wide — weaker card-specific evidence, so
+// confidence drops one tier with a visible reason. Both thresholds harness-sweepable.
+export const COHORT_DAMPENER={minOwnMovePct:5,maxRelativeLog:.03} as const;
+// v2 sales bump (todo P5, middle version): one binary lift, not a curve — heavy realized
+// volume backs the marks the signal is judged on. Forward shadow-validation only:
+// archives carry no sales, so the harness can never see this branch (see P1 limit).
+export const SALES_CONFIDENCE_BUMP={sales30:20} as const;
 
 export function evaluateMarketSignal(points:PricePoint[],side:"buy"|"sell",strictness:SignalStrictness,currentOverride?:number|null,context?:SignalContext|null):SignalEvaluation{
  const liquidity=context?.liquidity,robust=context?.model==="v2";
@@ -38,7 +49,21 @@ export function evaluateMarketSignal(points:PricePoint[],side:"buy"|"sell",stric
   return{eligible:false,signal:null,code:"insufficient-liquidity",detail:`${liquidity.sales30} completed sale${liquidity.sales30===1?"":"s"} in 30 days${liquidity.sales7!=null?` (${liquidity.sales7} in 7)`:""}; boards require ${LIQUIDITY_FLOOR.sales30}/30D and ${LIQUIDITY_FLOOR.sales7}/7D.`};
  }
  const p30=windowPrices(sorted,30),p90=windowPrices(sorted,90),all=sorted.map(p=>p.price);
- const enough90=p90.length>=12,enough30=p30.length>=5,confidence:SignalConfidence=enough90&&all.length>=30?"high":enough30?"medium":"low";
+ const enough90=p90.length>=12,enough30=p30.length>=5;
+ let confidence:SignalConfidence=enough90&&all.length>=30?"high":enough30?"medium":"low",cohortNote="";
+ // v2 sales bump (todo P5): applied before the cohort dampener, so a cohort-wide move
+ // still dampens a heavily-traded card.
+ if(robust&&liquidity&&(liquidity.sales30??0)>=SALES_CONFIDENCE_BUMP.sales30&&confidence!=="high"){
+  confidence=confidence==="medium"?"high":"medium";
+  cohortNote=` · ${liquidity!.sales30} sales/30D backing`;
+ }
+ if(robust&&context?.cohort?.logReturn30!=null&&confidence!=="low"){
+  const change30=changeAtCutoff(sorted,30);
+  if(change30!=null&&Math.abs(change30)>=COHORT_DAMPENER.minOwnMovePct&&Math.abs(Math.log(1+change30/100)-context.cohort.logReturn30)<=COHORT_DAMPENER.maxRelativeLog){
+   confidence=confidence==="high"?"medium":"low";
+   cohortNote+=` · moved with its cohort: ${pct(change30)} vs cohort ${pct((Math.exp(context.cohort.logReturn30)-1)*100)}`;
+  }
+ }
  const robustRange=(prices:number[])=>{if(prices.length<2)return 0;const s=[...prices].sort((a,b)=>a-b),median=quantile(s,.5);return median?((quantile(s,.9)-quantile(s,.1))/median)*100:0};
  const volatility=.6*robustRange(p30)+.4*robustRange(p90),preset=(robust?presetsV2:presets)[strictness],cutoff=Math.min(preset.max,Math.max(preset.base,preset.base+preset.scale*volatility));
  // v2: the reference extreme is the window's winsorized 10th/90th percentile — one
@@ -63,12 +88,12 @@ export function evaluateMarketSignal(points:PricePoint[],side:"buy"|"sell",stric
  // its high is a breakout in progress, not overextension — the full-v1/v2 backtests show
  // near-a-high alone is anti-signal in a rising regime. Sells wait for momentum to fade.
  if(robust&&side==="sell"){
-  const reading=context?.regime!==undefined?context.regime:classifyRegime(sorted,current,context?.demand);
+  const reading=context?.regime!==undefined?context.regime:classifyRegime(sorted,current,context?.demand,context?.cohort?.breadth);
   if(reading?.regime==="breakout")return{eligible:false,signal:null,code:"breakout-continuation",detail:`${reading.detail} Sells wait for momentum to fade.`,confidence,distance:best.distance,cutoff,score};
  }
  if(score<preset.minScore)return{eligible:false,signal:null,code:"below-minimum-score",detail:`Signal score ${score} is below the ${strictness} minimum of ${preset.minScore}.`,confidence,distance:best.distance,cutoff,score};
  const period=best.days?`${best.days}-day`:"historic",label=`${robust?"typical ":""}${side==="buy"?"low":"high"}`,reason=exact?`${robust?"At the":"New"} ${period} ${label}`:`Within ${pct(best.distance)} of ${period} ${label}`;
- return{eligible:true,signal:{side,score,confidence,reason,detail:`${pct(swing)} ${side==="buy"?"below":"above"} the opposite ${period} extreme · ${pct(cutoff)} ${strictness} cutoff`,distance:best.distance,cutoff}};
+ return{eligible:true,signal:{side,score,confidence,reason,detail:`${pct(swing)} ${side==="buy"?"below":"above"} the opposite ${period} extreme · ${pct(cutoff)} ${strictness} cutoff${cohortNote}`,distance:best.distance,cutoff}};
 }
 
 export function marketSignal(points:PricePoint[],side:"buy"|"sell",strictness:SignalStrictness,currentOverride?:number|null,context?:SignalContext|null):MarketSignal|null{return evaluateMarketSignal(points,side,strictness,currentOverride,context).signal}

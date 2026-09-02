@@ -1276,12 +1276,34 @@ Calculations (decided 2026-09-01):
   today from `market_metrics`) serves as the Breakout qualifier in P3; set/game index
   returns stay descriptive context. No ±15%/±10% weighted terms (v3 contingency only).
 
+**Status: LANDED 2026-09-02 (gate green, 197 tests).** `COHORT_DAMPENER`
+(≥5% own move within 3% log of the cohort median → confidence −1 tier, visible
+"moved with its cohort" note) + `classifyRegime` breadth qualifier (<40% cohort
+breadth vetoes Breakout). Production: `cohort_stats` table (migration
+`drizzle/0011_cohort_stats.sql` — **apply with 0012 at next deploy**) rebuilt daily by
+the metrics rollup (SQL median + breadth per ladder rung: kind|game|set|rarity-or-type,
+fallback kind|game|rarity, ≥8 members); the signal walk reads it per product
+(`readCohortStats`, set rung preferred, one-day trailing lag). Harness `full-v2c`
+verdict in `docs/backtests.md`: dampened-but-qualifying buys hit 46.6% vs pool 60.1% —
+the dampener demotes exactly the right rows; top-20 buy precision +0.6pp; nothing
+regressed. Cohort-median baseline still leads (v3 contingency). Cohort *center*
+display (Cohort Position tile) stays deferred — the peer quartile strip already covers
+the display role.
+
 **P5. Sales-aware refinements (§15.4) — middle version.** Binary liquidity floor stays
 as the eligibility gate; **one bump, not a curve**: ≥20 sales/30D lifts confidence one
 tier (a continuous curve has no historical data to fit). Persist realized-sale
 median/percentile columns on `market_metrics` for sell-side reference display;
 demand-trend acceleration (needs `sales30Prior`) as regime evidence in P3. Forward
 shadow-validation only (see P1 limit).
+**Status: LANDED 2026-09-02.** v2-only `SALES_CONFIDENCE_BUMP` (≥20 sales/30D lifts
+confidence one tier, applied before the cohort dampener so cohort-wide moves still
+dampen; visible "N sales/30D backing" note). `realized_low/high_30_cents` persisted on
+`market_metrics` from the 30-day sale window (migration
+`drizzle/0012_realized_range.sql` — a true realized median is not computable from
+TCGplayer's low/high buckets, so the range is what's honest to store; the demand-trend
+regime evidence landed in P3). Unbacktestable by design — validates through the P1b
+live shadow.
 
 Deferred (unchanged from research §15.7): character priors, Early Value Estimate,
 pull-difficulty score adjustments, execution-aware net returns.

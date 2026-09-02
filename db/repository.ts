@@ -94,23 +94,27 @@ export async function upsertHistory(db:D1DatabaseLike,productId:number,variant:s
   }
 }
 
-export async function upsertMarketMetrics(db:D1DatabaseLike,productId:number,variant:string,condition:string,asOfDate:string,history:PriceHistory,updatedAt:string,liquidity?:{sales7:number|null;sales30:number|null;sales30Prior:number|null},regime?:string|null){
-  // Sales counts persist only when the fetch carried them (history jobs); a sales-less
-  // daily upsert preserves the last-known counts instead of erasing them. The regime is
-  // recomputed from points on every upsert, so it always overwrites.
+export async function upsertMarketMetrics(db:D1DatabaseLike,productId:number,variant:string,condition:string,asOfDate:string,history:PriceHistory,updatedAt:string,liquidity?:{sales7:number|null;sales30:number|null;sales30Prior:number|null;realizedLow30?:number|null;realizedHigh30?:number|null},regime?:string|null){
+  // Sales counts and realized ranges persist only when the fetch carried them (history
+  // jobs); a sales-less daily upsert preserves the last-known values instead of erasing
+  // them. The regime is recomputed from points on every upsert, so it always overwrites.
   await db.prepare(`insert into market_metrics (product_id,variant,condition,as_of_date,coverage,
-    change_7_bps,change_30_bps,change_90_bps,low_30_cents,high_30_cents,historic_low_cents,historic_high_cents,sales_7,sales_30,sales_30_prior,regime,updated_at)
-    values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) on conflict(product_id,variant,condition) do update set
+    change_7_bps,change_30_bps,change_90_bps,low_30_cents,high_30_cents,historic_low_cents,historic_high_cents,sales_7,sales_30,sales_30_prior,realized_low_30_cents,realized_high_30_cents,regime,updated_at)
+    values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) on conflict(product_id,variant,condition) do update set
     as_of_date=excluded.as_of_date,coverage=excluded.coverage,change_7_bps=excluded.change_7_bps,
     change_30_bps=excluded.change_30_bps,change_90_bps=excluded.change_90_bps,
     low_30_cents=excluded.low_30_cents,high_30_cents=excluded.high_30_cents,
     historic_low_cents=excluded.historic_low_cents,historic_high_cents=excluded.historic_high_cents,
     sales_7=coalesce(excluded.sales_7,market_metrics.sales_7),sales_30=coalesce(excluded.sales_30,market_metrics.sales_30),
-    sales_30_prior=coalesce(excluded.sales_30_prior,market_metrics.sales_30_prior),regime=excluded.regime,
+    sales_30_prior=coalesce(excluded.sales_30_prior,market_metrics.sales_30_prior),
+    realized_low_30_cents=coalesce(excluded.realized_low_30_cents,market_metrics.realized_low_30_cents),
+    realized_high_30_cents=coalesce(excluded.realized_high_30_cents,market_metrics.realized_high_30_cents),
+    regime=excluded.regime,
     updated_at=excluded.updated_at`).bind(productId,variant,condition,asOfDate,history.coverage,
       toBasisPoints(history.change7),toBasisPoints(history.change30),toBasisPoints(history.change90),
       toCents(history.low30),toCents(history.high30),toCents(history.historyLow),toCents(history.historyHigh),
-      liquidity?.sales7??null,liquidity?.sales30??null,liquidity?.sales30Prior??null,regime??null,updatedAt).run();
+      liquidity?.sales7??null,liquidity?.sales30??null,liquidity?.sales30Prior??null,
+      toCents(liquidity?.realizedLow30??null),toCents(liquidity?.realizedHigh30??null),regime??null,updatedAt).run();
 }
 
 export async function upsertMarketSignal(db:D1DatabaseLike,productId:number,strictness:SignalStrictness,signal:MarketSignal,asOfDate:string,coverage:PriceHistory["coverage"]="none",observationDate=asOfDate){
@@ -121,6 +125,19 @@ export async function upsertMarketSignal(db:D1DatabaseLike,productId:number,stri
     observation_date=excluded.observation_date,coverage=excluded.coverage`).bind(
       productId,signal.side,strictness,signal.score,signal.confidence,signal.reason,signal.detail,
       toBasisPoints(signal.distance),toBasisPoints(signal.cutoff),asOfDate,observationDate,coverage).run();
+}
+
+// Cohort lookup for the signal context (todo P4): prefer the set-scoped rung (4
+// segments) over the game-wide fallback (3) — ordering by key length picks it. Returns
+// the evaluator-ready shape: median 30-day log return + rising-member breadth.
+export async function readCohortStats(db:D1DatabaseLike,productId:number):Promise<{logReturn30:number|null;breadth:number|null}|null>{
+  const row=await db.prepare(`select cs.median_change30_bps bps, cs.breadth_pct breadth from cohort_stats cs where cs.cohort_key in (
+      select p.kind||'|'||p.game||'|'||p.set_name||'|'||(case when p.kind='single' then coalesce(p.rarity,'?') else coalesce(p.product_type,'?') end) from catalog_products p where p.product_id=?1
+      union all
+      select p.kind||'|'||p.game||'|'||(case when p.kind='single' then coalesce(p.rarity,'?') else coalesce(p.product_type,'?') end) from catalog_products p where p.product_id=?1
+    ) order by length(cs.cohort_key) desc limit 1`).bind(productId).first<{bps:number|null;breadth:number|null}>();
+  if(!row)return null;
+  return{logReturn30:row.bps==null?null:Math.log(1+row.bps/10000),breadth:row.breadth};
 }
 
 // Champion/challenger shadow rows (todo P1b): the v2 challenger's balanced evaluations,

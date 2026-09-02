@@ -118,6 +118,11 @@ export const marketMetrics = sqliteTable("market_metrics", {
   // Days 31–60 of the same 90-day bucket window (todo P3): sales_30 vs sales_30_prior is
   // the demand trend feeding regime classification. Preserved like the other counts.
   sales30Prior: integer("sales_30_prior"),
+  // Realized completed-sale price range over the trailing 30 days (todo P5): the sell
+  // side's reference against actual fills, from the same buckets. Bucket data carries
+  // low/high only — a true realized median is not computable from it.
+  realizedLow30Cents: integer("realized_low_30_cents"),
+  realizedHigh30Cents: integer("realized_high_30_cents"),
   // Market regime label (falling/improving/breakout/overextended/spike/steady) computed
   // from price history at write time; recomputed on every upsert that carries points.
   regime: text("regime"),
@@ -150,6 +155,18 @@ export const marketSignals = sqliteTable("market_signals", {
   check("market_signals_score_check", sql`${table.score} between 0 and 100`),
   index("idx_market_signals_rank").on(table.side, table.strictness, table.score),
 ]);
+
+// Daily cohort statistics (todo P4, §15.3): median 30-day change and rising-member
+// breadth per ladder cohort (kind|game|set|rarity-or-type, plus the kind|game|rarity
+// fallback rung). Rebuilt by the metrics rollup; consumed by the next day's signal
+// walk as SignalContext.cohort — one day of trailing lag by design, absence neutral.
+export const cohortStats = sqliteTable("cohort_stats", {
+  cohortKey: text("cohort_key").primaryKey(),
+  asOfDate: text("as_of_date").notNull(),
+  members: integer("members").notNull(),
+  medianChange30Bps: integer("median_change30_bps"),
+  breadthPct: integer("breadth_pct"),
+});
 
 // Champion/challenger shadow (todo P1b): the v2 challenger's current balanced
 // evaluations per product. Never served — exists so the daily rollup can snapshot the
