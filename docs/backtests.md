@@ -200,6 +200,41 @@ at the $5 floor (balanced):
    archive (mitigated by the full-grid confirmation, the coarse round-number weights,
    and the live shadow, which now runs v2.1 and provides the true out-of-sample test).
 
+## Run `full-v22` — 2026-09-02 (challenger: calibration sweeps → v2.2)
+
+Sweeps on an extended feature dump (`features-s3000b`: +change90, +winsor-variant
+distances) settled the open items: a **hump-shaped weekly term** (peak reward ≈ +3%,
+decaying for overheated bounces) replaces the linear cap; gates harden to buy week ≥
++0.5% and sell ≥0.8% off the high with week ≤ −0.5%; breadth weight rises to ×.35; a
+small change90 trend-context term joins both sides; winsor stays q10/90 (q15/85 gained
+only ~0.3pp); the **P4 cohort dampener is removed** — its sign inverted under
+turn-confirmation gates (dampened rows hit 79% vs 70%: co-moving with a recovering
+cohort is strength, which breadth already rewards); minScores become per-side, at the
+75th/45th/15th calibrated score percentiles. Confirming full run, v2.1 → v2.2
+(balanced, $5 floor):
+
+| | n | med fwd30 | hit | top-20 precision |
+|---|---:|---:|---:|---:|
+| buy | 59,115 → 24,110 | +2.79% → **+3.45%** | 71.0% → **73.3%** | 60.7% → **70.5%** |
+| sell | 19,156 → 12,095 | 0.00% → **−0.23%** | 47.5% → **51.0%** | 50.6% → **52.1%** |
+
+### Findings
+
+1. **Score calibration is finally monotone** — hit 72.1% → 74.3% AND median fwd30
+   +2.73% → +4.55% rising by quintile. The hump term did exactly what the sweep
+   promised: overheated bounces no longer crowd the top.
+2. **Top-20 buy precision (70.5% balanced, 75.8% aggressive) now clearly beats every
+   baseline** including cohort-median (66.4%) — the last baseline gap is closed.
+3. **Sells now have negative median drift at every strictness** (conservative −1.23%,
+   54.6% hit, 53.7% top-20) — the model's sells precede actual declines in a market
+   that mostly rises.
+4. Strictness ordering: conservative ≈ balanced on top-20 (71.0 vs 70.5) with the flat
+   top-of-scale expected from monotone quintiles; the inversion is gone.
+5. Caveats unchanged (single regime, marks not fills, two fit-confirm rounds on this
+   archive). The live shadow — which now runs v2.2 — and the cross-market extension
+   database (JP chase rarities + MTG mythics/day-one rares, in build) are the
+   remaining independent checks before promotion.
+
 ## Program summary — v1 → v2 (P1–P5 complete, 2026-09-02)
 
 All runs on the identical grid (16,982 products × 117 weekly origins, $5 floor).

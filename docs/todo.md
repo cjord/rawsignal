@@ -1317,6 +1317,15 @@ balanced buys 71.0% hit / +2.79% (beats every baseline), sells cut 97.5% in volu
 47.5% hit / 50.6% top-20 (best baseline 31.2%). Known residual: the top score quintile
 dips (64.6%) — saturated turn terms select overheated bounces, so conservative
 underperforms balanced; next calibration candidate. The live shadow now runs v2.1.
+**v2.2 calibration sweeps LANDED 2026-09-02** (`full-v22`, docs/backtests.md): hump
+weekly term (peak +3%), gates buy week ≥+0.5% / sell d≥0.8 week ≤−0.5%, breadth ×.35,
+change90 terms, cohort dampener REMOVED (sign inverted under turn confirmation),
+per-side minScores (buy 83/74/63, sell 72/56/41). Result: monotone calibration
+(72→74% hit, +2.7→+4.6% by quintile), balanced buys 73.3%/+3.45% with top-20 70.5%
+(beats cohort-median at last), sells 51.0% hit with negative median drift. Cross-market
+validation DB (JP chase rarities + MTG mythics/day-one-$5 rares, 18,828 targets,
+`scripts/local-db/build-ext-db.mjs` → max-ext.sqlite) in build for the generalization
+check; the live shadow runs v2.2.
 
 Deferred (unchanged from research §15.7): character priors, Early Value Estimate,
 pull-difficulty score adjustments, execution-aware net returns.

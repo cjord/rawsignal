@@ -5,10 +5,11 @@ export type {MarketSignal,SignalConfidence,SignalSide,SignalStrictness} from "./
 
 const presets={conservative:{base:1.5,scale:.13,max:8,minScore:72},balanced:{base:2.25,scale:.2,max:12,minScore:58},aggressive:{base:3.5,scale:.28,max:18,minScore:44}} as const;
 // v2 anchors extremes on winsorized 10th/90th percentiles (research §15.1) instead of raw
-// min/max. v2.1 recalibration (feature-dump evidence, docs/backtests.md): the score is
-// evidence-weighted turn confirmation, on a different scale than v1 — minScores map to
-// the calibrated decile boundaries (top ~55%/~45%/~35% of the gated pool).
-const presetsV2={conservative:{base:1.5,scale:.13,max:8,minScore:55},balanced:{base:2.25,scale:.2,max:12,minScore:45},aggressive:{base:3.5,scale:.28,max:18,minScore:35}} as const;
+// min/max. v2.2 recalibration (feature-dump sweeps, docs/backtests.md): evidence-weighted
+// turn confirmation with a hump-shaped weekly term (moderate bounces beat overheated
+// ones), and per-side minScores at the calibrated 75th/45th/15th score percentiles so
+// strictness tiers finally order by quality.
+const presetsV2={conservative:{base:1.5,scale:.13,max:8,minScoreBuy:83,minScoreSell:72},balanced:{base:2.25,scale:.2,max:12,minScoreBuy:74,minScoreSell:56},aggressive:{base:3.5,scale:.28,max:18,minScoreBuy:63,minScoreSell:41}} as const;
 const pct=(value:number)=>`${value.toFixed(1)}%`;
 const quantile=(sorted:number[],q:number)=>{if(!sorted.length)return 0;const i=(sorted.length-1)*q,lo=Math.floor(i),hi=Math.ceil(i);return sorted[lo]+(sorted[hi]-sorted[lo])*(i-lo)};
 const windowPrices=(points:PricePoint[],days:number)=>{if(!points.length)return[];const end=new Date(`${points.at(-1)!.date}T00:00:00Z`),start=new Date(end);start.setUTCDate(start.getUTCDate()-days);return points.filter(p=>new Date(`${p.date}T00:00:00Z`)>=start&&p.price>0).map(p=>p.price)};
@@ -33,10 +34,9 @@ export type SignalModel="v1"|"v2";
 // breadth, from the ladder cohort the product belongs to; absent = neutral.
 export type SignalCohort={logReturn30:number|null;breadth:number|null;label?:string};
 export type SignalContext={liquidity?:SignalLiquidity|null;model?:SignalModel;demand?:RegimeDemand|null;regime?:RegimeReading|null;cohort?:SignalCohort|null};
-// v2 cohort dampener (todo P4): when the card's own 30-day move is material but matches
-// its cohort's median move, the move is cohort-wide — weaker card-specific evidence, so
-// confidence drops one tier with a visible reason. Both thresholds harness-sweepable.
-export const COHORT_DAMPENER={minOwnMovePct:5,maxRelativeLog:.03} as const;
+// (The P4 COHORT_DAMPENER was removed in v2.2 — the calibration sweep showed its sign
+// inverted under turn-confirmation gates; cohort context now lives in the breadth score
+// term. `SignalCohort.logReturn30` stays in the context for future use.)
 // v2 sales bump (todo P5, middle version): one binary lift, not a curve — heavy realized
 // volume backs the marks the signal is judged on. Forward shadow-validation only:
 // archives carry no sales, so the harness can never see this branch (see P1 limit).
@@ -52,21 +52,17 @@ export function evaluateMarketSignal(points:PricePoint[],side:"buy"|"sell",stric
  const p30=windowPrices(sorted,30),p90=windowPrices(sorted,90),all=sorted.map(p=>p.price);
  const enough90=p90.length>=12,enough30=p30.length>=5;
  let confidence:SignalConfidence=enough90&&all.length>=30?"high":enough30?"medium":"low",cohortNote="";
- // v2 sales bump (todo P5): applied before the cohort dampener, so a cohort-wide move
- // still dampens a heavily-traded card.
+ // v2 sales bump (todo P5): heavy realized volume backs the marks the signal rests on.
+ // (The P4 cohort dampener was REMOVED in v2.2 — under turn-confirmation gates the
+ // dampened rows hit 79% vs 70% for the rest: co-moving with a recovering cohort is
+ // strength, which the breadth score term now rewards with the correct sign.)
  if(robust&&liquidity&&(liquidity.sales30??0)>=SALES_CONFIDENCE_BUMP.sales30&&confidence!=="high"){
   confidence=confidence==="medium"?"high":"medium";
   cohortNote=` · ${liquidity!.sales30} sales/30D backing`;
  }
- if(robust&&context?.cohort?.logReturn30!=null&&confidence!=="low"){
-  const change30=changeAtCutoff(sorted,30);
-  if(change30!=null&&Math.abs(change30)>=COHORT_DAMPENER.minOwnMovePct&&Math.abs(Math.log(1+change30/100)-context.cohort.logReturn30)<=COHORT_DAMPENER.maxRelativeLog){
-   confidence=confidence==="high"?"medium":"low";
-   cohortNote+=` · moved with its cohort: ${pct(change30)} vs cohort ${pct((Math.exp(context.cohort.logReturn30)-1)*100)}`;
-  }
- }
  const robustRange=(prices:number[])=>{if(prices.length<2)return 0;const s=[...prices].sort((a,b)=>a-b),median=quantile(s,.5);return median?((quantile(s,.9)-quantile(s,.1))/median)*100:0};
  const volatility=.6*robustRange(p30)+.4*robustRange(p90),preset=(robust?presetsV2:presets)[strictness],cutoff=Math.min(preset.max,Math.max(preset.base,preset.base+preset.scale*volatility));
+ const minScore=robust?(side==="buy"?presetsV2[strictness].minScoreBuy:presetsV2[strictness].minScoreSell):presets[strictness].minScore;
  // v2: the reference extreme is the window's winsorized 10th/90th percentile — one
  // anomalous daily mark no longer defines "the low"; raw extremes stay as displayed facts.
  const extrema=(prices:number[],sortedPrices:number[]|null)=>robust?quantile(sortedPrices!,side==="buy"?.1:.9):side==="buy"?Math.min(...prices):Math.max(...prices);
@@ -75,36 +71,39 @@ export function evaluateMarketSignal(points:PricePoint[],side:"buy"|"sell",stric
  if(!candidates.length)return{eligible:false,signal:null,code:"insufficient-history",detail:`${all.length} usable history point${all.length===1?"":"s"}; at least 2 are required.`,confidence};
  const best=candidates.sort((a,b)=>a.distance-b.distance)[0],opposite=robust?quantile(best.sorted!,side==="buy"?.9:.1):side==="buy"?Math.max(...best.prices):Math.min(...best.prices),swing=side==="buy"?(opposite-current)/opposite*100:(current-opposite)/opposite*100;
  const exact=best.distance<=.15;
- // Scores. v1: proximity-led (unchanged, still serving production). v2.1: evidence-led
- // turn confirmation — the feature dump showed proximity is ANTI-predictive (sitting on
- // the low hits 40%, 1–12% off it hits ~70%), while a confirmed bounce/fade, cohort
- // breadth, and confidence order forward returns cleanly (docs/backtests.md).
+ // Scores. v1: proximity-led (unchanged, still serving production). v2.2: evidence-led
+ // turn confirmation — the feature dump showed proximity is ANTI-predictive, and the
+ // sweeps picked a hump-shaped weekly term for buys (a ~3% bounce is the sweet spot;
+ // overheated bounces revert), breadth ×.35, and a 90-day trend-context term
+ // (docs/backtests.md). All weights are the calibrated round numbers, not fits.
  const clampTo=(value:number|null|undefined,lo:number,hi:number)=>Math.min(hi,Math.max(lo,value??0));
- const change7=changeAtCutoff(sorted,7),change30v=changeAtCutoff(sorted,30);
+ const change7=changeAtCutoff(sorted,7),change30v=changeAtCutoff(sorted,30),change90v=robust?changeAtCutoff(sorted,90):null;
  const breadth=context?.cohort?.breadth??50;
- const turn=side==="buy"?1:-1; // buys score the up-turn, sells the down-turn
+ const hump=(value:number)=>Math.max(0,(clampTo(value,0,15)/3)*Math.exp(1-clampTo(value,0,15)/3))*25;
  const score=robust
-  ?Math.round(Math.min(100,clampTo(turn*(change7??0),0,5)*5+clampTo(turn*(change30v??0),0,10)*1.5+(side==="buy"?breadth:100-breadth)*.25+(confidence==="high"?(side==="buy"?20:10):confidence==="medium"?5:0)+clampTo(swing,0,15)+(side==="sell"?clampTo(best.distance,0,8)*1.25:0)))
+  ?Math.round(Math.min(100,side==="buy"
+    ?hump(change7??0)+clampTo(change30v,0,10)*1.5+breadth*.35+(confidence==="high"?20:confidence==="medium"?5:0)+clampTo(swing,0,15)+clampTo(change90v,0,25)*.4
+    :clampTo(-(change7??0),0,5)*5+clampTo(-(change30v??0),0,10)*1.5+(100-breadth)*.35+(confidence==="high"?10:confidence==="medium"?5:0)+clampTo(swing,0,15)+clampTo(best.distance,0,8)*1.25+clampTo(-(change90v??0),0,20)*.35))
   :Math.round(Math.min(100,Math.max(0,1-best.distance/cutoff)*62+Math.min(24,Math.max(0,swing)*.8)+(confidence==="high"?14:confidence==="medium"?8:3)));
  // Turn-confirmation gates. v1 buys keep the original stabilization rule (audit C2).
- // v2.1 hardens it (≥1% off the low AND a flat-or-up week — null change7 is unconfirmed)
- // and adds the mirror-image sell gate: ≥0.4% off the high AND a flat-or-down week; a
- // price still printing highs with momentum up is continuation, not overextension.
+ // v2.2 hardens both (sweep-picked): buys ≥1% off the low AND week ≥ +0.5% (a null
+ // change7 is unconfirmed); sells ≥0.8% off the high AND week ≤ −0.5% — a price still
+ // printing highs with momentum up is continuation, not overextension.
  if(side==="buy"){
   const falling=change7!=null&&change7<=-5;
-  const waiting=robust?(best.distance<1||change7==null||change7<0):(best.distance<.5||falling);
+  const waiting=robust?(best.distance<1||change7==null||change7<.5):(best.distance<.5||falling);
   if(waiting){
-   const detail=falling||(robust&&change7!=null&&change7<0)?`Down ${pct(Math.abs(change7!))} over 7 days; buys wait for stabilization.`:`Price sits on the ${best.days?`${best.days}-day`:"historic"} low with no ${robust?"confirmed bounce":"bounce yet"}; buys wait for stabilization.`;
+   const detail=falling||(robust&&change7!=null&&change7<.5)?`${change7!<0?"Down":"Up only"} ${pct(Math.abs(change7!))} over 7 days; buys wait for a confirmed bounce.`:`Price sits on the ${best.days?`${best.days}-day`:"historic"} low with no ${robust?"confirmed bounce":"bounce yet"}; buys wait for stabilization.`;
    return{eligible:false,signal:null,code:"awaiting-stabilization",detail,confidence,distance:best.distance,cutoff,score};
   }
  }
- if(robust&&side==="sell"&&(best.distance<.4||change7==null||change7>0)){
+ if(robust&&side==="sell"&&(best.distance<.8||change7==null||change7>-.5)){
   const reading=context?.regime!==undefined?context.regime:classifyRegime(sorted,current,context?.demand,context?.cohort?.breadth);
   if(reading?.regime==="breakout")return{eligible:false,signal:null,code:"breakout-continuation",detail:`${reading.detail} Sells wait for momentum to fade.`,confidence,distance:best.distance,cutoff,score};
   return{eligible:false,signal:null,code:"awaiting-rollover",detail:change7!=null&&change7>0?`Up ${pct(change7)} over 7 days at the high; sells wait for the roll-over.`:`Price sits at the ${best.days?`${best.days}-day`:"historic"} high with no confirmed roll-over; sells wait for fading momentum.`,confidence,distance:best.distance,cutoff,score};
  }
  if(best.distance>cutoff)return{eligible:false,signal:null,code:"outside-adaptive-cutoff",detail:`${pct(best.distance)} from the nearest ${side==="buy"?"low":"high"}; ${pct(cutoff)} is the ${strictness} cutoff.`,confidence,distance:best.distance,cutoff,score};
- if(score<preset.minScore)return{eligible:false,signal:null,code:"below-minimum-score",detail:`Signal score ${score} is below the ${strictness} minimum of ${preset.minScore}.`,confidence,distance:best.distance,cutoff,score};
+ if(score<minScore)return{eligible:false,signal:null,code:"below-minimum-score",detail:`Signal score ${score} is below the ${strictness} minimum of ${minScore}.`,confidence,distance:best.distance,cutoff,score};
  const period=best.days?`${best.days}-day`:"historic",label=`${robust?"typical ":""}${side==="buy"?"low":"high"}`,reason=exact?`${robust?"At the":"New"} ${period} ${label}`:`Within ${pct(best.distance)} of ${period} ${label}`;
  return{eligible:true,signal:{side,score,confidence,reason,detail:`${pct(swing)} ${side==="buy"?"below":"above"} the opposite ${period} extreme · ${pct(cutoff)} ${strictness} cutoff${cohortNote}`,distance:best.distance,cutoff}};
 }

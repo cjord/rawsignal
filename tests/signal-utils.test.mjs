@@ -40,24 +40,24 @@ test("v2 keeps the stabilization gate: sitting on the robust floor is not a buy"
  // Current at/below the 10th-percentile floor clamps distance to 0 — no bounce evidence.
  assert.equal(evaluateMarketSignal(series([20,18,16,14,12,10]),"buy","aggressive",undefined,{model:"v2"}).code,"awaiting-stabilization");
 });
-test("v2 cohort dampener: a cohort-wide move drops confidence one tier with a visible reason (P4)",()=>{
- // 35 daily points: flat $20, a ~15% slide, flat floor, then a small bounce — a
- // v2-qualifying buy with high confidence and a non-null 30-day change (~-14%).
+test("v2.2 buy scoring: cohort breadth lifts the score; co-movement no longer dampens (P4 reversal)",()=>{
+ // 35 daily points: flat $20, a ~15% slide, flat floor, then a confirmed bounce — a
+ // v2-qualifying aggressive buy with high confidence.
  const prices=[...Array.from({length:10},()=>20),...Array.from({length:18},(_,i)=>20-(i+1)*(3/18)),17,17,17,17,17,17,17.25];
  const points=prices.map((price,index)=>({date:new Date(Date.UTC(2026,0,index+1)).toISOString().slice(0,10),price}));
  const plain=evaluateMarketSignal(points,"buy","aggressive",undefined,{model:"v2"});
  assert.ok(plain.eligible,`fixture should qualify (got ${plain.code}: ${plain.detail})`);
  assert.equal(plain.signal.confidence,"high");
- // The cohort fell the same ~14% — the move is cohort-wide, so confidence drops a tier.
- const damped=evaluateMarketSignal(points,"buy","aggressive",undefined,{model:"v2",cohort:{logReturn30:Math.log(.86),breadth:null}});
- assert.equal(damped.signal.confidence,"medium");
- assert.match(damped.signal.detail,/moved with its cohort/);
- assert.ok(damped.signal.score<plain.signal.score);
- // A flat cohort means the move is card-specific — confidence untouched.
- assert.equal(evaluateMarketSignal(points,"buy","aggressive",undefined,{model:"v2",cohort:{logReturn30:0,breadth:null}}).signal.confidence,"high");
- // v1 ignores the cohort entirely.
- const v1=evaluateMarketSignal(points,"buy","aggressive",undefined,{cohort:{logReturn30:Math.log(.86),breadth:null}});
- if(v1.eligible)assert.doesNotMatch(v1.signal.detail,/cohort/);
+ // The cohort fell the same ~14%: the calibration sweep showed co-moving recoveries
+ // OUTPERFORM (79% vs 70%), so confidence is untouched — the dampener is gone.
+ const cohortWide=evaluateMarketSignal(points,"buy","aggressive",undefined,{model:"v2",cohort:{logReturn30:Math.log(.86),breadth:null}});
+ assert.equal(cohortWide.signal.confidence,"high");
+ assert.doesNotMatch(cohortWide.signal.detail,/moved with its cohort/);
+ // Breadth carries the cohort context now: a broadly-rising cohort scores higher than
+ // a broadly-falling one.
+ const broad=evaluateMarketSignal(points,"buy","aggressive",undefined,{model:"v2",cohort:{logReturn30:null,breadth:80}});
+ const narrow=evaluateMarketSignal(points,"buy","aggressive",undefined,{model:"v2",cohort:{logReturn30:null,breadth:20}});
+ assert.ok(broad.eligible&&broad.signal.score>(narrow.score??narrow.signal?.score??0));
 });
 
 test("v2 sales bump: heavy realized volume lifts confidence one tier (P5)",()=>{

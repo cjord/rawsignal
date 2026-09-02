@@ -173,24 +173,28 @@ function featureRow(days, prices, lo, hi, day, p0, side, cohort, i) {
   const w = cut => { const from = firstIdxAtOrAfter(days, day - cut, lo, hi); return prices.slice(from, hi + 1).filter(v => v > 0); };
   const w30 = w(30), w90 = w(90), all = prices.slice(lo, hi + 1).filter(v => v > 0);
   if (all.length < 2) return null;
-  const robust = prices_ => { const s = [...prices_].sort((a, b) => a - b); return { lo: quantileSorted(s, .1), hi: quantileSorted(s, .9), med: quantileSorted(s, .5) }; };
+  const robust = prices_ => { const s = [...prices_].sort((a, b) => a - b); return { lo: quantileSorted(s, .1), hi: quantileSorted(s, .9), med: quantileSorted(s, .5), loA: quantileSorted(s, .05), hiA: quantileSorted(s, .95), loB: quantileSorted(s, .15), hiB: quantileSorted(s, .85) }; };
   const dist = ex => side === 0 ? (p0 / ex - 1) * 100 : (1 - p0 / ex) * 100;
   const cands = [w30, w90, all].filter(x => x.length >= 2).map(robust).map(r => ({ r, d: Math.max(0, dist(side === 0 ? r.lo : r.hi)) }));
   if (!cands.length) return null;
   const best = cands.sort((a, b) => a.d - b.d)[0];
   if (best.d > FEATURE_CAP) return null;
+  // Winsor-sweep distances: the same best window measured at 5th/95th (dA) and
+  // 15th/85th (dB) percentile extremes.
+  const dA = Math.max(0, dist(side === 0 ? best.r.loA : best.r.hiA)), dB = Math.max(0, dist(side === 0 ? best.r.loB : best.r.hiB));
   const swing = side === 0 ? (best.r.hi - p0) / best.r.hi * 100 : (p0 - best.r.lo) / best.r.lo * 100;
   const range = r => r.med ? (r.hi - r.lo) / r.med * 100 : 0;
   const vol = .6 * (w30.length >= 2 ? range(robust(w30)) : 0) + .4 * (w90.length >= 2 ? range(robust(w90)) : 0);
   const conf = w90.length >= 12 && all.length >= 30 ? 2 : w30.length >= 5 ? 1 : 0;
   const pAt = back => priceAsOf(days.slice(lo, hi + 1), prices.slice(lo, hi + 1), day - back);
-  const p7 = pAt(7), p30 = pAt(30);
+  const p7 = pAt(7), p30 = pAt(30), p90c = pAt(90);
   const mean30 = w30.length >= 2 ? w30.reduce((a, b) => a + b, 0) / w30.length : NaN;
   const peak90 = w90.length ? Math.max(...w90) : NaN;
   return {
-    d: round2(best.d), sw: round2(swing), vol: round2(vol), conf,
+    d: round2(best.d), dA: round2(dA), dB: round2(dB), sw: round2(swing), vol: round2(vol), conf,
     c7: Number.isFinite(p7) && p7 > 0 ? round2((p0 / p7 - 1) * 100) : null,
     c30: Number.isFinite(p30) && p30 > 0 ? round2((p0 / p30 - 1) * 100) : null,
+    c90: Number.isFinite(p90c) && p90c > 0 ? round2((p0 / p90c - 1) * 100) : null,
     mom: Number.isFinite(mean30) && mean30 > 0 ? round2((p0 / mean30 - 1) * 100) : null,
     dd: Number.isFinite(peak90) && peak90 > 0 ? round2((p0 / peak90 - 1) * 100) : null,
     rel: cohort && Number.isFinite(p30) && p30 > 0 ? round2((Math.log(p0 / p30) - cohort.logReturn30) * 100) : null,
