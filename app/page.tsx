@@ -227,10 +227,12 @@ function HoverCard({
   card,
   history,
   signal,
+  loading = false,
 }: {
   card: Card;
   history?: History;
   signal?: ReturnType<typeof marketSignal>;
+  loading?: boolean;
 }) {
   return (
     <HistoryPopover
@@ -246,6 +248,7 @@ function HoverCard({
         subtitle={history?.variant ?? card.printing}
         points={history?.points ?? []}
         metrics={cardHistoryMetrics(card, history)}
+        loading={loading}
       />
     </HistoryPopover>
   );
@@ -985,6 +988,7 @@ export default function Home() {
                     card={c}
                     history={h}
                     signal={signal ?? undefined}
+                    loading={!history[c.productId]}
                   />
                 }
               >

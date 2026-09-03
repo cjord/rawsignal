@@ -7,11 +7,11 @@ import type {HistoryMetric,PriceHistory,PricePoint} from "../core/domain/types";
 
 export type {HistoryMetric} from "../core/domain/types";
 
-export default function HistoryPanel({title,subtitle,points,label="market",metrics,hint,large=false}:{title:string;subtitle:string;points:PricePoint[];label?:string;metrics:HistoryMetric[];hint?:string;large?:boolean}){
+export default function HistoryPanel({title,subtitle,points,label="market",metrics,hint,large=false,loading=false}:{title:string;subtitle:string;points:PricePoint[];label?:string;metrics:HistoryMetric[];hint?:string;large?:boolean;loading?:boolean}){
  // Regime label (todo P3): descriptive context computed from the same points the chart
  // draws — never a recommendation.
  const reading=points.length?classifyRegime(points):null;
- return <span className="history-panel"><div className="history-title"><small>{title}</small>{reading&&<RegimeChip regime={reading.regime} detail={reading.detail}/>}<b>{subtitle}</b></div><PriceChart points={points} label={label} large={large}/><div className="history-stats">{metrics.map(metric=><span key={metric.label}><small>{metric.label}</small><b className={metric.tone}>{metric.value}</b></span>)}</div>{hint&&<small className="touch-hint">{hint}</small>}</span>;
+ return <span className="history-panel"><div className="history-title"><small>{title}</small>{reading&&<RegimeChip regime={reading.regime} detail={reading.detail}/>}<b>{subtitle}</b></div><PriceChart points={points} loading={loading} label={label} large={large}/><div className="history-stats">{metrics.map(metric=><span key={metric.label}><small>{metric.label}</small><b className={metric.tone}>{metric.value}</b></span>)}</div>{hint&&<small className="touch-hint">{hint}</small>}</span>;
 }
 
 export const movementTone=(value:number|null|undefined):HistoryMetric["tone"]=>value==null?"neutral":value<0?"down":"up";

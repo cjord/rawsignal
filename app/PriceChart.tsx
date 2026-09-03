@@ -8,12 +8,14 @@ const rangeLabel=(days:7|30|90|365)=>days===365?"1Y":`${days}D`;
 // Visible toolbar text follows the site's Title Case label convention; aria strings stay natural language.
 const titleCase=(text:string)=>text.replace(/(^|\s)[a-z]/g,match=>match.toUpperCase());
 
-export default function PriceChart({points,volumes,overlays,mainLabel,formatValue=formatUsd,large=false,label="market"}:{points:PricePoint[];volumes?:ChartVolume[];overlays?:ChartOverlay[];mainLabel?:string;formatValue?:(value:number)=>string;large?:boolean;label?:string}){
+export default function PriceChart({points,volumes,overlays,mainLabel,formatValue=formatUsd,large=false,loading=false,label="market"}:{points:PricePoint[];volumes?:ChartVolume[];overlays?:ChartOverlay[];mainLabel?:string;formatValue?:(value:number)=>string;large?:boolean;loading?:boolean;label?:string}){
  const gradientId=useId().replace(/:/g,""),[hovered,setHovered]=useState<number|null>(null),[range,setRange]=useState<7|30|90|365>(30);
  // Geometry is memoized (app/chart-geometry.ts): hover re-renders on every pointer move
  // and used to recompute the whole chart, including the O(n²) trailing mean.
  const geometry=useMemo(()=>points.length<2?null:chartGeometry(points,range,overlays,volumes,large),[points,range,overlays,volumes,large]);
- if(!geometry)return <span className="no-chart">History unavailable</span>;
+ // A popover opened before its series arrived (wave 13: charts load on reveal) says so
+ // instead of claiming the history does not exist.
+ if(!geometry)return <span className="no-chart">{loading?"Loading history…":"History unavailable"}</span>;
  const {chartPoints,times,timeSpan,overlays:overlaysShown,min,max,mainMin,mainMax,xy,delta,deltaTone,midDate,line,shownVolumes,maxQuantity,volumeByDate,barWidth,minIndex,maxIndex,maLine}=geometry;
  const active=hovered==null?null:{...chartPoints[hovered],...xy[hovered]};
  const activeQuantity=active?volumeByDate.get(active.date):undefined;

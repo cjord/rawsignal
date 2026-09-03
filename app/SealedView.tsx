@@ -412,6 +412,7 @@ export default function SealedView({
     result: ReturnType<typeof calculate>,
     h?: History,
     large = false,
+    loading = false,
   ) => {
     const movement = (label: string, value: number | null | undefined) =>
       movementMetric(label, value, "N/A");
@@ -420,6 +421,7 @@ export default function SealedView({
         title={h?.condition ?? "Sealed Market History"}
         subtitle={h?.variant ?? product.category}
         points={h?.points ?? []}
+        loading={loading}
         label="sealed market"
         metrics={[
           { label: "MSRP", value: usd(product.msrp) },
@@ -788,7 +790,7 @@ export default function SealedView({
                     {product.set} · {product.category}
                   </>
                 }
-                content={rowDetails(product, result, h)}
+                content={rowDetails(product, result, h, false, !history[product.productId])}
               />
             </FullViewCardWrap>
           );
@@ -810,7 +812,7 @@ export default function SealedView({
                 badge={signal && <SignalBadge signal={signal} />}
                 label={`${product.name} price history`}
               >
-                {rowDetails(product, result, h)}
+                {rowDetails(product, result, h, false, !history[product.productId])}
               </HistoryPopover>
             }
           >
