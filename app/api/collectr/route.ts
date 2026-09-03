@@ -18,7 +18,11 @@ import { CACHE_TIERS } from "../cache.ts";
 const SHOWCASE_ORIGIN = "https://app.getcollectr.com";
 const API_ORIGIN = "https://api-v2.getcollectr.com";
 const PAGE_SIZE = 30;
-const MAX_PRODUCTS = 6000;
+// The direct API walk is bounded (review 2026-09-03): an unauthenticated request must not
+// fan out into hundreds of upstream fetches. Showcases beyond the cap import in full through
+// the rate-limited browser worker (`mode=full`); a capped or interrupted walk reports itself
+// incomplete so the payload's `partial` flag stays honest.
+const MAX_API_PAGES = 20;
 const MAX_CSV_BYTES = 8_000_000;
 const BROWSER_HEADERS = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
@@ -82,23 +86,24 @@ const toSealedMatch = (match: SealedProduct, matchTier: MatchTier): CollectrMatc
   detailPath: `/sealed/${match.productId}`,
 });
 
-async function fetchApiPages(handle: string): Promise<CollectrRawProduct[] | null> {
+async function fetchApiPages(handle: string): Promise<{ raw: CollectrRawProduct[]; complete: boolean } | null> {
   const collected: CollectrRawProduct[] = [];
-  for (let offset = 0; offset < MAX_PRODUCTS; offset += PAGE_SIZE) {
+  for (let page = 0; page < MAX_API_PAGES; page++) {
+    const offset = page * PAGE_SIZE;
     let response: Response;
     try {
       response = await fetch(`${API_ORIGIN}/data/showcase/${encodeURIComponent(handle)}?limit=${PAGE_SIZE}&offset=${offset}`, {
         headers: { ...BROWSER_HEADERS, Accept: "application/json, text/plain, */*" },
       });
     } catch { return null; }
-    if (!response.ok) return offset === 0 ? null : collected;
-    let page: unknown;
-    try { page = await response.json(); } catch { return offset === 0 ? null : collected; }
-    const { raw } = parseShowcasePage(page as Parameters<typeof parseShowcasePage>[0]);
+    if (!response.ok) return offset === 0 ? null : { raw: collected, complete: false };
+    let body: unknown;
+    try { body = await response.json(); } catch { return offset === 0 ? null : { raw: collected, complete: false }; }
+    const { raw } = parseShowcasePage(body as Parameters<typeof parseShowcasePage>[0]);
     collected.push(...raw);
-    if (raw.length < PAGE_SIZE) break;
+    if (raw.length < PAGE_SIZE) return { raw: collected, complete: true };
   }
-  return collected;
+  return { raw: collected, complete: false };
 }
 
 // Full pagination relayed through the Browser Rendering worker (its real-Chrome
@@ -132,6 +137,8 @@ async function matchCards(request: Request, ids: number[]): Promise<Map<number, 
       }
     } catch { /* fall through to the bundled feeds */ }
   }
+  // Development-only fallback (no published D1 run): the bundled feeds answer with each
+  // market's top 50 — enough for local import demos, never the production matching path.
   const assets = (env as unknown as { ASSETS?: { fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> } }).ASSETS;
   const repository = await createFeedCatalogRepository(new URL(request.url).origin, assets ? assets.fetch.bind(assets) : fetch);
   const matches = new Map<number, Card>();
@@ -295,6 +302,7 @@ export async function GET(request: Request) {
   let raw = parsed.raw;
   let source: CollectrImportPayload["source"] = "page";
   let browserComplete = false;
+  let apiComplete = true;
   let fullError: string | null = null;
   if (full) {
     const browsed = await fetchBrowserPages(handle);
@@ -303,8 +311,8 @@ export async function GET(request: Request) {
     else fullError = `the browser walk returned ${browsed.raw.length} cards, fewer than the showcase page itself`;
   }
   if (source === "page") {
-    const apiRaw = await fetchApiPages(handle);
-    if (apiRaw && apiRaw.length >= parsed.raw.length) { raw = apiRaw; source = "api"; }
+    const api = await fetchApiPages(handle);
+    if (api && api.raw.length >= parsed.raw.length) { raw = api.raw; source = "api"; apiComplete = api.complete; }
   }
   if (source !== "page") {
     // Page records carry condition/printing the API omits: enrich API records where ids meet.
@@ -320,7 +328,7 @@ export async function GET(request: Request) {
   const payload: CollectrImportPayload = {
     profile: parsed.profile,
     importedAt: new Date().toISOString(),
-    partial: source === "browser" ? !browserComplete : source === "page" && parsed.profile.totalCards > parsed.raw.length,
+    partial: source === "browser" ? !browserComplete : source === "api" ? !apiComplete : parsed.profile.totalCards > parsed.raw.length,
     source,
     fullError,
     skippedGraded,
@@ -331,6 +339,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  // Reject an oversized upload before buffering it; the post-parse length check below still
+  // covers requests that omit or understate the header.
+  const declared = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > MAX_CSV_BYTES) return NextResponse.json({ error: "That CSV is too large to import" }, { status: 413 });
   let body: { csv?: unknown; filename?: unknown };
   try { body = await request.json() as typeof body; } catch { return NextResponse.json({ error: "Send the export as { csv } JSON" }, { status: 400 }); }
   const csv = typeof body.csv === "string" ? body.csv : "";

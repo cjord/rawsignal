@@ -115,10 +115,21 @@ async function paginate(page, handle, maxProducts, budgetMs) {
   );
 }
 
+// Constant-time bearer comparison: SHA-256 digests compared without an early exit, the
+// same shape as the staging ops adapter (review 2026-09-03).
+async function equalTokens(left, right) {
+  const encoder = new TextEncoder();
+  const [a, b] = await Promise.all([crypto.subtle.digest("SHA-256", encoder.encode(left)), crypto.subtle.digest("SHA-256", encoder.encode(right))]);
+  const x = new Uint8Array(a), y = new Uint8Array(b);
+  let difference = x.length ^ y.length;
+  for (let index = 0; index < Math.max(x.length, y.length); index++) difference |= (x[index] ?? 0) ^ (y[index] ?? 0);
+  return difference === 0;
+}
+
 export default {
   async fetch(request, env) {
     if (request.method !== "GET") return json({ error: "GET only" }, 405);
-    if (!env.IMPORT_TOKEN || request.headers.get("authorization") !== `Bearer ${env.IMPORT_TOKEN}`) {
+    if (!env.IMPORT_TOKEN || !(await equalTokens(request.headers.get("authorization") ?? "", `Bearer ${env.IMPORT_TOKEN}`))) {
       return json({ error: "unauthorized" }, 401);
     }
     const url = new URL(request.url);
