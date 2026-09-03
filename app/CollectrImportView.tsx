@@ -17,18 +17,19 @@ import {SignalBadge} from "./SignalControls";
 import {usePersistedSignals} from "./data/usePersistedSignals";
 import {historyTargetKey,useHistoryOnce} from "./data/usePriceHistoryBatch";
 import {importDiff,readStoredImport,storeImport,type StoredCollectrImport} from "./state/collectr-import";
+import {filterImportCards,importSetOptions,orderByValue,pageWindow,portfolioTotals,sortImportCards,type ImportLens,type ImportMarket,type ImportScope,type ImportSortCol,type SortDir} from "./state/collectr-view";
 import {cardFavorite,sealedFavorite} from "./state/favorites";
 import {useScalperMode} from "./state/scalper-mode";
 import {useFavorites} from "./state/useFavorites";
 import {parseStrictness,STRICTNESS_KEY,usePreference} from "./state/usePreference";
 import {formatFullDate,formatPercent,formatUsd} from "../core/domain/formatters";
 import type {CollectrImportCard,CollectrImportPayload} from "./api/collectr/route";
+import type {MarketSignal,PriceHistory} from "../core/domain/types";
 
-type Lens="all"|"hold"|"sell";
+type Lens=ImportLens;
 type ViewMode="medium"|"text";
-type ImportMarket="all"|"pokemon"|"riftbound";
-type Scope="all"|"singles"|"sealed";
-type SortCol="qty"|"card"|"signal"|"set"|"collectr"|"market"|"change7"|"change30";
+type Scope=ImportScope;
+type SortCol=ImportSortCol;
 
 function SortHead({col,label,sortCol,sortDir,onSort}:{col:SortCol;label:string;sortCol:SortCol;sortDir:"asc"|"desc";onSort:(col:SortCol)=>void}){
  const active=sortCol===col;
@@ -40,16 +41,37 @@ const LENS_OPTIONS=[{key:"all",label:"All cards"},{key:"hold",label:"Hold"},{key
 const VIEW_OPTIONS:[{key:ViewMode;label:string;icon:string},{key:ViewMode;label:string;icon:string}]=[{key:"medium",label:"Medium",icon:"▤"},{key:"text",label:"Text",icon:"☷"}];
 const usd=(value:number|null|undefined)=>value==null?"—":formatUsd(value);
 
-const effectivePrice=(card:CollectrImportCard)=>card.matched?.marketPrice??card.collectrPrice??0;
-// Unmatched One Piece rows keep their "onepiece" game: it never equals a market tab, so they
-// surface only under the All scope (user decision 2026-08-31).
-const cardGame=(card:CollectrImportCard):ImportMarket|"onepiece"|null=>card.matched?(card.matched.game as ImportMarket):card.game;
-
 function favoriteEntryFor(card:CollectrImportCard){
  const match=card.matched!;
  return card.kind==="sealed"
   ? sealedFavorite({game:match.game,productId:card.productId,name:match.name,set:match.set,image:match.image,marketPrice:match.marketPrice})
   : cardFavorite({game:match.game,productId:card.productId,name:match.name,set:match.set,number:card.number,section:match.section,image:match.image,marketPrice:match.marketPrice});
+}
+
+type ImportRowProps={card:CollectrImportCard;signal:MarketSignal|null|undefined;history:PriceHistory|undefined};
+
+// One table row. Matched rows link to the detail page and carry the hover history panel;
+// unmatched rows render the same cells with Collectr's own price and no market data.
+function ImportRow({card,signal,history}:ImportRowProps){
+ const match=card.matched;
+ const change7=match?history?.change7??null:null;
+ const change30=match?history?.change30??null:null;
+ const meta=card.kind==="sealed"?(match?.rarity||"Sealed"):`${card.number||"—"} · ${card.rarity||"—"}${card.printing?` · ${card.printing}`:""}`;
+ const body=<>
+  <span className="import-cond">{card.kind==="sealed"?`×${card.quantity}`:`${card.condition??"—"} · ×${card.quantity}`}</span>
+  <ProductIdentity className="identity" image={match?.image??card.image} alt="" title={match?.name??card.name} meta={meta}/>
+  <span className="import-signal">{signal?<SignalBadge signal={signal}/>:<span className="import-neutral">{match?"—":""}</span>}</span>
+  <span className="set-name">{match?.set??card.set}</span>
+  <span className="import-collectr">{usd(card.collectrPrice)}</span>
+  <span className="market-price">{match?usd(match.marketPrice):<i className="import-untracked">Not tracked</i>}</span>
+  <span className={`change change7 import-change${change7==null?" is-empty":change7<0?" down":" up"}`}>{match?(change7==null?"…":formatPercent(change7)):""}</span>
+  <span className={`change change30 import-change${change30==null?" is-empty":change30<0?" down":" up"}`}>{match?(change30==null?"…":formatPercent(change30)):""}</span>
+  <span className="row-star">{match?<FavoriteStar entry={favoriteEntryFor(card)}/>:null}</span>
+ </>;
+ if(!match)return <div className="leader-row import-row is-untracked">{body}</div>;
+ return <a className="leader-row import-row" href={match.detailPath} aria-label={`View ${match.name} details`}>{body}
+  {history&&<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={match.image??""} alt={`${match.name} card`} label={`${match.name} price history`}><HistoryPanel title={card.kind==="sealed"?"Market Price History":"Near Mint Market History"} subtitle={card.kind==="sealed"?(match.rarity||"Sealed"):(card.printing??"Normal")} points={history.points??[]} metrics={standardHistoryMetrics(match.marketPrice,null,history)}/></HistoryPopover>}
+ </a>;
 }
 
 export default function CollectrImportView(){
@@ -68,7 +90,7 @@ export default function CollectrImportView(){
  const [maxPrice,setMaxPrice]=useState("");
  const [added,setAdded]=useState<string|null>(null);
  const [sortCol,setSortCol]=useState<SortCol>("market");
- const [sortDir,setSortDir]=useState<"asc"|"desc">("desc");
+ const [sortDir,setSortDir]=useState<SortDir>("desc");
  const [page,setPage]=useState(1);
  const [perPage,setPerPage]=useState(30);
  const onSort=(col:SortCol)=>{if(col===sortCol)setSortDir(dir=>dir==="asc"?"desc":"asc");else{setSortCol(col);setSortDir("desc")}};
@@ -118,7 +140,7 @@ export default function CollectrImportView(){
  };
 
  const payload=stored?.payload??null;
- const cards=useMemo(()=>payload?[...payload.cards].sort((a,b)=>effectivePrice(b)-effectivePrice(a)):[],[payload]);
+ const cards=useMemo(()=>payload?orderByValue(payload.cards):[],[payload]);
  const buySignals=usePersistedSignals({kind:"single",market:"all",side:"buy",strictness});
  const sellSignals=usePersistedSignals({kind:"single",market:"all",side:"sell",strictness});
  const buySealed=usePersistedSignals({kind:"sealed",market:"all",side:"buy",strictness});
@@ -130,33 +152,10 @@ export default function CollectrImportView(){
  const sellIds=useMemo(()=>new Set(cards.filter(card=>(card.kind==="sealed"?sellSealed:sellSignals).derived[card.productId]?.signal).map(card=>card.productId)),[cards,sellSignals,sellSealed]);
  const signalsReady=buySignals.ready&&sellSignals.ready&&buySealed.ready&&sellSealed.ready;
 
- const min=minPrice.trim()===""?null:Number(minPrice),max=maxPrice.trim()===""?null:Number(maxPrice);
- const visible=useMemo(()=>cards.filter(card=>{
-  if(scope==="singles"&&card.kind!=="single")return false;
-  if(scope==="sealed"&&card.kind!=="sealed")return false;
-  if(market!=="all"&&cardGame(card)!==market)return false;
-  if(lens==="hold"&&!holdIds.has(card.productId))return false;
-  if(lens==="sell"&&!sellIds.has(card.productId))return false;
-  const haystack=`${card.matched?.name??card.name} ${card.matched?.set??card.set} ${card.number}`.toLowerCase();
-  if(query.trim()&&!haystack.includes(query.trim().toLowerCase()))return false;
-  const setName=card.matched?.set??card.set;
-  if(setFilter.length&&!setFilter.includes(setName))return false;
-  const price=effectivePrice(card);
-  if(min!=null&&Number.isFinite(min)&&price<min)return false;
-  if(max!=null&&Number.isFinite(max)&&price>max)return false;
-  return true;
- }),[cards,scope,market,lens,holdIds,sellIds,query,setFilter,min,max]);
+ const visible=useMemo(()=>filterImportCards(cards,{scope,market,lens,holdIds,sellIds,query,setFilter,minPrice,maxPrice}),[cards,scope,market,lens,holdIds,sellIds,query,setFilter,minPrice,maxPrice]);
 
- const matched=cards.filter(card=>card.matched);
- const unmatched=useMemo(()=>cards.filter(card=>!card.matched),[cards]);
- const marketTotal=matched.reduce((sum,card)=>sum+(card.matched!.marketPrice*card.quantity),0);
- const collectrTotal=cards.reduce((sum,card)=>sum+((card.collectrPrice??0)*card.quantity),0);
- const sellValue=useMemo(()=>cards.filter(card=>sellIds.has(card.productId)).reduce((sum,card)=>sum+effectivePrice(card)*card.quantity,0),[cards,sellIds]);
- const setOptions=useMemo(()=>{
-  const names=new Set<string>();
-  for(const card of cards){if(market!=="all"&&cardGame(card)!==market)continue;names.add(card.matched?.set??card.set)}
-  return [...names].sort().map(name=>({key:name,label:name}));
- },[cards,market]);
+ const {matched,unmatched,marketTotal,collectrTotal,sellValue}=useMemo(()=>portfolioTotals(cards,sellIds),[cards,sellIds]);
+ const setOptions=useMemo(()=>importSetOptions(cards,market),[cards,market]);
  const diff=stored?importDiff(stored):null;
 
  const historyTargets=useMemo(()=>visible.filter(card=>card.matched).slice(0,120).map(card=>({productId:card.productId,printing:card.printing??"Normal",sealed:card.kind==="sealed"})),[visible]);
@@ -164,29 +163,11 @@ export default function CollectrImportView(){
 
  const signalOf=(card:CollectrImportCard)=>lens==="sell"?sellDerivedFor(card)?.signal:buyDerivedFor(card)?.signal??sellDerivedFor(card)?.signal;
  const historyOf=(card:CollectrImportCard)=>card.matched?priceHistory[historyTargetKey({productId:card.productId,printing:card.printing??"Normal",sealed:card.kind==="sealed"})]:undefined;
- const sortValue=(card:CollectrImportCard):number|string|null=>{
-  switch(sortCol){
-   case "qty":return card.quantity;
-   case "card":return (card.matched?.name??card.name).toLowerCase();
-   case "set":return (card.matched?.set??card.set).toLowerCase();
-   case "collectr":return card.collectrPrice;
-   case "market":return card.matched?card.matched.marketPrice:null;
-   case "signal":{const sig=signalOf(card);return sig?sig.score:null;}
-   case "change7":return historyOf(card)?.change7??null;
-   case "change30":return historyOf(card)?.change30??null;
-  }
- };
  // Sort the filtered rows; nulls (unmatched / no data) always sink to the bottom.
- const sortedVisible=useMemo(()=>[...visible].sort((a,b)=>{
-  const av=sortValue(a),bv=sortValue(b);
-  if(av==null&&bv==null)return 0;if(av==null)return 1;if(bv==null)return -1;
-  const order=typeof av==="string"?av.localeCompare(String(bv)):Number(av)-Number(bv);
-  return sortDir==="asc"?order:-order;
- // eslint-disable-next-line react-hooks/exhaustive-deps -- sortValue/signalOf/historyOf close over the deps listed
- }),[visible,sortCol,sortDir,lens,buySignals.derived,sellSignals.derived,buySealed.derived,sellSealed.derived,priceHistory]);
- const pages=Math.max(1,Math.ceil(sortedVisible.length/perPage));
- const safePage=Math.min(page,pages);
- const pageRows=useMemo(()=>sortedVisible.slice((safePage-1)*perPage,safePage*perPage),[sortedVisible,safePage,perPage]);
+ const sortedVisible=useMemo(()=>sortImportCards(visible,sortCol,sortDir,{signalScore:card=>signalOf(card)?.score,history:historyOf}),
+ // eslint-disable-next-line react-hooks/exhaustive-deps -- signalOf/historyOf close over the deps listed
+ [visible,sortCol,sortDir,lens,buySignals.derived,sellSignals.derived,buySealed.derived,sellSealed.derived,priceHistory]);
+ const {pages,page:safePage,rows:pageRows}=useMemo(()=>pageWindow(sortedVisible,page,perPage),[sortedVisible,page,perPage]);
  // A changed filter, lens, market, sort, or page-size resets to the first page.
  useEffect(()=>{setPage(1)},[market,scope,lens,query,setFilter,minPrice,maxPrice,sortCol,sortDir,perPage]);
 
@@ -270,26 +251,7 @@ export default function CollectrImportView(){
      <div className="rows" role="rowgroup">
       {pageRows.map((card,rowIndex)=>{
        const rowKey=(safePage-1)*perPage+rowIndex;
-       const match=card.matched;
-       const signal=signalsReady?signalOf(card):undefined;
-       const cardHistory=historyOf(card);
-       const change7=match?cardHistory?.change7??null:null;
-       const change30=match?cardHistory?.change30??null:null;
-       const meta=card.kind==="sealed"?(match?.rarity||"Sealed"):`${card.number||"—"} · ${card.rarity||"—"}${card.printing?` · ${card.printing}`:""}`;
-       const body=<>
-        <span className="import-cond">{card.kind==="sealed"?`×${card.quantity}`:`${card.condition??"—"} · ×${card.quantity}`}</span>
-        <ProductIdentity className="identity" image={match?.image??card.image} alt="" title={match?.name??card.name} meta={meta}/>
-        <span className="import-signal">{signal?<SignalBadge signal={signal}/>:<span className="import-neutral">{match?"—":""}</span>}</span>
-        <span className="set-name">{match?.set??card.set}</span>
-        <span className="import-collectr">{usd(card.collectrPrice)}</span>
-        <span className="market-price">{match?usd(match.marketPrice):<i className="import-untracked">Not tracked</i>}</span>
-        <span className={`change change7 import-change${change7==null?" is-empty":change7<0?" down":" up"}`}>{match?(change7==null?"…":formatPercent(change7)):""}</span>
-        <span className={`change change30 import-change${change30==null?" is-empty":change30<0?" down":" up"}`}>{match?(change30==null?"…":formatPercent(change30)):""}</span>
-        <span className="row-star">{match?<FavoriteStar entry={favoriteEntryFor(card)}/>:null}</span>
-       </>;
-       return match?<a key={`${card.productId}-${rowKey}`} className="leader-row import-row" href={match.detailPath} aria-label={`View ${match.name} details`}>{body}
-        {cardHistory&&<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={match.image??""} alt={`${match.name} card`} label={`${match.name} price history`}><HistoryPanel title={card.kind==="sealed"?"Market Price History":"Near Mint Market History"} subtitle={card.kind==="sealed"?(match.rarity||"Sealed"):(card.printing??"Normal")} points={cardHistory.points??[]} metrics={standardHistoryMetrics(match.marketPrice,null,cardHistory)}/></HistoryPopover>}
-       </a>:<div key={`${card.productId}-u-${rowKey}`} className="leader-row import-row is-untracked">{body}</div>;
+       return <ImportRow key={`${card.productId}-${card.matched?"":"u-"}${rowKey}`} card={card} signal={signalsReady?signalOf(card):undefined} history={historyOf(card)}/>;
       })}
       {!sortedVisible.length&&<p className="empty">Nothing matches the current lens and filters.</p>}
      </div>

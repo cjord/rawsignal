@@ -36,9 +36,12 @@ the cron trigger (explicit only), observability, the `COLLECTR_FETCH` service bi
 and the custom-domain route. Migrations are applied separately (`wrangler d1 migrations
 apply`, deploy first then migrate). Observations:
 
-- `next.config.ts` is an empty Next scaffold; vinext does not need it (knip flags it).
-  Left in place — harmless, but it is the last Next-template artifact besides `legacy/`.
-- `tsconfig.json` includes `.next/types/**` and `next-env.d.ts` (Next-era globs) — inert.
+- `next.config.ts` looked like an empty Next scaffold, but vinext parses `next.config.*`
+  itself (its build has a `next.config.js / .mjs / .ts parser`), so it stays. Likewise
+  `next-env.d.ts` imports `vinext/types` and `./.next/types/routes.d.ts`: `.next/types` is
+  vinext's generated route-type output, so the `tsconfig.json` include globs and the
+  `.next` lint/git ignores are live, not Next-era leftovers. (Correction 2026-09-03 —
+  the earlier "inert leftovers" reading was wrong; nothing to remove here.)
 - `playwright.config.ts` reuses an existing :4173 server locally and starts its own
   otherwise; `fullyParallel:false`, one worker — deliberate (state-dependent journeys).
 - Deploy config generation is unit-tested (`tests/cloudflare-cutover.test.mjs`).
@@ -126,7 +129,7 @@ ESLint `complexity` (threshold 12), `max-depth` (3), `max-lines-per-function` (1
 | 86 | `core/signal-utils.ts` `evaluateMarketSignal` | Wave 4: extract `liquidityGate`, `candidateExtremes`, `scoreV1`/`scoreV2`, `turnGates` as named pure helpers behind a characterization suite that pins current outputs on fixture series for every side × strictness × model. The harness (`docs/backtests.md`) is the second net. Behavior byte-identical. |
 | 73 | `app/ProductDetailPage.tsx` `ProductDetailPage` | Wave 4: the file already has 12 sub-components; the page body still inlines the hero (favorites, links, primary price, overview grid), the history section, and the hero-art tilt engine. Extract `useArtTilt`, `DetailHero`, `PriceHistorySection`. |
 | 61 / 762 lines | `app/SealedView.tsx` `SealedView` | Wave 4 (bounded): lift the filter-chip builder and the scenario controls into hooks shared with `Home`; the twin-orchestrator shape is a known decision (mode adapter), not a rewrite target. |
-| 47 / 228 lines | `app/CollectrImportView.tsx` | Extract the table row/sort model into `app/state/collectr-view.ts` (pure, testable). |
+| 47 / 228 lines | `app/CollectrImportView.tsx` | Wave 10: the filter/sort/totals/set-options/paging model is `app/state/collectr-view.ts` (pure; `tests/collectr-view.test.mjs`, 7 cases) and the table row is an `ImportRow` component; the page keeps only state, fetch phases, and layout. |
 | 46 / 837 lines | `app/page.tsx` `Home` | Same treatment as `SealedView`. |
 | 45 | `app/PriceChart.tsx` `PriceChart` | Extract scale/tick computation into a pure helper (also memoizable — §9). |
 | 44 | `core/domain/regime.ts` `classifyRegime` | Wave 4: split into `spikeReading`, `nearHighReading`, `trendReading` behind `tests/regime.test.mjs` extensions. |
