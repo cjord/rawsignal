@@ -2,7 +2,7 @@ import type {Direction} from "../MarketUI.tsx";
 import type {CatalogDerived} from "../../core/catalog-query.ts";
 import {classifyRegime} from "../../core/domain/regime.ts";
 import type {PriceHistory,MarketSignal,SignalSide} from "../../core/domain/types.ts";
-import type {SortOption} from "./types.ts";
+import type {ActiveFilterItem,SortOption} from "./types.ts";
 
 type CatalogItem={productId:number};
 type SignalResolver<T extends CatalogItem>=(item:T)=>MarketSignal|null;
@@ -23,4 +23,11 @@ export function signalAwareSorts<T extends string>(sorts:SortOption<T>[],signalS
 
 export function nextSortDirection<T extends string>(currentSort:T,currentDirection:Direction,nextSort:T,ascendingByDefault:ReadonlySet<T>):Direction{
  return currentSort===nextSort?(currentDirection==="asc"?"desc":"asc"):ascendingByDefault.has(nextSort)?"asc":"desc";
+}
+
+// One active-filter chip per selected value (sets, regimes, ...): clearing a chip removes
+// just that value. Shared by the Singles and Sealed orchestrators so the two chip builders
+// cannot drift.
+export function selectionChips(prefix:string,selected:string[],update:(next:string[])=>void,label:(value:string)=>string=value=>value):ActiveFilterItem[]{
+ return selected.map(value=>({key:`${prefix}:${value}`,label:label(value),clear:()=>update(selected.filter(item=>item!==value))}));
 }

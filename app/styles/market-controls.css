@@ -352,13 +352,6 @@
     grid-column: 1 / -1;
     margin-top: 8px;
   }
-
-  .view-medium .signal-cell,
-  .view-text .signal-cell,
-  .sealed-view-medium .sealed-signal-cell,
-  .sealed-view-text .sealed-signal-cell {
-    padding-right: 0;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

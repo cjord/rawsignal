@@ -11,10 +11,10 @@ import PriceChart from "./PriceChart";
 import TopBar from "./TopBar";
 import SiteFooter from "./SiteFooter";
 import {ChaseCardsSection,RelatedSealedSection} from "./detail-tables";
-import {evaluateMarketSignal,type MarketSignal} from "../core/signal-utils";
+import {evaluateMarketSignal} from "../core/signal-utils";
 import {classifyRegime} from "../core/domain/regime";
 import {MARQUEE_CHASE_RARITIES,MARQUEE_BAND,releaseGuidance} from "../core/domain/release";
-import {RegimeChip} from "./SignalControls";
+import {RegimeChip,SignalBadge} from "./SignalControls";
 import {detailPercentile} from "../core/domain/detail";
 import {demandTrend,drawdownFromPeak,historyDepth,MIN_PEER_OBSERVATIONS,modeledFairValue,momentum,peerAnchorValue,rangePosition,salesWindow,trendSlope,volatilityRange} from "../core/domain/detail-metrics";
 import {formatGameName,formatPercent,formatUsd,formatUtcDate} from "../core/domain/formatters";
@@ -153,8 +153,6 @@ function PullRatesSection({detail}:{detail:SealedDetail}){
  </section>;
 }
 
-function DetailSignalBadge({signal}:{signal:MarketSignal}){return <span className={`signal-badge ${signal.side} confidence-${signal.confidence}`} title={signal.detail}><b>{signal.reason}</b><small>{signal.score} signal · {signal.confidence} confidence</small></span>}
-
 // Early Value Estimate (todo P7): shown only when the server computed one — i.e. the
 // product (single or sealed) is in its launch window or presale. The range starts as
 // the settled-price expectation from mature same-era sibling sets and blends toward
@@ -187,7 +185,7 @@ function SignalsPanel({history,loading,current,strictness}:{history:PriceHistory
  // The boards gate on liquidity; this panel must agree with them (todo P2) — a card with
  // known thin sales should not look qualifying on its own page. Absent sales stay neutral.
  const liquidity=history?.sales?.buckets?{sales7:salesWindow(history.sales.buckets,7).quantity,sales30:salesWindow(history.sales.buckets,30).quantity}:null;
- return <section className="detail-section" aria-busy={loading||undefined}><header><span>Signal check</span><h2>Hot Buy / Hot Sell</h2></header>{history?<div className="detail-signals">{(["buy","sell"] as const).map(side=>{const evaluation=evaluateMarketSignal(history.points,side,strictness,current,{liquidity});return <div key={side} className={`detail-signal-card${evaluation.eligible?` is-${side}`:""}`}><small>{side==="buy"?"Hot Buy":"Hot Sell"}</small>{evaluation.eligible?<><DetailSignalBadge signal={evaluation.signal}/><p>{evaluation.signal.detail}</p></>:<p className="detail-signal-miss"><b>Not qualifying.</b> {evaluation.detail}</p>}</div>})}</div>:loading?<div className="detail-signals" aria-hidden="true"><span className="detail-signal-card detail-skeleton"/><span className="detail-signal-card detail-skeleton"/></div>:<p className="detail-unavailable">Signal evaluation needs price history.</p>}<p className="detail-note">Checked at {strictness} strictness — adjustable in display settings. Signals are informational qualification checks against this printing&apos;s history. They are not guarantees or financial advice.</p></section>;
+ return <section className="detail-section" aria-busy={loading||undefined}><header><span>Signal check</span><h2>Hot Buy / Hot Sell</h2></header>{history?<div className="detail-signals">{(["buy","sell"] as const).map(side=>{const evaluation=evaluateMarketSignal(history.points,side,strictness,current,{liquidity});return <div key={side} className={`detail-signal-card${evaluation.eligible?` is-${side}`:""}`}><small>{side==="buy"?"Hot Buy":"Hot Sell"}</small>{evaluation.eligible?<><SignalBadge signal={evaluation.signal}/><p>{evaluation.signal.detail}</p></>:<p className="detail-signal-miss"><b>Not qualifying.</b> {evaluation.detail}</p>}</div>})}</div>:loading?<div className="detail-signals" aria-hidden="true"><span className="detail-signal-card detail-skeleton"/><span className="detail-signal-card detail-skeleton"/></div>:<p className="detail-unavailable">Signal evaluation needs price history.</p>}<p className="detail-note">Checked at {strictness} strictness — adjustable in display settings. Signals are informational qualification checks against this printing&apos;s history. They are not guarantees or financial advice.</p></section>;
 }
 
 export default function ProductDetailPage({detail,market,serverTiming}:{detail:CatalogDetail;market?:string;serverTiming?:string|null}){

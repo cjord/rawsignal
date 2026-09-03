@@ -76,6 +76,7 @@ import FullMarketCard from "./leaderboard/FullMarketCard";
 import {
   buildCatalogDerived,
   nextSortDirection,
+  selectionChips,
   signalAwareSorts,
 } from "./leaderboard/mode-adapter";
 
@@ -693,16 +694,8 @@ export default function Home() {
           },
         }
       : null,
-    ...selectedSets.map((set) => ({
-      key: `set:${set}`,
-      label: set,
-      clear: () => setSelectedSets(selectedSets.filter((value) => value !== set)),
-    })),
-    ...selectedRegimes.map((regime) => ({
-      key: `regime:${regime}`,
-      label: REGIME_LABELS[regime as MarketRegime] ?? regime,
-      clear: () => setSelectedRegimes(selectedRegimes.filter((value) => value !== regime)),
-    })),
+    ...selectionChips("set", selectedSets, setSelectedSets),
+    ...selectionChips("regime", selectedRegimes, setSelectedRegimes, (regime) => REGIME_LABELS[regime as MarketRegime] ?? regime),
     movement.up7
       ? {
           key: "up7",

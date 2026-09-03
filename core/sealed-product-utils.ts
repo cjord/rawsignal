@@ -62,13 +62,20 @@ export function normalizeRiftboundProductType(name = "") {
   return RIFTBOUND_TYPE_RULES.find(([, pattern]) => pattern.test(name))?.[0] ?? "Other";
 }
 
+// Shared gate for the single-category sealed walks (Riftbound 89, Japanese Pokémon 85,
+// One Piece 68): the category must match when the source states one, accessory and bulk
+// names are out, and anything carrying a Number/Rarity field is a single, not a product.
+function isCategorySealedCandidate(product: SealedSourceProduct, categoryId: number, exclude: RegExp) {
+  if (product.categoryId != null && Number(product.categoryId) !== categoryId) return false;
+  if (NON_PRODUCT.test(product.name ?? "") || exclude.test(product.name ?? "")) return false;
+  if ((product.extendedData ?? []).some(field => /^(number|rarity)$/i.test(field.name) && String(field.value ?? "").trim())) return false;
+  return true;
+}
+
 // Unlike Pokémon, "Other" stays includable (Riftbound box sets land in that bucket);
 // bulk lots are the one sealed-shaped Riftbound listing that is not a product.
 export function isRiftboundSealedProduct(product: SealedSourceProduct) {
-  if (product.categoryId != null && Number(product.categoryId) !== 89) return false;
-  if (NON_PRODUCT.test(product.name ?? "") || /\bbulk\b/i.test(product.name ?? "")) return false;
-  if ((product.extendedData ?? []).some(field => /^(number|rarity)$/i.test(field.name) && String(field.value ?? "").trim())) return false;
-  return true;
+  return isCategorySealedCandidate(product, 89, /\bbulk\b/i);
 }
 
 // Japanese Pokémon sealed (category 85, todo L1 option B): JP sealed joins the English
@@ -87,10 +94,7 @@ export function normalizeJapaneseProductType(name = "") {
 }
 
 export function isJapaneseSealedProduct(product: SealedSourceProduct) {
-  if (product.categoryId != null && Number(product.categoryId) !== 85) return false;
-  if (NON_PRODUCT.test(product.name ?? "") || /\b(bulk|deck case|card case)\b/i.test(product.name ?? "")) return false;
-  if ((product.extendedData ?? []).some(field => /^(number|rarity)$/i.test(field.name) && String(field.value ?? "").trim())) return false;
-  return normalizeJapaneseProductType(product.name) !== "Other";
+  return isCategorySealedCandidate(product, 85, /\b(bulk|deck case|card case)\b/i) && normalizeJapaneseProductType(product.name) !== "Other";
 }
 
 // One Piece (category 68) is sealed-only in the catalog — singles stay untracked (todo
@@ -116,8 +120,5 @@ export function normalizeOnePieceProductType(name = "") {
 // off-vocabulary items are still real sealed products); singles carry Number/Rarity
 // extendedData and accessories match the shared non-product patterns.
 export function isOnePieceSealedProduct(product: SealedSourceProduct) {
-  if (product.categoryId != null && Number(product.categoryId) !== 68) return false;
-  if (NON_PRODUCT.test(product.name ?? "") || /\bbulk\b/i.test(product.name ?? "")) return false;
-  if ((product.extendedData ?? []).some(field => /^(number|rarity)$/i.test(field.name) && String(field.value ?? "").trim())) return false;
-  return true;
+  return isCategorySealedCandidate(product, 68, /\bbulk\b/i);
 }

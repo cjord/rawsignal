@@ -175,43 +175,36 @@ const centsCeil = (value: string) => {
 const placeholders = (values: unknown[]) => values.map(() => "?").join(",");
 const canonicalTypesLower = sealedProductTypes.map(type => type.toLowerCase());
 
-// Tracked singles by TCGplayer product id, chunked to stay inside D1's bind limits
-// (Collectr import matching — collection sizes reach thousands of ids).
-export async function readCardsByIds(db: D1DatabaseLike, productIds: number[]): Promise<Card[]> {
-  const cards: Card[] = [];
-  for (let index = 0; index < productIds.length; index += 80) {
-    const chunk = productIds.slice(index, index + 80);
-    const rows = (await db.prepare(`${productsSqlBase} where p.kind='single' and p.product_id in (${chunk.map(() => "?").join(",")})`)
-      .bind(...chunk).all<ProductRow>()).results ?? [];
-    for (const row of rows) { const card = toCard(row); if (card) cards.push(card); }
+// Chunked lookups by a list of ids or lower-cased names, staying inside D1's bind limits
+// (Collectr import matching sends thousands of values). `column` is an internal SQL
+// fragment chosen by the callers below, never caller input.
+async function readByValues(db: D1DatabaseLike, kind: "single" | "sealed", column: "p.product_id" | "lower(p.name)", values: Array<number | string>): Promise<ProductRow[]> {
+  const rows: ProductRow[] = [];
+  for (let index = 0; index < values.length; index += 80) {
+    const chunk = values.slice(index, index + 80);
+    const result = (await db.prepare(`${productsSqlBase} where p.kind=? and ${column} in (${chunk.map(() => "?").join(",")})`)
+      .bind(kind, ...chunk).all<ProductRow>()).results ?? [];
+    rows.push(...result);
   }
-  return cards;
+  return rows;
+}
+const lowerNames = (names: string[]) => [...new Set(names.map(name => name.toLowerCase()).filter(Boolean))];
+const cardsFrom = (rows: ProductRow[]) => rows.map(toCard).filter((card): card is Card => card !== null);
+const sealedFrom = (rows: ProductRow[]) => rows.map(toSealed).filter((product): product is SealedProduct => product !== null);
+
+// Tracked singles by TCGplayer product id (Collectr import matching).
+export async function readCardsByIds(db: D1DatabaseLike, productIds: number[]): Promise<Card[]> {
+  return cardsFrom(await readByValues(db, "single", "p.product_id", productIds));
 }
 
-// Sealed products by TCGplayer id (Collectr import sealed matching). Mirrors
-// readCardsByIds with kind='sealed'.
+// Sealed products by TCGplayer id (Collectr import sealed matching).
 export async function readSealedByIds(db: D1DatabaseLike, productIds: number[]): Promise<SealedProduct[]> {
-  const sealed: SealedProduct[] = [];
-  for (let index = 0; index < productIds.length; index += 80) {
-    const chunk = productIds.slice(index, index + 80);
-    const rows = (await db.prepare(`${productsSqlBase} where p.kind='sealed' and p.product_id in (${chunk.map(() => "?").join(",")})`)
-      .bind(...chunk).all<ProductRow>()).results ?? [];
-    for (const row of rows) { const product = toSealed(row); if (product) sealed.push(product); }
-  }
-  return sealed;
+  return sealedFrom(await readByValues(db, "sealed", "p.product_id", productIds));
 }
 
 // Case-insensitive name lookup for sealed (CSV imports lacking ids).
 export async function readSealedByNames(db: D1DatabaseLike, names: string[]): Promise<SealedProduct[]> {
-  const unique = [...new Set(names.map(name => name.toLowerCase()).filter(Boolean))];
-  const sealed: SealedProduct[] = [];
-  for (let index = 0; index < unique.length; index += 80) {
-    const chunk = unique.slice(index, index + 80);
-    const rows = (await db.prepare(`${productsSqlBase} where p.kind='sealed' and lower(p.name) in (${chunk.map(() => "?").join(",")})`)
-      .bind(...chunk).all<ProductRow>()).results ?? [];
-    for (const row of rows) { const product = toSealed(row); if (product) sealed.push(product); }
-  }
-  return sealed;
+  return sealedFrom(await readByValues(db, "sealed", "lower(p.name)", lowerNames(names)));
 }
 
 // Audit log of Collectr-import fallback matches (name/normalized/fuzzy) for later manual
@@ -251,24 +244,16 @@ async function catalogByNamePrefix(db: D1DatabaseLike, kind: "single" | "sealed"
   return rows;
 }
 export async function readSinglesByNamePrefix(db: D1DatabaseLike, prefixes: string[]): Promise<Card[]> {
-  return (await catalogByNamePrefix(db, "single", prefixes)).map(toCard).filter((card): card is Card => card !== null);
+  return cardsFrom(await catalogByNamePrefix(db, "single", prefixes));
 }
 export async function readSealedByNamePrefix(db: D1DatabaseLike, prefixes: string[]): Promise<SealedProduct[]> {
-  return (await catalogByNamePrefix(db, "sealed", prefixes)).map(toSealed).filter((product): product is SealedProduct => product !== null);
+  return sealedFrom(await catalogByNamePrefix(db, "sealed", prefixes));
 }
 
-// Case-insensitive name lookup (Collectr CSV imports lacking TCGplayer ids). Chunked
-// like readCardsByIds; callers disambiguate same-name candidates by number/set.
+// Case-insensitive name lookup (Collectr CSV imports lacking TCGplayer ids); callers
+// disambiguate same-name candidates by number/set.
 export async function readCardsByNames(db: D1DatabaseLike, names: string[]): Promise<Card[]> {
-  const unique = [...new Set(names.map(name => name.toLowerCase()).filter(Boolean))];
-  const cards: Card[] = [];
-  for (let index = 0; index < unique.length; index += 80) {
-    const chunk = unique.slice(index, index + 80);
-    const rows = (await db.prepare(`${productsSqlBase} where p.kind='single' and lower(p.name) in (${chunk.map(() => "?").join(",")})`)
-      .bind(...chunk).all<ProductRow>()).results ?? [];
-    for (const row of rows) { const card = toCard(row); if (card) cards.push(card); }
-  }
-  return cards;
+  return cardsFrom(await readByValues(db, "single", "lower(p.name)", lowerNames(names)));
 }
 
 // One set's products of both kinds in domain shapes (sets view detail page).
