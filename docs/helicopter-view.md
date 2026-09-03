@@ -41,7 +41,7 @@ flowchart TB
     scripts["scripts/: validate · details · scalper · graded · io · cloudflare"]
     feeds["public/data/*.json (generated, last-good protected)"]
   end
-  tests["tests/: 50 node suites (~225 tests) + 4 Playwright — behavioral suites, characterization pins, a slim source-contract file"]
+  tests["tests/: 51 node suites (~238 tests) + 4 Playwright — behavioral suites, characterization pins, a slim source-contract file"]
   docs["docs/: maintained + gate-enforced"]
 
   pages --> prims --> dataL
@@ -142,7 +142,7 @@ word.
 
 ## Release gate
 
-`npm run check` = production build + ~225 node tests (50 suites) + lint + `tsc --noEmit` + 4
+`npm run check` = production build + ~238 node tests (51 suites) + lint + `tsc --noEmit` + 4
 Playwright journeys. Playwright starts (or reuses) its own dev server on :4173, so the :3000
 dev server can stay up. A few suites still
 **regex-match raw source files** (`source-contracts` — the slim successor to the old

@@ -1,14 +1,44 @@
 import { publishedIngestion, readRefreshCursor } from "../db/repository.ts";
-import { decideScheduledAction, type ScheduledAction } from "./scheduled-decision.ts";
+import { ingestionRunId } from "../db/run-id.ts";
+import { planScheduledAction, type ScheduledAction, type ScheduledPlan } from "./scheduled-decision.ts";
 import { probeTcgcsvUpdatedAt, runDetailsJob, runGradedJob, runHistoryJob, runLiveJob, runMetricsJob, type StagingJobEnv } from "./staging-jobs.ts";
 
 // The assets binding routes by pathname; the host of this synthetic request is irrelevant.
 const assetsBase = "https://raw-signal.internal/";
 
-export async function runScheduledIngestionTick(env: StagingJobEnv): Promise<{ action: ScheduledAction; detail: string }> {
+// Per-tick slice sizes: each guard-cron tick advances one bounded batch (docs/todo.md G1).
+const LIVE_BATCH_SIZE = 80;
+const DETAILS_BATCH_SIZE = 4;
+const GRADED_CREDIT_BUDGET = 90;
+const HISTORY_BATCH_SIZE = 60;
+
+// Everything the tick touches outside D1, injectable so the dispatch can be tested
+// without a network or a clock. Production uses the defaults.
+export type ScheduledTickDeps = {
+  now: () => Date;
+  probe: () => Promise<string>;
+  jobs: {
+    live: typeof runLiveJob;
+    details: typeof runDetailsJob;
+    graded: typeof runGradedJob;
+    metrics: typeof runMetricsJob;
+    history: typeof runHistoryJob;
+  };
+};
+
+const defaultDeps: ScheduledTickDeps = {
+  now: () => new Date(),
+  probe: () => probeTcgcsvUpdatedAt(),
+  jobs: { live: runLiveJob, details: runDetailsJob, graded: runGradedJob, metrics: runMetricsJob, history: runHistoryJob },
+};
+
+export type ScheduledTickResult = { action: ScheduledAction; detail: string };
+
+export async function runScheduledIngestionTick(env: StagingJobEnv, deps: ScheduledTickDeps = defaultDeps): Promise<ScheduledTickResult> {
   if (!env.DB) return { action: "idle", detail: "No database binding" };
-  const deploySnapshotUpdatedAt = env.CF_VERSION_METADATA?.timestamp ?? new Date().toISOString();
-  const today = new Date().toISOString().slice(0, 10);
+  const now = deps.now();
+  const deploySnapshotUpdatedAt = env.CF_VERSION_METADATA?.timestamp ?? now.toISOString();
+  const today = now.toISOString().slice(0, 10);
   const [live, details, graded, metrics, historyCheckpoint, historyPublished] = await Promise.all([
     publishedIngestion(env.DB, "daily-market"),
     publishedIngestion(env.DB, "product-details"),
@@ -17,14 +47,14 @@ export async function runScheduledIngestionTick(env: StagingJobEnv): Promise<{ a
     readRefreshCursor(env.DB, "history-backfill"),
     publishedIngestion(env.DB, "history-signals"),
   ]);
-  const liveTodayRunId = `live-daily:${today}`;
+  const liveTodayRunId = ingestionRunId("live-daily", today);
   // Probe only while today's live run is incomplete; a failed probe retries next tick.
   let probeUpdatedAt: string | null = null;
   if (live?.runId !== liveTodayRunId) {
-    try { probeUpdatedAt = await probeTcgcsvUpdatedAt(); }
+    try { probeUpdatedAt = await deps.probe(); }
     catch (error) { console.error(JSON.stringify({ event: "tcgcsv_probe_failed", message: error instanceof Error ? error.message : "Unknown failure" })); }
   }
-  const action = decideScheduledAction({
+  const plan = planScheduledAction({
     probeUpdatedAt,
     livePublishedUpdatedAt: live?.sourceUpdatedAt ?? null,
     livePublishedRunId: live?.runId ?? null,
@@ -32,41 +62,41 @@ export async function runScheduledIngestionTick(env: StagingJobEnv): Promise<{ a
     deploySnapshotUpdatedAt,
     detailsPublishedUpdatedAt: details?.sourceUpdatedAt ?? null,
     detailsPublishedRunId: details?.runId ?? null,
-    detailsTodayRunId: `product-details:${today}`,
+    detailsTodayRunId: ingestionRunId("product-details", today),
     gradedKeyConfigured: Boolean(env.POKEMONPRICETRACKER_API_KEY),
     gradedPublishedRunId: graded?.runId ?? null,
-    gradedTodayRunId: `graded-rotation:${today}`,
+    gradedTodayRunId: ingestionRunId("graded-rotation", today),
     metricsPublishedRunId: metrics?.runId ?? null,
-    metricsTodayRunId: `metrics-rollup:${today}`,
+    metricsTodayRunId: ingestionRunId("metrics-rollup", today),
     historyCheckpointRunId: historyCheckpoint?.ingestionRunId ?? null,
     historyPublishedRunId: historyPublished?.runId ?? null,
-    historyTodayRunId: `history-daily:${today}`,
+    historyTodayRunId: ingestionRunId("history-daily", today),
   });
-  if (action === "idle") return { action, detail: "No ingestion work due" };
+  return dispatch(env, plan, deps.jobs);
+}
+
+async function dispatch(env: StagingJobEnv, plan: ScheduledPlan, jobs: ScheduledTickDeps["jobs"]): Promise<ScheduledTickResult> {
+  const { action } = plan;
   const syntheticRequest = new Request(assetsBase);
-  if (action === "live") {
-    const result = await runLiveJob(env, syntheticRequest, 80, probeUpdatedAt!);
-    return { action, detail: `${result.cursor} of ${result.entries} entries${result.done ? " done" : ""}` };
+  const progress = (result: { cursor: number; total: number; done: boolean }) => `${result.cursor}/${result.total}${result.done ? " done" : ""}`;
+  switch (plan.action) {
+    case "idle":
+      return { action, detail: "No ingestion work due" };
+    case "live": {
+      const result = await jobs.live(env, syntheticRequest, LIVE_BATCH_SIZE, plan.sourceUpdatedAt);
+      return { action, detail: `${result.cursor} of ${result.entries} entries${result.done ? " done" : ""}` };
+    }
+    case "details":
+      return { action, detail: progress(await jobs.details(env, syntheticRequest, DETAILS_BATCH_SIZE, plan.sourceUpdatedAt)) };
+    case "graded": {
+      const result = await jobs.graded(env, GRADED_CREDIT_BUDGET);
+      return { action, detail: `${result.updated}/${result.targets} updated, ~${result.spent} credits${result.stopped ? ` (${result.stopped})` : ""}` };
+    }
+    case "metrics": {
+      const result = await jobs.metrics(env, "daily");
+      return { action, detail: `${result.series} series, ${result.seriesRows} rows${result.benchmark?.done ? `, S&P ${result.benchmark.rows}d` : ""}` };
+    }
+    case "history":
+      return { action, detail: progress(await jobs.history(env, syntheticRequest, HISTORY_BATCH_SIZE, plan.sourceUpdatedAt, { all: plan.all })) };
   }
-  if (action === "details") {
-    const result = await runDetailsJob(env, syntheticRequest, 4, deploySnapshotUpdatedAt);
-    return { action, detail: `${result.cursor}/${result.total}${result.done ? " done" : ""}` };
-  }
-  if (action === "graded") {
-    const result = await runGradedJob(env, 90);
-    return { action, detail: `${result.updated}/${result.targets} updated, ~${result.spent} credits${result.stopped ? ` (${result.stopped})` : ""}` };
-  }
-  if (action === "metrics") {
-    const result = await runMetricsJob(env, "daily");
-    return { action, detail: `${result.series} series, ${result.seriesRows} rows${result.benchmark?.done ? `, S&P ${result.benchmark.rows}d` : ""}` };
-  }
-  // Continue any checkpointed run under ITS OWN key and target-list mode — an operator
-  // backfill (`history-backfill:` prefix) rebuilds the full list, the cron's own daily
-  // run (`history-daily:`) the tier-due list — otherwise start today's tiered refresh.
-  const checkpointRunId = historyCheckpoint?.ingestionRunId ?? null;
-  const continuing = checkpointRunId != null && checkpointRunId !== historyPublished?.runId;
-  const tiered = !continuing || checkpointRunId!.startsWith("history-daily:");
-  const historyDate = continuing ? checkpointRunId!.slice(checkpointRunId!.indexOf(":") + 1) : today;
-  const result = await runHistoryJob(env, syntheticRequest, 60, historyDate, { all: !tiered });
-  return { action, detail: `${result.cursor}/${result.total}${result.done ? " done" : ""}` };
 }

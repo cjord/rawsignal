@@ -130,7 +130,7 @@ ESLint `complexity` (threshold 12), `max-depth` (3), `max-lines-per-function` (1
 | 46 / 837 lines | `app/page.tsx` `Home` | Same treatment as `SealedView`. |
 | 45 | `app/PriceChart.tsx` `PriceChart` | Extract scale/tick computation into a pure helper (also memoizable — §9). |
 | 44 | `core/domain/regime.ts` `classifyRegime` | Wave 4: split into `spikeReading`, `nearHighReading`, `trendReading` behind `tests/regime.test.mjs` extensions. |
-| 41 | `worker/scheduled-ingestion.ts` `runScheduledIngestionTick` | Keep — it is a dispatch table over the tested `decideScheduledAction`; the number is branch count, not logic. |
+| 41 | `worker/scheduled-ingestion.ts` `runScheduledIngestionTick` | Wave 8: the history resume-key policy moved into the tested decision module (`planScheduledAction` returns a plan carrying each job's inputs, removing both `!` assertions); clock, probe, and job runners injected; the tick has its own suite. 41 → 25 (the remainder is the `??`/`?.` chain building the decision input from six D1 reads); `dispatch` 11, `planScheduledAction` 5. |
 | 40 | `core/catalog-query.ts` singles filter arrow | Keep; pinned by ~650-combination parity tests. |
 | 38 | `core/catalog-repository.ts` `getDetail` | Candidate later; heavily exercised by detail tests. |
 | 33 | `db/daily-ingestion.ts` `persistDerivedHistory` | Wave 5 touches it for batching; split signal writes into `writeSignals` then. |
@@ -271,7 +271,8 @@ Baseline 45 suites / 202 tests. Modules never referenced by any test (35): the
 rendered contracts), `app/state/*` hooks (10), `core/clients/http-json.ts`,
 `core/market-state.ts`, `core/domain/sets.ts`, `core/domain/types.ts` (types only),
 `core/msrp/verified-msrp.ts` (data), `db/ingestion-batch.ts`, `worker/scheduled-ingestion.ts`
-(its decision function is tested), `app/api/cache.ts`, `app/data/load-detail.ts`,
+(its decision function was tested; wave 8 added `tests/scheduled-ingestion.test.mjs` for the
+tick's reads, probe handling, and dispatch), `app/api/cache.ts`, `app/data/load-detail.ts`,
 `app/data/set-logos.ts`, `app/data/useCatalogPage.ts`, `app/data/useFreshness.ts`.
 
 Wave 2 adds characterization tests for the pure, load-bearing ones:
@@ -306,12 +307,13 @@ guards), `set-logos` lookup tiers, and the wave-3/4 extractions each ship with t
 Maintained in `docs/refactor-plan-2026-09.md` (the plan of record). Everything else in
 this program is intended to be behavior-preserving and is verified by the full gate.
 
-## 13. Outcome (branch `refactor/review-2026-09`, seven commits on top of 21a8c1e)
+## 13. Outcome (branch `refactor/review-2026-09`, eight commits on top of 21a8c1e)
 
 | Measure | Before | After |
 |---|---|---|
 | `tsc --noEmit` errors | 4 (never run by the gate) | 0, and the gate runs it |
-| Node tests | 202 in 45 suites | 225 in 50 suites (+ 528 pinned signal evaluations and 99 regime readings) |
+| Node tests | 202 in 45 suites | 238 in 51 suites (+ 528 pinned signal evaluations and 99 regime readings) |
+| Guard-cron tick (`runScheduledIngestionTick`) | untested shell; history resume policy duplicated outside the tested decision; two non-null assertions | policy in one tested module returning a typed plan; clock/probe/jobs injectable; 13-case dispatch suite |
 | Dead modules / dead functions | `db/index.ts`; 7 unused exports | removed |
 | Layering edges backend→app | 1 | 0 (`app/data/load-detail.ts`→`db/` documented as the RSC-loader exception) |
 | Functions over complexity 12 | 67 | 67 — the extracted helpers replace hotspots one-for-one; the worst cases fell: `evaluateMarketSignal` 86→68, `ProductDetailPage` 73→48, `PriceChart` 45→33, `classifyRegime` 44→under threshold, the four sealed normalizers 22/23/15/15→13/14/under/under, `loadMetricsPayload` 14→under (195 lines→six loaders) |

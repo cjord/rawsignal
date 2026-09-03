@@ -53,6 +53,7 @@ signal-model program P1–P7) and hardens it.
 | 5 | Performance | DB: verify index candidates with `EXPLAIN QUERY PLAN` (catalog_products by `game,set_name`; observations by date), batch per-record writes in daily ingestion via `D1.batch`, consolidate the per-set query fan-out in `db/sets-service.ts`; frontend: memoize derived lists in `Home`/`SealedView`, cheap wins in `PriceChart`, confirm feed responses are cache-tiered and compressed | medium |
 | 6 | Security hardening | Cap upstream page fetches per `/api/collectr` request and check `Content-Length` before parsing CSV bodies; constant-time token compare in `workers/collectr-fetch`; evaluate `npm audit` (transitive `ws` via `@cloudflare/vite-plugin`) | low |
 | 7 | Documentation | Update `docs/helicopter-view.md`, `docs/architecture.md`, `docs/data-ingestion.md` where the walk found drift; finalize the review document; record the function-change log | none |
+| 8 | Guard-cron tick (post-review follow-up) | The wave 2/4 items the program had skipped: move the history resume-key policy from `runScheduledIngestionTick` into `worker/scheduled-decision.ts` as `planScheduledAction` (a typed plan per action, no `!` assertions); one `db/run-id.ts` helper for the `prefix:date` run-id format (tick, decision, backfill); inject clock, probe, and job runners; name the four batch sizes; `tests/scheduled-ingestion.test.mjs` pins the dispatch | low |
 
 Each wave: implement → narrowest tests → `npm run check` → commit on the branch with the
 wave number in the message. Waves 1–2 are prerequisites for 3–5 (type safety and
@@ -74,5 +75,6 @@ listed here is intended to be behavior-preserving.
 | 6 | `/api/collectr` GET reports a truncated direct-API walk as `partial: true` | `partial` was hard-coded `false` for `source: "api"`, so a walk cut short by a failed page claimed completeness | the UI's honest "partial import" banner now also appears for a truncated or capped API walk |
 | 6 | `/api/collectr` POST rejects oversized bodies before parsing | the 8 MB CSV limit was checked after the whole body was parsed | oversized uploads get the 413 sooner; no change for valid uploads |
 | 6 | `workers/collectr-fetch` compares its bearer in constant time | plain `!==` string compare | none observable; the worker is redeployed separately (`workers/collectr-fetch`) |
+| 8 | `planScheduledAction` throws if policy ever chose `live` without a probe timestamp | replaces the `probeUpdatedAt!` assertion, which would have passed `null` into the live job's run id | unreachable with the current policy (the decision only returns `live` on a non-null probe, pinned by tests); if a future policy edit breaks that, the tick fails loudly as `scheduled_tick_failed` instead of writing a malformed run. Everything else in wave 8 is behavior-identical: same reads, same probe rule, same batch sizes, same job arguments |
 
 (The table is appended as waves land; entries are provisional until their wave ships.)

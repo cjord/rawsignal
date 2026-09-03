@@ -3,6 +3,7 @@ import { mapWithConcurrency } from "../core/market-utils.ts";
 import { persistDerivedHistory } from "./daily-ingestion.ts";
 import { clampBatchSize, markIngestionFailed, parseStatsJson, resumeCheckpoint } from "./ingestion-batch.ts";
 import { checkpointIngestion, completeIngestion, startIngestion, upsertHistory, type D1DatabaseLike } from "./repository.ts";
+import { ingestionRunId } from "./run-id.ts";
 
 // Workers allow six simultaneous outbound connections; history fetches are independent, so
 // run them concurrently and keep the D1 writes sequential in target order.
@@ -32,7 +33,7 @@ export async function runHistoryBackfillBatch(db: D1DatabaseLike, targets: Histo
   // Full operator backfills keep the historical "history-backfill" key; the cron's
   // tier-scheduled daily runs use "history-daily" so a resumed checkpoint can be
   // rebuilt with the same target-list mode it started with (todo M4).
-  const now = options.now ?? new Date(), startedAt = now.toISOString(), runId = `${options.runIdPrefix ?? "history-backfill"}:${options.sourceUpdatedAt.slice(0, 10)}`;
+  const now = options.now ?? new Date(), startedAt = now.toISOString(), runId = ingestionRunId(options.runIdPrefix ?? "history-backfill", options.sourceUpdatedAt);
   const resume = await resumeCheckpoint(db, "history-backfill", runId);
   const cursor = Math.max(0, Number(resume.cursor) || 0);
   const priorStats = parseStatsJson<BackfillStats>(resume.statsJson);
