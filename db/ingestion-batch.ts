@@ -10,8 +10,10 @@ export const parseStatsJson = <S>(value: string | null | undefined): Partial<S> 
   try { return value ? JSON.parse(value) as Partial<S> : {}; } catch { return {}; }
 };
 
+// A non-finite request (NaN from a malformed body, Infinity) takes the fallback rather than
+// leaking NaN through Math.min/Math.max into the slice bounds.
 export const clampBatchSize = (requested: number | undefined, fallback: number, max: number, min = 1) =>
-  Math.max(min, Math.min(max, Math.floor(requested ?? fallback)));
+  Math.max(min, Math.min(max, Math.floor(Number.isFinite(requested) ? (requested as number) : fallback)));
 
 // Returns the durable cursor only when it belongs to this run — a checkpoint left by an
 // older run means "start fresh".

@@ -66,6 +66,7 @@ listed here is intended to be behavior-preserving.
 | Wave | Change | Why | Observable effect |
 |------|--------|-----|-------------------|
 | 1 | `npm run check` gains `tsc --noEmit` | the gate never ran the type checker; 4 latent errors accumulated | a type error now fails the gate (CI included) |
+| 2 | `clampBatchSize` treats a non-finite request as "not requested" | `Math.max(1, Math.min(max, NaN))` is `NaN`, so a malformed `batchSize` produced `NaN` slice bounds (an empty batch that still checkpointed) | a NaN/Infinity batch size now uses the runner's default; finite values unchanged |
 | 6 | `/api/collectr` GET caps the API pagination walk | an unauthenticated request could trigger up to 201 upstream fetches (6000/30 pages) | very large showcases import via the browser worker path (`mode=full`) as designed; the page path stays partial-and-honest |
 | 6 | `/api/collectr` POST rejects oversized bodies before parsing | the 8 MB CSV limit was checked after the whole body was parsed | oversized uploads get the 413 sooner; no change for valid uploads |
 
