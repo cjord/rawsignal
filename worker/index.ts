@@ -3,7 +3,7 @@ import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } fr
 import handler from "vinext/server/app-router-entry";
 import { handleLiveFeed } from "./live-feeds.ts";
 import { runScheduledIngestionTick } from "./scheduled-ingestion.ts";
-import { withEdgeCache } from "./edge-cache.ts";
+import { edgeCacheableRequest, withEdgeCache } from "./edge-cache.ts";
 import { handleStagingJob, type StagingJobEnv } from "./staging-jobs.ts";
 
 interface Env {
@@ -62,9 +62,9 @@ const worker = {
       }, allowedWidths);
     }
 
-    // API routes ride the colo cache for the lifetime their own Cache-Control declares
-    // (review §14 F7); pages are cached by vinext's ISR where the route opts in.
-    if (url.pathname.startsWith("/api/")) return withEdgeCache(request, ctx, () => handler.fetch(request, env, ctx));
+    // API routes ride the colo cache for the lifetime their own Cache-Control declares, and
+    // the public D1-heavy pages (sets, card and sealed detail) for ten minutes (review §14 F7).
+    if (edgeCacheableRequest(request)) return withEdgeCache(request, ctx, () => handler.fetch(request, env, ctx));
     return handler.fetch(request, env, ctx);
   },
 

@@ -388,7 +388,7 @@ Fixes, by payoff:
 | F4 | **Done (wave 12).** The six directory reads share one round trip; the page is ISR-cached for 10 minutes | ~10 M | low |
 | F5 | **Done (wave 12)** — migration 0014 `idx_catalog_ingestion_run` | 0.6 M, and it runs on every readiness check | low |
 | F6 | **Done (wave 12).** One `rowid` lookup of the latest metrics row per signal row; golden-diffed across all 30 boards, ~15% faster locally | 1.9 M and ~200 ms per call | low |
-| F7 | **Done (wave 12).** `worker/edge-cache.ts` stores `/api/*` and `/data/*` GETs in the colo cache for their declared `s-maxage` (Cloudflare does not cache Worker responses otherwise); the sets directory, set detail, and card detail pages use vinext ISR (`revalidate = 600`, in-isolate, stale-while-revalidate). The sealed detail reads `?market=` and stays dynamic | multiplies every other saving | low |
+| F7 | **Done (wave 12).** `worker/edge-cache.ts` stores `/api/*` and `/data/*` GETs in the colo cache for their declared `s-maxage` (Cloudflare does not cache Worker responses otherwise); the sets, card detail, and sealed detail pages are cached by the same layer for ten minutes, keyed by URL plus vinext's negotiation headers (its own ISR never wrote an entry in production: renders flagged dynamic, per-isolate store) | multiplies every other saving | low |
 
 Together: ~366 M → under 30 M rows/day, with per-view reads proportional to the set (hundreds of
 rows) rather than the catalog (tens of thousands), which is what lets traffic scale 10× inside

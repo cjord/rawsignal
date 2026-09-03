@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { EDGE_MAX_AGE_SECONDS, edgeCacheableRequest, edgeCacheableResponse, sharedMaxAge, withEdgeCache } from "../worker/edge-cache.ts";
+import { EDGE_MAX_AGE_SECONDS, PAGE_EDGE_MAX_AGE_SECONDS, edgeCacheClass, edgeCacheKey, edgeCacheableRequest, edgeCacheableResponse, edgeStoreSeconds, sharedMaxAge, withEdgeCache } from "../worker/edge-cache.ts";
 
 // The Worker's colo cache for its own API and feed responses. The fake cache records puts
 // and serves matches; the fake context collects waitUntil promises so the test can await them.
@@ -17,10 +17,12 @@ test("shared max-age reads s-maxage and refuses private or uncacheable responses
   assert.equal(sharedMaxAge(null), 0);
 });
 
-test("only GET requests under /api/ and /data/ are candidates; only 200s with a shared lifetime are stored", () => {
+test("GET requests under /api/, /data/, and the public pages are candidates; only 200s with a shared lifetime are stored", () => {
   assert.equal(edgeCacheableRequest(new Request("https://rawsignal.cards/api/signals?side=buy")), true);
   assert.equal(edgeCacheableRequest(new Request("https://rawsignal.cards/data/pokemon-ultra-rares.json")), true);
-  assert.equal(edgeCacheableRequest(new Request("https://rawsignal.cards/sets")), false);
+  assert.equal(edgeCacheableRequest(new Request("https://rawsignal.cards/sets")), true);
+  assert.equal(edgeCacheableRequest(new Request("https://rawsignal.cards/import")), false);
+  assert.equal(edgeCacheableRequest(new Request("https://rawsignal.cards/metrics")), false);
   assert.equal(edgeCacheableRequest(new Request("https://rawsignal.cards/__ops/staging-jobs")), false);
   assert.equal(edgeCacheableRequest(new Request("https://rawsignal.cards/api/collectr", { method: "POST" })), false);
   assert.equal(edgeCacheableResponse(json({ ok: 1 }, "public, s-maxage=300")), true);
@@ -65,6 +67,42 @@ test("responses without a shared lifetime, non-200s, and non-candidate paths byp
   assert.equal(page.headers.get("X-Raw-Signal-Edge"), null);
   await Promise.all(context.pending);
   assert.equal(cache.store.size, 0);
+});
+
+test("pages are keyed by URL plus vinext's negotiation headers, so HTML and RSC payloads stay apart", () => {
+  const html = new Request("https://rawsignal.cards/sets/pokemon/sv-prismatic-evolutions", { headers: { accept: "text/html" } });
+  const rsc = new Request("https://rawsignal.cards/sets/pokemon/sv-prismatic-evolutions", { headers: { accept: "text/x-component", rsc: "1", "next-router-state-tree": "%5B%22%22%5D" } });
+  assert.equal(edgeCacheClass(html), "page");
+  assert.equal(edgeCacheClass(new Request("https://rawsignal.cards/sealed/12?market=scalping")), "page");
+  assert.equal(edgeCacheClass(new Request("https://rawsignal.cards/settings")), null);
+  assert.equal(edgeCacheClass(new Request("https://rawsignal.cards/")), null);
+  const htmlKey = edgeCacheKey(html).url, rscKey = edgeCacheKey(rsc).url;
+  assert.notEqual(htmlKey, rscKey);
+  assert.equal(htmlKey, edgeCacheKey(new Request(html.url, { headers: { accept: "text/html" } })).url, "the same negotiation yields the same key");
+  assert.match(htmlKey, /[?&]__edge=[0-9a-f]+$/);
+  // The sealed detail's ?market= stays in the key: the two markets are different pages.
+  assert.notEqual(edgeCacheKey(new Request("https://rawsignal.cards/sealed/12?market=scalping")).url, edgeCacheKey(new Request("https://rawsignal.cards/sealed/12")).url);
+  // Routes keep their plain URL key.
+  assert.equal(edgeCacheKey(new Request("https://rawsignal.cards/api/signals?side=buy")).url, "https://rawsignal.cards/api/signals?side=buy");
+});
+
+test("page responses are stored for the page lifetime regardless of the no-store vinext stamps on them; only HTML/RSC bodies qualify", async () => {
+  const page = new Response("<html>", { status: 200, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store, must-revalidate" } });
+  assert.equal(edgeStoreSeconds(page, "page"), PAGE_EDGE_MAX_AGE_SECONDS);
+  assert.equal(edgeStoreSeconds(new Response("x", { status: 200, headers: { "Content-Type": "text/x-component" } }), "page"), PAGE_EDGE_MAX_AGE_SECONDS);
+  assert.equal(edgeStoreSeconds(new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } }), "page"), 0);
+  assert.equal(edgeStoreSeconds(new Response("nope", { status: 404, headers: { "Content-Type": "text/html" } }), "page"), 0);
+  const cache = fakeCache(), context = ctx(); let produced = 0;
+  const request = new Request("https://rawsignal.cards/sets", { headers: { accept: "text/html" } });
+  const first = await withEdgeCache(request, context, async () => { produced++; return new Response("<html>sets</html>", { status: 200, headers: { "Content-Type": "text/html", "Cache-Control": "no-store, must-revalidate" } }); }, cache);
+  assert.equal(first.headers.get("X-Raw-Signal-Edge"), "MISS");
+  assert.equal(await first.text(), "<html>sets</html>");
+  await Promise.all(context.pending);
+  assert.equal([...cache.store.values()][0].headers.get("Cache-Control"), `public, s-maxage=${PAGE_EDGE_MAX_AGE_SECONDS}`);
+  const second = await withEdgeCache(request, context, async () => { produced++; return new Response("fresh"); }, cache);
+  assert.equal(second.headers.get("X-Raw-Signal-Edge"), "HIT");
+  assert.equal(await second.text(), "<html>sets</html>");
+  assert.equal(produced, 1);
 });
 
 test("without a Cache API the request is simply produced", async () => {

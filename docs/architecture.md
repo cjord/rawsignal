@@ -35,7 +35,7 @@ Repository implementations are transport-neutral:
 
 Production reads D1 (catalog, sealed, and signals report `source: "database"`); bundled feeds remain the automatic fallback for any market without a completed published run. Repository parity is verified with `npm run cloudflare:parity` during cutovers.
 
-Two caches sit in front of D1 (review §14): `worker/edge-cache.ts` stores `/api/*` and `/data/*` GET responses in the colo's Cache API for the `s-maxage` each route declares (Cloudflare does not cache Worker-generated responses on its own; responses carry `X-Raw-Signal-Edge: HIT|MISS`), and the sets directory, set detail, and card detail pages opt into vinext ISR (`export const revalidate = 600`, in-isolate, regenerated in the background). The D1 catalog repository also keeps whole-game product rows per isolate for 10 minutes, keyed by the published run id. All three are accelerators: a cold isolate or colo behaves exactly as before.
+Two caches sit in front of D1 (review §14): `worker/edge-cache.ts` stores `/api/*` and `/data/*` GET responses in the colo's Cache API for the `s-maxage` each route declares (Cloudflare does not cache Worker-generated responses on its own; responses carry `X-Raw-Signal-Edge: HIT|MISS`), and the sets, card detail, and sealed detail pages are cached by the same layer for ten minutes, keyed by URL plus the request headers vinext varies on (its ISR was tried and never wrote an entry in production). The D1 catalog repository also keeps whole-game product rows per isolate for 10 minutes, keyed by the published run id. All three are accelerators: a cold isolate or colo behaves exactly as before.
 
 ### History and signals
 
