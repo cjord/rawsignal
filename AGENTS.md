@@ -28,9 +28,9 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - `app/filters/`: filter primitives — `CheckboxGrid.tsx` (+`SearchableCheckboxGrid`), `RangeFilter.tsx`, `FilterButton.tsx`, `FilterActions.tsx`, `selection.ts`, `useDismissibleDetails.ts`.
 - `app/HistoryPanel.tsx`, `app/PriceChart.tsx`: shared historical-price presentation and interactive charts.
 - `app/CardFilters.tsx`, `app/SealedFilters.tsx`, `app/MultiSelectField.tsx`: filter and multi-select controls.
-- `app/SignalControls.tsx`, `app/signal-utils.ts`: Hot Buy/Hot Sell controls and scoring.
+- `app/SignalControls.tsx`, `core/signal-utils.ts`: Hot Buy/Hot Sell controls and the single scoring implementation.
 - `app/SaleScenario.tsx`: the sale-scenario what-if strip (keep-after-fees, shipping, tax, profitable-only) shared by Scalper mode and the sealed detail page.
-- `app/market-utils.ts`, `app/history-utils.ts`: shared search, history, range, concurrency, and popover utilities.
+- `core/market-utils.ts`: shared search, range, and concurrency utilities.
 - `app/hooks/useDisclosurePopover.ts`: the shared hover/touch/keyboard disclosure behavior for row history popovers.
 - `app/cards/[productId]/`, `app/sealed/[productId]/`, `app/ProductDetailPage.tsx`, `app/detail-route.ts`: product detail pages and their server-route metadata/validation helpers.
 - `app/detail-tables.tsx`: the sealed detail page's Chase cards and same-set sealed tables, reusing the leaderboard row shell in Medium/Text views. Chase cards are set cards priced above the set's cheapest plain booster-pack market price (top cards by value when no pack price exists), capped at twelve.
@@ -39,7 +39,7 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - `core/domain/`: shared market types, runtime feed contracts, and display formatters.
 - `core/catalog-query.ts`, `core/catalog-repository.ts`: shared Singles/Sealed query semantics and repository contract.
 - `app/data/feed-catalog-repository.ts`, `app/data/catalog-service.ts`: bundled-feed adapter and transport-neutral catalog service.
-- `app/data/tcgplayer-history-client.ts`: shared annual/quarterly TCGplayer history loading used by the public API and staging backfill.
+- `core/clients/tcgplayer-history.ts`: shared annual/quarterly TCGplayer history loading and bucket merging, used by `/api/history` and the history backfill.
 - `app/data/usePersistedSignals.ts`, `app/api/signals/route.ts`: persisted Hot Buy/Hot Sell readiness gate and compact signal records.
 - `app/data/signal-coverage.ts`: proportional, price-stratified transitional signal sampling.
 - `app/state/`: the authoritative Singles/Sealed URL-state parser, serializer, and browser synchronization hook.
@@ -52,7 +52,7 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - `db/daily-ingestion.ts`, `db/history-backfill.ts`: idempotent daily snapshots, derived metrics/signals, and resumable history backfill.
 - `product_details` (migration `0002`) stores detail-page enrichments read by `db/catalog-repository.ts`, ingested by the checkpointed chunk runner in `db/detail-ingestion.ts` (staging job `details`; guard-cron action `details` once each snapshot's catalog run completes, respecting the foreign key to `catalog_products`).
 - `worker/staging-jobs.ts`: staging-only, bearer-protected, checkpointed catalog/history execution adapter. It must remain hidden outside staging and must not gain a production route.
-- `drizzle/`: generated, committed D1 migrations and schema snapshots.
+- `drizzle/`: hand-written, contiguously numbered D1 migrations applied by wrangler in filename order, plus the early drizzle-kit snapshots kept as history.
 - `docs/adr/`: accepted architecture decisions, including the Sites-to-Cloudflare path.
 - `docs/architecture.md`, `docs/data-sources.md`: maintained system boundaries and source semantics.
 - `docs/roadmap.md`: agreed-but-deferred work (D1 backfill continuation, daily feed scheduling decisions, graded-sync rotation, fair-value peer anchor). Keep it current as items land.
@@ -100,6 +100,7 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 
 - Treat TCGCSV product and pricing records as the current catalog/price source. Standard price fields are market, listing low, median, and listing high; they are not transaction counts.
 - Treat `package-lock.json` as the only dependency lockfile and `npm run check` as the complete release gate.
+- Schema changes edit `db/schema.ts` for the types and add the next numbered SQL file under `drizzle/` by hand. `drizzle-kit` is retired and must not be reintroduced; deploy first, then apply the migration to each D1.
 - Sales volume is presented only from the TCGplayer history endpoint's completed-sale buckets (`quantitySold`, `transactionCount`, realized low/high sale prices with and without shipping, per variant/condition SKU). Label the window and bucket size wherever volume appears, keep it scoped to the selected printing/condition, and render missing sales data as unavailable.
 - Never derive volume from price observations, listing counts, or history-point counts, and do not label anything as TCGplayer sales rank; rank remains unavailable.
 - Pull rates are curated community-measured estimates in `public/data/pull-rates.json` (packs per hit of any card of the rarity; per-card odds multiply by the set's rarity count). Every derived value must be labeled an estimate, uncurated rarities render as unavailable, and rates are never inferred from prices or card counts alone.
@@ -155,7 +156,7 @@ npm test
 npm run check
 ```
 
-It also runs lint and the Chromium browser suite (install its browser once with `npm run test:browser:install`). Fix new warnings introduced by the change; do not broaden scope to unrelated legacy warnings without approval.
+It also runs lint, the type check (`npm run typecheck`), and the Chromium browser suite (install its browser once with `npm run test:browser:install`). Lint warns at cyclomatic complexity 25 without failing; do not add functions above that line without a reason in the change description. Fix new warnings introduced by the change; do not broaden scope to unrelated legacy warnings without approval.
 
 Note that `tests/source-contracts.test.mjs` and `tests/scalper-mode.test.mjs` include characterization assertions that regex-match raw component source. When reformatting or restructuring a matched file, update those regexes deliberately (keep them whitespace-tolerant) rather than weakening or deleting the assertion.
 
