@@ -1,4 +1,4 @@
-import type { Card, CatalogDetailEnrichment, DetailMetadataField, DetailPriceVariant, MarketSignal, PullRateConfig, SealedProduct } from "../core/domain/types.ts";
+import type { Card, RowMetrics, CatalogDetailEnrichment, DetailMetadataField, DetailPriceVariant, MarketSignal, PullRateConfig, SealedProduct } from "../core/domain/types.ts";
 import { createMemoryCatalogRepository, type CatalogRepository } from "../core/catalog-repository.ts";
 import { canonicalSealedType, sealedProductTypes, type CatalogDerived, type CatalogPage, type SealedCatalogQuery, type SinglesCatalogQuery } from "../core/catalog-query.ts";
 import { readGradedCard } from "./graded-ingestion.ts";
@@ -138,16 +138,34 @@ async function loadDerived(db: D1DatabaseLike, kind: "single" | "sealed", game: 
 // Live feed readers: the leaderboard UI loads /data/<section>.json and /data/sealed-<market>.json
 // as plain arrays; these produce the same shapes from current D1 rows (market desc, name asc —
 // the sync scripts' ordering) so the Worker can serve fresh data on the bundled feeds' URLs.
+// The live feeds carry each row's latest market metrics (review §14 follow-up) so the
+// leaderboard renders its 7-/30-day columns, range, and regime chip without a per-row
+// history request. One indexed lookup per product; the variant match mirrors loadDerived.
+type FeedRow = ProductRow & { change7Bps: number | null; change30Bps: number | null; low30Cents: number | null; high30Cents: number | null; regime: string | null; metricsUpdatedAt: string | null };
+const feedSqlBase = `${productsSqlBase}
+  left join market_metrics mm on mm.rowid=(select rowid from market_metrics where product_id=p.product_id and (variant=p.printing or p.kind='sealed') order by updated_at desc limit 1)`;
+const feedColumns = ", mm.change_7_bps as change7Bps, mm.change_30_bps as change30Bps, mm.low_30_cents as low30Cents, mm.high_30_cents as high30Cents, mm.regime, mm.updated_at as metricsUpdatedAt";
+const withFeedSelect = (sql: string) => sql.replace("sd.msrp_cents as msrpCents,sd.msrp_source as msrpSource", `sd.msrp_cents as msrpCents,sd.msrp_source as msrpSource${feedColumns}`);
+function rowMetrics(row: FeedRow): RowMetrics | undefined {
+  if (row.metricsUpdatedAt == null) return undefined;
+  return { change7: percent(row.change7Bps), change30: percent(row.change30Bps), low30: dollars(row.low30Cents), high30: dollars(row.high30Cents), regime: row.regime ?? null };
+}
+const withMetrics = <T extends Card | SealedProduct>(row: FeedRow, item: T | null): T | null => {
+  if (!item) return null;
+  const metrics = rowMetrics(row);
+  return metrics ? { ...item, metrics } : item;
+};
+
 export async function readSectionFeed(db: D1DatabaseLike, sections: string[]): Promise<Card[]> {
-  const rows = (await db.prepare(`${productsSqlBase} where p.kind='single' and p.section in (${sections.map(() => "?").join(",")}) and cp.market_cents is not null
-    order by cp.market_cents desc, p.name asc`).bind(...sections).all<ProductRow>()).results ?? [];
-  return rows.map(toCard).filter((card): card is Card => card !== null);
+  const rows = (await db.prepare(withFeedSelect(`${feedSqlBase} where p.kind='single' and p.section in (${sections.map(() => "?").join(",")}) and cp.market_cents is not null
+    order by cp.market_cents desc, p.name asc`)).bind(...sections).all<FeedRow>()).results ?? [];
+  return rows.map(row => withMetrics(row, toCard(row))).filter((card): card is Card => card !== null);
 }
 
 export async function readSealedFeed(db: D1DatabaseLike, game: string): Promise<SealedProduct[]> {
-  const rows = (await db.prepare(`${productsSqlBase} where p.kind='sealed' and p.game=?
-    order by (case when cp.market_cents is null then -1 else cp.market_cents end) desc, p.name asc`).bind(game).all<ProductRow>()).results ?? [];
-  return rows.map(toSealed).filter((product): product is SealedProduct => product !== null);
+  const rows = (await db.prepare(withFeedSelect(`${feedSqlBase} where p.kind='sealed' and p.game=?
+    order by (case when cp.market_cents is null then -1 else cp.market_cents end) desc, p.name asc`)).bind(game).all<FeedRow>()).results ?? [];
+  return rows.map(row => withMetrics(row, toSealed(row))).filter((product): product is SealedProduct => product !== null);
 }
 
 // Decision D5: SQL narrows the candidate set, the shared engine stays authoritative.

@@ -51,9 +51,14 @@ test("section and sealed feeds reproduce the bundled feed shapes from D1 rows",a
   await upsertCard(db,card(2,"illustration-rares","Illustration Rare",40),"2026-08-28T00:00:00Z","live-daily:2026-08-28");
   await upsertCard(db,card(3,"special-illustration-rares","Special Illustration Rare",25),"2026-08-28T00:00:00Z","live-daily:2026-08-28");
   await upsertSealedProduct(db,sealed,"2026-08-28T00:00:00Z","live-daily:2026-08-28");
+  // Product 2 has a metrics row for its printing; product 1 has none — the feed carries the
+  // block only where the daily pass wrote one (review §14 follow-up).
+  await db.prepare("insert into market_metrics (product_id,variant,condition,as_of_date,coverage,change_7_bps,change_30_bps,low_30_cents,high_30_cents,regime,updated_at) values (2,'Holofoil','Near Mint','2026-08-28','exact',150,-320,3500,4400,'steady','2026-08-28T05:00:00Z')").run();
   const section=await readSectionFeed(db,["illustration-rares"]);
   assert.deepEqual(section.map(row=>row.productId),[2,1]);
   assert.equal(parseCards(section).length,2);
+  assert.deepEqual(section[0].metrics,{change7:1.5,change30:-3.2,low30:35,high30:44,regime:"steady"});
+  assert.equal(section[1].metrics,undefined);
   const merged=await readSectionFeed(db,["illustration-rares","special-illustration-rares"]);
   assert.deepEqual(merged.map(row=>row.productId),[2,3,1]);
   const sealedFeed=await readSealedFeed(db,"pokemon");

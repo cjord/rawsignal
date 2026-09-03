@@ -1,7 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {readFileSync} from "node:fs";
-import {buildCatalogDerived,nextSortDirection,selectionChips,signalAwareSorts,signalResolver} from "../app/leaderboard/mode-adapter.ts";
+import {buildCatalogDerived,historyFromMetrics,nextSortDirection,selectionChips,signalAwareSorts,signalResolver} from "../app/leaderboard/mode-adapter.ts";
+
+test("feed metrics stand in for a row's history until one loads; a loaded history still wins",()=>{
+ const metrics={change7:1.5,change30:-3.2,low30:35,high30:44,regime:"steady"};
+ const items=[{productId:1,metrics},{productId:2,metrics},{productId:3}];
+ const history={2:{points:[],change7:9,change30:9,low30:1,high30:2}};
+ const derived=buildCatalogDerived(items,history,{ready:false,derived:{}},()=>null);
+ assert.deepEqual(derived[1],{change7:1.5,change30:-3.2,low30:35,high30:44,regime:"steady",signal:null});
+ assert.equal(derived[2].change7,9,"a loaded history is preferred over the feed metrics");
+ assert.deepEqual(derived[3],{change7:null,change30:null,low30:null,high30:null,regime:null,signal:null});
+ // Persisted coverage ignores both, as before.
+ assert.equal(buildCatalogDerived(items,history,{ready:true,derived:{}},()=>null)[1].change7,null);
+ assert.deepEqual(historyFromMetrics(items[0]),{points:[],coverage:"none",change7:1.5,change30:-3.2,change90:null,low30:35,high30:44,historyLow:null,historyHigh:null});
+ assert.equal(historyFromMetrics(items[2]),undefined);
+});
 
 test("shared mode adapter derives history and honors persisted coverage",()=>{
  const items=[{productId:1},{productId:2}],history={1:{change7:1,change30:2,low30:3,high30:4}};

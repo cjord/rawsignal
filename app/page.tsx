@@ -75,6 +75,7 @@ import HistoryPopover from "./leaderboard/HistoryPopover";
 import FullMarketCard from "./leaderboard/FullMarketCard";
 import {
   buildCatalogDerived,
+  historyFromMetrics,
   nextSortDirection,
   selectionChips,
   signalAwareSorts,
@@ -373,6 +374,7 @@ export default function Home() {
     history,
     status: historyStatus,
     request: requestHistory,
+    ensure: ensureHistory,
   } = usePriceHistoryBatch();
   const persistedSignals = usePersistedSignals({
     kind: "single",
@@ -515,11 +517,23 @@ export default function Home() {
         : `${fallbackCandidates.length.toLocaleString()}/${eligible.length.toLocaleString()} stratified candidates evaluated`;
   const broadHistory =
     Object.values(movement).some(Boolean) || selectedRegimes.length > 0 || signalView !== "leaderboard";
-  const historyCards = persistedSignals.ready
-    ? visible
-    : broadHistory
+  // With feed metrics (D1-backed feeds), a history request is only needed where points are
+  // rendered or evaluated: the Full view's inline charts, the stratified candidates while
+  // persisted signals are not ready, and the odd row whose feed carries no metrics yet (a
+  // product without a market_metrics row). Everything else loads on hover (MarketRow
+  // onReveal). A feed with no metrics at all (bundled fallback) keeps the old rule.
+  const feedHasMetrics = cards.some((card) => card.metrics);
+  const historyCards = feedHasMetrics
+    ? signalView !== "leaderboard" && !persistedSignals.ready
       ? fallbackCandidates
-      : visible;
+      : view === "full"
+        ? visible
+        : visible.filter((card) => !card.metrics)
+    : persistedSignals.ready
+      ? visible
+      : broadHistory
+        ? fallbackCandidates
+        : visible;
   usePriceHistoryPrefetch(
     historyCards.map((card) => ({
       productId: card.productId,
@@ -941,7 +955,9 @@ export default function Home() {
           emptyMessage="No cards match the current selection."
           onRetry={reloadCatalog}
           rows={visible.map((c, i) => {
-            const h = history[c.productId],
+            // Columns and popover metrics come from the feed's metrics until the row's
+            // history loads (Full view prefetch, or the popover's first reveal).
+            const h = history[c.productId] ?? historyFromMetrics(c),
               rank = (page - 1) * perPage + i + 1,
               signal = signalFor(c),
               columnSignal = signal && (view === "medium" || view === "text");
@@ -963,6 +979,7 @@ export default function Home() {
                 key={c.productId}
                 href={`/cards/${c.productId}`}
                 label={`View ${c.name} details`}
+                onReveal={() => void ensureHistory([{ productId: c.productId, printing: c.printing }])}
                 popover={
                   <HoverCard
                     card={c}

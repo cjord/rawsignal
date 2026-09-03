@@ -12,6 +12,15 @@ const nullableFinite = (value: unknown): value is number | null =>
 const optionalString = (value: unknown): value is string | undefined =>
   value === undefined || string(value);
 
+// Feed rows may carry `metrics` (RowMetrics); when present every field must be a nullable
+// number except `regime`, a nullable string. Bundled feeds omit the block entirely.
+function validRowMetrics(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (!record(value)) return false;
+  for (const key of ["change7", "change30", "low30", "high30"] as const) if (!nullableFinite(value[key])) return false;
+  return value.regime === null || string(value.regime);
+}
+
 function parsePricePoint(value: unknown): PricePoint {
   if (!record(value) || !string(value.date) || !finite(value.price)) {
     throw new TypeError("Invalid price point");
@@ -60,6 +69,7 @@ export function parseCard(value: unknown): Card {
   for (const key of ["lowPrice", "midPrice", "highPrice", "priceChange"] as const) {
     if (!nullableFinite(value[key])) throw new TypeError(`Invalid card price: ${key}`);
   }
+  if (!validRowMetrics(value.metrics)) throw new TypeError("Invalid card metrics");
   return value as Card;
 }
 
@@ -78,6 +88,7 @@ export function parseSealedProduct(value: unknown): SealedProduct {
   for (const key of ["msrp", "marketPrice", "midPrice", "profit", "profitPct"] as const) {
     if (!nullableFinite(value[key])) throw new TypeError(`Invalid sealed price: ${key}`);
   }
+  if (!validRowMetrics(value.metrics)) throw new TypeError("Invalid sealed metrics");
   return value as SealedProduct;
 }
 

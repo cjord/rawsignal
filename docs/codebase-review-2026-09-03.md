@@ -394,6 +394,14 @@ Together: ~366 M → under 30 M rows/day, with per-view reads proportional to th
 rows) rather than the catalog (tens of thousands), which is what lets traffic scale 10× inside
 the included allotment.
 
+**Wave 13 (leaderboard fan-out).** Measured on the dev server: switching Large/Medium/Text/Full
+issued 0 requests, but every sort, page, or market change issued one `/api/history` per visible
+row (20). The D1 feeds now carry each row's `metrics` and the boards render from them; history
+loads on popover reveal, for the Full view's inline charts (one `/api/history/batch` per page),
+or for client-side signal evaluation before persisted coverage. Feed rows read one extra
+indexed `market_metrics` row each (~2k per section); the per-row calls they replace read the
+product's whole observation series.
+
 **Found alongside (todo §R1):** the daily metrics rollup and the tiered history refresh have
 never run in production — the cron policy keys "today's live run" by the TCGCSV publish date,
 but the run completes after midnight UTC, so the gate never opens. `signal_history`,

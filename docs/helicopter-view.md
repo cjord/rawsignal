@@ -41,7 +41,7 @@ flowchart TB
     scripts["scripts/: validate · details · scalper · graded · io · cloudflare"]
     feeds["public/data/*.json (generated, last-good protected)"]
   end
-  tests["tests/: 57 node suites (~261 tests) + 4 Playwright — behavioral suites, characterization pins, a slim source-contract file"]
+  tests["tests/: 60 node suites (~270 tests) + 4 Playwright — behavioral suites, characterization pins, a slim source-contract file"]
   docs["docs/: maintained + gate-enforced"]
 
   pages --> prims --> dataL
@@ -63,7 +63,7 @@ flowchart TB
 | `/metrics` | `app/metrics/page.tsx` → `MetricsView` | Movers, indexes, momentum, category/set leaderboards |
 | `/buylist` | `app/buylist/page.tsx` | Favorites-driven list + fullscreen mode |
 | `/cards/[id]`, `/sealed/[id]` | `ProductDetailPage` via `detail-route` + `data/load-detail` | Shared detail surface for both product kinds |
-| `/api/*` | `app/api/**/route.ts` | catalog, catalog/detail, history, metrics, set-ev, signals — read D1 first, bundled feeds as fallback |
+| `/api/*` | `app/api/**/route.ts` | catalog, catalog/detail, history, history/batch (≤40 stored series, read-only), metrics, set-ev, signals — read D1 first, bundled feeds as fallback |
 
 ## Layering
 
@@ -142,7 +142,7 @@ word.
 
 ## Release gate
 
-`npm run check` = production build + ~261 node tests (57 suites) + lint + `tsc --noEmit` + 4
+`npm run check` = production build + ~270 node tests (60 suites) + lint + `tsc --noEmit` + 4
 Playwright journeys. Playwright starts its own server on :4173, but vinext refuses to start a
 second dev server for the same directory — **stop the :3000 dev server before the gate** or
 `test:browser` fails with "Another vinext dev server is already running". A few suites still

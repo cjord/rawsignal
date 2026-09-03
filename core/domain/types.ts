@@ -58,6 +58,17 @@ export type PriceHistory = {
   historyHigh: number | null;
 };
 
+// Per-row market metrics the D1-backed feeds carry (review §14 follow-up): the same
+// 7-/30-day changes (percent), 30-day range (dollars), and regime label the leaderboard
+// used to derive from a per-row history request. Absent on the bundled fallback feeds.
+export type RowMetrics = {
+  change7: number | null;
+  change30: number | null;
+  low30: number | null;
+  high30: number | null;
+  regime: string | null;
+};
+
 export type Card = {
   game: SinglesGame;
   section: string;
@@ -75,6 +86,7 @@ export type Card = {
   highPrice: number | null;
   printing: string;
   priceChange: number | null;
+  metrics?: RowMetrics;
 };
 
 export type SealedProduct = {
@@ -91,6 +103,7 @@ export type SealedProduct = {
   profit: number | null;
   profitPct: number | null;
   msrpSource: string | null;
+  metrics?: RowMetrics;
 };
 
 export type DetailMetadataField = {

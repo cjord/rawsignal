@@ -4,10 +4,13 @@ import useDisclosurePopover from "../hooks/useDisclosurePopover";
 import {useHoverPreviews} from "../state/hover-previews";
 import {warmDetailPage} from "./detail-prefetch";
 
-export default function MarketRow({className,children,popover,label,href,popupWidth=430}:{className:string;children:ReactNode;popover:ReactNode;label:string;href:string;popupWidth?:number}){
+export default function MarketRow({className,children,popover,label,href,popupWidth=430,onReveal}:{className:string;children:ReactNode;popover:ReactNode;label:string;href:string;popupWidth?:number;onReveal?:()=>void}){
  const hoverPreviews=useHoverPreviews();
  const rootRef=useRef<HTMLDetailsElement>(null),panelRef=useRef<HTMLSpanElement>(null),disclosure=useDisclosurePopover({rootRef,panelRef,popupWidth});
  useEffect(()=>{if(hoverPreviews&&disclosure.open)warmDetailPage(href)},[hoverPreviews,disclosure.open,href]);
+ // The chart inside the popover loads its history on first reveal (review §14 follow-up):
+ // rows render their columns from feed metrics, so nothing is fetched until a row opens.
+ useEffect(()=>{if(disclosure.open)onReveal?.()},[disclosure.open,onReveal]);
  // Touch tap model (todo N1): tapping the row only TOGGLES the chart popup — a second
  // tap closes it instead of navigating (accidental navigations were the old behavior).
  // Navigation on touch happens through the explicit "View details" button rendered in

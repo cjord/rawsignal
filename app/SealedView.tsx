@@ -57,6 +57,7 @@ import HistoryPopover from "./leaderboard/HistoryPopover";
 import FullMarketCard from "./leaderboard/FullMarketCard";
 import {
   buildCatalogDerived,
+  historyFromMetrics,
   nextSortDirection,
   selectionChips,
   signalAwareSorts,
@@ -252,6 +253,7 @@ export default function SealedView({
     history,
     status: historyStatus,
     request: requestHistory,
+    ensure: ensureHistory,
   } = usePriceHistoryBatch();
   const freshIso = useFreshness(index.sourceUpdatedAt);
   const { scoped: scopedProducts } = useFavoriteScope("sealed", products, favoritesOnly);
@@ -367,10 +369,22 @@ export default function SealedView({
       ),
     [products],
   );
+  // With feed metrics (D1-backed feeds), history is requested only where points are rendered
+  // or evaluated — the Full view's inline panels, the stratified candidates while persisted
+  // signals are not ready, and the odd row whose feed carries no metrics yet; the popover
+  // loads its chart on first reveal. A feed with no metrics at all (bundled fallback) keeps
+  // the old rule.
+  const feedHasMetrics = products.some((product) => product.metrics);
   const historyProducts = (
-    signalView === "leaderboard" || persistedSignals.ready
-      ? visible
-      : fallbackProducts
+    feedHasMetrics
+      ? signalView !== "leaderboard" && !persistedSignals.ready
+        ? fallbackProducts
+        : view === "full"
+          ? visible
+          : visible.filter((product) => !product.metrics)
+      : signalView === "leaderboard" || persistedSignals.ready
+        ? visible
+        : fallbackProducts
   ).filter(
     (product) => product.marketPrice != null || product.midPrice != null,
   );
@@ -746,7 +760,8 @@ export default function SealedView({
       onRetry={reloadCatalog}
       rows={visible.map((product) => {
         const result = calculate(product),
-          h = history[product.productId],
+          // Cells and popover metrics come from the feed's metrics until the row's history loads.
+          h = history[product.productId] ?? historyFromMetrics(product),
           priced = result.value != null,
           comparable = result.profit != null,
           signal = signalFor(product),
@@ -783,6 +798,7 @@ export default function SealedView({
             key={product.productId}
             href={`/sealed/${product.productId}${isScalpingMarket?"?market=scalping":""}`}
             label={`View ${product.name} details`}
+            onReveal={() => void ensureHistory([{ productId: product.productId, printing: "Normal", sealed: true }])}
             popupWidth={650}
             popover={
               <HistoryPopover
