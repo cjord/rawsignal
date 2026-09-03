@@ -43,6 +43,10 @@ export const catalogProducts = sqliteTable("catalog_products", {
   index("idx_catalog_kind_game_section").on(table.kind, table.game, table.section),
   index("idx_catalog_kind_game_set").on(table.kind, table.game, table.setName),
   index("idx_catalog_kind_game_type").on(table.kind, table.game, table.productType),
+  // Set pages and the sets directory filter by game+set without a kind (both kinds at
+  // once); the kind-led indexes cannot serve that and the planner full-scanned (review
+  // 2026-09-03: the set-detail observation aggregation scanned all 13.5M observations).
+  index("idx_catalog_game_set").on(table.game, table.setName),
 ]);
 
 export const currentPrices = sqliteTable("current_prices", {

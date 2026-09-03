@@ -1,5 +1,6 @@
 "use client";
-import {useId,useState} from "react";
+import {useId,useMemo,useState} from "react";
+import {chartGeometry,type ChartOverlay,type ChartVolume} from "./chart-geometry";
 import {formatPercent,formatUsd,formatUtcDate} from "../core/domain/formatters";
 import type {PricePoint} from "../core/domain/types";
 
@@ -7,23 +8,14 @@ const rangeLabel=(days:7|30|90|365)=>days===365?"1Y":`${days}D`;
 // Visible toolbar text follows the site's Title Case label convention; aria strings stay natural language.
 const titleCase=(text:string)=>text.replace(/(^|\s)[a-z]/g,match=>match.toUpperCase());
 
-export default function PriceChart({points,volumes,overlays,mainLabel,formatValue=formatUsd,large=false,label="market"}:{points:PricePoint[];volumes?:{date:string;quantity:number}[];overlays?:{label:string;points:PricePoint[];className?:string}[];mainLabel?:string;formatValue?:(value:number)=>string;large?:boolean;label?:string}){
+export default function PriceChart({points,volumes,overlays,mainLabel,formatValue=formatUsd,large=false,label="market"}:{points:PricePoint[];volumes?:ChartVolume[];overlays?:ChartOverlay[];mainLabel?:string;formatValue?:(value:number)=>string;large?:boolean;label?:string}){
  const gradientId=useId().replace(/:/g,""),[hovered,setHovered]=useState<number|null>(null),[range,setRange]=useState<7|30|90|365>(30);
- if(points.length<2)return <span className="no-chart">History unavailable</span>;
- const cutoff=new Date(`${points.at(-1)!.date}T00:00:00Z`);cutoff.setUTCDate(cutoff.getUTCDate()-range);
- const shown=points.filter(point=>new Date(`${point.date}T00:00:00Z`)>=cutoff),chartPoints=shown.length>1?shown:points;
- const values=chartPoints.map(point=>point.price),times=chartPoints.map(point=>Date.parse(`${point.date}T00:00:00Z`)),timeSpan=times.at(-1)!-times[0]||1;
- // Optional comparison series (base-100 overlays, the S&P benchmark) share the scale and
- // time axis; each keeps its label so the hover tooltip can read every line at once.
- const overlaysShown=(overlays??[]).map(series=>({label:series.label,className:series.className??"chart-overlay",points:series.points.map(point=>({price:point.price,time:Date.parse(`${point.date}T00:00:00Z`)})).filter(point=>point.time>=times[0]&&point.time<=times.at(-1)!)})).filter(series=>series.points.length>1);
- const overlayPrices=overlaysShown.flatMap(series=>series.points.map(point=>point.price));
- const mainMin=Math.min(...values),mainMax=Math.max(...values);
- const min=Math.min(mainMin,...overlayPrices),max=Math.max(mainMax,...overlayPrices),span=max-min||1;
- const xy=chartPoints.map((point,index)=>({x:((times[index]-times[0])/timeSpan)*240,y:70-((point.price-min)/span)*62})),active=hovered==null?null:{...chartPoints[hovered],...xy[hovered]};
- const first=values[0],last=values.at(-1)!,delta=first?((last-first)/first)*100:null,deltaTone=delta==null||delta===0?"":delta>0?"up":"down";
- const midDate=chartPoints[Math.floor(chartPoints.length/2)].date,line=xy.map(point=>`${point.x},${point.y}`).join(" ");
- const shownVolumes=(volumes??[]).map(bucket=>({...bucket,time:Date.parse(`${bucket.date}T00:00:00Z`)})).filter(bucket=>bucket.time>=times[0]&&bucket.time<=times.at(-1)!);
- const maxQuantity=Math.max(0,...shownVolumes.map(bucket=>bucket.quantity)),volumeByDate=new Map(shownVolumes.map(bucket=>[bucket.date,bucket.quantity])),barWidth=shownVolumes.length?Math.max(1.4,Math.min(7,240/(shownVolumes.length*1.7))):0;
+ // Geometry is memoized (app/chart-geometry.ts): hover re-renders on every pointer move
+ // and used to recompute the whole chart, including the O(n²) trailing mean.
+ const geometry=useMemo(()=>points.length<2?null:chartGeometry(points,range,overlays,volumes,large),[points,range,overlays,volumes,large]);
+ if(!geometry)return <span className="no-chart">History unavailable</span>;
+ const {chartPoints,times,timeSpan,overlays:overlaysShown,min,max,mainMin,mainMax,xy,delta,deltaTone,midDate,line,shownVolumes,maxQuantity,volumeByDate,barWidth,minIndex,maxIndex,maLine}=geometry;
+ const active=hovered==null?null:{...chartPoints[hovered],...xy[hovered]};
  const activeQuantity=active?volumeByDate.get(active.date):undefined;
  // Tooltip rows for multi-line charts: every overlay's nearest sample at the cursor time.
  const activeRows=active&&overlaysShown.length?[{label:mainLabel??label,className:"tip-main",value:active.price},...overlaysShown.map(series=>{
@@ -36,15 +28,6 @@ export default function PriceChart({points,volumes,overlays,mainLabel,formatValu
  // ellipses; markers and the cursor tooltip render as HTML positioned by percentage instead.
  const pctX=(x:number)=>`${((x/240)*100).toFixed(2)}%`,pctY=(y:number)=>`${((y/76)*100).toFixed(2)}%`;
  const tipEdge=active==null?"center":active.x<45?"left":active.x>195?"right":"center";
- // Extreme markers belong to the main series; the scale may be stretched by the overlay.
- const minIndex=values.indexOf(mainMin),maxIndex=values.indexOf(mainMax);
- // Detail-page overlay only: trailing 30-day mean computed over the full series so short ranges stay anchored.
- const maLine=large&&chartPoints.length>7?chartPoints.map((point,index)=>{
-  const end=Date.parse(`${point.date}T00:00:00Z`),start=end-30*86400000;
-  const windowPrices=points.filter(item=>{const time=Date.parse(`${item.date}T00:00:00Z`);return time>start&&time<=end}).map(item=>item.price);
-  const value=windowPrices.length?windowPrices.reduce((sum,item)=>sum+item,0)/windowPrices.length:point.price;
-  return `${xy[index].x},${Math.max(4,Math.min(74,70-((value-min)/span)*62)).toFixed(2)}`;
- }).join(" "):null;
  return <div className={`chart-wrap ${large?"chart-large":""}${deltaTone?` chart-${deltaTone}`:""}`}>
   <div className="chart-toolbar"><div className={`chart-readout ${active?"visible":""}`}>{active?<><b>{formatValue(active.price)}</b><span>{formatUtcDate(active.date,true)}{activeQuantity!=null&&` · ${activeQuantity} sold`}</span></>:<><span>{rangeLabel(range)} {titleCase(`${label} history`)}</span>{delta!=null&&<b className={`chart-delta ${deltaTone}`}>{formatPercent(delta)}</b>}</>}</div><div className="chart-ranges" role="group" aria-label="Chart range">{([7,30,90,365] as const).map(days=><button key={days} className={range===days?"active":""} onClick={event=>{event.preventDefault();setRange(days)}}>{rangeLabel(days)}</button>)}</div></div>
   <div className="chart-canvas"><span className="axis axis-high">{formatValue(max)}</span><div className="chart-plot"><svg className="sparkline" viewBox="0 0 240 76" preserveAspectRatio="none" role="img" aria-label={active?`${formatValue(active.price)} on ${active.date}`:`${rangeLabel(range)} ${label} price history, ${delta==null?"movement unavailable":`${formatPercent(delta)} over the range`}`} onPointerMove={move} onPointerLeave={()=>setHovered(null)} onClick={event=>event.preventDefault()}>
@@ -52,7 +35,7 @@ export default function PriceChart({points,volumes,overlays,mainLabel,formatValu
    <polygon className="chart-area" fill={`url(#chart-fill-${gradientId})`} points={`${xy[0].x},76 ${line} ${xy.at(-1)!.x},76`}/>
    {maxQuantity>0&&shownVolumes.map(bucket=><rect key={bucket.date} className="chart-volume" x={Math.max(0,Math.min(240-barWidth,((bucket.time-times[0])/timeSpan)*240-barWidth/2))} y={76-(bucket.quantity/maxQuantity)*15-1} width={barWidth} height={(bucket.quantity/maxQuantity)*15+1}/>)}
    {maLine&&<polyline className="chart-ma" points={maLine}/>}
-   {overlaysShown.map(series=><polyline key={series.label} className={series.className} points={series.points.map(point=>`${(((point.time-times[0])/timeSpan)*240).toFixed(2)},${(70-((point.price-min)/span)*62).toFixed(2)}`).join(" ")}/>)}
+   {overlaysShown.map(series=><polyline key={series.label} className={series.className} points={series.line}/>)}
    <polyline points={line}/>
    {active&&<line className="chart-cursor" x1={active.x} x2={active.x} y1="2" y2="74"/>}
   </svg>

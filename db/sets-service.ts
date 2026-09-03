@@ -118,23 +118,6 @@ export async function loadSetDetail(db: D1DatabaseLike | undefined, game: string
   const setName = names.map(row => row.setName).find(name => setSlug(name) === slug);
   if (!setName) return null;
 
-  const { cards, sealed } = await readGameSetProducts(db, game, setName);
-  const packs = sealed.filter(product => product.category === "Booster Packs" && product.marketPrice != null && product.marketPrice > 0);
-  const packPrice = packs.length ? Math.min(...packs.map(product => product.marketPrice as number)) : null;
-  const chase = packPrice != null ? cards.filter(card => card.marketPrice > packPrice) : cards;
-
-  const observations = (await db.prepare(`select o.observed_date date, p.kind, sum(o.market_cents) cents, count(distinct o.product_id) members
-    from price_observations o join catalog_products p on p.product_id=o.product_id and (o.variant=p.printing or p.kind='sealed')
-    where p.game=? and p.set_name=?
-    group by o.observed_date, p.kind
-    order by o.observed_date`).bind(game, setName).all<{ date: string; kind: "single" | "sealed"; cents: number; members: number }>()).results ?? [];
-  const seriesFor = (kind: "single" | "sealed"): PricePoint[] => {
-    const rows = observations.filter(row => row.kind === kind);
-    const maxMembers = Math.max(0, ...rows.map(row => row.members));
-    const floor = Math.max(1, Math.ceil(maxMembers * COVERAGE_FLOOR));
-    return rows.filter(row => row.members >= floor).map(row => ({ date: row.date, price: row.cents / 100 }));
-  };
-
   const momentum = async (kind: "single" | "sealed") => {
     const row = await db.prepare(`with ranked as (
         select mm.change_30_bps b,
@@ -146,18 +129,38 @@ export async function loadSetDetail(db: D1DatabaseLike | undefined, game: string
     return row?.bps == null ? null : row.bps / 100;
   };
 
-  const release = await db.prepare(`select min(pd.published_on) releaseDate from product_details pd
-    join catalog_products p on p.product_id=pd.product_id
-    where p.game=? and p.set_name=? and pd.published_on is not null`).bind(game, setName).first<{ releaseDate: string | null }>();
+  // Every read below depends only on game+set, so they run concurrently: the observation
+  // aggregation dominates the page (review 2026-09-03) and the other six overlap with it.
+  const [{ cards, sealed }, observations, singlesChange30, sealedChange30, release, signalRows, { packPriceBySet, evBySet }] = await Promise.all([
+    readGameSetProducts(db, game, setName),
+    db.prepare(`select o.observed_date date, p.kind, sum(o.market_cents) cents, count(distinct o.product_id) members
+      from price_observations o join catalog_products p on p.product_id=o.product_id and (o.variant=p.printing or p.kind='sealed')
+      where p.game=? and p.set_name=?
+      group by o.observed_date, p.kind
+      order by o.observed_date`).bind(game, setName).all<{ date: string; kind: "single" | "sealed"; cents: number; members: number }>().then(result => result.results ?? []),
+    momentum("single"),
+    momentum("sealed"),
+    db.prepare(`select min(pd.published_on) releaseDate from product_details pd
+      join catalog_products p on p.product_id=pd.product_id
+      where p.game=? and p.set_name=? and pd.published_on is not null`).bind(game, setName).first<{ releaseDate: string | null }>(),
+    db.prepare(`select ms.side, count(distinct ms.product_id) n
+      from market_signals ms join catalog_products p on p.product_id=ms.product_id
+      where p.game=? and p.set_name=? and p.kind='single' and ms.strictness='balanced'
+      group by ms.side`).bind(game, setName).all<{ side: "buy" | "sell"; n: number }>().then(result => result.results ?? []),
+    loadSetEvData(db, pullRates),
+  ]);
 
-  const signalRows = (await db.prepare(`select ms.side, count(distinct ms.product_id) n
-    from market_signals ms join catalog_products p on p.product_id=ms.product_id
-    where p.game=? and p.set_name=? and p.kind='single' and ms.strictness='balanced'
-    group by ms.side`).bind(game, setName).all<{ side: "buy" | "sell"; n: number }>()).results ?? [];
+  const packs = sealed.filter(product => product.category === "Booster Packs" && product.marketPrice != null && product.marketPrice > 0);
+  const packPrice = packs.length ? Math.min(...packs.map(product => product.marketPrice as number)) : null;
+  const chase = packPrice != null ? cards.filter(card => card.marketPrice > packPrice) : cards;
+  const seriesFor = (kind: "single" | "sealed"): PricePoint[] => {
+    const rows = observations.filter(row => row.kind === kind);
+    const maxMembers = Math.max(0, ...rows.map(row => row.members));
+    const floor = Math.max(1, Math.ceil(maxMembers * COVERAGE_FLOOR));
+    return rows.filter(row => row.members >= floor).map(row => ({ date: row.date, price: row.cents / 100 }));
+  };
   const signalCount = (side: "buy" | "sell") => signalRows.find(row => row.side === side)?.n ?? 0;
   const releaseYear = cards.length ? Math.min(...cards.map(card => card.year).filter(year => year > 0)) : null;
-
-  const { packPriceBySet, evBySet } = await loadSetEvData(db, pullRates);
   const evKey = `${game}|${setName}`;
   const packEv = evBySet.get(evKey) ?? null;
   const evPack = packPriceBySet.get(evKey) ?? packPrice;
@@ -172,8 +175,8 @@ export async function loadSetDetail(db: D1DatabaseLike | undefined, game: string
     packPrice,
     packEv,
     evRatio: packEv != null && evPack != null && evPack > 0 ? packEv / evPack : null,
-    singlesChange30: await momentum("single"),
-    sealedChange30: await momentum("sealed"),
+    singlesChange30,
+    sealedChange30,
     buySignals: signalCount("buy"),
     sellSignals: signalCount("sell"),
     singlesIndex: seriesFor("single"),

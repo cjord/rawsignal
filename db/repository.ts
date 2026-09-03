@@ -47,20 +47,26 @@ export async function startIngestion(db:D1DatabaseLike,id:string,source:string,s
     .bind(id,source,startedAt,metadata.schemaVersion??1,metadata.sourceUpdatedAt??null,metadata.stats?JSON.stringify(metadata.stats):null).run();
 }
 
+// Statement builders let a caller fold several writes for one product into a single
+// D1 batch (one round trip, atomic); the upsert functions below remain the one-call form.
+export const cardStatements=(db:D1DatabaseLike,card:Card,observedAt:string,runId:string)=>[
+  db.prepare(productSql).bind(card.productId,"single",card.game,card.section,card.name,card.set,card.year,card.rarity,card.number,card.printing,null,card.image,card.url,observedAt,runId),
+  db.prepare(priceSql).bind(card.productId,toCents(card.marketPrice),toCents(card.lowPrice),toCents(card.midPrice),toCents(card.highPrice),observedAt,"tcgcsv",runId),
+];
+
 export async function upsertCard(db:D1DatabaseLike,card:Card,observedAt:string,runId:string){
-  await db.batch([
-    db.prepare(productSql).bind(card.productId,"single",card.game,card.section,card.name,card.set,card.year,card.rarity,card.number,card.printing,null,card.image,card.url,observedAt,runId),
-    db.prepare(priceSql).bind(card.productId,toCents(card.marketPrice),toCents(card.lowPrice),toCents(card.midPrice),toCents(card.highPrice),observedAt,"tcgcsv",runId),
-  ]);
+  await db.batch(cardStatements(db,card,observedAt,runId));
 }
 
+export const sealedProductStatements=(db:D1DatabaseLike,product:SealedProduct,observedAt:string,runId:string)=>[
+  db.prepare(productSql).bind(product.productId,"sealed",product.game,null,product.name,product.set,null,null,null,null,product.category,product.image,product.url,observedAt,runId),
+  db.prepare(priceSql).bind(product.productId,toCents(product.marketPrice),null,toCents(product.midPrice),null,observedAt,"tcgcsv",runId),
+  db.prepare(`insert into sealed_details (product_id,msrp_cents,msrp_source) values (?,?,?)
+    on conflict(product_id) do update set msrp_cents=excluded.msrp_cents,msrp_source=excluded.msrp_source`).bind(product.productId,toCents(product.msrp),product.msrpSource),
+];
+
 export async function upsertSealedProduct(db:D1DatabaseLike,product:SealedProduct,observedAt:string,runId:string){
-  await db.batch([
-    db.prepare(productSql).bind(product.productId,"sealed",product.game,null,product.name,product.set,null,null,null,null,product.category,product.image,product.url,observedAt,runId),
-    db.prepare(priceSql).bind(product.productId,toCents(product.marketPrice),null,toCents(product.midPrice),null,observedAt,"tcgcsv",runId),
-    db.prepare(`insert into sealed_details (product_id,msrp_cents,msrp_source) values (?,?,?)
-      on conflict(product_id) do update set msrp_cents=excluded.msrp_cents,msrp_source=excluded.msrp_source`).bind(product.productId,toCents(product.msrp),product.msrpSource),
-  ]);
+  await db.batch(sealedProductStatements(db,product,observedAt,runId));
 }
 
 const productDetailSql=`insert into product_details (product_id,category_id,group_id,set_abbreviation,published_on,modified_on,image_count,is_presale,presale_note,metadata_json,price_variants_json,source_updated_at)
@@ -84,21 +90,27 @@ export async function upsertProductDetails(db:D1DatabaseLike,details:CatalogDeta
  }
 }
 
-export async function upsertHistory(db:D1DatabaseLike,productId:number,variant:string,condition:string,points:PricePoint[],fetchedAt:string,source="tcgplayer"){
-  const sql=`insert into price_observations (product_id,variant,condition,observed_date,market_cents,source,fetched_at)
+const historySql=`insert into price_observations (product_id,variant,condition,observed_date,market_cents,source,fetched_at)
     values (?,?,?,?,?,?,?) on conflict(product_id,variant,condition,observed_date) do update set
     market_cents=excluded.market_cents,source=excluded.source,fetched_at=excluded.fetched_at`;
-  for(let offset=0;offset<points.length;offset+=50){
-    const statements=points.slice(offset,offset+50).map(point=>db.prepare(sql).bind(productId,variant,condition,point.date,toCents(point.price),source,fetchedAt));
-    await db.batch(statements);
+
+export const historyStatements=(db:D1DatabaseLike,productId:number,variant:string,condition:string,points:PricePoint[],fetchedAt:string,source="tcgplayer")=>
+  points.map(point=>db.prepare(historySql).bind(productId,variant,condition,point.date,toCents(point.price),source,fetchedAt));
+
+export async function upsertHistory(db:D1DatabaseLike,productId:number,variant:string,condition:string,points:PricePoint[],fetchedAt:string,source="tcgplayer"){
+  const statements=historyStatements(db,productId,variant,condition,points,fetchedAt,source);
+  for(let offset=0;offset<statements.length;offset+=50){
+    await db.batch(statements.slice(offset,offset+50));
   }
 }
 
-export async function upsertMarketMetrics(db:D1DatabaseLike,productId:number,variant:string,condition:string,asOfDate:string,history:PriceHistory,updatedAt:string,liquidity?:{sales7:number|null;sales30:number|null;sales30Prior:number|null;realizedLow30?:number|null;realizedHigh30?:number|null},regime?:string|null){
+export type MarketLiquidityWrite={sales7:number|null;sales30:number|null;sales30Prior:number|null;realizedLow30?:number|null;realizedHigh30?:number|null};
+
+export function marketMetricsStatement(db:D1DatabaseLike,productId:number,variant:string,condition:string,asOfDate:string,history:PriceHistory,updatedAt:string,liquidity?:MarketLiquidityWrite,regime?:string|null){
   // Sales counts and realized ranges persist only when the fetch carried them (history
   // jobs); a sales-less daily upsert preserves the last-known values instead of erasing
   // them. The regime is recomputed from points on every upsert, so it always overwrites.
-  await db.prepare(`insert into market_metrics (product_id,variant,condition,as_of_date,coverage,
+  return db.prepare(`insert into market_metrics (product_id,variant,condition,as_of_date,coverage,
     change_7_bps,change_30_bps,change_90_bps,low_30_cents,high_30_cents,historic_low_cents,historic_high_cents,sales_7,sales_30,sales_30_prior,realized_low_30_cents,realized_high_30_cents,regime,updated_at)
     values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) on conflict(product_id,variant,condition) do update set
     as_of_date=excluded.as_of_date,coverage=excluded.coverage,change_7_bps=excluded.change_7_bps,
@@ -114,17 +126,25 @@ export async function upsertMarketMetrics(db:D1DatabaseLike,productId:number,var
       toBasisPoints(history.change7),toBasisPoints(history.change30),toBasisPoints(history.change90),
       toCents(history.low30),toCents(history.high30),toCents(history.historyLow),toCents(history.historyHigh),
       liquidity?.sales7??null,liquidity?.sales30??null,liquidity?.sales30Prior??null,
-      toCents(liquidity?.realizedLow30??null),toCents(liquidity?.realizedHigh30??null),regime??null,updatedAt).run();
+      toCents(liquidity?.realizedLow30??null),toCents(liquidity?.realizedHigh30??null),regime??null,updatedAt);
 }
 
-export async function upsertMarketSignal(db:D1DatabaseLike,productId:number,strictness:SignalStrictness,signal:MarketSignal,asOfDate:string,coverage:PriceHistory["coverage"]="none",observationDate=asOfDate){
-  await db.prepare(`insert into market_signals (product_id,side,strictness,score,confidence,reason,detail,distance_bps,cutoff_bps,as_of_date,observation_date,coverage)
+export async function upsertMarketMetrics(db:D1DatabaseLike,productId:number,variant:string,condition:string,asOfDate:string,history:PriceHistory,updatedAt:string,liquidity?:MarketLiquidityWrite,regime?:string|null){
+  await marketMetricsStatement(db,productId,variant,condition,asOfDate,history,updatedAt,liquidity,regime).run();
+}
+
+export function marketSignalStatement(db:D1DatabaseLike,productId:number,strictness:SignalStrictness,signal:MarketSignal,asOfDate:string,coverage:PriceHistory["coverage"]="none",observationDate=asOfDate){
+  return db.prepare(`insert into market_signals (product_id,side,strictness,score,confidence,reason,detail,distance_bps,cutoff_bps,as_of_date,observation_date,coverage)
     values (?,?,?,?,?,?,?,?,?,?,?,?) on conflict(product_id,side,strictness) do update set
     score=excluded.score,confidence=excluded.confidence,reason=excluded.reason,detail=excluded.detail,
     distance_bps=excluded.distance_bps,cutoff_bps=excluded.cutoff_bps,as_of_date=excluded.as_of_date,
     observation_date=excluded.observation_date,coverage=excluded.coverage`).bind(
       productId,signal.side,strictness,signal.score,signal.confidence,signal.reason,signal.detail,
-      toBasisPoints(signal.distance),toBasisPoints(signal.cutoff),asOfDate,observationDate,coverage).run();
+      toBasisPoints(signal.distance),toBasisPoints(signal.cutoff),asOfDate,observationDate,coverage);
+}
+
+export async function upsertMarketSignal(db:D1DatabaseLike,productId:number,strictness:SignalStrictness,signal:MarketSignal,asOfDate:string,coverage:PriceHistory["coverage"]="none",observationDate=asOfDate){
+  await marketSignalStatement(db,productId,strictness,signal,asOfDate,coverage,observationDate).run();
 }
 
 // Cohort lookup for the signal context (todo P4): prefer the set-scoped rung (4
@@ -142,22 +162,32 @@ export async function readCohortStats(db:D1DatabaseLike,productId:number):Promis
 
 // Champion/challenger shadow rows (todo P1b): the v2 challenger's balanced evaluations,
 // never served — snapshotted daily by the metrics rollup for the live scoreboard.
-export async function upsertShadowSignal(db:D1DatabaseLike,productId:number,signal:MarketSignal,asOfDate:string,updatedAt:string){
-  await db.prepare(`insert into shadow_signals (product_id,side,score,confidence,reason,detail,distance_bps,cutoff_bps,as_of_date,updated_at)
+export function shadowSignalStatement(db:D1DatabaseLike,productId:number,signal:MarketSignal,asOfDate:string,updatedAt:string){
+  return db.prepare(`insert into shadow_signals (product_id,side,score,confidence,reason,detail,distance_bps,cutoff_bps,as_of_date,updated_at)
     values (?,?,?,?,?,?,?,?,?,?) on conflict(product_id,side) do update set
     score=excluded.score,confidence=excluded.confidence,reason=excluded.reason,detail=excluded.detail,
     distance_bps=excluded.distance_bps,cutoff_bps=excluded.cutoff_bps,as_of_date=excluded.as_of_date,
     updated_at=excluded.updated_at`).bind(
       productId,signal.side,signal.score,signal.confidence,signal.reason,signal.detail,
-      toBasisPoints(signal.distance),toBasisPoints(signal.cutoff),asOfDate,updatedAt).run();
+      toBasisPoints(signal.distance),toBasisPoints(signal.cutoff),asOfDate,updatedAt);
 }
+
+export async function upsertShadowSignal(db:D1DatabaseLike,productId:number,signal:MarketSignal,asOfDate:string,updatedAt:string){
+  await shadowSignalStatement(db,productId,signal,asOfDate,updatedAt).run();
+}
+
+export const deleteShadowSignalStatement=(db:D1DatabaseLike,productId:number,side:"buy"|"sell")=>
+  db.prepare("delete from shadow_signals where product_id=? and side=?").bind(productId,side);
 
 export async function deleteShadowSignal(db:D1DatabaseLike,productId:number,side:"buy"|"sell"){
-  await db.prepare("delete from shadow_signals where product_id=? and side=?").bind(productId,side).run();
+  await deleteShadowSignalStatement(db,productId,side).run();
 }
 
+export const deleteMarketSignalStatement=(db:D1DatabaseLike,productId:number,side:"buy"|"sell",strictness:SignalStrictness)=>
+  db.prepare("delete from market_signals where product_id=? and side=? and strictness=?").bind(productId,side,strictness);
+
 export async function deleteMarketSignal(db:D1DatabaseLike,productId:number,side:"buy"|"sell",strictness:SignalStrictness){
-  await db.prepare("delete from market_signals where product_id=? and side=? and strictness=?").bind(productId,side,strictness).run();
+  await deleteMarketSignalStatement(db,productId,side,strictness).run();
 }
 
 export async function completeIngestion(db:D1DatabaseLike,id:string,refreshKey:string,completedAt:string,recordsSeen:number,recordsWritten:number,recordsRejected=0,duplicateDecisions=0,stats:Record<string,unknown>|null=null){

@@ -5,20 +5,20 @@ import type { Card, CatalogDetailEnrichment, PriceHistory, PricePoint, SealedPro
 import { marketSignal, type SignalLiquidity } from "../core/signal-utils.ts";
 import { clampBatchSize, markIngestionFailed, parseStatsJson, resumeCheckpoint } from "./ingestion-batch.ts";
 import {
+  cardStatements,
   completeIngestion,
   checkpointIngestion,
-  deleteMarketSignal,
-  deleteShadowSignal,
-  upsertShadowSignal,
+  deleteMarketSignalStatement,
+  deleteShadowSignalStatement,
+  historyStatements,
+  marketMetricsStatement,
+  marketSignalStatement,
   readCohortStats,
   readMarketLiquidity,
+  sealedProductStatements,
+  shadowSignalStatement,
   startIngestion,
-  upsertCard,
-  upsertHistory,
-  upsertMarketMetrics,
-  upsertMarketSignal,
   upsertProductDetail,
-  upsertSealedProduct,
   type D1DatabaseLike,
 } from "./repository.ts";
 
@@ -86,23 +86,25 @@ export async function persistDerivedHistory(db: D1DatabaseLike, productId: numbe
   const cohort = (await readCohortStats(db, productId).catch(() => null)) ?? null;
   const reading = classifyRegime(points, currentPrice, demand, cohort?.breadth);
   const realized = sales?.buckets ? salesWindow(sales.buckets, 30) : null;
-  await upsertMarketMetrics(db, productId, variant, condition, asOfDate, history, updatedAt, sales?.buckets ? { sales7: liquidity?.sales7 ?? null, sales30: liquidity?.sales30 ?? null, sales30Prior: demand?.prior ?? null, realizedLow30: realized?.low ?? null, realizedHigh30: realized?.high ?? null } : undefined, reading?.regime ?? null);
+  // One batch per product (review 2026-09-03): the metrics row, the six signal rows, and
+  // the two shadow rows land in a single round trip, atomically, instead of nine awaits.
+  const writes = [marketMetricsStatement(db, productId, variant, condition, asOfDate, history, updatedAt, sales?.buckets ? { sales7: liquidity?.sales7 ?? null, sales30: liquidity?.sales30 ?? null, sales30Prior: demand?.prior ?? null, realizedLow30: realized?.low ?? null, realizedHigh30: realized?.high ?? null } : undefined, reading?.regime ?? null)];
   let signalsWritten = 0;
   for (const strictness of strictnesses) for (const side of ["buy", "sell"] as const) {
     const signal = marketSignal(points, side, strictness, currentPrice, { liquidity, demand, regime: reading, cohort });
     if (signal) {
-      await upsertMarketSignal(db, productId, strictness, signal, asOfDate, history.coverage, points.at(-1)?.date ?? asOfDate);
+      writes.push(marketSignalStatement(db, productId, strictness, signal, asOfDate, history.coverage, points.at(-1)?.date ?? asOfDate));
       signalsWritten++;
-    } else await deleteMarketSignal(db, productId, side, strictness);
+    } else writes.push(deleteMarketSignalStatement(db, productId, side, strictness));
   }
   // Champion/challenger shadow (todo P1b): evaluate the v2 challenger at balanced on the
   // same data in the same pass — pure CPU. v1 keeps serving; these rows only feed the
   // daily shadow snapshot so promotion can rest on a same-cards, same-days comparison.
   for (const side of ["buy", "sell"] as const) {
     const shadow = marketSignal(points, side, "balanced", currentPrice, { liquidity, demand, regime: reading, cohort, model: "v2" });
-    if (shadow) await upsertShadowSignal(db, productId, shadow, asOfDate, updatedAt);
-    else await deleteShadowSignal(db, productId, side);
+    writes.push(shadow ? shadowSignalStatement(db, productId, shadow, asOfDate, updatedAt) : deleteShadowSignalStatement(db, productId, side));
   }
+  await db.batch(writes);
   return { signalsWritten, eligible: points.length >= 2 };
 }
 
@@ -112,15 +114,16 @@ async function persistDerived(db: D1DatabaseLike, productId: number, variant: st
 }
 
 export async function persistRecord(db: D1DatabaseLike, record: Card | SealedProduct, observedAt: string, asOfDate: string, runId: string) {
+  // The catalog row, price row, (MSRP row,) and today's observation land in one batch; the
+  // derived pass then reads the stored history back and writes metrics + signals as one more.
   if ("printing" in record) {
-    await upsertCard(db, record, observedAt, runId);
-    await upsertHistory(db, record.productId, record.printing, "Near Mint", [{ date: asOfDate, price: record.marketPrice }], observedAt, "tcgcsv-daily");
+    await db.batch([...cardStatements(db, record, observedAt, runId), ...historyStatements(db, record.productId, record.printing, "Near Mint", [{ date: asOfDate, price: record.marketPrice }], observedAt, "tcgcsv-daily")]);
     const derived = await persistDerived(db, record.productId, record.printing, "Near Mint", record.marketPrice, observedAt);
     return { observationsWritten: 1, ...derived };
   }
-  await upsertSealedProduct(db, record, observedAt, runId);
+  const observation = record.marketPrice == null ? [] : historyStatements(db, record.productId, "Sealed", "Unopened", [{ date: asOfDate, price: record.marketPrice }], observedAt, "tcgcsv-daily");
+  await db.batch([...sealedProductStatements(db, record, observedAt, runId), ...observation]);
   if (record.marketPrice == null) return { observationsWritten: 0, signalsWritten: 0, eligible: false };
-  await upsertHistory(db, record.productId, "Sealed", "Unopened", [{ date: asOfDate, price: record.marketPrice }], observedAt, "tcgcsv-daily");
   const derived = await persistDerived(db, record.productId, "Sealed", "Unopened", record.marketPrice, observedAt);
   return { observationsWritten: 1, ...derived };
 }

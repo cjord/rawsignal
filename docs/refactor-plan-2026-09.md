@@ -67,6 +67,9 @@ listed here is intended to be behavior-preserving.
 |------|--------|-----|-------------------|
 | 1 | `npm run check` gains `tsc --noEmit` | the gate never ran the type checker; 4 latent errors accumulated | a type error now fails the gate (CI included) |
 | 2 | `clampBatchSize` treats a non-finite request as "not requested" | `Math.max(1, Math.min(max, NaN))` is `NaN`, so a malformed `batchSize` produced `NaN` slice bounds (an empty batch that still checkpointed) | a NaN/Infinity batch size now uses the runner's default; finite values unchanged |
+| 5 | Migration `0013` adds `idx_catalog_game_set (game, set_name)` | set pages and the sets directory filter by game+set without a kind; the planner full-scanned (`readGameSetProducts` 6.8 → 0.1 ms; the set-detail observation aggregation 3.9 → 2.7 s locally) | no output change; **operational**: apply to both D1s at the next deploy (deploy first, then migrate, per `docs/cloudflare-cutover.md`) |
+| 5 | Ingestion writes per product are batched (`D1.batch`) | ~15 sequential awaits per record → 2 batches + 3 reads; ~80 records per cron tick | same rows; the metrics + signal + shadow writes for one product are now atomic — a mid-pass failure rolls the product's pass back instead of leaving partial rows |
+| 5 | `loadSetDetail` runs its seven reads concurrently | they depend only on game+set; the observation aggregation dominated wall time | identical payload (golden-diffed); lower page latency |
 | 6 | `/api/collectr` GET caps the API pagination walk | an unauthenticated request could trigger up to 201 upstream fetches (6000/30 pages) | very large showcases import via the browser worker path (`mode=full`) as designed; the page path stays partial-and-honest |
 | 6 | `/api/collectr` POST rejects oversized bodies before parsing | the 8 MB CSV limit was checked after the whole body was parsed | oversized uploads get the 413 sooner; no change for valid uploads |
 
