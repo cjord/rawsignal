@@ -108,7 +108,7 @@ export function canonicalSealedType(category: string) {
   return (sealedProductTypes as readonly string[]).find(type => type.toLowerCase() === category.toLowerCase()) ?? "Other";
 }
 
-export function sealedProductType(product: SealedProduct) {
+function sealedProductType(product: SealedProduct) {
   return canonicalSealedType(product.category);
 }
 

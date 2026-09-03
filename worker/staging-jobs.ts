@@ -1,6 +1,6 @@
 import { parseCards, parseSealedProducts } from "../core/domain/contracts.ts";
 import type { Card, SealedProduct } from "../core/domain/types.ts";
-import { fetchTcgplayerHistory } from "../app/data/tcgplayer-history-client.ts";
+import { fetchTcgplayerHistory } from "../core/clients/tcgplayer-history.ts";
 import { allowedRarities } from "../core/market-state.ts";
 import { createTcgcsvClient } from "../core/clients/tcgcsv.ts";
 import { fetchJson, fetchText } from "../core/clients/http-json.ts";

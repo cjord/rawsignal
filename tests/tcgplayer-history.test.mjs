@@ -1,2 +1,2 @@
-import test from "node:test";import assert from "node:assert/strict";import {mergeHistoryBuckets} from "../app/history-utils.ts";
+import test from "node:test";import assert from "node:assert/strict";import {mergeHistoryBuckets} from "../core/clients/tcgplayer-history.ts";
 test("quarterly history overrides overlaps while retaining annual depth",()=>{assert.deepEqual(mergeHistoryBuckets([{bucketStartDate:"2025-01-01",marketPrice:"10"},{bucketStartDate:"2026-01-01",marketPrice:"20"}],[{bucketStartDate:"2026-01-01",marketPrice:"21"},{bucketStartDate:"2026-02-01",marketPrice:"22"}]),[{date:"2025-01-01",price:10},{date:"2026-01-01",price:21},{date:"2026-02-01",price:22}])});

@@ -12,7 +12,7 @@ const nullableFinite = (value: unknown): value is number | null =>
 const optionalString = (value: unknown): value is string | undefined =>
   value === undefined || string(value);
 
-export function parsePricePoint(value: unknown): PricePoint {
+function parsePricePoint(value: unknown): PricePoint {
   if (!record(value) || !string(value.date) || !finite(value.price)) {
     throw new TypeError("Invalid price point");
   }

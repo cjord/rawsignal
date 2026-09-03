@@ -41,7 +41,9 @@ const VIEW_OPTIONS:[{key:ViewMode;label:string;icon:string},{key:ViewMode;label:
 const usd=(value:number|null|undefined)=>value==null?"—":formatUsd(value);
 
 const effectivePrice=(card:CollectrImportCard)=>card.matched?.marketPrice??card.collectrPrice??0;
-const cardGame=(card:CollectrImportCard):ImportMarket|null=>card.matched?(card.matched.game as ImportMarket):card.game;
+// Unmatched One Piece rows keep their "onepiece" game: it never equals a market tab, so they
+// surface only under the All scope (user decision 2026-08-31).
+const cardGame=(card:CollectrImportCard):ImportMarket|"onepiece"|null=>card.matched?(card.matched.game as ImportMarket):card.game;
 
 function favoriteEntryFor(card:CollectrImportCard){
  const match=card.matched!;

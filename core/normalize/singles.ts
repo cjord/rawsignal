@@ -23,7 +23,7 @@ export type SinglesPriceRow = {
 const extended = (product: SinglesSourceProduct, key: string) => String(product.extendedData?.find(item => item.name === key)?.value ?? "");
 const positive = (value: unknown) => Number(value) > 0 ? Number(value) : null;
 
-export function pokemonSection(rarity: string, year: number): [string, string] | null {
+function pokemonSection(rarity: string, year: number): [string, string] | null {
   if (/^Illustration Rare$/i.test(rarity)) return ["illustration-rares", "Illustration Rares"];
   if (/^Special Illustration Rare$/i.test(rarity)) return ["special-illustration-rares", "Special Illustration Rares"];
   if (/^Promo$/i.test(rarity)) return ["promos", "Promos"];
@@ -34,7 +34,7 @@ export function pokemonSection(rarity: string, year: number): [string, string] |
   return year <= 2010 ? ["vintage", "Vintage"] : null;
 }
 
-export function riftboundSection(productName: string, rarity: string): [string, string] | null {
+function riftboundSection(productName: string, rarity: string): [string, string] | null {
   if (/\(Signature\)/i.test(productName)) return ["signatures", "Signatures"];
   if (/\(Overnumbered\)/i.test(productName)) return ["overnumbered", "Overnumbered"];
   if (/\(Alternate Art\)/i.test(productName)) return ["alt-arts", "Alt Arts"];

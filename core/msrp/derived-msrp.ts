@@ -31,5 +31,3 @@ export function derivedPokemonMsrp(name = "", year: number | null = null): { msr
   }
   return null;
 }
-
-export const DERIVED_RULES = RULES.map(rule => ({ type: rule.type, swsh: rule.prices[0], sv: rule.prices[1] }));

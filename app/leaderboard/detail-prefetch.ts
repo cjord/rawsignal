@@ -11,5 +11,5 @@ export function warmDetailPage(href:string){
  if((navigator as Navigator&{connection?:{saveData?:boolean}}).connection?.saveData)return;
  warmed.add(href);
  const run=()=>{void fetch(href,{credentials:"same-origin"}).then(response=>response.arrayBuffer()).catch(()=>warmed.delete(href))};
- if("requestIdleCallback" in window)window.requestIdleCallback(run,{timeout:2500});else window.setTimeout(run,350);
+ if(typeof window.requestIdleCallback==="function")window.requestIdleCallback(run,{timeout:2500});else window.setTimeout(run,350);
 }

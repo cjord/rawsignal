@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { fetchTcgplayerHistory } from "../app/data/tcgplayer-history-client.ts";
+import { fetchTcgplayerHistory } from "../core/clients/tcgplayer-history.ts";
 import { handleStagingJob, loadStagingSnapshot } from "../worker/staging-jobs.ts";
 
 const card={game:"pokemon",section:"illustration-rares",productId:1,name:"Card",set:"Set",year:2026,rarity:"Illustration Rare",number:"1/1",image:"https://example.test/card.jpg",url:"https://example.test/card",marketPrice:10,lowPrice:9,midPrice:10,highPrice:11,printing:"Holofoil",priceChange:null};

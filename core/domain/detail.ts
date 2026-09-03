@@ -1,26 +1,6 @@
-import type {Card,CatalogDetail,DetailMetadataField,DetailPriceVariant,SealedProduct,SimilarCatalogItem} from "./types.ts";
-
-type RawExtendedField={name?:unknown;displayName?:unknown;value?:unknown};
-
-const entityMap:Record<string,string>={amp:"&",lt:"<",gt:">",quot:'"',apos:"'",nbsp:" "};
-export function metadataText(value:unknown){
- if(typeof value!=="string")return "";
- return value.replace(/<br\s*\/?>/gi,"\n").replace(/<[^>]*>/g,"").replace(/&(#x?[0-9a-f]+|[a-z]+);/gi,(_,entity:string)=>{
-  if(entity[0]==="#"){const hex=entity[1]?.toLowerCase()==="x",code=Number.parseInt(entity.slice(hex?2:1),hex?16:10);return Number.isFinite(code)?String.fromCodePoint(code):""}
-  return entityMap[entity.toLowerCase()]??`&${entity};`;
- }).replace(/\r/g,"").replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim();
-}
-
-export function normalizeExtendedData(fields:RawExtendedField[]|undefined):DetailMetadataField[]{
- return (fields??[]).map(field=>({name:metadataText(field.name),label:metadataText(field.displayName)||metadataText(field.name),value:metadataText(field.value)})).filter(field=>field.name&&field.value);
-}
+import type {Card,CatalogDetail,SealedProduct,SimilarCatalogItem} from "./types.ts";
 
 export const exactTcgplayerUrl=(url:string)=>/^https:\/\/www\.tcgplayer\.com\/product\/\d+\//i.test(url);
-const dollars=(value:unknown)=>Number(value)>0?Number(value):null;
-export function detailPriceVariants(rows:Array<Record<string,unknown>>|undefined,fallback?:DetailPriceVariant):DetailPriceVariant[]{
- const variants=(rows??[]).map(row=>({printing:String(row.subTypeName??"Normal"),marketPrice:dollars(row.marketPrice),lowPrice:dollars(row.lowPrice),directLowPrice:dollars(row.directLowPrice),midPrice:dollars(row.midPrice),highPrice:dollars(row.highPrice)})).filter(row=>Object.values(row).some((value,index)=>index>0&&value!=null));
- return variants.length?variants:fallback?[fallback]:[];
-}
 
 const words=(value:string)=>new Set(value.toLowerCase().replace(/\([^)]*\)/g," ").replace(/[^a-z0-9]+/g," ").split(" ").filter(word=>word.length>2));
 const overlap=(a:Set<string>,b:Set<string>)=>[...a].filter(word=>b.has(word)).length;

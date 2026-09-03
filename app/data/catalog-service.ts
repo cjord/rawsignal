@@ -76,8 +76,7 @@ function apiPage<T>(result: CatalogPage<T>, source: CatalogApiResponse<T>["sourc
 }
 
 export async function executeCatalogRequest(request: CatalogRequest, repository: CatalogRepository, source: "database" | "feed"): Promise<CatalogApiResponse<Card | SealedProduct>> {
-  const result = request.kind === "single"
-    ? await repository.querySingles(request.options)
-    : await repository.querySealed(request.options);
-  return apiPage(result, source);
+  return request.kind === "single"
+    ? apiPage(await repository.querySingles(request.options), source)
+    : apiPage(await repository.querySealed(request.options), source);
 }

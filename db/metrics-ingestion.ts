@@ -95,7 +95,7 @@ export async function runMetricsRollup(db: D1DatabaseLike, options: { mode: "dai
     // rollup from market_metrics. Tomorrow's signal walk consumes them via
     // SignalContext.cohort — a day of trailing lag by design.
     await db.prepare("delete from cohort_stats").run();
-    const rungKey = withSet => `p.kind||'|'||p.game||'|'||${withSet ? "p.set_name||'|'||" : ""}(case when p.kind='single' then coalesce(p.rarity,'?') else coalesce(p.product_type,'?') end)`;
+    const rungKey = (withSet: boolean) => `p.kind||'|'||p.game||'|'||${withSet ? "p.set_name||'|'||" : ""}(case when p.kind='single' then coalesce(p.rarity,'?') else coalesce(p.product_type,'?') end)`;
     for (const withSet of [true, false]) {
       await db.prepare(`insert into cohort_stats (cohort_key, as_of_date, members, median_change30_bps, breadth_pct)
         select key, ?, max(n),

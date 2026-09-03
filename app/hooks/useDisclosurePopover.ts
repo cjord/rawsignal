@@ -2,7 +2,7 @@
 import {useCallback,useEffect,useId,useRef,useState,type FocusEvent,type KeyboardEvent,type PointerEvent,type RefObject,type SyntheticEvent} from "react";
 
 // Casual mouse passes across the table shouldn't flash popovers; hover opens after a short dwell.
-export const HOVER_OPEN_DELAY_MS=150;
+const HOVER_OPEN_DELAY_MS=150;
 
 export type PopoverPlacement="above"|"below";
 export type PopoverSide="left"|"right";

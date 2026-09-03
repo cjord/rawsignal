@@ -67,7 +67,7 @@ const toNumber = (value: unknown): number | null => {
 // Graded detection differs by source: the paginated API leaves grade_id null and puts
 // the grade in grade_company ("9"); the SSR payload puts it in grade_id with the "52"
 // sentinel meaning raw. A record is graded when either field carries a real grade.
-export function isGradedRecord(record: CollectrRawProduct): boolean {
+function isGradedRecord(record: CollectrRawProduct): boolean {
   const company = (record.grade_company ?? "").trim();
   const gradeId = record.grade_id == null ? "" : String(record.grade_id).trim();
   return company !== "" || (gradeId !== "" && gradeId !== "52");
