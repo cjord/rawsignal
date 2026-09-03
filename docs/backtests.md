@@ -266,6 +266,39 @@ these markets are pure out-of-domain. Same grid, same $5 floor (balanced):
    the segments are new but the era is not. The live shadow remains the only test of a
    different regime.
 
+## Study `release-curves` — 2026-09-02 (P7 steps A+B: curves, marquee premiums, EVE gate)
+
+`scripts/release-curves/study.mjs` on the local archive: 28 sets launched in-window.
+Launch day = median first-observation of the set's SINGLES (sealed presales list up to
+~75 days early and poison pooled estimates — ME04 traced to March for a May release).
+
+**Release curves (relative to each product's launch-week price, era-conditioned, 71
+cells):** Pokémon IR settle at 0.45–0.73× by day 60; UR 0.28–0.60×; SIR hold best at
+0.63–1.07× — and the era phase shift is visible in-data: 2025H1 (supply shortage) SIR
+d60 = 1.07× (appreciated) vs 2026H1 = 0.65× (classic decay returned), matching the
+external evidence (Misprint/ICv2). ETBs settle 0.45–0.73× of first listing. Pooling
+eras would have been wrong; conditioning was the right call.
+
+**Marquee-chase premiums (day-60 chase vs in-set cohort):** mainline SIR chases run
+2.0–18.8× their cohort (median ≈ 7.7×; Prismatic 18.8×, ME04 7.7×); Mega Hyper Rare
+chases 40–155×. The Delta Reign / Mega Rayquaza display band quotes the chase-rarity's
+historical range, upper half per the attention call.
+
+**EVE validation — HOLDOUTS PASS:** era-sibling cohort-median anchors vs the naive
+launch-price predictor for day-60 (day-30 for young sets):
+- **ME04 Chaos Rising d60: EVE error 0.47 vs naive 1.20 — EVE wins 80% of cards.**
+- **ME05 Pitch Black d30: 0.50 vs 1.09 — wins 69%.**
+- Pattern across all 28 sets: EVE wins or ties on MAINLINE booster sets (Stellar Crown
+  81%, JT 68%, ME04 80%, Unleashed 65%, TM 58%, SS 53%) and **loses badly on promo/
+  special products** (Professor Program 0%, SV Promos 8%, Prismatic 16%) and on
+  **era-cold-starts** (ME01 9%, ME02 30% — no mature same-era siblings yet; by ME03/
+  ME04 the era matured and EVE strengthened).
+
+**Serving rules derived:** EVE serves only for mainline booster sets with a standard
+rarity slate AND an era pool of ≥8 same-rarity cards from ≥2 mature sibling sets;
+promo/special sets and era cold-starts get curves + the New Release chip without an
+anchor. Delta Reign (ME06, five mature ME siblings) is the ideal case.
+
 ## Program summary — v1 → v2.2 (P1–P6 complete, 2026-09-02)
 
 All runs on the identical grid (16,982 products × 117 weekly origins, $5 floor).
