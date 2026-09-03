@@ -164,7 +164,41 @@ independent windows accumulate.
 - Regime mix shifts materially (e.g., Falling share doubles) — then refit ON the new
   regime's data rather than continuing to average it away.
 
-**Why not refit monthly (decision + rationale, 2026-09-02):** monthly refitting was
+**Update policy — three kinds of update, three rules (decision 2026-09-02):**
+
+1. **Data refresh, frozen parameters — monthly, always.** Append the new month to the
+   archive, rebuild the local DBs, re-run validation with NO threshold changes. Each
+   passing month converts calibration-era data into true out-of-sample — the scarcest
+   resource. This formalizes the "pause month": frozen performance in band + stable
+   regime mix → PAUSE, and the pause is itself accumulating evidence. Zero overfit
+   risk. Per-set data updates (release curves, era/cohort mappings for new sets like
+   Delta Reign) belong here too — safe, per-release.
+2. **Recalibration of existing thresholds — trigger-based, quarterly at most.** A
+   breach is not a diagnosis; before any refit, classify the miss: (a) correlated-
+   board variance (#9 — expectation bands are set from weekly board-level variance,
+   not per-signal independence, so wide swings can be normal); (b) data/pipeline
+   fault; (c) the whole market got harder (baselines degraded equally → model is
+   relatively fine, refitting won't help); (d) genuine model drift — the only case
+   refitting fixes. Refit protocol: fit window ends ~2 months back, confirm on the
+   held-back recent months, frozen 30-day shadow, then promote with a version stamp.
+3. **Structural change — event-driven only.** New terms/gates/features (P7 EVE, a
+   character rung, P8 tournament signals, a bear-market gate) happen when new
+   INFORMATION exists — a new data source, an observed regime, a new segment — never
+   on a calendar; always via the full dump → sweep → confirm → shadow pipeline.
+
+**Validation-universe discipline:** new segments (like the JP/MTG extension DB) test
+cross-sectional generalization but share the era — they complement, never replace,
+temporal out-of-sample. They are also finite: tuning against every universe we build
+would slowly overfit to all of them, so ONE future segment (e.g., One Piece singles or
+Lorcana when built) stays RESERVED — untouched by any fitting decision, used only as a
+pristine final check before promotions.
+
+**#9 follow-up deferred (user decision 2026-09-02):** character/similar-card cohort
+rung stays deferred — set+rarity cohorts are carrying the co-movement signal well, and
+the rung costs a catalog parsing project plus daily per-character cohort computation
+for uncertain marginal gain. Revisit at the 3-month review.
+
+**Why not refit monthly (rationale preserved):** monthly refitting was
 considered and rejected as the default cadence:
 1. It breaks the promotion protocol — champion/challenger needs a FROZEN challenger
    for ~30 days of shadow; a monthly-moving target never accrues a clean comparison.
