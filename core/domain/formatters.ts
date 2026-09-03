@@ -29,12 +29,16 @@ export function formatUtcDate(value: string, includeYear = false) {
   });
 }
 
-// Local-timezone "Aug 28, 2026" for freshness lines ("Updated …", "Data updated …").
+// "Aug 28, 2026" for freshness lines ("Updated …", "Data updated …"). Formatted in UTC,
+// like every other date in the app: the Worker renders these lines in UTC, so a
+// browser-local format re-renders them differently after hydration for any user whose
+// day boundary differs (React error #418 on the set pages, 2026-09-03).
 export function formatFullDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   });
 }
 

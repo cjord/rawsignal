@@ -5,7 +5,7 @@ import TopBar from "./TopBar";
 import {ChaseCardsSection,RelatedSealedSection} from "./detail-tables";
 import {parseStrictness,STRICTNESS_KEY,usePreference} from "./state/usePreference";
 import {setGroupLabel} from "../core/domain/eras";
-import {formatFullDate,formatGameName,formatPercent,formatUsd,formatUtcDate} from "../core/domain/formatters";
+import {formatGameName,formatPercent,formatUsd,formatUtcDate} from "../core/domain/formatters";
 import type {SetDetailPayload} from "../core/domain/sets";
 import type {PricePoint} from "../core/domain/types";
 import {setLogoFor} from "./data/set-logos";
@@ -59,7 +59,7 @@ export default function SetDetailView({payload}:{payload:SetDetailPayload}){
     <div className="detail-metric"><small>Sell signals</small><b>{payload.sellSignals}</b><span>on the Hot Sell board</span></div>
    </div>
    <section className="detail-section"><header className="set-index-head"><div><span>{payload.set} index · base 1,000</span><h2>Set Value</h2></div>
-    {dataThrough&&<span className="section-aside"><span>Updated {formatFullDate(dataThrough)}</span></span>}</header>
+    {dataThrough&&<span className="section-aside"><span>Updated {formatUtcDate(dataThrough,true)}</span></span>}</header>
     {mainLine.length>1?<>
      {overlayLine&&<div className="metrics-legend"><span className="legend-line legend-main">Singles value</span><span className="legend-line chart-series-2">Sealed value</span></div>}
      <PriceChart points={mainLine} overlays={overlayLine?[{label:"Sealed value",points:overlayLine,className:"chart-series-2"}]:undefined} mainLabel={mainLabel} formatValue={indexFormat} label={`${payload.set} set value`}/>
