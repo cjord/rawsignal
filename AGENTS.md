@@ -147,7 +147,7 @@ npm test
 npm run check
 ```
 
-It also runs lint, the type check (`npm run typecheck`), and the Chromium browser suite (install its browser once with `npm run test:browser:install`). Playwright manages its own server on port 4173, so the :3000 dev server may stay up. Lint warns at cyclomatic complexity 25 without failing; do not add functions above that line without a reason in the change description. Fix new warnings introduced by the change; do not broaden scope to unrelated legacy warnings without approval.
+It also runs lint, the type check (`npm run typecheck`), and the Chromium browser suite (install its browser once with `npm run test:browser:install`). Playwright runs its own server on port 4173, but vinext refuses a second dev server for the same directory, so stop the :3000 dev server before `npm run check`. Lint warns at cyclomatic complexity 25 without failing; do not add functions above that line without a reason in the change description. Fix new warnings introduced by the change; do not broaden scope to unrelated legacy warnings without approval.
 
 The gate's production build wipes `dist/`, including any generated `wrangler.<env>.json`; regenerate the deploy config after a gate and before deploying.
 
