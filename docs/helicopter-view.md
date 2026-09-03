@@ -41,7 +41,7 @@ flowchart TB
     scripts["scripts/: validate · details · scalper · graded · io · cloudflare"]
     feeds["public/data/*.json (generated, last-good protected)"]
   end
-  tests["tests/: 51 node suites (~238 tests) + 4 Playwright — behavioral suites, characterization pins, a slim source-contract file"]
+  tests["tests/: 52 node suites (~243 tests) + 4 Playwright — behavioral suites, characterization pins, a slim source-contract file"]
   docs["docs/: maintained + gate-enforced"]
 
   pages --> prims --> dataL
@@ -142,7 +142,7 @@ word.
 
 ## Release gate
 
-`npm run check` = production build + ~238 node tests (51 suites) + lint + `tsc --noEmit` + 4
+`npm run check` = production build + ~243 node tests (52 suites) + lint + `tsc --noEmit` + 4
 Playwright journeys. Playwright starts (or reuses) its own dev server on :4173, so the :3000
 dev server can stay up. A few suites still
 **regex-match raw source files** (`source-contracts` — the slim successor to the old
@@ -168,8 +168,9 @@ source text can express.
 - Windows dev: wrangler can crash in libuv teardown after succeeding — verify actual
   state before retrying; migrations need `echo y |`.
 - **Migrations are hand-written** (`drizzle/00NN_name.sql`, contiguous numbering, applied
-  by wrangler in filename order). drizzle-kit's journal stopped at 0004, so
-  `npm run db:generate` emits a wrong cumulative diff — do not use it for new migrations.
+  by wrangler in filename order). drizzle-kit is retired (2026-09-03): its journal stopped
+  at 0004 and the generator emitted wrong cumulative diffs, so the `db:generate` script,
+  `drizzle.config.ts`, and the devDependency are gone; `drizzle/meta/` stays as history.
 - `/api/history` warms its cache on a miss by fetching TCGplayer **and** re-deriving that
   product's metrics/signals (`persistDerivedHistory`). Against the local max-profile D1
   every hover does this (archive rows are `source='tcgcsv-archive'`, the route looks for

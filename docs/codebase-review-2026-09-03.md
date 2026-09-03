@@ -133,7 +133,7 @@ ESLint `complexity` (threshold 12), `max-depth` (3), `max-lines-per-function` (1
 | 41 | `worker/scheduled-ingestion.ts` `runScheduledIngestionTick` | Wave 8: the history resume-key policy moved into the tested decision module (`planScheduledAction` returns a plan carrying each job's inputs, removing both `!` assertions); clock, probe, and job runners injected; the tick has its own suite. 41 → 25 (the remainder is the `??`/`?.` chain building the decision input from six D1 reads); `dispatch` 11, `planScheduledAction` 5. |
 | 40 | `core/catalog-query.ts` singles filter arrow | Keep; pinned by ~650-combination parity tests. |
 | 38 | `core/catalog-repository.ts` `getDetail` | Candidate later; heavily exercised by detail tests. |
-| 33 | `db/daily-ingestion.ts` `persistDerivedHistory` | Wave 5 touches it for batching; split signal writes into `writeSignals` then. |
+| 33 | `db/daily-ingestion.ts` `persistDerivedHistory` | Wave 9: `signalStatements` (six champion upserts/deletes) and `shadowSignalStatements` (two shadow rows) extracted; the function now builds context, then batches metrics + champion + shadow. First direct tests: `tests/derived-history.test.mjs` against a migrated in-memory D1 (rows match the evaluator's own verdicts, one batch per pass, stale rows deleted, liquidity columns). 33 → 26 (the remaining branches are the `??` fallbacks building the metrics row). |
 | 32 | `db/early-value.ts` `readEarlyValue` | Keep (new, P7 — has `early-value.test.mjs`). |
 | 30 | `core/collectr.ts` `normalizeCollectrCsv` | Keep (fixture-tested). |
 
@@ -269,7 +269,8 @@ builders, and memoizes `PriceChart`'s scale math — no visual change.
 Baseline 45 suites / 202 tests. Modules never referenced by any test (35): the
 `app/leaderboard/*` components (13 — exercised by the Playwright journeys and the
 rendered contracts), `app/state/*` hooks (10), `core/clients/http-json.ts`,
-`core/market-state.ts`, `core/domain/sets.ts`, `core/domain/types.ts` (types only),
+`core/market-state.ts`, `core/domain/sets.ts` (types only — the wave 2 plan listed it in
+error; `tsc` and `tests/sets-service.test.mjs` cover its consumers), `core/domain/types.ts` (types only),
 `core/msrp/verified-msrp.ts` (data), `db/ingestion-batch.ts`, `worker/scheduled-ingestion.ts`
 (its decision function was tested; wave 8 added `tests/scheduled-ingestion.test.mjs` for the
 tick's reads, probe handling, and dispatch), `app/api/cache.ts`, `app/data/load-detail.ts`,
@@ -284,9 +285,9 @@ guards), `set-logos` lookup tiers, and the wave-3/4 extractions each ship with t
 
 ## 11. Gaps and areas of improvement (not all in scope for this program)
 
-- **Gate coverage**: no type checking until wave 1; no complexity budget — consider
-  adding `complexity: [warn, 25]` to the ESLint config so new hotspots surface in
-  reviews without failing the gate.
+- **Gate coverage**: no type checking until wave 1; no complexity budget until wave 9,
+  which added `complexity: ["warn", 25]` to the ESLint config — warnings only, so the
+  gate still passes; the ~20 functions over the line are the orchestrators in §5.
 - **Feed payload size**: the client-side engine over full section feeds is a design
   decision, but the 1–2 MB sections argue for per-section field trimming (drop fields
   the leaderboard never renders) or a paginated `/api/catalog` path for the largest
@@ -314,6 +315,9 @@ this program is intended to be behavior-preserving and is verified by the full g
 | `tsc --noEmit` errors | 4 (never run by the gate) | 0, and the gate runs it |
 | Node tests | 202 in 45 suites | 238 in 51 suites (+ 528 pinned signal evaluations and 99 regime readings) |
 | Guard-cron tick (`runScheduledIngestionTick`) | untested shell; history resume policy duplicated outside the tested decision; two non-null assertions | policy in one tested module returning a typed plan; clock/probe/jobs injectable; 13-case dispatch suite |
+| Derived pass (`persistDerivedHistory`) | no direct test; signal + shadow loops inline (complexity 33) | `signalStatements` / `shadowSignalStatements` extracted (26); 5-case suite on a migrated in-memory D1 |
+| Complexity budget | none | ESLint `complexity: ["warn", 25]` (warn only) |
+| `drizzle-kit` | `db:generate` emitted wrong diffs (journal stopped at 0004) | script, `drizzle.config.ts`, and devDependency removed; README documents hand-written migrations; audit advisories 21 → 19 |
 | Dead modules / dead functions | `db/index.ts`; 7 unused exports | removed |
 | Layering edges backend→app | 1 | 0 (`app/data/load-detail.ts`→`db/` documented as the RSC-loader exception) |
 | Functions over complexity 12 | 67 | 67 — the extracted helpers replace hotspots one-for-one; the worst cases fell: `evaluateMarketSignal` 86→68, `ProductDetailPage` 73→48, `PriceChart` 45→33, `classifyRegime` 44→under threshold, the four sealed normalizers 22/23/15/15→13/14/under/under, `loadMetricsPayload` 14→under (195 lines→six loaders) |

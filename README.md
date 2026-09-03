@@ -98,11 +98,7 @@ See [Architecture](docs/architecture.md), [Hosting decision](docs/adr/001-hostin
 
 ## Database changes
 
-Edit `db/schema.ts`, then generate and inspect a migration:
-
-```powershell
-npm run db:generate
-```
+Edit `db/schema.ts` so the TypeScript types match, then hand-write the migration as the next contiguously numbered file under `drizzle/` (for example `0014_<name>.sql`). Wrangler applies migrations in filename order. `drizzle-kit generate` is retired: its journal stopped at migration 0004 and every migration since has been written by hand, so a generated diff would be wrong.
 
 Migrations are additive by default. Do not perform a destructive production migration without an export, an approved rollback plan, and parity verification against the current feeds.
 

@@ -36,6 +36,14 @@ const eslintConfig = defineConfig([
       },
     },
   },
+  {
+    // Complexity budget (codebase review 2026-09-03 §11): warn, never fail, so a new
+    // hotspot shows up in the lint output and in review without blocking the gate. The
+    // functions already over 25 are the known orchestrators listed in the review.
+    rules: {
+      complexity: ["warn", 25],
+    },
+  },
 ]);
 
 export default eslintConfig;
