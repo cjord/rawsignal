@@ -32,7 +32,7 @@ Both commands access external services and can rewrite generated feeds. Review v
 - recalculates 7-, 30-, and 90-day metrics and extrema;
 - classifies and stores the market-regime label (`market_metrics.regime`) from the same points, plus the demand-trend counts (`sales_30_prior` alongside `sales_7`/`sales_30`) when the fetch carried sale buckets;
 - replaces all Conservative, Balanced, and Aggressive Buy/Sell signals, deleting signals that no longer qualify (evaluated with the liquidity floor and demand trend via `SignalContext`);
-- evaluates the v2 challenger at balanced strictness into `shadow_signals` (todo P1b) — never served; the daily metrics rollup snapshots its top-100 boards into `shadow_signal_history` for the champion/challenger scoreboard;
+- evaluates the v2 challenger at balanced strictness into `shadow_signals` (todo P1b) — never served; the daily metrics rollup (keyed to the live run's publish date, `metrics-rollup:<date>`, and run by the guard cron once that live run is published — R1, 2026-09-03) snapshots its top-100 boards into `shadow_signal_history` for the champion/challenger scoreboard;
 - records coverage, observation date, counts, rejection totals, duplicate decisions, and source freshness;
 - advances `refresh_state` only after every record succeeds.
 

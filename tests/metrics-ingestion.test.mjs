@@ -139,3 +139,20 @@ test("even cohorts take the mean of the two middle ranks as the median",async()=
   const series=await readMetricSeries(db);
   assert.equal(series["median:test"][0].value,50);
 });
+
+test("an explicit asOfDate keys the run id and the snapshot day (R1: rollups follow the live run's date)",async()=>{
+  const database=await migratedDatabase(),db=new LocalD1(database);
+  await startIngestion(db,"live-daily:2026-08-27","tcgcsv-live","2026-08-27T20:10:00Z",{});
+  await upsertCard(db,card(1,100),"2026-08-27T20:10:00Z","live-daily:2026-08-27");
+  await upsertHistory(db,1,"Holofoil","Near Mint",[{date:"2026-08-26",price:95},{date:"2026-08-27",price:100}],"now");
+  await db.prepare("insert into market_signals (product_id, side, strictness, score, confidence, reason, detail, distance_bps, cutoff_bps, as_of_date, observation_date, coverage) values (1,'buy','balanced',80,'high','Near low','d',100,500,'2026-08-27','2026-08-27','exact')").run();
+  // The tick runs this at ~05:00Z on the 28th for the run that ingested the 27th's publish.
+  const result=await runMetricsRollup(db,{mode:"daily",series:testSeries,asOfDate:"2026-08-27",now:new Date("2026-08-28T05:10:00Z")});
+  assert.equal(result.runId,"metrics-rollup:2026-08-27");
+  assert.equal(database.prepare("select status from ingestion_runs where id=?").get("metrics-rollup:2026-08-27")?.status,"succeeded");
+  // The track-record snapshot is dated by the data day, not the wall clock.
+  assert.deepEqual(database.prepare("select distinct observed_date d from signal_history").all().map(r=>r.d),["2026-08-27"]);
+  // Without asOfDate the wall-clock day still keys operator/backfill runs.
+  const fallback=await runMetricsRollup(db,{mode:"daily",series:testSeries,now:new Date("2026-08-28T05:10:00Z")});
+  assert.equal(fallback.runId,"metrics-rollup:2026-08-28");
+});

@@ -67,10 +67,8 @@ export async function runScheduledIngestionTick(env: StagingJobEnv, deps: Schedu
     gradedPublishedRunId: graded?.runId ?? null,
     gradedTodayRunId: ingestionRunId("graded-rotation", today),
     metricsPublishedRunId: metrics?.runId ?? null,
-    metricsTodayRunId: ingestionRunId("metrics-rollup", today),
     historyCheckpointRunId: historyCheckpoint?.ingestionRunId ?? null,
     historyPublishedRunId: historyPublished?.runId ?? null,
-    historyTodayRunId: ingestionRunId("history-daily", today),
   });
   return dispatch(env, plan, deps.jobs);
 }
@@ -93,7 +91,7 @@ async function dispatch(env: StagingJobEnv, plan: ScheduledPlan, jobs: Scheduled
       return { action, detail: `${result.updated}/${result.targets} updated, ~${result.spent} credits${result.stopped ? ` (${result.stopped})` : ""}` };
     }
     case "metrics": {
-      const result = await jobs.metrics(env, "daily");
+      const result = await jobs.metrics(env, "daily", plan.asOfDate);
       return { action, detail: `${result.series} series, ${result.seriesRows} rows${result.benchmark?.done ? `, S&P ${result.benchmark.rows}d` : ""}` };
     }
     case "history":

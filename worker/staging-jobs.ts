@@ -133,8 +133,8 @@ export function runGradedJob(env: StagingJobEnv, budget: number) {
   return runGradedRotationBatch(env.DB, gradedRotationDeps(env.POKEMONPRICETRACKER_API_KEY!), { budget });
 }
 
-export async function runMetricsJob(env: StagingJobEnv, mode: "daily" | "backfill") {
-  const result = await runMetricsRollup(env.DB, { mode });
+export async function runMetricsJob(env: StagingJobEnv, mode: "daily" | "backfill", asOfDate?: string) {
+  const result = await runMetricsRollup(env.DB, { mode, asOfDate });
   // The S&P benchmark rides the metrics cadence: one Alpha Vantage call per run, skipped
   // entirely when no key is configured; a failed fetch never fails the rollup.
   const benchmark = env.ALPHAVANTAGE_API_KEY

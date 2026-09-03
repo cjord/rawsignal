@@ -47,6 +47,9 @@ export const catalogProducts = sqliteTable("catalog_products", {
   // once); the kind-led indexes cannot serve that and the planner full-scanned (review
   // 2026-09-03: the set-detail observation aggregation scanned all 13.5M observations).
   index("idx_catalog_game_set").on(table.game, table.setName),
+  // Readiness counts rows by run (`count(*) where ingestion_run_id=?`) and the live walk
+  // resumes by run + product; without this the count full-scans the catalog (review §14 F5).
+  index("idx_catalog_ingestion_run").on(table.ingestionRunId),
 ]);
 
 export const currentPrices = sqliteTable("current_prices", {

@@ -62,8 +62,11 @@ export function metricsBackfillStatements(series: SeriesDef[] = METRIC_SERIES): 
   ]);
 }
 
-export async function runMetricsRollup(db: D1DatabaseLike, options: { mode: "daily" | "backfill"; now?: Date; series?: SeriesDef[] }) {
-  const now = options.now ?? new Date(), startedAt = now.toISOString(), today = startedAt.slice(0, 10);
+export async function runMetricsRollup(db: D1DatabaseLike, options: { mode: "daily" | "backfill"; now?: Date; series?: SeriesDef[]; asOfDate?: string }) {
+  // The run id and the snapshot day are the DATA day — the live run's publish date when the
+  // cron passes it (todo R1: live runs finish after midnight UTC, so wall-clock "today" is
+  // the day after the observations) — falling back to today for operator/backfill calls.
+  const now = options.now ?? new Date(), startedAt = now.toISOString(), today = options.asOfDate ?? startedAt.slice(0, 10);
   const runId = `metrics-rollup:${today}`, series = options.series ?? METRIC_SERIES;
   // Daily mode re-rolls a trailing window (idempotent upserts): a rollup that ran before the
   // day's live ingestion finished, or a publish that crossed midnight, heals on the next tick.

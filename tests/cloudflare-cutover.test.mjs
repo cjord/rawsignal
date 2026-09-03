@@ -40,15 +40,17 @@ test("scheduled ticks advance due work and never start history backfills",()=>{
  const liveDone={livePublishedUpdatedAt:probeUpdatedAt,livePublishedRunId:liveTodayRunId};
  const detailsDone={detailsPublishedUpdatedAt:deploySnapshotUpdatedAt,detailsPublishedRunId:detailsTodayRunId};
  const gradedTodayRunId="graded-rotation:2026-08-28",gradedDone={gradedPublishedRunId:gradedTodayRunId};
- const metricsTodayRunId="metrics-rollup:2026-08-28",metricsDone={metricsPublishedRunId:metricsTodayRunId};
- const decide=overrides=>decideScheduledAction({probeUpdatedAt,livePublishedUpdatedAt:null,livePublishedRunId:null,liveTodayRunId,deploySnapshotUpdatedAt,detailsPublishedUpdatedAt:null,detailsPublishedRunId:null,detailsTodayRunId,gradedKeyConfigured:true,gradedPublishedRunId:null,gradedTodayRunId,metricsPublishedRunId:null,metricsTodayRunId,historyCheckpointRunId:null,historyPublishedRunId:null,historyTodayRunId:"history-daily:2026-08-28",...overrides});
+ const metricsDone={metricsPublishedRunId:"metrics-rollup:2026-08-28"};
+ const decide=overrides=>decideScheduledAction({probeUpdatedAt,livePublishedUpdatedAt:null,livePublishedRunId:null,liveTodayRunId,deploySnapshotUpdatedAt,detailsPublishedUpdatedAt:null,detailsPublishedRunId:null,detailsTodayRunId,gradedKeyConfigured:true,gradedPublishedRunId:null,gradedTodayRunId,metricsPublishedRunId:null,historyCheckpointRunId:null,historyPublishedRunId:null,...overrides});
  // A TCGCSV publish not yet ingested is due, whether the mismatch is absence or staleness.
  assert.equal(decide({...detailsDone}),"live");
  assert.equal(decide({livePublishedUpdatedAt:"2026-08-27T20:04:00Z",livePublishedRunId:"live-daily:2026-08-27",historyCheckpointRunId:"history-backfill:2026-08-27"}),"live");
  // A failed probe (null) skips live and retries next tick.
  assert.equal(decide({probeUpdatedAt:null,...detailsDone,...gradedDone}),"idle");
- // The probe timestamp is the snapshot identity: an ingested publish is never re-observed.
- assert.equal(decide({livePublishedUpdatedAt:probeUpdatedAt,livePublishedRunId:"live-daily:2026-08-27",...detailsDone,...gradedDone}),"idle");
+ // The probe timestamp is the snapshot identity: an ingested publish is never re-observed —
+ // the tick moves on to that run's rollup instead (R1).
+ assert.equal(decide({livePublishedUpdatedAt:probeUpdatedAt,livePublishedRunId:"live-daily:2026-08-27",...detailsDone,...gradedDone}),"metrics");
+ assert.equal(decide({livePublishedUpdatedAt:probeUpdatedAt,livePublishedRunId:"live-daily:2026-08-27",...detailsDone,...gradedDone,metricsPublishedRunId:"metrics-rollup:2026-08-27",historyPublishedRunId:"history-daily:2026-08-27"}),"idle");
  // At most one live run per day: a same-day re-publish never re-runs live — the tick
  // moves on to the daily history refresh instead (M4).
  assert.equal(decide({livePublishedUpdatedAt:"2026-08-28T10:00:00Z",livePublishedRunId:liveTodayRunId,...detailsDone,...gradedDone,...metricsDone}),"history");
@@ -62,7 +64,16 @@ test("scheduled ticks advance due work and never start history backfills",()=>{
  // Metrics roll up once per day, only after that day's live run completed.
  assert.equal(decide({...liveDone,...detailsDone,...gradedDone}),"metrics");
  assert.equal(decide({...liveDone,...detailsDone,...gradedDone,metricsPublishedRunId:"metrics-rollup:2026-08-27"}),"metrics");
- assert.equal(decide({livePublishedUpdatedAt:probeUpdatedAt,livePublishedRunId:"live-daily:2026-08-27",...detailsDone,...gradedDone}),"idle");
+ // R1 (2026-09-03): the rollup is keyed to the PUBLISHED live run's date, not the wall-clock
+ // day — a live run for the 08-27 publish that finished after midnight still gets its rollup
+ // (metrics-rollup:2026-08-27) and then its tiered history run, on 08-28.
+ assert.equal(decide({livePublishedUpdatedAt:probeUpdatedAt,livePublishedRunId:"live-daily:2026-08-27",...detailsDone,...gradedDone}),"metrics");
+ assert.equal(decide({livePublishedUpdatedAt:probeUpdatedAt,livePublishedRunId:"live-daily:2026-08-27",...detailsDone,...gradedDone,metricsPublishedRunId:"metrics-rollup:2026-08-27"}),"history");
+ assert.equal(decide({livePublishedUpdatedAt:probeUpdatedAt,livePublishedRunId:"live-daily:2026-08-27",...detailsDone,...gradedDone,metricsPublishedRunId:"metrics-rollup:2026-08-27",historyPublishedRunId:"history-daily:2026-08-27"}),"idle");
+ // A rollup keyed to an OLDER live run does not satisfy the new one.
+ assert.equal(decide({livePublishedUpdatedAt:probeUpdatedAt,livePublishedRunId:"live-daily:2026-08-27",...detailsDone,...gradedDone,metricsPublishedRunId:"metrics-rollup:2026-08-26"}),"metrics");
+ // No live run published yet (fresh database): nothing to roll up, nothing to refresh.
+ assert.equal(decide({probeUpdatedAt:null,...detailsDone,...gradedDone}),"idle");
  // History continues any checkpointed, uncompleted run first (operator backfills too).
  assert.equal(decide({...liveDone,...detailsDone,...gradedDone,...metricsDone,historyCheckpointRunId:"history-backfill:2026-08-27"}),"history");
  // Daily tiered refresh (M4): starts once live + metrics landed and no history run

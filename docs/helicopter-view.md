@@ -34,14 +34,14 @@ flowchart TB
   subgraph backend["Worker + DB"]
     worker["worker/: index (fetch) · scheduled-ingestion (cron) · staging-jobs (ops) · live-feeds"]
     db["db/: schema · repository · readiness · ingestion modules · backfill"]
-    drizzle["drizzle/: migrations 0000-0013 (hand-written since 0005)"]
+    drizzle["drizzle/: migrations 0000-0014 (hand-written since 0005)"]
   end
   subgraph pipeline["Feed pipeline (node)"]
     sync["sync-tcgcsv.mjs · sync-sealed.mjs (roots)"]
     scripts["scripts/: validate · details · scalper · graded · io · cloudflare"]
     feeds["public/data/*.json (generated, last-good protected)"]
   end
-  tests["tests/: 54 node suites (~253 tests) + 4 Playwright — behavioral suites, characterization pins, a slim source-contract file"]
+  tests["tests/: 57 node suites (~261 tests) + 4 Playwright — behavioral suites, characterization pins, a slim source-contract file"]
   docs["docs/: maintained + gate-enforced"]
 
   pages --> prims --> dataL
@@ -107,7 +107,7 @@ flowchart LR
   norm["core/normalize (pure)"]
   val["scripts/validate + last-good publish"]
   pub["public/data feeds (bundled into deploys)"]
-  cron["production cron */1 — guard: one checkpointed batch when due"]
+  cron["production cron */1 — guard: one checkpointed batch when due; rollup + daily history keyed to the live run's date"]
   d1[("D1: catalog · observations · signals · graded · metrics")]
   repos["repositories: D1 first, feed fallback"]
   engine["catalog-query engine (one impl for browser + server)"]
@@ -142,7 +142,7 @@ word.
 
 ## Release gate
 
-`npm run check` = production build + ~253 node tests (54 suites) + lint + `tsc --noEmit` + 4
+`npm run check` = production build + ~261 node tests (57 suites) + lint + `tsc --noEmit` + 4
 Playwright journeys. Playwright starts its own server on :4173, but vinext refuses to start a
 second dev server for the same directory — **stop the :3000 dev server before the gate** or
 `test:browser` fails with "Another vinext dev server is already running". A few suites still

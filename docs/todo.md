@@ -304,7 +304,7 @@ not act on; each needs a product or design decision before code changes.
 - **Q5 — Feed payload size.** The largest section feeds are 1–2 MB uncompressed; trim fields
   the leaderboard never renders, or page the largest sections through `/api/catalog`. A
   product decision (review §11).
-- **Q6 — `/sets` directory latency (measured 2026-09-03).** Time to first byte is 1.8–3.5 s
+- **Q6 — `/sets` directory latency (measured 2026-09-03).** *Wave 12: fixes (a) and (b) shipped — one round trip, ISR 10 min; (c) precompute remains optional.* Time to first byte is 1.8–3.5 s
   on production, versus ~0.45 s for the home page or a static asset and 0.7–1.5 s for a
   one-query API route; staging's older build shows the same, so it predates the refactor.
   The cron was idle during measurement, so it is not ingestion contention. Cause, from
@@ -327,7 +327,7 @@ not act on; each needs a product or design decision before code changes.
   precompute a `set_directory` table in the metrics rollup so the page is one indexed read.
   Related cost note: D1 reports ~335 M rows read per day (≈ $10/month at list price); the
   rollup and history passes, not this page, are the likely bulk — worth a rows-read audit under §M.
-- **Q7 — D1 rows read: 366 M/day (measured 2026-09-03 via `wrangler d1 insights`).** Attribution
+- **Q7 — D1 rows read: 366 M/day (measured 2026-09-03 via `wrangler d1 insights`).** *Wave 12: F1, F2, F4, F5, F6, F7 shipped; F3 deferred (see review §14). Re-measure with `wrangler d1 insights --timePeriod 1d` a day after deploy.* Attribution
   and fixes are in `docs/codebase-review-2026-09-03.md` §14. Headline: 45% is the detail page
   loading the whole game catalog twice per view (`getDetail` → `productRows("single"|"sealed")`,
   ~43k rows each), 40% was the set-detail observation scan that migration 0013 turned into an
@@ -342,7 +342,7 @@ not act on; each needs a product or design decision before code changes.
 
 ## R. Production ingestion cadence bug (found 2026-09-03 during the D1 audit)
 
-- **R1 — the daily metrics rollup and the tiered history refresh have never run in production.**
+- **R1 — the daily metrics rollup and the tiered history refresh have never run in production.** *Fixed in wave 12 (`liveRunDate` keying, pinned in `tests/cloudflare-cutover.test.mjs` and `tests/scheduled-ingestion.test.mjs`). After deploy the first tick runs `metrics-rollup:<latest live date>`; the production ops adapter refuses jobs, so earlier days are not backfilled — the track record starts from the deploy day.*
   `refresh_state` shows `metrics-rollup:2026-08-28` (the manual backfill) and
   `history-backfill:2026-08-28` as the last runs; there is no `history-daily:*` run at all, and
   `signal_history`, `shadow_signal_history`, and `cohort_stats` are empty. Cause: the guard-cron

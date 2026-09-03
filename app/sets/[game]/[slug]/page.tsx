@@ -9,6 +9,11 @@ import type { D1DatabaseLike } from "../../../../db/repository";
 type Props = { params: Promise<{ game: string; slug: string }> };
 const GAMES = new Set(["pokemon", "riftbound", "onepiece"]);
 
+// The set detail changes once a day (after the metrics rollup); vinext's ISR serves the
+// rendered page from the isolate for this long and regenerates in the background
+// (stale-while-revalidate), so repeat views and hover prefetches skip D1 (review §14 F7).
+export const revalidate = 600;
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   // Set-code tokens read as codes ("SV08"), everything else title-cased.

@@ -33,9 +33,13 @@ export async function readEarlyValue(db: D1DatabaseLike, productId: number, pres
 
   // The set's release day = median first observation of its SINGLES (sealed lists as
   // presale ~75 days early and cannot date a launch). No singles yet => unreleased.
-  const firsts = (await db.prepare(`select min(o.observed_date) as f from price_observations o
-      join catalog_products p on p.product_id=o.product_id
-      where p.game=? and p.set_name=? and p.kind='single' group by o.product_id order by f`)
+  // One index seek per member (rows read ≈ members, not observations — review §14 F2): the
+  // correlated min() rides idx_price_observations_product_date; members with no observations
+  // yet drop out, matching the previous inner join.
+  const firsts = (await db.prepare(`select f from (
+        select (select min(o.observed_date) from price_observations o where o.product_id=p.product_id) as f
+        from catalog_products p where p.game=? and p.set_name=? and p.kind='single'
+      ) where f is not null order by f`)
     .bind(meta.game, meta.setName).all<{ f: string }>()).results ?? [];
   const release = firsts.length >= 8 ? firsts[Math.floor(firsts.length / 2)].f : null;
   const ageDays = release ? daysSince(release) : null;

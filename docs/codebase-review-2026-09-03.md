@@ -382,13 +382,13 @@ Fixes, by payoff:
 
 | # | Change | Saves/day | Risk |
 |---|---|---|---|
-| F1 | `getDetail`: derive peers/similar from `game+set` (and `game+set+rarity`) rows via `idx_catalog_game_set` instead of `productRows(kind, game)` twice; keep a per-game in-isolate cache (the `cachedRepository` pattern already used for feeds) for anything that truly needs the whole game | ~160 M | medium — detail tests + `tests/early-value`/`detail-*` pin outputs |
-| F2 | Early value: read the set release date from `product_details.published_on` (already loaded per set) or a precomputed `first_observed` column written by the daily pass, instead of scanning every member's observations | ~22 M | low |
-| F3 | Peer anchors: serve cohort averages from the daily rollup (`cohort_stats` was built for this) instead of a 180-day scan per view | ~7 M | low once R1 runs the rollup |
-| F4 | Sets directory: Q6 (parallel reads, edge cache, or precomputed table) | ~10 M | low |
-| F5 | Index `catalog_products(ingestion_run_id)` (or compare `ingestion_runs.records_written`) for the readiness count | 0.6 M, and it runs on every readiness check | low |
-| F6 | `/api/signals`: one join on the latest `market_metrics` row instead of four correlated subqueries | 1.9 M and ~200 ms per call | low |
-| F7 | `Cache-Control` on detail/set RSC pages (5–15 min) so hover prefetch and bots hit the edge | multiplies every other saving | low |
+| F1 | **Done (wave 12).** Only the product's own kind needs the whole game (name similarity, game-wide rarity averages); the other kind is read by set via `idx_catalog_game_set`, and whole-game rows are cached per isolate for 10 minutes keyed by the published run. Golden-diffed on 60 products: identical except tie order among equal-priced related sealed items, now deterministic | ~160 M (cold view 43 k → ~22 k; warm ~0.5 k) | medium — detail tests + `tests/early-value`/`detail-*` pin outputs |
+| F2 | **Done (wave 12).** One correlated `min(observed_date)` per member rides the product/date index — rows read ≈ members, same result set (`tests/early-value` green) | ~22 M | low |
+| F3 | Peer anchors: serve cohort averages from the daily rollup (`cohort_stats` was built for this) instead of a 180-day scan per view. Deferred: the anchor is a 180-day daily series, not the rollup's summary statistics; F7's page cache absorbs the repeats | ~7 M | low once R1 runs the rollup |
+| F4 | **Done (wave 12).** The six directory reads share one round trip; the page is ISR-cached for 10 minutes | ~10 M | low |
+| F5 | **Done (wave 12)** — migration 0014 `idx_catalog_ingestion_run` | 0.6 M, and it runs on every readiness check | low |
+| F6 | **Done (wave 12).** One `rowid` lookup of the latest metrics row per signal row; golden-diffed across all 30 boards, ~15% faster locally | 1.9 M and ~200 ms per call | low |
+| F7 | **Done (wave 12).** `worker/edge-cache.ts` stores `/api/*` and `/data/*` GETs in the colo cache for their declared `s-maxage` (Cloudflare does not cache Worker responses otherwise); the sets directory, set detail, and card detail pages use vinext ISR (`revalidate = 600`, in-isolate, stale-while-revalidate). The sealed detail reads `?market=` and stays dynamic | multiplies every other saving | low |
 
 Together: ~366 M → under 30 M rows/day, with per-view reads proportional to the set (hundreds of
 rows) rather than the catalog (tens of thousands), which is what lets traffic scale 10× inside

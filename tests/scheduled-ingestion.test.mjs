@@ -110,7 +110,7 @@ test("details, graded, and metrics dispatch with their named batch sizes and rep
 
   const metrics = harness({ published: { ...liveDone, ...detailsDone, ...gradedDone } });
   assert.deepEqual(await runScheduledIngestionTick(metrics.env, metrics.deps), { action: "metrics", detail: "3 series, 900 rows, S&P 250d" });
-  assert.deepEqual(metrics.calls, [["metrics", "daily"]]);
+  assert.deepEqual(metrics.calls, [["metrics", "daily", "2026-08-28"]]);
 });
 
 test("without a graded key the rotation is skipped, not attempted", async () => {
@@ -120,7 +120,19 @@ test("without a graded key the rotation is skipped, not attempted", async () => 
   assert.equal(calls.some(([name]) => name === "graded"), false);
 });
 
-test("the daily history refresh starts tiered under today's date once live and metrics landed", async () => {
+test("a live run published for yesterday's TCGCSV date gets yesterday's rollup, then yesterday's tiered history (R1)", async () => {
+  const yesterday = { "daily-market": published("live-daily:2026-08-27", "2026-08-27T20:05:00Z") };
+  // The probe sees today's publish is not ingested yet, but the live job is not due until the
+  // probe differs — here it equals the published snapshot, so the tick moves to the rollup.
+  const metrics = harness({ published: { ...yesterday, ...detailsDone, ...gradedDone }, probe: async () => "2026-08-27T20:05:00Z" });
+  assert.deepEqual(await runScheduledIngestionTick(metrics.env, metrics.deps), { action: "metrics", detail: "3 series, 900 rows, S&P 250d" });
+  assert.deepEqual(metrics.calls, [["metrics", "daily", "2026-08-27"]]);
+  const history = harness({ published: { ...yesterday, ...detailsDone, ...gradedDone, "metrics-rollup": published("metrics-rollup:2026-08-27") }, probe: async () => "2026-08-27T20:05:00Z" });
+  assert.equal((await runScheduledIngestionTick(history.env, history.deps)).action, "history");
+  assert.deepEqual(history.calls, [["history", 60, "2026-08-27", { all: false }]]);
+});
+
+test("the daily history refresh starts tiered under the live run's date once live and metrics landed", async () => {
   const { env, deps, calls } = harness({ published: { ...liveDone, ...detailsDone, ...gradedDone, ...metricsDone } });
   const result = await runScheduledIngestionTick(env, deps);
   assert.deepEqual(result, { action: "history", detail: "60/600" });

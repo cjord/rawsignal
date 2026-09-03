@@ -18,14 +18,16 @@ export async function loadSetsDirectory(db: D1DatabaseLike | undefined): Promise
   const published = await publishedIngestion(db).catch(() => null);
   if (!published) return null;
 
-  const singles = (await db.prepare(`select p.game, p.set_name setName, count(*) chase, sum(cp.market_cents) totalCents, min(p.release_year) releaseYear
+  // Every read below depends only on the published run, so they share one round trip
+  // (Q6: six sequential trips to D1 were ~1–1.5 s of the page's time to first byte).
+  const singlesQuery = db.prepare(`select p.game, p.set_name setName, count(*) chase, sum(cp.market_cents) totalCents, min(p.release_year) releaseYear
     from catalog_products p join current_prices cp on cp.product_id=p.product_id
     where p.kind='single' and cp.market_cents is not null
-    group by p.game, p.set_name`).bind().all<{ game: string; setName: string; chase: number; totalCents: number; releaseYear: number | null }>()).results ?? [];
+    group by p.game, p.set_name`).bind().all<{ game: string; setName: string; chase: number; totalCents: number; releaseYear: number | null }>();
 
-  const sealed = (await db.prepare(`select p.game, p.set_name setName, count(*) sealed, min(p.release_year) releaseYear
+  const sealedQuery = db.prepare(`select p.game, p.set_name setName, count(*) sealed, min(p.release_year) releaseYear
     from catalog_products p where p.kind='sealed'
-    group by p.game, p.set_name`).bind().all<{ game: string; setName: string; sealed: number; releaseYear: number | null }>()).results ?? [];
+    group by p.game, p.set_name`).bind().all<{ game: string; setName: string; sealed: number; releaseYear: number | null }>();
 
   // Middle-rank median momentum per game+set+kind: singles carry the tile chips where
   // they exist; sealed-only sets (One Piece) fall back to their sealed momentum. One
@@ -38,22 +40,27 @@ export async function loadSetsDirectory(db: D1DatabaseLike | undefined): Promise
       where mm.${column} is not null
     ) select game, setName, kind, avg(b) bps from ranked where rn=(total+1)/2 or rn=total/2+1 group by game, setName, kind`;
   type MomentumRow = { game: string; setName: string; kind: string; bps: number | null };
-  const [momentum7, momentum30] = await Promise.all([
-    db.prepare(momentumWindow("change_7_bps")).bind().all<MomentumRow>().then(result => result.results ?? []),
-    db.prepare(momentumWindow("change_30_bps")).bind().all<MomentumRow>().then(result => result.results ?? []),
-  ]);
-
-  const releases = (await db.prepare(`select p.game, p.set_name setName, min(pd.published_on) releaseDate
+  const releasesQuery = db.prepare(`select p.game, p.set_name setName, min(pd.published_on) releaseDate
     from product_details pd join catalog_products p on p.product_id=pd.product_id
     where pd.published_on is not null
-    group by p.game, p.set_name`).bind().all<{ game: string; setName: string; releaseDate: string }>()).results ?? [];
+    group by p.game, p.set_name`).bind().all<{ game: string; setName: string; releaseDate: string }>();
 
   // Signal presence at the site-default strictness; the chips are a pointer into the
   // hot boards, not a strictness-aware count.
-  const signals = (await db.prepare(`select p.game, p.set_name setName, ms.side, count(distinct ms.product_id) n
+  const signalsQuery = db.prepare(`select p.game, p.set_name setName, ms.side, count(distinct ms.product_id) n
     from market_signals ms join catalog_products p on p.product_id=ms.product_id
     where p.kind='single' and ms.strictness='balanced'
-    group by p.game, p.set_name, ms.side`).bind().all<{ game: string; setName: string; side: "buy" | "sell"; n: number }>()).results ?? [];
+    group by p.game, p.set_name, ms.side`).bind().all<{ game: string; setName: string; side: "buy" | "sell"; n: number }>();
+
+  const [singlesResult, sealedResult, momentum7Result, momentum30Result, releasesResult, signalsResult] = await Promise.all([
+    singlesQuery, sealedQuery,
+    db.prepare(momentumWindow("change_7_bps")).bind().all<MomentumRow>(),
+    db.prepare(momentumWindow("change_30_bps")).bind().all<MomentumRow>(),
+    releasesQuery, signalsQuery,
+  ]);
+  const singles = singlesResult.results ?? [], sealed = sealedResult.results ?? [];
+  const momentum7 = momentum7Result.results ?? [], momentum30 = momentum30Result.results ?? [];
+  const releases = releasesResult.results ?? [], signals = signalsResult.results ?? [];
 
   const momentumBy = new Map<string, { bps7: number | null; bps30: number | null }>();
   for (const row of momentum7) momentumBy.set(`${gameSetKey(row.game, row.setName)}|${row.kind}`, { bps7: row.bps, bps30: null });

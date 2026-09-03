@@ -3,6 +3,7 @@ import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } fr
 import handler from "vinext/server/app-router-entry";
 import { handleLiveFeed } from "./live-feeds.ts";
 import { runScheduledIngestionTick } from "./scheduled-ingestion.ts";
+import { withEdgeCache } from "./edge-cache.ts";
 import { handleStagingJob, type StagingJobEnv } from "./staging-jobs.ts";
 
 interface Env {
@@ -40,8 +41,8 @@ const worker = {
     if (stagingJob) return stagingJob;
 
     if (url.pathname.startsWith("/data/")) {
-      const liveFeed = await handleLiveFeed(request, env as unknown as StagingJobEnv);
-      if (liveFeed) return liveFeed;
+      const liveFeed = await withEdgeCache(request, ctx, async () => (await handleLiveFeed(request, env as unknown as StagingJobEnv)) ?? new Response(null, { status: 404 }));
+      if (liveFeed.status !== 404) return liveFeed;
       // run_worker_first routes /data/* through here, so non-intercepted paths (detail
       // chunks, manifests, configs) are served from the static assets explicitly. Worker-only
       // paths with no asset behind them (freshness) 404 quietly instead of erroring — the
@@ -61,6 +62,9 @@ const worker = {
       }, allowedWidths);
     }
 
+    // API routes ride the colo cache for the lifetime their own Cache-Control declares
+    // (review §14 F7); pages are cached by vinext's ISR where the route opts in.
+    if (url.pathname.startsWith("/api/")) return withEdgeCache(request, ctx, () => handler.fetch(request, env, ctx));
     return handler.fetch(request, env, ctx);
   },
 
