@@ -128,7 +128,7 @@ ESLint `complexity` (threshold 12), `max-depth` (3), `max-lines-per-function` (1
 |---|---|---|
 | 86 | `core/signal-utils.ts` `evaluateMarketSignal` | Wave 4: extract `liquidityGate`, `candidateExtremes`, `scoreV1`/`scoreV2`, `turnGates` as named pure helpers behind a characterization suite that pins current outputs on fixture series for every side × strictness × model. The harness (`docs/backtests.md`) is the second net. Behavior byte-identical. |
 | 73 | `app/ProductDetailPage.tsx` `ProductDetailPage` | Wave 4: the file already has 12 sub-components; the page body still inlines the hero (favorites, links, primary price, overview grid), the history section, and the hero-art tilt engine. Extract `useArtTilt`, `DetailHero`, `PriceHistorySection`. |
-| 61 / 762 lines | `app/SealedView.tsx` `SealedView` | Wave 4 (bounded): lift the filter-chip builder and the scenario controls into hooks shared with `Home`; the twin-orchestrator shape is a known decision (mode adapter), not a rewrite target. |
+| 61 / 762 lines | `app/SealedView.tsx` `SealedView` | Wave 3 lifted the chip builder (`selectionChips`); wave 11 lifted the last identical block, the `signalFor` resolver (`signalResolver` in the mode adapter). The derived maps, catalog queries, sorts, set groups, and favorites scope were already shared or memoized. What remains is state orchestration pinned by the state suites — the twin-orchestrator shape is a known decision (mode adapter), not a rewrite target. |
 | 47 / 228 lines | `app/CollectrImportView.tsx` | Wave 10: the filter/sort/totals/set-options/paging model is `app/state/collectr-view.ts` (pure; `tests/collectr-view.test.mjs`, 7 cases) and the table row is an `ImportRow` component; the page keeps only state, fetch phases, and layout. |
 | 46 / 837 lines | `app/page.tsx` `Home` | Same treatment as `SealedView`. |
 | 45 | `app/PriceChart.tsx` `PriceChart` | Extract scale/tick computation into a pure helper (also memoizable — §9). |
@@ -321,6 +321,9 @@ this program is intended to be behavior-preserving and is verified by the full g
 | Derived pass (`persistDerivedHistory`) | no direct test; signal + shadow loops inline (complexity 33) | `signalStatements` / `shadowSignalStatements` extracted (26); 5-case suite on a migrated in-memory D1 |
 | Complexity budget | none | ESLint `complexity: ["warn", 25]` (warn only) |
 | `drizzle-kit` | `db:generate` emitted wrong diffs (journal stopped at 0004) | script, `drizzle.config.ts`, and devDependency removed; README documents hand-written migrations; audit advisories 21 → 19 |
+| Collectr import view | table model inline in a 301-line client component, untested | `app/state/collectr-view.ts` (pure, 7-case suite) + `ImportRow` component; page 263 lines |
+| `Home` / `SealedView` twins | `signalFor` duplicated | `signalResolver` in the mode adapter (tested); the orchestrators otherwise left by decision |
+| Set-page hydration (found in production verification) | React #418 on every set detail load (browser-local date vs UTC server) | `formatFullDate` in UTC; `tests/formatters.test.mjs`; shipped as version 0fbd5b4c |
 | Dead modules / dead functions | `db/index.ts`; 7 unused exports | removed |
 | Layering edges backend→app | 1 | 0 (`app/data/load-detail.ts`→`db/` documented as the RSC-loader exception) |
 | Functions over complexity 12 | 67 | 67 — the extracted helpers replace hotspots one-for-one; the worst cases fell: `evaluateMarketSignal` 86→68, `ProductDetailPage` 73→48, `PriceChart` 45→33, `classifyRegime` 44→under threshold, the four sealed normalizers 22/23/15/15→13/14/under/under, `loadMetricsPayload` 14→under (195 lines→six loaders) |

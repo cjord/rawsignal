@@ -78,6 +78,7 @@ import {
   nextSortDirection,
   selectionChips,
   signalAwareSorts,
+  signalResolver,
 } from "./leaderboard/mode-adapter";
 
 type Game = SinglesMarket;
@@ -430,17 +431,7 @@ export default function Home() {
     sealedState,
     writeUrl,
   ]);
-  const signalFor = (card: Card) =>
-    signalView === "leaderboard"
-      ? null
-      : persistedSignals.ready
-        ? (persistedSignals.derived[card.productId]?.signal ?? null)
-        : marketSignal(
-            history[card.productId]?.points ?? [],
-            signalView,
-            strictness,
-            card.marketPrice,
-          );
+  const signalFor = signalResolver<Card>(signalView, strictness, persistedSignals, history, (card) => card.marketPrice);
   const derived = useMemo(
     () => buildCatalogDerived(cards, history, persistedSignals, signalFor),
     [cards, history, signalView, strictness, persistedSignals],

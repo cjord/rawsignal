@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {buildCatalogDerived,nextSortDirection,selectionChips,signalAwareSorts} from "../app/leaderboard/mode-adapter.ts";
+import {readFileSync} from "node:fs";
+import {buildCatalogDerived,nextSortDirection,selectionChips,signalAwareSorts,signalResolver} from "../app/leaderboard/mode-adapter.ts";
 
 test("shared mode adapter derives history and honors persisted coverage",()=>{
  const items=[{productId:1},{productId:2}],history={1:{change7:1,change30:2,low30:3,high30:4}};
@@ -28,4 +29,20 @@ test("selection chips clear one value at a time and label through the mapper",()
  assert.deepEqual(updates,[["steady"]]);
  assert.deepEqual(selectionChips("set",["Base Set"],()=>{}).map(chip=>chip.label),["Base Set"]);
  assert.deepEqual(selectionChips("set",[],()=>{}),[]);
+});
+
+test("the shared signal resolver prefers persisted signals and falls back to a live evaluation at the item's price",()=>{
+ // The "bounce" characterization fixture yields a buy at balanced/aggressive when priced at its last point.
+ const points=JSON.parse(readFileSync(new URL("./fixtures/signal-cases.json",import.meta.url),"utf8")).fixtures.bounce;
+ const history={7:{points,change7:null,change30:null,low30:null,high30:null}};
+ const persistedSignal={side:"buy",score:90,confidence:"high",reason:"Persisted",detail:"",distance:0,cutoff:1};
+ // Leaderboard view: never a signal, whatever the stores hold.
+ assert.equal(signalResolver("leaderboard","balanced",{ready:true,derived:{7:{signal:persistedSignal}}},history,()=>points.at(-1).price)({productId:7}),null);
+ // Persisted store ready: its signal wins, missing rows are null.
+ assert.equal(signalResolver("buy","balanced",{ready:true,derived:{7:{signal:persistedSignal}}},history,()=>12)({productId:7}),persistedSignal);
+ assert.equal(signalResolver("buy","balanced",{ready:true,derived:{}},history,()=>12)({productId:7}),null);
+ // Not ready: evaluate the fetched history at the caller-supplied price; no history → null.
+ const live=signalResolver("buy","aggressive",{ready:false,derived:{}},history,item=>item.price)({productId:7,price:points.at(-1).price});
+ assert.equal(live?.side,"buy");
+ assert.equal(signalResolver("buy","aggressive",{ready:false,derived:{}},{},()=>12)({productId:8}),null);
 });

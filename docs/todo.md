@@ -58,7 +58,8 @@ are defined in `docs/model-gaps.md` → "Review calendar" and "Update policy".
 
 §I queued visual-pass items · §J sets view · §K signal display · §L catalog coverage
 gaps · §M ingestion scaling (M7–M13 open; M1–M6 shipped) · §O monetization · §P
-signal-model program (P8 + governance TODOs; P1–P7 shipped — see the completed doc).
+signal-model program (P8 + governance TODOs; P1–P7 shipped — see the completed doc) · §Q
+code-review follow-ups (Q1–Q5, decisions pending).
 
 ## I. Queued from the staging visual pass (2026-08-28)
 
@@ -279,3 +280,27 @@ version into `signal_history` (track-record integrity).
 Deferred (unchanged from research §15.7): character priors,
 pull-difficulty score adjustments, execution-aware net returns. (Early Value Estimate
 graduated to P7.)
+
+## Q. Code-review follow-ups (from the 2026-09-03 refactor program)
+
+Open findings the September review (`docs/codebase-review-2026-09-03.md`) recorded but did
+not act on; each needs a product or design decision before code changes.
+
+- **Q1 — `/api/history` GET writes to D1.** On a stored-history miss the route fetches
+  TCGplayer and re-derives that product's metrics and signals (`persistDerivedHistory`), so an
+  unauthenticated read is a write path, and the local max-profile database drifts under the
+  Playwright gate (review §8.12–8.13). Options: keep (cache warm is the intended design;
+  document and rate-limit), or move the derive step to the next cron tick and leave GET
+  read-only. Decision owner: user.
+- **Q2 — Collectr `matchCards` feed fallback** sees only the top 50 rows per market and runs
+  two catalog queries per call (review §8.5, §8.10). Dev-only path today (production matches
+  against D1); tighten or delete once the feed fallback is retired.
+- **Q3 — vinext link prefetch console error.** `[vinext] RSC prefetch setup error: d is not
+  a function` (vinext 1.0.0-beta.2, `dist/shims/link.js`) fires once per top-bar link on
+  `/import` and after scrolling `/sets`, on staging's older build too. Framework-internal; no
+  user-visible effect. Re-check on the next vinext release before filing upstream.
+- **Q4 — Component-level smoke tests** for the leaderboard view modes (render each with
+  fixture rows). The four Playwright journeys cover state, not every view (review §11).
+- **Q5 — Feed payload size.** The largest section feeds are 1–2 MB uncompressed; trim fields
+  the leaderboard never renders, or page the largest sections through `/api/catalog`. A
+  product decision (review §11).

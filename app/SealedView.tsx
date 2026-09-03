@@ -16,11 +16,7 @@ import { RegimeChip, SignalBadge } from "./SignalControls";
 import FavoriteStar from "./FavoriteStar";
 import { sealedFavorite } from "./state/favorites";
 import { useFavoriteScope } from "./state/useFavorites";
-import {
-  marketSignal,
-  type SignalSide,
-  type SignalStrictness,
-} from "../core/signal-utils";
+import type { SignalSide, SignalStrictness } from "../core/signal-utils";
 import MultiSelectField from "./MultiSelectField";
 import PerPageSelect from "./PerPageSelect";
 import SaleScenario from "./SaleScenario";
@@ -64,6 +60,7 @@ import {
   nextSortDirection,
   selectionChips,
   signalAwareSorts,
+  signalResolver,
 } from "./leaderboard/mode-adapter";
 
 type Game = SealedMarket;
@@ -275,17 +272,7 @@ export default function SealedView({
       .catch(() => { /* Feed-only deployment; hover cards omit EV. */ });
     return () => controller.abort();
   }, []);
-  const signalFor = (product: Product) =>
-    signalView === "leaderboard"
-      ? null
-      : persistedSignals.ready
-        ? (persistedSignals.derived[product.productId]?.signal ?? null)
-        : marketSignal(
-            history[product.productId]?.points ?? [],
-            signalView,
-            strictness,
-            calculate(product).value,
-          );
+  const signalFor = signalResolver<Product>(signalView, strictness, persistedSignals, history, (product) => calculate(product).value);
   const derived = useMemo(
     () => buildCatalogDerived(scopedProducts, history, persistedSignals, signalFor),
     [
