@@ -117,10 +117,21 @@ turn-confirmation model is rightly silent. Three parts, in order:
   design.
 - **Sealed joins scope:** the well-evidenced decay data is sealed (box/ETB vs MSRP);
   sealed release curves ship co-equal with singles.
-- **Character-premium caveat surfaced:** chase is Mega Rayquaza ex; with no catalog
-  character field, EVE underestimates top-character cards ~20–25% early (lifecycle
-  research) — the displayed range carries an "excludes character premium" note. New
-  Legendary Stadium mechanic cards have no clean cohort analog (label, don't anchor).
+- **Marquee-chase premium, measured not modeled (user direction 2026-09-02):** Mega
+  Rayquaza ex will draw materially more attention than prior ME-set chases. Handled
+  WITHOUT a model change: the release-curve mining also measures the marquee-chase
+  premium — day-60 price of each prior set's #1 chase vs its cohort anchor — and the
+  identified chase card gets a wider, asymmetric upper band from that distribution
+  ("marquee chases in this series settled N–M× their cohort median"), with Rayquaza
+  noted at the top of the historical range. Uniform method, per-set inputs, display
+  only.
+- **Legendary Stadiums: standard treatment** (user direction): they are lower-rarity
+  cards, not price-significant — the rarity-rung cohort handles them like any card; no
+  special casing.
+- **Normalization rule:** per-set knowledge (chase identity, rarity counts, series)
+  enters only as inputs to uniform machinery — no set-specific parameters, no scoring
+  changes. P7 stays a display/expectation layer in governance tier 1, with zero risk
+  to the v2.2 shadow.
 - **Retrospective test cases fixed:** EVE must beat the naive day-0 baseline on Chaos
   Rising and Pitch Black (recent, same series, fully in archive) before serving.
 
