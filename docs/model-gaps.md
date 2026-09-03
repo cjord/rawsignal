@@ -36,15 +36,19 @@ to accept, and when each open item gets re-examined.
 8. **Fixed 30-day lens.** Optimized solely for 30-day forward returns — the chosen
    priority. 90-day / 1-year model plans are documented below but deliberately queued
    behind the 30-day goal.
-9. **Board-level concentration is unmanaged.** Signals are judged one card at a time;
-   nothing stops the top of a board from being 20 highly-correlated cards (one hot
-   set, one rarity wave). Per-signal precision can be excellent while the board as a
-   *portfolio* carries one concentrated bet: a set-level reversal flips many picks at
-   once, so realized board-level outcomes are lumpier than per-signal hit rates
-   suggest. The cohort dampener's removal (v2.2) slightly increases this tendency —
-   cohort-wide recoveries now score well by design. *Not addressed in scoring;
-   candidate answers: a board-composition cap (max N per set/cohort), a diversity-aware
-   display grouping, or simply surfacing "n of top 20 from one set" as context.*
+9. **Correlated picks: co-movement is SIGNAL by design; the residue is accounting.**
+   (Reframed 2026-09-02 per user direction.) Cohort co-movement — set rising → card
+   likely rises — is deliberately exploited: breadth is the cleanest monotone
+   predictor we measured (37%→73%), and co-moving recoveries outperform lone movers
+   (79% vs 70%, which is why the dampener was removed). Picking correlated cards is
+   correct. The residual gap is only statistical accounting: 20 picks sharing one
+   driver are closer to one bet expressed 20 times, so a board snapshot's day-to-day
+   results spread wider than independent 73% chances imply — relevant when judging a
+   bad week in the monthly reviews (wide variance ≠ broken model), not when selecting.
+   Open improvement this framing motivates: a **character-level cohort rung**
+   (game|character — every Umbreon across sets) — the catalog lacks a character/icon
+   field (research Phase-4 data-foundation task; name-parsing reaches ~90% of
+   Pokémon), and set+rarity rungs proved co-movement carries real signal.
 10. **Residual archive overfit.** Two fit-confirm rounds on one archive; the
     cross-market run added new segments but the same era. Governed by the refit policy
     below — NOT by ad-hoc monthly refitting (see policy rationale).
