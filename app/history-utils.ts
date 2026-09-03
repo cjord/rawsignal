@@ -1,2 +1,0 @@
-export type HistoryBucket={marketPrice:string;bucketStartDate:string};
-export function mergeHistoryBuckets(annual:HistoryBucket[]=[],quarterly:HistoryBucket[]=[]) {const merged=new Map<string,number>();for(const bucket of [...annual,...quarterly]){const price=Number(bucket.marketPrice);if(Number.isFinite(price)&&price>0)merged.set(bucket.bucketStartDate,price)}return [...merged].map(([date,price])=>({date,price})).sort((a,b)=>a.date.localeCompare(b.date))}
