@@ -33,7 +33,7 @@ The application is available at the local URL printed by vinext. The default the
 npm run check
 ```
 
-`npm run check` performs the production build, all Node tests, lint, and the focused Chromium browser suite. Install its browser once with `npm run test:browser:install`. For the narrow critical URL/query journey only:
+`npm run check` performs the production build, all Node tests, lint, the type check (`npm run typecheck`), and the focused Chromium browser suite. Install its browser once with `npm run test:browser:install`. For the narrow critical URL/query journey only:
 
 ```powershell
 npm run test:smoke
@@ -85,14 +85,14 @@ See [Architecture](docs/architecture.md), [Hosting decision](docs/adr/001-hostin
 
 ## Important directories
 
-- `core/domain/`: market types, runtime feed contracts, formatting, and history metrics.
+- `core/`: framework-free code shared by the app, the Worker, and the sync scripts — domain types and contracts (`core/domain/`), the catalog-query and signal engines, source clients (`core/clients/`), and normalizers.
 - `app/data/`: shared catalog queries, repositories, history loading, and signal coverage.
 - `app/state/`: URL parsing, serialization, and browser history synchronization.
 - `app/leaderboard/`, `app/filters/`: shared Singles/Sealed presentation primitives.
 - `app/api/`: catalog, history, and persisted-signal endpoints.
 - `db/`: D1 schema, repository operations, ingestion, and resumable history backfill.
 - `scripts/`: source clients, normalization, validation, and last-good publication.
-- `drizzle/`: committed D1 migrations and snapshots.
+- `drizzle/`: committed D1 migrations (hand-written, contiguously numbered SQL since 0005) and the early drizzle-kit snapshots.
 - `public/data/`: generated and maintained market feeds.
 - `tests/`: unit, contract, rendered-output, and critical-journey tests.
 

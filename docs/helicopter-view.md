@@ -34,14 +34,14 @@ flowchart TB
   subgraph backend["Worker + DB"]
     worker["worker/: index (fetch) · scheduled-ingestion (cron) · staging-jobs (ops) · live-feeds"]
     db["db/: schema · repository · readiness · ingestion modules · backfill"]
-    drizzle["drizzle/: migrations 0000-0012"]
+    drizzle["drizzle/: migrations 0000-0013 (hand-written since 0005)"]
   end
   subgraph pipeline["Feed pipeline (node)"]
     sync["sync-tcgcsv.mjs · sync-sealed.mjs (roots)"]
     scripts["scripts/: validate · details · scalper · graded · io · cloudflare"]
     feeds["public/data/*.json (generated, last-good protected)"]
   end
-  tests["tests/: 45 node suites (~200 tests) + 4 Playwright — behavioral suites + a slim source-contract file"]
+  tests["tests/: 50 node suites (~225 tests) + 4 Playwright — behavioral suites, characterization pins, a slim source-contract file"]
   docs["docs/: maintained + gate-enforced"]
 
   pages --> prims --> dataL
@@ -142,8 +142,9 @@ word.
 
 ## Release gate
 
-`npm run check` = production build + ~200 node tests (45 suites) + lint + 4 Playwright journeys.
-The dev server must be stopped first (Playwright owns port 3000). A few suites still
+`npm run check` = production build + ~225 node tests (50 suites) + lint + `tsc --noEmit` + 4
+Playwright journeys. Playwright starts (or reuses) its own dev server on :4173, so the :3000
+dev server can stay up. A few suites still
 **regex-match raw source files** (`source-contracts` — the slim successor to the old
 `rendered-html` file, `scalper-mode`, `css-architecture`, `maintainer-docs`,
 `cloudflare-cutover`) — moving or renaming code they pin fails the gate until the
@@ -166,6 +167,13 @@ source text can express.
   none reachable from any build ([docs/legacy-artifacts.md](legacy-artifacts.md)).
 - Windows dev: wrangler can crash in libuv teardown after succeeding — verify actual
   state before retrying; migrations need `echo y |`.
+- **Migrations are hand-written** (`drizzle/00NN_name.sql`, contiguous numbering, applied
+  by wrangler in filename order). drizzle-kit's journal stopped at 0004, so
+  `npm run db:generate` emits a wrong cumulative diff — do not use it for new migrations.
+- `/api/history` warms its cache on a miss by fetching TCGplayer **and** re-deriving that
+  product's metrics/signals (`persistDerivedHistory`). Against the local max-profile D1
+  every hover does this (archive rows are `source='tcgcsv-archive'`, the route looks for
+  `'tcgplayer'`), so the dev database drifts a little during `npm run check`.
 
 ## Where to change what
 

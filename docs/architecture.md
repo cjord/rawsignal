@@ -37,7 +37,7 @@ Production reads D1 (catalog, sealed, and signals report `source: "database"`); 
 
 ### History and signals
 
-`/api/history` normalizes TCGplayer history, preferring durable observations when they exist and caching successful upstream fallback data. `core/domain/history-metrics.ts` derives 7-, 30-, and 90-day changes plus extrema from dated observations.
+`/api/history` normalizes TCGplayer history, preferring durable observations when they exist and caching successful upstream fallback data (the cache warm also re-derives that product's metrics and signals). `core/clients/tcgplayer-history.ts` loads the annual/quarterly TCGplayer series for the route and the history backfill; `core/domain/history-metrics.ts` derives 7-, 30-, and 90-day changes plus extrema from dated observations.
 
 `core/signal-utils.ts` is the single Buy/Sell scoring implementation, called by the batch writer, the detail panel, row badges, and the backtest harness through one optional `SignalContext` (liquidity floor, demand trend, model variant; absent fields are neutral). The production model (v1) evaluates proximity, adaptive volatility cutoffs, opposite-extreme price swing, strictness, coverage confidence, a buy-side stabilization gate, and the 5/30D + 1/7D liquidity floor, returning explicit non-qualification reasons for diagnostics. A challenger (v2: winsorized percentile extremes, breakout sell gate) rides the same code behind `model:"v2"` and serves nothing until promoted (todo §P; evidence in `docs/backtests.md`).
 
@@ -63,7 +63,9 @@ Shared primitives live under `app/leaderboard/`, `app/filters/`, `MarketUI.tsx`,
 6. `app/styles/market-content.css`;
 7. `app/detail.css`;
 8. `app/metrics.css`;
-9. `app/buylist.css`.
+9. `app/buylist.css`;
+10. `app/sets.css`;
+11. `app/collectr.css`.
 
 New rules should use the shared tokens and component-owned styles rather than append another versioned override to a legacy stylesheet.
 
@@ -89,4 +91,4 @@ See [Data ingestion](data-ingestion.md) for operations and failure behavior.
 
 ## Tests and release gate
 
-`npm run check` is the required local and CI gate. It builds the production Worker, runs all unit/contract/rendered-output/critical-journey tests plus the focused Playwright journey suite against a suite-managed local server, and lints the repository. Stop the dev server first — Playwright owns port 3000 during the gate.
+`npm run check` is the required local and CI gate. It builds the production Worker, runs all unit/contract/characterization/critical-journey tests, lints the repository, type-checks it (`tsc --noEmit`), and runs the focused Playwright journey suite against a suite-managed local server on port 4173 (the :3000 dev server may stay up). Migrations under `drizzle/` are hand-written, contiguously numbered SQL files applied by wrangler in filename order; `drizzle-kit generate` is not used (its journal stopped at 0004).

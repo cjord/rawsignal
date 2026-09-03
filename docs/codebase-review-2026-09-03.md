@@ -78,9 +78,13 @@ Request flows verified in code (each with its readiness fallback):
   details, graded, metrics rollup, tiered history) and runs one checkpointed batch.
 
 Document drift found on the walk (fixed in wave 7 unless noted): `docs/helicopter-view.md`
-still called the leaderboard feeds "bundled" in one place; AGENTS.md's repository map
-listed `app/history-utils.ts` and `app/data/tcgplayer-history-client.ts` (moved —
-AGENTS.md change proposed to the user, not applied).
+and `docs/architecture.md` said Playwright owns port 3000 (it manages its own server on
+4173) and omitted the type check from the gate description; the architecture CSS order
+list lacked `sets.css`/`collectr.css`; the helicopter view's migration and test counts
+were stale; the README's directory map had no `core/` entry. AGENTS.md's repository map
+still lists `app/history-utils.ts` and `app/data/tcgplayer-history-client.ts` (moved to
+`core/clients/tcgplayer-history.ts`) and its Validation section predates the type check —
+AGENTS.md changes are proposed to the user, not applied.
 
 ## 4. Dependency map
 
@@ -215,6 +219,31 @@ Outbound fetches are to fixed hosts; the Collectr handle is validated/encoded.
 10. `app/api/collectr/route.ts` `matchCards` feed fallback runs two 50-row catalog queries
     per request in dev — fine.
 
+**Found while executing the waves:**
+
+11. `drizzle-kit generate` is unusable as-is: its journal and snapshots stop at migration
+    0004, and migrations 0005–0012 were hand-written SQL, so `npm run db:generate` emits a
+    cumulative diff misnumbered `0005_*` (it did, in wave 5; discarded). Migration 0013 was
+    hand-written to match. Either regenerate the snapshots once and re-register 0005–0013
+    in the journal, or retire the `db:generate` script and document hand-written migrations
+    as the practice. Recommended: the latter, plus a test that migration filenames are
+    contiguous.
+12. `/api/history` GET has write side effects: on a stored-history miss it fetches TCGplayer
+    and persists observations **and** re-derives `market_metrics` / `market_signals` /
+    `shadow_signals` for that product (`persistDerivedHistory`). It is the "derive-on-read"
+    cache-warm path and rarely fires in production (the tiered history cadence keeps
+    `source='tcgplayer'` rows present), but it means an unauthenticated GET can rewrite a
+    product's signal rows outside the cron pass and, for an id not in the catalog, trigger
+    an upstream fetch per call (bounded only by the 15-minute in-isolate cache). Recommend:
+    restrict the write path to catalog products (one `current_prices` read, already
+    performed) and consider dropping the derived-row rewrite from the request path.
+13. The same path is why the local max-profile dev database drifts during `npm run
+    check`: the archive-sourced observations carry `source='tcgcsv-archive'`, the route
+    looks for `source='tcgplayer'`, so every Playwright hover fetches upstream and writes
+    metrics into the dev D1 (observed as a changed 90-day category median between two
+    golden captures). Harmless for development; worth knowing when using the dev database
+    as a fixture.
+
 ## 9. Performance measurements (local max-profile D1: 17,462 products, 13.5 M observations)
 
 | Query | Plan | Time |
@@ -276,3 +305,32 @@ guards), `set-logos` lookup tiers, and the wave-3/4 extractions each ship with t
 
 Maintained in `docs/refactor-plan-2026-09.md` (the plan of record). Everything else in
 this program is intended to be behavior-preserving and is verified by the full gate.
+
+## 13. Outcome (branch `refactor/review-2026-09`, seven commits on top of 21a8c1e)
+
+| Measure | Before | After |
+|---|---|---|
+| `tsc --noEmit` errors | 4 (never run by the gate) | 0, and the gate runs it |
+| Node tests | 202 in 45 suites | 225 in 50 suites (+ 528 pinned signal evaluations and 99 regime readings) |
+| Dead modules / dead functions | `db/index.ts`; 7 unused exports | removed |
+| Layering edges backend→app | 1 | 0 (`app/data/load-detail.ts`→`db/` documented as the RSC-loader exception) |
+| Functions over complexity 12 | 67 | 67 — the extracted helpers replace hotspots one-for-one; the worst cases fell: `evaluateMarketSignal` 86→68, `ProductDetailPage` 73→48, `PriceChart` 45→33, `classifyRegime` 44→under threshold, the four sealed normalizers 22/23/15/15→13/14/under/under, `loadMetricsPayload` 14→under (195 lines→six loaders) |
+| jscpd TypeScript clones | 11 | 4 (the schema table twins and the import-list twin, both left by decision) |
+| Per-product ingestion round trips | ~15 sequential | 2 batches + 3 reads (writes atomic per product) |
+| Set-detail page reads | 8 sequential | 7 concurrent; `catalog_products(game,set_name)` indexed (migration 0013) |
+| `/api/collectr` GET upstream fan-out | up to 201 fetches | ≤ 21 (page + 20 API pages), truncation reported as `partial` |
+
+Verification beyond the gate: every wave that touched `core/` or `db/` was golden-diffed —
+1,512 signal evaluations, 189 regime readings, and the metrics / sets-directory /
+set-detail / set-products payloads from the local max-profile D1 were byte-identical
+before and after (the one metrics difference observed was the dev database drifting under
+the Playwright run, §8.13, not a code change).
+
+Not done, deliberately: the `Home`/`SealedView` orchestrators (837/762 lines) and
+`CollectrImportView` were left for a product-owned pass — their remaining size is state
+orchestration, not duplicated logic, and lifting it changes the URL/state seams pinned by
+the state suites. The dependency upgrades (§8.6) belong in their own change.
+
+Operational follow-ups for the user: apply migration 0013 to both D1s at the next deploy
+(deploy first, then migrate); redeploy `workers/collectr-fetch` for the constant-time
+compare; approve the AGENTS.md updates proposed with the program summary.
