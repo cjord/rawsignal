@@ -110,7 +110,7 @@ Migrations are additive by default. Do not perform a destructive production migr
 
 Raw Signal is published as the production Cloudflare Worker `raw-signal` at
 `https://rawsignal.cards` (custom domain; workers.dev disabled), backed by the migrated
-`raw-signal-production` D1 database and a `*/2` guard Cron Trigger (split completed
+`raw-signal-production` D1 database and a `*/1` guard Cron Trigger (split completed
 2026-08-28). The `raw-signal-staging` Worker at
 `https://raw-signal-staging.raw-signal-watch.workers.dev` is the cron-less sandbox and
 rollback path; its data goes stale by design.
@@ -119,7 +119,7 @@ The release sequence is:
 
 1. run `npm run check` (dev server stopped);
 2. commit and push the exact validated source;
-3. `RAW_SIGNAL_D1_DATABASE_ID=<production D1 UUID> node scripts/cloudflare/prepare-deployment.mjs --environment production --route rawsignal.cards --cron "*/2 * * * *"`;
+3. `RAW_SIGNAL_D1_DATABASE_ID=<production D1 UUID> node scripts/cloudflare/prepare-deployment.mjs --environment production --route rawsignal.cards --cron "*/1 * * * *"`;
 4. inspect `dist/server/wrangler.production.json`, then `npx wrangler deploy --config dist/server/wrangler.production.json`;
 5. verify `https://rawsignal.cards` responds and report the version ID.
 

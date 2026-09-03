@@ -7,7 +7,7 @@ todo §M (the actionable fix list distilled from this document).
 
 ## 1. The capacity model — three budgets govern every expansion
 
-1. **Cron ticks: 720/day (`*/2`), ~500–520 used** after the One Piece + Japanese
+1. **Cron ticks: 720/day (`*/2`) at the time of this study, ~500–520 used** (M2 landed 2026-08-31: production now runs `*/1` = 1,440/day) after the One Piece + Japanese
    sealed batches. This is the binding constraint. Remaining headroom (~200 ticks)
    fits roughly ONE of: OP curated singles (+~80), MTG sealed (+~77), or JP curated
    singles (+~80–105) — not two.

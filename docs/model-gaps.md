@@ -1,6 +1,6 @@
 # Signal model — known gaps, accepted limits, and review calendar
 
-Companion to `docs/backtests.md` (evidence) and `docs/todo.md` §P (plan of record).
+Companion to `docs/backtests.md` (evidence) and `docs/todo.md` §P (plan of record; shipped steps P1–P7 are recorded in `docs/todo-completed.md`).
 Status as of 2026-09-02: champion v1 serving; challenger v2.2 in the live shadow.
 This file is the honest register of what the model does NOT know, what we have decided
 to accept, and when each open item gets re-examined.
@@ -138,8 +138,9 @@ turn-confirmation model is rightly silent. Three parts, in order:
 Delta Reign readiness checklist: era mapping covers the new set on release (verified
 2026-09-03: ME06 resolves to the ME era and the panel anchors on ME01–ME05); catalog
 pickup is automatic via the daily walk; EVE + release curves shipped and validated
-retrospectively (Chaos Rising + Pitch Black as holdouts) BEFORE mid-October; day-0
-monitoring of EVE vs actual added to the first monthly review after release.
+retrospectively (Chaos Rising + Pitch Black as holdouts) — **released to production
+2026-09-03, six weeks ahead of the mid-October target**; day-0 monitoring of EVE vs
+actual is part of the monthly review from October onward (see calendar below).
 
 **Dynamic EVE + full scope (user directives 2026-09-03, landed same day):**
 - **The estimate adjusts as prices are discovered.** The static day-0 anchor goes
@@ -193,10 +194,14 @@ taken up:
   — an early regime-change tripwire.
 - Data health: sales columns fill rate, cohort_stats coverage, ingestion completeness.
 
-**Month 1 (early Oct 2026):** first 30-day shadow verdict → v2.2 promotion decision
-(promotion = harness verdict + shadow agreement, per P1b; after promotion v1 becomes
-the reverse shadow). First ~30 days of real sales data: sanity-check the ≥20-sales
-bump and the 5/30D floor. If Delta Reign has launched: EVE vs actual day-0/30 check.
+**Month 1 (early Oct 2026) — THE SCHEDULED TO-DO (set 2026-09-03, P7 complete and in
+production):** first 30-day shadow verdict → v2.2 promotion decision (promotion =
+harness verdict + shadow agreement, per P1b; after promotion v1 becomes the reverse
+shadow; stamp the model version into `signal_history`). First ~30 days of real sales
+data: sanity-check the ≥20-sales bump and the 5/30D floor. EVE vs actual for the
+presale products already served (Delta Reign sealed + pre-order singles across games);
+the post-launch day-0/30 check follows in the November review (Delta Reign releases
+2026-11-06).
 
 **Month 2 (Nov 2026):** promoted-model live metrics vs backtest expectations; 90-day
 horizon feature study (fwd90 deciles) if capacity allows; second sales-data checkpoint.

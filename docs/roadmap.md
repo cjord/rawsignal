@@ -4,7 +4,8 @@ Status notes captured 2026-08-27; header refreshed 2026-09-01. This file records
 plans and open decisions that are not yet implemented, so future sessions can resume
 without re-deriving them. Update or remove entries as they land. The signal-model roadmap
 (walk-forward harness, champion/challenger promotion, regimes, cohort evidence) lives in
-`docs/todo.md` §P, with run evidence in `docs/backtests.md`.
+`docs/todo.md` §P (open steps, priorities, scheduled tasks) and `docs/todo-completed.md`
+(shipped steps P1–P7 with build notes), with run evidence in `docs/backtests.md`.
 
 ## 1. D1 backfill and cutover — DONE (production live 2026-08-28+)
 
@@ -16,9 +17,13 @@ stays cheap: no cron, deliberately stale D1, used for pre-production review. The
 Cloudflare Workflow idea from the original sequence remains not implemented — the plain
 cron + checkpointed jobs approach replaced it (decision G1).
 
-## 2. Daily detail-feed regeneration — BACKLOG (user deferred 2026-08-27)
+## 2. Daily detail-feed regeneration — SUPERSEDED (D1 detail ingestion, 2026-08-28)
 
-Skipped for now at the user's direction; revisit when scheduling is requested. The generator
+The production cron's `details` action ingests product details into D1 after each
+snapshot's catalog run (`db/detail-ingestion.ts`), so detail pages refresh daily without
+deploys or feed regeneration; the bundled detail feeds are now only the readiness
+fallback and are regenerated on deploys. The scheduling questions below are kept for the
+record — they only matter if bundled-feed freshness becomes a goal again. The generator
 and freshness probe exist (`scripts/details/build-detail-feeds.mjs`), so this item is now
 purely the scheduling and publish-path decisions below. Until it lands, feeds (and the peer
 history in item 4) refresh only when a data-refresh task runs the scripts manually.
@@ -45,17 +50,23 @@ Open decisions before scheduling:
   fetch the same TCGCSV group payloads. The nightly job should run them back-to-back today;
   a shared-download refactor is a later optimization if request volume matters.
 
-## 3. Graded-price sync scheduling
+## 3. Graded-price sync scheduling — SUPERSEDED (cron `graded` action, 2026-08-28)
 
-`npm run data:sync:graded` rotates stalest-first through the top-400 Pokémon singles pool
+The production cron runs `db/graded-ingestion.ts` once daily after live+details (the
+`raw-signal` Worker is the sole spender of the API key), rotating the stalest of the
+top-400 Pokémon singles; no separate scheduler is needed. The local script remains for
+manual runs. `npm run data:sync:graded` rotates stalest-first through the top-400 Pokémon singles pool
 under the free-tier budget (100 credits/day, 2 per card → ~46 cards/run, full pool ≈ 9 days).
 A daily scheduled run (same host decision as item 2) keeps the rotation moving. The paid API
 tier would cover the pool daily. Population/GemRate data requires the provider's Business
 plan and stays rendered as unavailable.
 
-## 4. Fair-value set-rarity anchor — implemented via feed accumulation (2026-08-27)
+## 4. Fair-value set-rarity anchor — implemented via feed accumulation (2026-08-27); D1 derive-on-read since 2026-08-28
 
-Rather than waiting on D1 history (the original plan), per-day set/rarity peer averages now
+On D1-served pages the anchor is derived on read from `price_observations` by
+`db/peer-anchors.ts` (same pure `core/peer-history.ts` summarizer), so it activates
+immediately where the history is deep enough; the feed accumulator below remains the
+fallback path. Rather than waiting on D1 history (the original plan), per-day set/rarity peer averages now
 accumulate in `data-history/peer-averages.json` (committed, not bundled) each time
 `scripts/details/build-peer-context.mjs` runs after a singles sync; the bundled summary is
 `public/data/peer-context.json`. The anchor component is
@@ -66,10 +77,13 @@ accrues one observation per TCGCSV publish date, so activation needs the daily j
 item 2 (or manual refreshes) to run consistently. D1 remains a future upgrade path for
 deeper retroactive history.
 
-## 5. Fair-value model improvements — BACKLOG (added 2026-08-27)
+## 5. Fair-value model improvements — BACKLOG (added 2026-08-27; now testable)
 
 Candidate refinements to evaluate once the peer anchor has activated and its behavior can be
-observed against real cohorts. Each stays within the AGENTS.md rule: transparent,
+observed against real cohorts. As of 2026-09 the walk-forward harness
+(`scripts/backtest/`, `docs/backtests.md`) and the local max-profile D1 make the
+"validate the anchor empirically" step below runnable offline; the 40/24/16/20 weights
+have never been measured. Each stays within the AGENTS.md rule: transparent,
 documented, labeled a model, no opaque or predictive components without an explicit user
 decision.
 

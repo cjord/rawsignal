@@ -14,7 +14,7 @@ is too high for the value right now.** Plan notes preserved below and in todo §
   ~510 group requests/day, ~17k records (14,084 singles + ~2.8k sealed).
 - History backfill: one TCGplayer history call per product per day ≈ 16.6k
   calls/day at 60/tick.
-- Cron: `*/2` = 720 ticks/day; roughly ~500 consumed (live + history + details +
+- Cron: `*/1` = 1,440 ticks/day since M2 (2026-08-31; was `*/2` = 720 when this plan was drafted); roughly ~500 consumed (live + history + details +
   graded + metrics).
 
 ## Measured scope

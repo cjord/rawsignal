@@ -1103,7 +1103,7 @@ states ship as **full regime labels** (boards + detail pages, with board filters
 descriptive labels shipping on staging review while regime-driven qualification changes
 stay harness-gated; **no scoring change reaches production until it beats the current
 model and the simple baselines out of sample**; the “Modeled Fair Value” panel name
-stays (§10.2). Implementation plan: RawSignal `docs/todo.md` §P.
+stays (§10.2). Implementation plan: RawSignal `docs/todo.md` §P (P1–P7 shipped 2026-09-01 → 09-03; build notes in `docs/todo-completed.md`).
 
 1. §15.6 harness first (cheap, local, de-risks everything after it).
 2. §15.1 robust extremes and §15.2 sell-side regimes — validated on the harness.

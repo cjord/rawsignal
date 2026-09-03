@@ -34,14 +34,14 @@ flowchart TB
   subgraph backend["Worker + DB"]
     worker["worker/: index (fetch) · scheduled-ingestion (cron) · staging-jobs (ops) · live-feeds"]
     db["db/: schema · repository · readiness · ingestion modules · backfill"]
-    drizzle["drizzle/: migrations 0000-0007"]
+    drizzle["drizzle/: migrations 0000-0012"]
   end
   subgraph pipeline["Feed pipeline (node)"]
     sync["sync-tcgcsv.mjs · sync-sealed.mjs (roots)"]
     scripts["scripts/: validate · details · scalper · graded · io · cloudflare"]
     feeds["public/data/*.json (generated, last-good protected)"]
   end
-  tests["tests/: 156 node + 4 Playwright — behavioral suites + a slim source-contract file"]
+  tests["tests/: 45 node suites (~200 tests) + 4 Playwright — behavioral suites + a slim source-contract file"]
   docs["docs/: maintained + gate-enforced"]
 
   pages --> prims --> dataL
@@ -107,7 +107,7 @@ flowchart LR
   norm["core/normalize (pure)"]
   val["scripts/validate + last-good publish"]
   pub["public/data feeds (bundled into deploys)"]
-  cron["production cron */2 — guard: one checkpointed batch when due"]
+  cron["production cron */1 — guard: one checkpointed batch when due"]
   d1[("D1: catalog · observations · signals · graded · metrics")]
   repos["repositories: D1 first, feed fallback"]
   engine["catalog-query engine (one impl for browser + server)"]
@@ -130,7 +130,7 @@ presentation.
 |---|---|---|---|
 | Where | `localhost:3000` (vinext dev) | `raw-signal-staging` on workers.dev | `raw-signal` at rawsignal.cards |
 | D1 | placeholder binding | `d2e550f5…` — **stale by design** | `af781f30…` — daily ingestion |
-| Cron | none | none (kept cheap) | `*/2` guarded |
+| Cron | none | none (kept cheap) | `*/1` guarded |
 | Ops adapter | n/a | enabled (`ENVIRONMENT=staging`) | refuses |
 | Secrets | none | job token | job token + graded API key (sole spender) |
 
@@ -142,7 +142,7 @@ word.
 
 ## Release gate
 
-`npm run check` = production build + 156 node tests + lint + 4 Playwright journeys.
+`npm run check` = production build + ~200 node tests (45 suites) + lint + 4 Playwright journeys.
 The dev server must be stopped first (Playwright owns port 3000). A few suites still
 **regex-match raw source files** (`source-contracts` — the slim successor to the old
 `rendered-html` file, `scalper-mode`, `css-architecture`, `maintainer-docs`,

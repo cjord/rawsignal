@@ -1,6 +1,6 @@
 # Design baseline
 
-The aesthetic source of truth for Raw Signal (docs/todo.md item A2, established 2026-08-27
+The aesthetic source of truth for Raw Signal (docs/todo-completed.md item A2, established 2026-08-27
 alongside the Phase 1 UI cleanup). New UI must conform to this file or change it
 deliberately in the same commit. When a rule here conflicts with older CSS still in the
 tree, this file wins and the CSS is the bug.

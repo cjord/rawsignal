@@ -57,7 +57,8 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - `docs/architecture.md`, `docs/data-sources.md`: maintained system boundaries and source semantics.
 - `docs/roadmap.md`: agreed-but-deferred work (D1 backfill continuation, daily feed scheduling decisions, graded-sync rotation, fair-value peer anchor). Keep it current as items land.
 - `docs/design-baseline.md`: aesthetic source of truth; UI changes conform to it or update it deliberately.
-- `docs/todo.md`: UI/platform plan of record with resolved decisions.
+- `docs/todo.md`: plan of record for open UI/platform/data/signal-model work, current priorities, and the scheduled-task calendar.
+- `docs/todo-completed.md`: shipped to-do items with their build notes and the resolved decision log.
 - `docs/cloudflare-cutover.md`, `cloudflare/environments.json`, `scripts/cloudflare/`: direct-Cloudflare staging contract, generated-config preparation, and catalog parity checks.
 - `sync-tcgcsv.mjs`: generates Singles market data and `tcg-index.json` from TCGCSV.
 - `sync-sealed.mjs`: generates normalized Pokémon sealed-product data.
