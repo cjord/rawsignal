@@ -36,6 +36,11 @@ const groupJS={groupId:210,name:"S6a: Eevee Heroes",publishedOn:"2021-05-28T00:0
 // Pre-cutoff JP set group with NO fixture: walking it would throw, so a passing run
 // proves the ≥2020 sealed cutoff filters it out.
 const groupJOld={groupId:211,name:"XY-1: Collection X",publishedOn:"2013-12-13T00:00:00Z"};
+// Upcoming set inside the presale horizon (P7 dynamic EVE): its presale sealed must be
+// walked and land. The far-future group has NO fixture — walking it would throw, so a
+// passing run proves the 120-day horizon still filters it out.
+const groupF={groupId:12,name:"ME06: Delta Reign",publishedOn:"2026-11-06T00:00:00Z"};
+const groupFar={groupId:13,name:"ME09: Distant Future",publishedOn:"2027-06-01T00:00:00Z"};
 const fixtures={
   "3:10":{
     products:[
@@ -52,6 +57,10 @@ const fixtures={
   "3:11":{
     products:[{productId:107,name:"Promo Star",imageUrl:"",url:"",extendedData:rarity("Promo")}],
     prices:[{productId:107,marketPrice:9,lowPrice:8,midPrice:9,highPrice:10,subTypeName:"Holofoil"}],
+  },
+  "3:12":{
+    products:[{productId:205,name:"Delta Reign Elite Trainer Box",imageUrl:"",url:"https://example.com/dr-etb",extendedData:[]}],
+    prices:[{productId:205,marketPrice:139,lowPrice:130,midPrice:141,highPrice:160,subTypeName:"Normal"}],
   },
   "89:90":{
     products:[
@@ -101,7 +110,7 @@ const fixtures={
 };
 const deps={
   client:{
-    async groups(categoryId){return categoryId===3?[groupA,groupB]:categoryId===89?[groupR]:categoryId===68?[groupO]:[groupJ,groupJS,groupJOld]},
+    async groups(categoryId){return categoryId===3?[groupA,groupB,groupF,groupFar]:categoryId===89?[groupR]:categoryId===68?[groupO]:[groupJ,groupJS,groupJOld]},
     async products(categoryId,groupId){return fixtures[`${categoryId}:${groupId}`].products},
     async prices(categoryId,groupId){return fixtures[`${categoryId}:${groupId}`].prices},
   },
@@ -114,15 +123,21 @@ const deps={
 };
 
 test("live ingestion walks groups with a record cursor and publishes once complete",async()=>{
-  const db=new LocalD1(await migratedDatabase()),options={sourceUpdatedAt:"2026-08-28T20:00:00Z",minimumRecords:5};
+  // Pinned `now` keeps the presale-horizon fixtures stable: horizon 2026-12-26 admits
+  // Delta Reign (Nov 6) and excludes the 2027 group forever.
+  const db=new LocalD1(await migratedDatabase()),options={sourceUpdatedAt:"2026-08-28T20:00:00Z",minimumRecords:5,now:new Date("2026-08-28T20:00:00Z")};
   const first=await runLiveDailyIngestionBatch(db,deps,{...options,batchSize:2});
   assert.deepEqual({cursor:first.cursor,done:first.done,written:first.recordsWritten},{cursor:"0:2",done:false,written:2});
   assert.equal(await publishedIngestion(db,"daily-market"),null);
   const second=await runLiveDailyIngestionBatch(db,deps,{...options,batchSize:100});
-  // Group A card+promo+sealed, promo reprint (dedup), riftbound card+walked sealed,
-  // japanese promo card, walked onepiece sealed, walked japanese sealed, bundled
-  // riftbound duplicate (dedup), bundled onepiece.
-  assert.deepEqual({cursor:second.cursor,done:second.done,written:second.recordsWritten,duplicates:second.duplicateDecisions},{cursor:"8:0",done:true,written:9,duplicates:2});
+  // Group A card+promo+sealed, promo reprint (dedup), presale Delta Reign sealed,
+  // riftbound card+walked sealed, japanese promo card, walked onepiece sealed, walked
+  // japanese sealed, bundled riftbound duplicate (dedup), bundled onepiece.
+  assert.deepEqual({cursor:second.cursor,done:second.done,written:second.recordsWritten,duplicates:second.duplicateDecisions},{cursor:"9:0",done:true,written:10,duplicates:2});
+  // The presale-horizon group landed its ETB (P7 pre-order coverage) while the
+  // far-future group was never fetched (it has no fixture).
+  const presale=await db.prepare("select p.kind, p.product_type as productType, cp.market_cents as marketCents from catalog_products p join current_prices cp on cp.product_id=p.product_id where p.product_id=205").bind().first();
+  assert.deepEqual({...presale},{kind:"sealed",productType:"Elite Trainer Boxes",marketCents:13900});
   const published=await publishedIngestion(db,"daily-market");
   assert.equal(published?.runId,"live-daily:2026-08-28");
   assert.equal(published?.sourceUpdatedAt,"2026-08-28T20:00:00Z");

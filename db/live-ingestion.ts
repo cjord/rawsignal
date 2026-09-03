@@ -50,21 +50,28 @@ const sealedOnlyCategories: { id: number; game: "onepiece" | "pokemon"; publishe
 export const SEALED_GROUP_FETCH_CAP = 40;
 const parseCursor = (value: string | null | undefined) => { const match = /^(\d+):(\d+)$/.exec(value ?? ""); return match ? { group: Number(match[1]), offset: Number(match[2]) } : { group: 0, offset: 0 }; };
 
+// Upcoming sets list on TCGCSV with a FUTURE publishedOn while their presale sealed
+// (and later presale singles) already carry live prices — Delta Reign proved the old
+// `publishedOn <= now` filter silently excluded a set's entire presale window (todo
+// P7 dynamic EVE needs those pre-order prices). Walk groups up to this far ahead;
+// truly empty future groups cost ~2 requests each and yield nothing.
+const PRESALE_HORIZON_DAYS = 120;
 async function buildWorkList(client: TcgcsvClient, now: Date): Promise<WorkEntry[]> {
+  const horizon = new Date(now.getTime() + PRESALE_HORIZON_DAYS * 86400000);
   const entries: WorkEntry[] = [];
   for (const category of categories) {
-    const groups = (await client.groups(category.id)).filter(group => new Date(group.publishedOn) <= now);
+    const groups = (await client.groups(category.id)).filter(group => new Date(group.publishedOn) <= horizon);
     groups.sort((a, b) => a.groupId - b.groupId);
     for (const group of groups) entries.push({ type: "tcgcsv", categoryId: category.id, game: category.game, group });
   }
-  const japaneseGroups = (await client.groups(JAPANESE_CATEGORY_ID)).filter(group => japanesePromoGroup(group) && new Date(group.publishedOn) <= now);
+  const japaneseGroups = (await client.groups(JAPANESE_CATEGORY_ID)).filter(group => japanesePromoGroup(group) && new Date(group.publishedOn) <= horizon);
   japaneseGroups.sort((a, b) => a.groupId - b.groupId);
   for (const group of japaneseGroups) entries.push({ type: "tcgcsv", categoryId: JAPANESE_CATEGORY_ID, game: "pokemon", group, fixedSection: JAPANESE_PROMOS_SECTION });
   for (const category of sealedOnlyCategories) {
     const since = category.publishedSince ? new Date(category.publishedSince) : null;
     const groups = (await client.groups(category.id)).filter(group => {
       const published = new Date(group.publishedOn);
-      return published <= now && (!since || published >= since) && !category.skipGroup?.(group);
+      return published <= horizon && (!since || published >= since) && !category.skipGroup?.(group);
     });
     groups.sort((a, b) => a.groupId - b.groupId);
     for (const group of groups) entries.push({ type: "tcgcsv-sealed", categoryId: category.id, game: category.game, group });
