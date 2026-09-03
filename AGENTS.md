@@ -1,8 +1,17 @@
 # AGENTS.md
 
+## Read first
+
+- `docs/helicopter-view.md`: one-page orientation — repo map, layering, data lifecycle, environments, release gate, and the sharp edges that have already cost time. Read it before touching the repo.
+- `docs/architecture.md`, `docs/data-sources.md`, `docs/data-ingestion.md`: system boundaries, source semantics, and ingestion operations.
+- `docs/todo.md` (open work, priorities, scheduled tasks), `docs/todo-completed.md` (shipped items and resolved decisions), `docs/roadmap.md` (agreed-but-deferred decisions; most early items are done and marked so).
+- `docs/design-baseline.md`: aesthetic source of truth; UI changes conform to it or update it deliberately.
+- `docs/cloudflare-cutover.md`: the staging/production contract, backup and rollback boundaries, and the record of the 2026-08-28 cutover.
+- `docs/adr/`: accepted architecture decisions, including the Sites-to-Cloudflare path.
+
 ## Project overview
 
-Raw Signal is a mobile-friendly trading-card market dashboard for raw singles and sealed products. It currently covers Pokémon and Riftbound singles plus Pokémon, Riftbound, and selected One Piece sealed products. Magic: The Gathering support is intentionally paused. The application is a React 19 + TypeScript site built with vinext, developed against the local dev server on port 3000 and published as a Cloudflare Worker.
+Raw Signal is a mobile-friendly trading-card market dashboard for raw singles and sealed products. It currently covers Pokémon and Riftbound singles plus Pokémon, Riftbound, and selected One Piece sealed products. Magic: The Gathering support is intentionally paused. The application is a React 19 + TypeScript site built with vinext, developed against the local dev server on port 3000 and published as a Cloudflare Worker backed by D1.
 
 Keep the product focused on clear market intelligence: sortable leaderboards, historical price movement, Hot Buy/Hot Sell signals, responsive card views, and transparent data provenance. Missing source data must display as unavailable rather than being estimated silently.
 
@@ -12,64 +21,45 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - Use `npm` and preserve `package-lock.json`. Do not switch package managers or add another package-manager lockfile unless explicitly requested.
 - Use TypeScript and existing React patterns. Keep components accessible and keyboard-friendly.
 - Preserve user changes and unrelated working-tree edits.
-- Use `rg`/`rg --files` for repository searches and `apply_patch` for source edits.
-- Do not edit build output or tool state in `.next/`, `.vinext/`, `dist/`, `.wrangler/`, or `node_modules/`.
+- Do not edit build output or tool state in `.vinext/`, `dist/`, `.wrangler/`, or `node_modules/`.
 - Do not commit `site-package*.tar.gz` archives. They are deployment artifacts, not source.
 - Do not commit Cloudflare account IDs, D1 UUIDs, API tokens, generated Wrangler environment configs, D1 exports, or database backups.
 - Prefer small shared utilities and components over duplicated Singles/Sealed implementations.
 - Do not add route-level `loading.tsx` files: vinext 1.0.0-beta.2 leaves their Suspense fallbacks unresolved on a cold dev server, freezing the route. Use in-page loading states instead until a vinext upgrade is verified to fix this.
+- Never edit this file without prompting the user first, even for factual corrections.
 
 ## Repository map
 
-- `app/page.tsx`: application shell and Singles leaderboard orchestration.
-- `app/SealedView.tsx`: Sealed leaderboard, calculations, filtering, sorting, and views.
-- `app/MarketUI.tsx`: shared pagination, segmented view controls, and sortable headers.
-- `app/leaderboard/`: the shared Singles/Sealed leaderboard shell — `MarketLeaderboard.tsx`, `MarketRow.tsx`, `HistoryPopover.tsx`, `FullMarketCard.tsx`, `ProductIdentity.tsx`, `ActiveFilterSummary.tsx`, `LeaderboardHeader.tsx`, `LeaderboardControls.tsx`, and the `mode-adapter.ts` sort/derivation contract. Compose new list behavior here, not in the page files.
-- `app/filters/`: filter primitives — `CheckboxGrid.tsx` (+`SearchableCheckboxGrid`), `RangeFilter.tsx`, `FilterButton.tsx`, `FilterActions.tsx`, `selection.ts`, `useDismissibleDetails.ts`.
-- `app/HistoryPanel.tsx`, `app/PriceChart.tsx`: shared historical-price presentation and interactive charts.
-- `app/CardFilters.tsx`, `app/SealedFilters.tsx`, `app/MultiSelectField.tsx`: filter and multi-select controls.
-- `app/SignalControls.tsx`, `core/signal-utils.ts`: Hot Buy/Hot Sell controls and the single scoring implementation.
-- `app/SaleScenario.tsx`: the sale-scenario what-if strip (keep-after-fees, shipping, tax, profitable-only) shared by Scalper mode and the sealed detail page.
-- `core/market-utils.ts`: shared search, range, and concurrency utilities.
-- `app/hooks/useDisclosurePopover.ts`: the shared hover/touch/keyboard disclosure behavior for row history popovers.
-- `app/cards/[productId]/`, `app/sealed/[productId]/`, `app/ProductDetailPage.tsx`, `app/detail-route.ts`: product detail pages and their server-route metadata/validation helpers.
-- `app/detail-tables.tsx`: the sealed detail page's Chase cards and same-set sealed tables, reusing the leaderboard row shell in Medium/Text views. Chase cards are set cards priced above the set's cheapest plain booster-pack market price (top cards by value when no pack price exists), capped at twelve.
-- `core/domain/detail.ts`, `core/domain/detail-metrics.ts`, `app/data/load-detail.ts`: detail formatting, similarity scoring, and the D1 → scalping-feed → generated-feed detail resolution cascade.
-- `app/not-found.tsx`: shared 404 surface.
-- `core/domain/`: shared market types, runtime feed contracts, and display formatters.
-- `core/catalog-query.ts`, `core/catalog-repository.ts`: shared Singles/Sealed query semantics and repository contract.
-- `app/data/feed-catalog-repository.ts`, `app/data/catalog-service.ts`: bundled-feed adapter and transport-neutral catalog service.
-- `core/clients/tcgplayer-history.ts`: shared annual/quarterly TCGplayer history loading and bucket merging, used by `/api/history` and the history backfill.
-- `app/data/usePersistedSignals.ts`, `app/api/signals/route.ts`: persisted Hot Buy/Hot Sell readiness gate and compact signal records.
-- `app/data/signal-coverage.ts`: proportional, price-stratified transitional signal sampling.
-- `app/state/`: the authoritative Singles/Sealed URL-state parser, serializer, and browser synchronization hook.
-- Styles load as a layered chain in `app/layout.tsx`: `app/styles/tokens.css` (design tokens) → `app/globals.css` (original global layout, minified-era) → `app/market-views.css` (later shared view/filter/signal refinements) → `app/styles/market-controls.css` and `app/styles/market-content.css` (extracted shared control and row presentation) → `app/detail.css` (self-contained detail-page styles). Check the whole chain before adding overrides; later files intentionally override earlier ones.
-- `app/api/history/route.ts`: normalized TCGplayer market-history access.
-- `app/api/catalog/route.ts`: compact catalog query endpoint with D1-readiness checks and bundled-feed fallback.
-- `app/api/catalog/detail/route.ts`: JSON detail endpoint mirroring `loadCatalogDetail`; the detail pages currently load directly on the server instead of calling it.
-- `db/schema.ts`, `db/repository.ts`: D1 persistence schema and idempotent ingestion/read boundary.
-- `db/catalog-repository.ts`: D1 catalog adapter using the shared catalog query contract.
-- `db/daily-ingestion.ts`, `db/history-backfill.ts`: idempotent daily snapshots, derived metrics/signals, and resumable history backfill.
-- `product_details` (migration `0002`) stores detail-page enrichments read by `db/catalog-repository.ts`, ingested by the checkpointed chunk runner in `db/detail-ingestion.ts` (staging job `details`; guard-cron action `details` once each snapshot's catalog run completes, respecting the foreign key to `catalog_products`).
-- `worker/staging-jobs.ts`: staging-only, bearer-protected, checkpointed catalog/history execution adapter. It must remain hidden outside staging and must not gain a production route.
+### Layers
+
+`core/` is pure TypeScript with no React, Worker, or Node imports; `app/`, `db/` + `worker/`, and the node scripts all depend downward on it and never on each other. Node scripts import core directly, so every node-reachable relative import inside `core/` carries an explicit `.ts` extension. The one accepted exception is `app/data/load-detail.ts`, a server-only RSC loader that reads `db/` directly.
+
+- `core/domain/`: market types, runtime feed contracts, display formatters, history metrics, regime classification, eras, pack EV.
+- `core/catalog-query.ts`, `core/catalog-repository.ts`: the single Singles/Sealed query engine (search, filters, sorting, facets, pagination) and its repository contract, run identically in the browser and on the server.
+- `core/signal-utils.ts`: the single Hot Buy/Hot Sell scoring implementation (v1 champion, v2 challenger behind `model:"v2"`), used by ingestion, the detail page, row badges, and the backtest harness.
+- `core/market-state.ts`, `core/market-utils.ts`, `core/sealed-product-utils.ts`, `core/clients/`, `core/normalize/`, `core/msrp/`, `core/graded.ts`, `core/collectr.ts`, `core/peer-history.ts`: market registry, shared utilities, sealed validation/classification, retrying source clients, pure normalizers, MSRP matching, graded and Collectr parsing, peer cohorts.
+- `app/`: pages and shared UI. `app/leaderboard/` is the shared Singles/Sealed leaderboard shell (`MarketLeaderboard`, `MarketRow`, `HistoryPopover`, `FullMarketCard`, `ProductIdentity`, `ActiveFilterSummary`, `LeaderboardHeader`, `LeaderboardControls`, and the `mode-adapter.ts` sort/derivation contract) — compose new list behavior here, not in the page files. `app/filters/` holds the filter primitives; `app/state/` is the authoritative URL-state parser, serializer, and browser-history hook; `app/data/` holds repositories, services, and data hooks (including the bundled-feed fallback repository and the persisted-signal readiness gate); `app/api/` holds the routes and their shared cache tiers.
+- `db/`: `schema.ts` (types only; migrations are hand-written, see Data rules), `repository.ts` (statement builders and the idempotent read/write boundary), `readiness.ts`, the ingestion modules (`daily-ingestion`, `live-ingestion`, `detail-ingestion`, `graded-ingestion`, `metrics-ingestion`, `benchmark-ingestion`, `history-backfill`, `history-targets`), the page services (`metrics-service`, `sets-service`, `early-value`, `peer-anchors`), and `run-id.ts` for the `prefix:date` ingestion run-id format.
+- `worker/`: `index.ts` (fetch + cron entry), `scheduled-ingestion.ts` and `scheduled-decision.ts` (the guard-cron tick and its pure policy), `staging-jobs.ts` (the ops adapter), `live-feeds.ts` (D1-backed `/data/*` feeds with bundled fallback).
 - `drizzle/`: hand-written, contiguously numbered D1 migrations applied by wrangler in filename order, plus the early drizzle-kit snapshots kept as history.
-- `docs/adr/`: accepted architecture decisions, including the Sites-to-Cloudflare path.
-- `docs/architecture.md`, `docs/data-sources.md`: maintained system boundaries and source semantics.
-- `docs/roadmap.md`: agreed-but-deferred work (D1 backfill continuation, daily feed scheduling decisions, graded-sync rotation, fair-value peer anchor). Keep it current as items land.
-- `docs/design-baseline.md`: aesthetic source of truth; UI changes conform to it or update it deliberately.
-- `docs/todo.md`: plan of record for open UI/platform/data/signal-model work, current priorities, and the scheduled-task calendar.
-- `docs/todo-completed.md`: shipped to-do items with their build notes and the resolved decision log.
-- `docs/cloudflare-cutover.md`, `cloudflare/environments.json`, `scripts/cloudflare/`: direct-Cloudflare staging contract, generated-config preparation, and catalog parity checks.
-- `sync-tcgcsv.mjs`: generates Singles market data and `tcg-index.json` from TCGCSV.
-- `sync-sealed.mjs`: generates normalized Pokémon sealed-product data.
-- `core/sealed-product-utils.ts`: market validation, deduplication, and product-type classification.
-- `core/clients/`, `core/normalize/`, `scripts/validate/`, `scripts/io/`: retrying source clients, pure normalization, validation manifests, and last-good publishing.
-- `scripts/graded/sync-graded.mjs`: budgeted PokemonPriceTracker sync producing `public/data/graded-prices.json` (eBay graded-sale snapshots for the most valuable Pokémon singles, stalest-first rotation).
-- `scripts/scalper/`: the Scalper allowlist pipeline — `reconcile.mjs` and `build-feed.mjs` produce `public/data/sealed-scalping.json` from `approved-variants.json`, `supplemental-products.json`, and the review process in `docs/scalper-variant-review.md`.
-- `scripts/details/`: the detail-feed generator — `build-detail-feeds.mjs` (npm `data:build:details`, IO and flags) and `enrichment.mjs` (pure construction). It rebuilds `public/data/detail-manifest.json` plus `public/data/details/` from the bundled feeds, fetching TCGCSV per-group metadata and printing prices with `--enrich` and pruning stale chunks; `--require-fresh` exits with code 3 when TCGCSV has not published since the last sync.
-- `public/data/`: generated market feeds consumed by the application.
-- `tests/`: Node test suite covering history, search, rendering, market validation, sealed classification, and signal scoring.
-- `.openai/hosting.json`: OpenAI Sites project configuration. Preserve its opaque `project_id`.
+- `sync-tcgcsv.mjs`, `sync-sealed.mjs`, `scripts/`: feed generation — Singles and `tcg-index.json` from TCGCSV; normalized Pokémon sealed; `scripts/validate/` and `scripts/io/` for validation manifests and last-good publishing; `scripts/details/` (detail-feed generator, `npm run data:build:details`); `scripts/graded/sync-graded.mjs` (budgeted PokemonPriceTracker sync); `scripts/scalper/` (the Scalper allowlist pipeline, reviewed per `docs/scalper-variant-review.md`); `scripts/cloudflare/` (deploy-config preparation and catalog parity); `scripts/backtest/` (walk-forward harness); `scripts/local-db/` (local max-profile D1 build/swap).
+- `public/data/`: generated market feeds — the bundled fallback the app uses whenever D1 readiness markers are absent. Regenerate them; do not hand-edit.
+- `tests/`: ~243 node tests in 52 suites plus 4 Playwright journeys. Several suites regex-match raw source (`source-contracts`, `scalper-mode`, `css-architecture`, `maintainer-docs`, `cloudflare-cutover`) and fail on moves until their pins are updated deliberately; `signal-characterization` pins 627 real-data evaluator outputs; `derived-history` and `scheduled-ingestion` pin the ingestion pass and the cron dispatch.
+- `.openai/hosting.json`: dormant OpenAI Sites project configuration. Preserve its opaque `project_id`.
+
+### Route surfaces
+
+| Route | Entry | Notes |
+|---|---|---|
+| `/` | `app/page.tsx` | App shell + Singles leaderboard; renders `app/SealedView.tsx` for `mode=sealed` |
+| `/metrics` | `app/metrics/page.tsx` → `MetricsView` | Movers, indexes, momentum, category/set leaderboards |
+| `/sets`, `/sets/[game]/[slug]` | `app/sets/` → `SetsView`, `SetDetailView` | D1 only via `db/sets-service.ts`; 404 when unpublished |
+| `/buylist` | `app/buylist/page.tsx` | Favorites-driven list + fullscreen mode |
+| `/import` | `app/import/page.tsx` → `CollectrImportView` | Collectr showcase/CSV import matched against D1 |
+| `/cards/[productId]`, `/sealed/[productId]` | `ProductDetailPage` via `detail-route` + `data/load-detail` | Shared detail surface; `detail-tables.tsx` holds the sealed page's Chase cards (set cards priced above the set's cheapest plain booster-pack market price, top by value when no pack price exists, capped at twelve) and same-set tables |
+| `/api/catalog`, `/api/catalog/detail`, `/api/history`, `/api/signals`, `/api/metrics`, `/api/set-ev`, `/api/collectr` | `app/api/**/route.ts` | Read D1 first, bundled feeds as fallback; the detail pages load on the server instead of calling `/api/catalog/detail` |
+
+Styles load as a layered chain from `app/layout.tsx` (eleven sheets, order pinned by `tests/css-architecture.test.mjs` and listed in `docs/architecture.md`). Later sheets intentionally override earlier ones: check the whole chain before adding an override, and put new rules in the owning component sheet using the shared tokens.
 
 ## Source control and GitHub
 
@@ -79,33 +69,32 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 
 ## Hosting and environment policy
 
-- The environments of record (2026-08-27 decision, production split completed 2026-08-28) are the local dev server (`npm run dev`, port 3000) and the production Cloudflare Worker `raw-signal` serving `https://rawsignal.cards` (custom domain; its workers.dev URL is disabled), backed by the `raw-signal-production` D1 database. The `raw-signal-staging` Worker (`https://raw-signal-staging.raw-signal-watch.workers.dev`) with its own `raw-signal-staging` D1 is the sandbox and rollback path.
-- Staging is deliberately low-priority and low-cost (user rule 2026-08-28): it carries no cron schedule and no daily ingestion, its data goes stale by design, and it is updated only when deliberately testing ingestion changes before they touch production. Production alone runs scheduled ingestion.
+| | Dev | Staging | Production |
+|---|---|---|---|
+| Where | `npm run dev`, port 3000 | Worker `raw-signal-staging` on workers.dev | Worker `raw-signal` at `https://rawsignal.cards` (custom domain; workers.dev off) |
+| D1 | placeholder binding (`npm run db:local:max` swaps in the local max-profile copy) | `raw-signal-staging` — stale by design | `raw-signal-production` — daily ingestion |
+| Cron | none | none | `*/1` guard cron: one checkpointed batch per tick, only when due |
+| `ENVIRONMENT` | — | `staging` (enables the ops adapter) | `production` (adapter refuses) |
+| Secrets | none | `STAGING_JOB_TOKEN` | job token + `POKEMONPRICETRACKER_API_KEY` (the single spender) |
+
+- Staging is deliberately low-priority and low-cost (user rule 2026-08-28): no cron, no daily ingestion, data goes stale, updated only when deliberately testing ingestion changes before they touch production. Production alone runs scheduled ingestion.
+- Unless explicitly authorized, do not create or mutate direct-Cloudflare Workers, D1 databases, routes, schedules, secrets, Workflows, Queues, or production bindings. Read-only inspection is acceptable when needed for planning or diagnosis. A linked account or an available Wrangler login does not authorize a deploy; see Deployment for the procedure.
+- `POST /__ops/staging-jobs` (`worker/staging-jobs.ts`) is staging-only, bearer-protected, non-cacheable, and checkpointed: catalog batches cap at 80 records (the per-invocation binding-call ceiling), history at 60 with six concurrent upstream fetches, detail enrichment at 10 chunk files; the `live` job walks TCGCSV groups with a record cursor and the `graded` job spends at most its credit budget. Do not expose its token, give it a production route, or convert it into a public API.
+- The graded API key exists ONLY on the production Worker; do not also run the local graded sync on the same day.
 - OpenAI Sites hosting is dormant: do not package `site-package-vN.tar.gz` handoffs or publish through Sites unless the user explicitly revives it. Preserve `.openai/hosting.json` (opaque `project_id` included) and the Sites-compatible vinext build as the rollback path — no Cloudflare-only application fork.
-- Unless explicitly authorized, do not create or mutate direct-Cloudflare Workers, D1 databases, routes, schedules, secrets, Workflows, Queues, or production bindings. Read-only inspection is acceptable when needed for planning or diagnosis.
-- A normal request to publish or deploy Raw Signal means the production Worker: run the full gate, then `node scripts/cloudflare/prepare-deployment.mjs --environment production --route rawsignal.cards --cron "*/1 * * * *"` (production D1 UUID in `RAW_SIGNAL_D1_DATABASE_ID`), inspect the generated `dist/server/wrangler.production.json`, then `npx wrangler deploy --config dist/server/wrangler.production.json`. Staging deploys use `npm run cloudflare:prepare:staging` (staging D1 UUID, no `--cron`). Deploy only when the user asks in the active task — a linked account or an available Wrangler login does not authorize one.
-
-### Current direct-Cloudflare capability
-
-- The linked Cloudflare account runs two Workers with isolated, migrated D1 databases: production `raw-signal` (`rawsignal.cards`, D1 `raw-signal-production`, guard Cron `*/1`, `ENVIRONMENT=production`, workers.dev off) and sandbox `raw-signal-staging` (workers.dev URL, D1 `raw-signal-staging`, no cron, `ENVIRONMENT=staging`).
-- Both Workers support the vinext application, static assets through `ASSETS`, D1 through `DB`, Cloudflare Images through `IMAGES`, and Worker version metadata; the `ENVIRONMENT` variable is the behavioral boundary between them.
-- `POST /__ops/staging-jobs` is staging-only, bearer-protected, non-cacheable, and checkpointed. Catalog batches are capped at 80 records (the per-invocation binding-call ceiling, identical on every plan); history batches at 60 with six concurrent upstream fetches (sized for the Workers Paid subrequest budget, adopted 2026-08-27); detail-enrichment batches at 10 chunk files; the `live` job walks TCGCSV groups with a record cursor and the `graded` job spends at most its credit budget. Do not expose its token or convert it into a public production API.
-- Production D1 was fully seeded 2026-08-28 (fresh backfill: catalog, detail enrichments, history at 97.9%-with-data coverage, graded carry-over, metrics rollup); readiness markers are published and public APIs/feeds serve `source:"database"`. The bundled-feed fallback remains in the build for environments without a seeded database. History batches skip snapshot targets missing from the catalog (`skippedMissingCatalog`) rather than failing — a fresh catalog always drifts from the build-time target snapshot.
-- The guard Cron Trigger (`*/1`) runs on the production Worker and advances checkpointed ingestion only when work is due; staging has no schedule. No Queue or Workflow is active. Cutover parity passed 2026-08-28 (all six representative categories, database-backed on both sides) against the pre-cutover `rawsignal.cards`.
-- Commissioning pattern (used for the 2026-08-28 split): a new Worker may temporarily deploy with `ENVIRONMENT=staging` and workers.dev enabled so the ops adapter can seed its database, then flip to production shape (custom domain, cron, `ENVIRONMENT=production`, workers.dev off) — the flip itself disables the adapter.
-- Landed ingestion slices: live TCGCSV fetch (`db/live-ingestion.ts` — the probe timestamp is the snapshot identity; each publish ingests exactly once) and graded rotation (`db/graded-ingestion.ts` — 90 credits/day against PokemonPriceTracker; the `POKEMONPRICETRACKER_API_KEY` secret exists ONLY on the production Worker, the single spender — do not also run the local graded sync the same day). Peer accumulation is derive-on-read (`db/peer-anchors.ts`): the fair-value anchor's cohort daily averages come straight from `price_observations` at each card's primary printing — no second accumulator table; the local feed script remains only for the bundled fallback feeds.
-- Production promotion completed 2026-08-28 (parity, D1 exports, and Time Travel bookmarks taken pre-cutover; see `backups/`). Rollback paths, in order: re-attach `rawsignal.cards` to the intact `raw-signal-staging` Worker/D1; restore from the 2026-08-28 exports or Time Travel bookmarks; the dormant Sites project remains tertiary.
+- Production reads D1 for catalog, history, and signals (`source:"database"`); the bundled-feed fallback stays in the build for environments without a seeded database. Rollback order, backups, and the cutover record live in `docs/cloudflare-cutover.md`.
 
 ## Data rules
 
 - Treat TCGCSV product and pricing records as the current catalog/price source. Standard price fields are market, listing low, median, and listing high; they are not transaction counts.
 - Treat `package-lock.json` as the only dependency lockfile and `npm run check` as the complete release gate.
 - Schema changes edit `db/schema.ts` for the types and add the next numbered SQL file under `drizzle/` by hand. `drizzle-kit` is retired and must not be reintroduced; deploy first, then apply the migration to each D1.
+- Ingestion is idempotent and checkpointed: the TCGCSV probe timestamp is the live snapshot's identity (each publish ingests exactly once), a product's metrics + signal + shadow rows land in one atomic batch, and an incomplete run must never become readable as the current catalog. History batches skip snapshot targets missing from the catalog rather than failing.
 - Sales volume is presented only from the TCGplayer history endpoint's completed-sale buckets (`quantitySold`, `transactionCount`, realized low/high sale prices with and without shipping, per variant/condition SKU). Label the window and bucket size wherever volume appears, keep it scoped to the selected printing/condition, and render missing sales data as unavailable.
 - Never derive volume from price observations, listing counts, or history-point counts, and do not label anything as TCGplayer sales rank; rank remains unavailable.
 - Pull rates are curated community-measured estimates in `public/data/pull-rates.json` (packs per hit of any card of the rarity; per-card odds multiply by the set's rarity count). Every derived value must be labeled an estimate, uncurated rarities render as unavailable, and rates are never inferred from prices or card counts alone.
-- Graded prices come only from the PokemonPriceTracker API (eBay completed sales per grade), synced by `scripts/graded/sync-graded.mjs` into `public/data/graded-prices.json` under a per-run credit budget (free tier: 100/day, 2 per card). Label the provenance and update date wherever graded values appear, keep ungraded/graded data unblended, and render cards without a snapshot as unavailable. The API key lives in `.secrets/` (gitignored) or `POKEMONPRICETRACKER_API_KEY`; never commit it.
-- Modeled fair value is the documented transparent blend in `core/domain/detail-metrics.ts`: 90-day median 40%, 30-day median 24%, current median listing 16%, and set-rarity peer anchor 20%, renormalized over available components (exactly 50/30/20 while the anchor is unavailable). The anchor activates only once its cohort has 14 daily observations in `public/data/peer-context.json`, accumulated per TCGCSV publish date by `scripts/details/build-peer-context.mjs`. It must always be labeled a model, never a valuation guarantee, and renders nothing when no component exists. Do not add opaque or predictive components without an explicit user decision.
+- Graded prices come only from the PokemonPriceTracker API (eBay completed sales per grade), rotated in production by `db/graded-ingestion.ts` (90 credits/day) and synced locally by `scripts/graded/sync-graded.mjs` into `public/data/graded-prices.json` for the bundled fallback (free tier: 100/day, 2 per card). Label the provenance and update date wherever graded values appear, keep ungraded/graded data unblended, and render cards without a snapshot as unavailable. The API key lives in `.secrets/` (gitignored) or `POKEMONPRICETRACKER_API_KEY`; never commit it.
+- Modeled fair value is the documented transparent blend in `core/domain/detail-metrics.ts`: 90-day median 40%, 30-day median 24%, current median listing 16%, and set-rarity peer anchor 20%, renormalized over available components (exactly 50/30/20 while the anchor is unavailable). The anchor activates only once its cohort has 14 daily observations; in production the cohort averages are derived on read from `price_observations` (`db/peer-anchors.ts`, no second accumulator table), and `scripts/details/build-peer-context.mjs` maintains `public/data/peer-context.json` only for the bundled fallback. It must always be labeled a model, never a valuation guarantee, and renders nothing when no component exists. Do not add opaque or predictive components without an explicit user decision.
 - Calculate 7-, 30-, and 90-day changes from dated history observations using the nearest observation at or before the cutoff.
 - Calculate displayed 30-day low/high from the historical market series, not listing extremes.
 - Keep variants/printings explicit. Do not merge records solely because their names match.
@@ -122,7 +111,7 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - Keep the supported Singles views: Large, Medium, Text, and Full.
 - Keep the supported Sealed views: Medium, Text, and Full.
 - Use column headers as the primary sorting controls. Active sort direction must be visible and accessible.
-- Keep filters and view state encoded in the URL where the existing architecture supports it.
+- Keep filters and view state encoded in the URL where the existing architecture supports it. Device preferences (theme, font size, Scalper mode) live in `localStorage` under `raw-signal-*` keys, never in the URL.
 - Render text and market data before lazy-loaded images. Preserve image fallbacks.
 - Card artwork must use its natural aspect ratio and must not be cropped unless a specific view explicitly requires it.
 - Desktop Medium/Text history panels are interactive. Keep a continuous pointer path between the row and panel, and use viewport-aware placement.
@@ -130,8 +119,9 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - Avoid layout shifts when filters become active. Reserve summary space or update content in place.
 - Respect `prefers-reduced-motion` for added animation.
 - Use semantic controls, visible focus states, `aria-label`, `aria-pressed`, and `aria-sort` consistently.
-- Scalper mode is a stored preference (`raw-signal-scalper-mode`) that gates the `scalping` sealed market and its sale-scenario controls. Enabling it must not navigate away from the current view, and `market=scalping` in a shared URL must still round-trip.
+- Scalper mode is a stored preference (`raw-signal-scalper-mode`) that gates the `scalping` sealed market and its sale-scenario controls (`app/SaleScenario.tsx`, shared with the sealed detail page). Enabling it must not navigate away from the current view, and `market=scalping` in a shared URL must still round-trip.
 - Detail pages live at `/cards/[productId]` and `/sealed/[productId]` (Sealed threads `?market=` through). They must render correctly from feed-only data when D1 detail enrichment is unavailable, keep the leaderboard's provenance and `N/A` rules, and keep the back control functional on direct loads.
+- Fonts are self-hosted (`public/fonts/` + `app/styles/fonts.css`); never use `next/font/google`.
 
 ## Signal rules
 
@@ -141,6 +131,7 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - Every signal needs human-readable evidence such as “new 30-day low” or “within X% of 90-day high.”
 - Signal sorting should default to strongest qualifying score on Hot Buy/Hot Sell views.
 - Price signals are informational and must not be described as guaranteed profit or financial advice.
+- The v1 model serves production; the v2 challenger is evaluated in shadow and is promoted only by an explicit user decision backed by `docs/backtests.md` and the shadow scoreboard (`docs/todo.md` §P).
 
 ## Validation
 
@@ -156,7 +147,9 @@ npm test
 npm run check
 ```
 
-It also runs lint, the type check (`npm run typecheck`), and the Chromium browser suite (install its browser once with `npm run test:browser:install`). Lint warns at cyclomatic complexity 25 without failing; do not add functions above that line without a reason in the change description. Fix new warnings introduced by the change; do not broaden scope to unrelated legacy warnings without approval.
+It also runs lint, the type check (`npm run typecheck`), and the Chromium browser suite (install its browser once with `npm run test:browser:install`). Playwright manages its own server on port 4173, so the :3000 dev server may stay up. Lint warns at cyclomatic complexity 25 without failing; do not add functions above that line without a reason in the change description. Fix new warnings introduced by the change; do not broaden scope to unrelated legacy warnings without approval.
+
+The gate's production build wipes `dist/`, including any generated `wrangler.<env>.json`; regenerate the deploy config after a gate and before deploying.
 
 Note that `tests/source-contracts.test.mjs` and `tests/scalper-mode.test.mjs` include characterization assertions that regex-match raw component source. When reformatting or restructuring a matched file, update those regexes deliberately (keep them whitespace-tolerant) rather than weakening or deleting the assertion.
 
@@ -166,7 +159,8 @@ Add or update tests when changing:
 - deduplication keys;
 - history/range calculations;
 - fuzzy search or server pagination;
-- signal qualification/scoring;
+- signal qualification/scoring (extend the characterization fixture rather than editing pinned values);
+- ingestion decisions or the derived metrics/signal pass;
 - rendered accessibility labels or core controls.
 
 For visual changes, verify at least one representative Singles view and one Sealed view, at desktop and mobile widths when responsiveness is affected. Check dark and light themes when colors, shadows, borders, or overlays change.
@@ -184,13 +178,14 @@ Review generated counts, market validation, duplicates, and diffs before committ
 
 ## Deployment
 
-- The deployment target is the production Cloudflare Worker `raw-signal` at `rawsignal.cards` (see Hosting and environment policy). OpenAI Sites is dormant — if the user revives it: package with the Sites helper, never commit the archive, reuse the existing Site project without altering the stored project ID.
-- Build and test before publishing: the full gate (`npm run check`, dev server stopped) must be green.
+- The deployment target is the production Cloudflare Worker `raw-signal` at `rawsignal.cards`. Publishing is an external action: do it only when the user asks to publish/deploy in the active task or when the active workflow explicitly requires deployment.
+- Build and test before publishing: the full gate (`npm run check`) must be green.
 - Commit and push the exact validated source state before deploying.
-- Deploy via the prepared config: `node scripts/cloudflare/prepare-deployment.mjs --environment production --route rawsignal.cards --cron "*/1 * * * *"` (production D1 UUID in `RAW_SIGNAL_D1_DATABASE_ID`), inspect it, then `npx wrangler deploy --config dist/server/wrangler.production.json`. Staging: `npm run cloudflare:prepare:staging` with the staging D1 UUID and no `--cron`, then deploy `dist/server/wrangler.staging.json`.
-- Publishing is an external action: do it only when the user asks to publish/deploy or when the active workflow explicitly requires deployment.
+- Deploy via the prepared config: `node scripts/cloudflare/prepare-deployment.mjs --environment production --route rawsignal.cards --cron "*/1 * * * *"` (production D1 UUID in `RAW_SIGNAL_D1_DATABASE_ID`), inspect `dist/server/wrangler.production.json`, then `npx wrangler deploy --config dist/server/wrangler.production.json`. Staging: `npm run cloudflare:prepare:staging` with the staging D1 UUID and no `--cron`, then deploy `dist/server/wrangler.staging.json`.
+- Pending migrations are applied after the deploy with `npx wrangler d1 migrations apply DB --remote --config <that config>` (on Windows, pipe `echo y |` into it; wrangler can also crash in libuv teardown after succeeding — verify state before retrying).
 - After publishing, verify the deployed URL responds and report the version ID and user-visible changes. Do not expose credentials, repository tokens, or internal deployment IDs.
 - A same-day redeploy preserves ingestion checkpoints; the guard cron ingests each new deploy's feed snapshot once at the next midnight-UTC re-key.
+- If the user revives OpenAI Sites: package with the Sites helper, never commit the archive, reuse the existing Site project without altering the stored project ID.
 
 ## Change checklist
 
@@ -201,5 +196,5 @@ Before handing off a change, confirm:
 3. Missing data remains explicitly unavailable.
 4. Generated feeds were not hand-edited accidentally.
 5. Sorting, filters, URL state, pagination, and hover/touch behavior still compose correctly.
-6. `npm test` passes; lint was run when relevant.
+6. `npm run check` is green (build, tests, lint, type check, browser journeys); document any behavior change deliberately.
 7. Only intended source and generated-data changes are staged.
