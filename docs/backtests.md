@@ -299,6 +299,42 @@ rarity slate AND an era pool of ≥8 same-rarity cards from ≥2 mature sibling 
 promo/special sets and era cold-starts get curves + the New Release chip without an
 anchor. Delta Reign (ME06, five mature ME siblings) is the ideal case.
 
+## Study `release-curves/dynamic` — 2026-09-03 (P7 follow-up: the EVE must adjust as prices are discovered)
+
+`scripts/release-curves/dynamic.mjs` (user directive: the estimate should update
+rapidly as launch prices settle in). At product ages 7/14/21/30/45 days post-release,
+three predictors of the settled price (day-60; day-30 for young sets) were compared —
+the static era-cohort anchor (`eve`, the original serving behavior), the product's own
+price unadjusted (`now`), and the own price projected down the REMAINING decay path
+measured from mature era siblings (`proj`) — plus log-space blends. Anchors and curves
+come only from sibling sets released ≥60 days earlier (no leakage), singles and sealed
+both included (sealed rung = product type, member floor 4).
+
+**Verdict: the static anchor goes stale almost immediately.** Median |log error|:
+
+| age | eve (static) | proj (own-curve) | holdout eve | holdout proj | sealed proj |
+|---|---:|---:|---:|---:|---:|
+| 7d | 0.625 | 0.390 | 0.499 | **0.207** | **0.153** |
+| 14d | 0.636 | 0.204 | 0.498 | **0.128** | 0.134 |
+| 21d | 0.636 | 0.165 | 0.488 | **0.089** | 0.098 |
+| 30d | 0.648 | 0.158 | 0.440 | **0.129** | 0.093 |
+| 45d | 0.649 | 0.095 | 0.440 | **0.103** | 0.060 |
+
+Own-curve projection wins from the first measured age on holdouts and overall; full
+weight (w=1) is the best blend from age ~14 in every slice. The cohort anchor's value
+is confined to day 0/presale — exactly what the original day-0 gate validated.
+
+**Serving change landed:** `blendEarlyValue` (core/domain/release.ts) — weight ramps
+`min(observedDays/14, 1)` from the cohort anchor to the own projection
+(`current × d60/curve(age)`, log-linear curve through the d14/d30/d60 nodes); presale
+trading counts but is capped at 0.75 (the presale→settle path is curve-validated only
+for sealed, whose launch-week reference IS the presale listing week). The band tightens
+with weight toward the projection's residual (±0.16 log). `RELEASE_SETTLE` regenerated
+as pooled 2025H2+ cells and extended to sealed product types and Riftbound
+(Booster Boxes 0.75×, ETBs 0.45×, Riftbound Rare singles crater to 0.10×). EVE now
+also serves sealed products and presale/pre-order items across games (user 2026-09-03);
+floors: singles ≥8 members, sealed ≥4, both ≥2 mature sibling sets.
+
 ## Program summary — v1 → v2.2 (P1–P6 complete, 2026-09-02)
 
 All runs on the identical grid (16,982 products × 117 weekly origins, $5 floor).
@@ -318,6 +354,15 @@ confidence · capped swing · change90 context · sell pull-back) + per-side min
 | sell top-20 precision | 18.2% | **52.1%** |
 | drift after "sell" (med fwd30) | +1.50% | **−0.23%** |
 | calibration by quintile | inverted | **monotone (72→74% · +2.7→+4.6%)** |
+
+**Kind split (computed 2026-09-03, user question):** the grid always included sealed
+(2,898 of 16,982 products) and v2.2's verdicts hold — sealed is the model's BEST
+segment on the buy side. Balanced, $5 floor, from the saved `full-v22` rows:
+singles buys 70.2% hit / +3.17% median fwd30; **sealed buys 81.4% / +3.98%**;
+singles sells 51.1% / −0.25%; sealed sells 50.3% / −0.08%. Sealed's smoother
+supply-absorption trends suit turn confirmation; sells are equally modest on both
+kinds. Same caveat as the whole harness: the sales-liquidity gate can't be
+backtested and validates in the live shadow.
 
 Every baseline beaten on both sides (cohort-median buys 66.4%, random sells 25.9%).
 Cross-market generalization (`ext-v22`, JP + Magic, never seen in calibration): buys

@@ -1350,8 +1350,17 @@ shipped: `new-release` regime (span <30d; label + chips + filter + purple tone),
 `core/domain/release.ts` curated settle guidance (2026H1 cells — regenerate per
 launch), `db/early-value.ts` reader enforcing the serving rules (young/presale singles
 only), and the detail-page Early Value Estimate panel (expected settled range,
-current-vs-range, rarity guidance, marquee caveat, honest disclaimer). Awaiting the
-usual staging review before production.
+current-vs-range, rarity guidance, marquee caveat, honest disclaimer).
+**P7 dynamic refinement LANDED 2026-09-03 (user directives; gate green, 202 tests).**
+The EVE now ADJUSTS as launch prices are discovered: `dynamic.mjs` study (verdict in
+docs/backtests.md) showed the static anchor stale within ~7 observed days, so serving
+blends `min(observedDays/14,1)` from the cohort anchor toward the product's own
+decay-curve projection (presale trading capped at 0.75 weight); the band tightens with
+weight. Scope extended per user: SEALED products (product-type rung, member floor 4)
+and presale/pre-order items across games and upcoming sets (Delta Reign, Riftbound
+Radiance, Pokémon 30th — celebration-style naming caveat in model-gaps.md);
+`RELEASE_SETTLE` regenerated as pooled 2025H2+ cells incl. sealed types + Riftbound.
+Awaiting the usual staging review before production.
 
 **P8 (future, separate feature). Riftbound tournament-driven predictions.** Riftbound's
 market is player-driven where Pokémon's is collector-driven — tournament results

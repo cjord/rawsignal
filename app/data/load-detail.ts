@@ -54,9 +54,10 @@ export async function loadCatalogDetail(kind:CatalogKind,productId:number,market
  // Detail reads are unscoped by run: upserts re-stamp ingestion_run_id in place, so pinning
  // to the published run would exclude every product an in-progress re-ingestion has touched.
  if(db&&productId>0)try{const started=performance.now();const published=await publishedIngestion(db);if(published){const pullRates=await cachedPullRates(origin,fetcher);const repositoryMs=performance.now()-started,queryStarted=performance.now();const detail=await createD1CatalogRepository(db,undefined,pullRates).getDetail(kind,productId,market);if(detail){
-  // Early Value Estimate (todo P7): only computed for young/presale singles; the
-  // reader applies its own serving rules and returns null for mature cards.
-  if(detail.kind==="single")detail.earlyValue=await readEarlyValue(db,productId,detail.source.isPresale===true).catch(()=>null);
+  // Early Value Estimate (todo P7): young/presale singles AND sealed (user
+  // 2026-09-03); the reader applies its own serving rules and returns null for
+  // mature products.
+  detail.earlyValue=await readEarlyValue(db,productId,detail.source.isPresale===true).catch(()=>null);
   recordTiming(detail,"d1",repositoryMs,performance.now()-queryStarted,false);return detail}}}catch(error){
   // Retain the generated detail snapshot while D1 is incomplete — but say why it fell back.
   // An unmigrated local database (dev) is the expected fallback, not an anomaly worth logging.

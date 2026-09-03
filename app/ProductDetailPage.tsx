@@ -156,21 +156,30 @@ function PullRatesSection({detail}:{detail:SealedDetail}){
 function DetailSignalBadge({signal}:{signal:MarketSignal}){return <span className={`signal-badge ${signal.side} confidence-${signal.confidence}`} title={signal.detail}><b>{signal.reason}</b><small>{signal.score} signal · {signal.confidence} confidence</small></span>}
 
 // Early Value Estimate (todo P7): shown only when the server computed one — i.e. the
-// card is in its launch window or presale. The range is the settled-price expectation
-// from mature same-era sibling sets; chase-class rarities carry the marquee caveat
-// because the anchor deliberately excludes set-defining-card premiums.
+// product (single or sealed) is in its launch window or presale. The range starts as
+// the settled-price expectation from mature same-era sibling sets and blends toward
+// this product's own decay-curve projection as launch prices are discovered
+// (eve.ownWeight); chase-class rarities carry the marquee caveat because the cohort
+// anchor deliberately excludes set-defining-card premiums.
 function EarlyValuePanel({detail,current}:{detail:CatalogDetail;current:number|null}){
- if(detail.kind!=="single"||!detail.earlyValue)return null;
- const eve=detail.earlyValue,guidance=releaseGuidance(detail.game,detail.rarity);
+ if(!detail.earlyValue)return null;
+ const eve=detail.earlyValue,single=detail.kind==="single";
+ const rung=single?detail.rarity:detail.category;
+ const guidance=releaseGuidance(detail.game,detail.kind,rung);
  const versus=current!=null&&current>0?current>eve.q75?"above":current<eve.q25?"below":"inside":null;
+ const cohortShare=Math.round((1-eve.ownWeight)*100);
+ const basis=eve.ownWeight<=0?`Anchored entirely on ${eve.members} ${rung} ${single?"cards":"products"} across ${eve.sets} mature ${formatGameName(detail.game)} sets from the same era — no launch trading observed yet.`
+  :eve.ownWeight>=1?`Now tracking this ${single?"card":"product"}'s own trading (${eve.observedDays} days observed), projected down the typical ${rung} settling curve; the era cohort seeded the starting range.`
+  :`Blends the era-cohort anchor (${cohortShare}%) with this ${single?"card":"product"}'s own trading so far (${eve.observedDays} days observed), projected down the typical ${rung} settling curve. The estimate shifts toward live prices as they are discovered.`;
  return <section className="detail-section"><header><span>New release</span><h2>Early Value Estimate</h2></header>
   <div className="detail-history-grid">
-   <Metric label="Expected Settled Range" value={`${formatUsd(eve.q25)}–${formatUsd(eve.q75)}`} hint={`Median ${formatUsd(eve.median)}`} info={`The 25th–75th percentile of current prices for ${detail.rarity} cards across ${eve.sets} mature ${formatGameName(detail.game)} sets from the same era (${eve.members} cards). New cards typically settle toward this range as launch supply is absorbed.`}/>
+   <Metric label="Expected Settled Range" value={`${formatUsd(eve.q25)}–${formatUsd(eve.q75)}`} hint={`Median ${formatUsd(eve.median)}`} info={basis}/>
    <Metric label="Current vs Range" value={versus?versus==="inside"?"In range":versus==="above"?"Above range":"Below range":"N/A"} tone={versus==="above"?"down":versus==="below"?"up":undefined}/>
   </div>
+  <p className="detail-note">{basis}</p>
   {guidance&&<p className="detail-note">{guidance}</p>}
-  {MARQUEE_CHASE_RARITIES.has(detail.rarity)&&<p className="detail-note">Set-defining chase cards historically settle {MARQUEE_BAND} their rarity cohort — this range excludes that premium, and top-character chases sit at its high end.</p>}
-  <p className="detail-note">Estimates are cohort anchors, not price targets or guarantees; launch-window prices are volatile.</p>
+  {single&&MARQUEE_CHASE_RARITIES.has(detail.rarity)&&<p className="detail-note">Set-defining chase cards historically settle {MARQUEE_BAND} their rarity cohort — this range excludes that premium, and top-character chases sit at its high end.</p>}
+  <p className="detail-note">Estimates update daily and are not price targets or guarantees; launch-window prices are volatile.</p>
  </section>;
 }
 

@@ -135,10 +135,31 @@ turn-confirmation model is rightly silent. Three parts, in order:
 - **Retrospective test cases fixed:** EVE must beat the naive day-0 baseline on Chaos
   Rising and Pitch Black (recent, same series, fully in archive) before serving.
 
-Delta Reign readiness checklist: era mapping covers the new set on release; catalog
+Delta Reign readiness checklist: era mapping covers the new set on release (verified
+2026-09-03: ME06 resolves to the ME era and the panel anchors on ME01–ME05); catalog
 pickup is automatic via the daily walk; EVE + release curves shipped and validated
 retrospectively (Chaos Rising + Pitch Black as holdouts) BEFORE mid-October; day-0
 monitoring of EVE vs actual added to the first monthly review after release.
+
+**Dynamic EVE + full scope (user directives 2026-09-03, landed same day):**
+- **The estimate adjusts as prices are discovered.** The static day-0 anchor goes
+  stale within a week of real trading (`scripts/release-curves/dynamic.mjs`,
+  docs/backtests.md): the product's own price projected down the remaining rarity
+  decay curve beats the cohort anchor from ~7 observed days (holdouts 0.21 vs 0.50
+  log error) and earns full weight by ~14. Serving now blends
+  `min(observedDays/14, 1)` toward the own projection; presale trading counts,
+  capped at 0.75 weight until street date.
+- **Sealed products get the same treatment** — cohort rung = product type, member
+  floor 4 (sealed sets carry one box per type), curves per type (boxes settle ~0.75×
+  first-listing-week, ETBs ~0.45×). Delta Reign's four tracked presale sealed
+  products serve blended estimates today.
+- **Pre-order items serve across games and upcoming sets** (Delta Reign, Riftbound
+  Radiance, Pokémon 30th, …): presale flag or an unreleased set (no street-date
+  singles yet) opens the panel wherever ≥2 mature era siblings exist. Caveat noted:
+  the validation blocklist excludes celebration/promo-style special sets (they lose
+  to the naive predictor) — if the Pokémon 30th product line lands as a
+  Celebrations-style reprint set it will be refused by name; re-check its shape when
+  it lists.
 
 ## Longer horizons: 90-day and 1-year models (documented, queued behind 30-day)
 
