@@ -266,26 +266,29 @@ these markets are pure out-of-domain. Same grid, same $5 floor (balanced):
    the segments are new but the era is not. The live shadow remains the only test of a
    different regime.
 
-## Program summary — v1 → v2 (P1–P5 complete, 2026-09-02)
+## Program summary — v1 → v2.2 (P1–P6 complete, 2026-09-02)
 
 All runs on the identical grid (16,982 products × 117 weekly origins, $5 floor).
-Final challenger v2 = winsorized q10/q90 extremes + breakout sell gate + cohort
-dampener + breadth qualifier (+ sales bump, shadow-only). Champion v1 unchanged.
+Final challenger v2.2 = winsorized q10/q90 extremes + turn-confirmation gates (buy
+≥1% off low & week ≥+0.5%; sell ≥0.8% off high & week ≤−0.5%; breakout evidence kept)
++ evidence-weighted score (hump weekly term · 30-day turn · cohort breadth ×.35 ·
+confidence · capped swing · change90 context · sell pull-back) + per-side minScores
+(+ sales bump, shadow-only). Champion v1 unchanged in production.
 
-| balanced | v1 | final v2 |
+| balanced | v1 | final v2.2 |
 |---|---:|---:|
-| buy hit | 56.7% | **60.1%** |
-| buy median fwd30 | +0.72% | **+1.12%** |
-| buy top-20 precision | 52.0% | 51.8% |
-| sell hit | 19.7% | **22.1%** |
-| sell top-20 precision | 18.2% | **32.2%** |
-| adverse drift after "sell" (med fwd30) | +1.50% | **+1.21%** |
-| calibration top quintile hit | 49.8% | 53.7% |
+| buy hit | 56.7% | **73.3%** |
+| buy median fwd30 | +0.72% | **+3.45%** |
+| buy top-20 precision | 52.0% | **70.5%** (75.8% aggressive) |
+| sell n per grid | 709,197 | **12,095** (−98%) |
+| sell hit | 19.7% | **51.0%** |
+| sell top-20 precision | 18.2% | **52.1%** |
+| drift after "sell" (med fwd30) | +1.50% | **−0.23%** |
+| calibration by quintile | inverted | **monotone (72→74% · +2.7→+4.6%)** |
 
-Conservative buys 48.1% → 51.3%, aggressive 62.1% → 64.8%. Unbacktestable additions
-(sales bump; live liquidity gating) validate through the P1b shadow — promotion
-requires ~30 days of shadow overlap on top of this harness verdict. Open items for a
-future v3: score calibration is still not monotone (proximity remains over-weighted at
-the top of the scale), and a cohort-laggard term could chase the cohort-median
-baseline's 66% buy hit — both need either multi-regime data or the live shadow to
-calibrate without overfitting this rising-market archive.
+Every baseline beaten on both sides (cohort-median buys 66.4%, random sells 25.9%).
+Cross-market generalization (`ext-v22`, JP + Magic, never seen in calibration): buys
+69.2%, sells 59.8% / −1.78% median, beating every baseline while the naive heuristics
+collapse. Unbacktestable additions (sales bump; live liquidity gating) validate through
+the P1b shadow — promotion requires ~30 days of shadow overlap on top of this harness
+verdict. Governance, gaps, and the review calendar: `docs/model-gaps.md`.
