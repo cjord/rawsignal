@@ -59,7 +59,7 @@ are defined in `docs/model-gaps.md` → "Review calendar" and "Update policy".
 §I queued visual-pass items · §J sets view · §K signal display · §L catalog coverage
 gaps · §M ingestion scaling (M7–M13 open; M1–M6 shipped) · §O monetization · §P
 signal-model program (P8 + governance TODOs; P1–P7 shipped — see the completed doc) · §Q
-code-review follow-ups (Q1–Q5, decisions pending).
+code-review follow-ups (Q1–Q6, decisions pending).
 
 ## I. Queued from the staging visual pass (2026-08-28)
 
@@ -304,3 +304,26 @@ not act on; each needs a product or design decision before code changes.
 - **Q5 — Feed payload size.** The largest section feeds are 1–2 MB uncompressed; trim fields
   the leaderboard never renders, or page the largest sections through `/api/catalog`. A
   product decision (review §11).
+- **Q6 — `/sets` directory latency (measured 2026-09-03).** Time to first byte is 1.8–3.5 s
+  on production, versus ~0.45 s for the home page or a static asset and 0.7–1.5 s for a
+  one-query API route; staging's older build shows the same, so it predates the refactor.
+  The cron was idle during measurement, so it is not ingestion contention. Cause, from
+  `db/sets-service.ts` `loadSetsDirectory` and `EXPLAIN` on the local max-profile copy:
+  1. **Six sequential D1 round trips** — `publishedIngestion` → singles group-by → sealed
+     group-by → the two momentum windows (these two already run in parallel) → releases →
+     signals. Each trip from the edge to the ENAM database costs roughly 200–300 ms, so the
+     serial chain alone is ~1–1.5 s. All five data queries depend only on the published run
+     and could run in one `Promise.all` (or one `db.batch`).
+  2. **The two momentum-window queries scan `market_metrics`** (16.5k rows) with two temp
+     B-trees each (`SCAN mm` → window `ORDER BY` → `GROUP BY`); the release query scans
+     `product_details` (16.9k). Locally all six queries total ~150 ms warm; D1 adds its own
+     per-query execution overhead on top of the round trip.
+  3. **No caching.** The route is a server component with no `Cache-Control`, so every visit
+     recomputes a payload that changes once a day (after the metrics rollup). `worker/index.ts`
+     or the route can set `public, s-maxage=…, stale-while-revalidate` the way `app/api/cache.ts`
+     tiers do for the API routes.
+  Fix order by payoff/risk: (a) parallelize the five reads — behavior-identical, expected
+  ~1 s saved; (b) cache the directory HTML at the edge for an hour — payload is daily; (c)
+  precompute a `set_directory` table in the metrics rollup so the page is one indexed read.
+  Related cost note: D1 reports ~335 M rows read per day (≈ $10/month at list price); the
+  rollup and history passes, not this page, are the likely bulk — worth a rows-read audit under §M.
