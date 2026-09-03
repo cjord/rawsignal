@@ -59,7 +59,7 @@ are defined in `docs/model-gaps.md` → "Review calendar" and "Update policy".
 §I queued visual-pass items · §J sets view · §K signal display · §L catalog coverage
 gaps · §M ingestion scaling (M7–M13 open; M1–M6 shipped) · §O monetization · §P
 signal-model program (P8 + governance TODOs; P1–P7 shipped — see the completed doc) · §Q
-code-review follow-ups (Q1–Q6, decisions pending).
+code-review follow-ups (Q1–Q7, decisions pending) · §R production ingestion cadence bug (R1, urgent).
 
 ## I. Queued from the staging visual pass (2026-08-28)
 
@@ -327,3 +327,33 @@ not act on; each needs a product or design decision before code changes.
   precompute a `set_directory` table in the metrics rollup so the page is one indexed read.
   Related cost note: D1 reports ~335 M rows read per day (≈ $10/month at list price); the
   rollup and history passes, not this page, are the likely bulk — worth a rows-read audit under §M.
+- **Q7 — D1 rows read: 366 M/day (measured 2026-09-03 via `wrangler d1 insights`).** Attribution
+  and fixes are in `docs/codebase-review-2026-09-03.md` §14. Headline: 45% is the detail page
+  loading the whole game catalog twice per view (`getDetail` → `productRows("single"|"sealed")`,
+  ~43k rows each), 40% was the set-detail observation scan that migration 0013 turned into an
+  index seek today (2.7 M → 19 k rows per call), 6% is the early-value first-observation scan
+  per detail view, 2% the peer-anchor 180-day scan per detail view. Ingestion itself is under 1%.
+  Fix order: F1 peers by set instead of whole-game loads (+ per-game in-isolate cache); F2
+  early value from a precomputed first-observation column; F3 peer anchors from the daily
+  rollup; F4 = Q6; F5 index `catalog_products(ingestion_run_id)` for the readiness count; F6
+  one join instead of four correlated subqueries in `/api/signals`; F7 edge cache for detail
+  and set pages. Expected: ~366 M → under 30 M rows/day, and reads that scale with the set
+  size rather than the catalog size.
+
+## R. Production ingestion cadence bug (found 2026-09-03 during the D1 audit)
+
+- **R1 — the daily metrics rollup and the tiered history refresh have never run in production.**
+  `refresh_state` shows `metrics-rollup:2026-08-28` (the manual backfill) and
+  `history-backfill:2026-08-28` as the last runs; there is no `history-daily:*` run at all, and
+  `signal_history`, `shadow_signal_history`, and `cohort_stats` are empty. Cause: the guard-cron
+  policy (`worker/scheduled-decision.ts`) gates metrics and history on
+  `livePublishedRunId === live-daily:<today>`, but the live run is keyed by the TCGCSV publish
+  date and finishes after midnight UTC (20:05Z start → ~04:56Z finish), so on day D the published
+  id is `live-daily:D-1` and "today's live run" is never complete when the tick looks.
+  Consequences: no signal track record (P1b/P3 scoreboard inputs), regime cohort breadth always
+  neutral (P4), liquidity `sales_7/30` frozen at the 2026-08-28 backfill values, and the October
+  model-verification review has no shadow data. Fix: key the rollup and the daily history run to
+  the live run they follow (`metrics-rollup:<liveRunDate>`, due when the live run for that date is
+  published and the rollup for that date is not), and pin it in `tests/cloudflare-cutover.test.mjs`
+  with a live run that completes the next UTC day. Then run one manual `metrics` job to backfill
+  today's snapshot. **Priority: above everything in §Q — the model program's evidence depends on it.**

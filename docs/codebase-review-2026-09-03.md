@@ -346,3 +346,56 @@ the state suites. The dependency upgrades (§8.6) belong in their own change.
 Operational follow-ups for the user: apply migration 0013 to both D1s at the next deploy
 (deploy first, then migrate); redeploy `workers/collectr-fetch` for the constant-time
 compare; approve the AGENTS.md updates proposed with the program summary.
+
+## 14. D1 rows-read audit (2026-09-03, `wrangler d1 insights`, read-only)
+
+Production reports ~335–366 M rows read per day (3.74 B over the last 7 days). Workers Paid
+includes 25 B rows read per month, so the current 11 B/month is within the allotment; the
+concern is headroom (2.3×) and the latency these scans add to page loads. Attribution of the
+last 24 hours (top 100 queries, 366.3 M rows, 425,911 runs):
+
+| Share | Rows read | Runs | Rows/run | Source | Standing |
+|---|---|---|---|---|---|
+| 44.9% | 164.5 M | 6,613 | 24.9 k | Detail page: `getDetail` loads the whole game catalog for singles **and** sealed on every view (peers/similar), plus `/api/catalog` `loadDerived` | daily, every view |
+| 39.8% | 145.7 M | 53 | 2.75 M | Set detail: observation aggregation — full `price_observations` scan (1.54 M rows) before migration 0013 | fixed today: 19 k rows/call on production after 0013 |
+| 6.2% | 22.7 M | 1,762 | 12.9 k | Detail page: early-value "set release = median first observation" scan (`db/early-value.ts`) | daily, every view |
+| 2.8% | 10.2 M | 246 | 41 k | Sets directory: momentum windows, releases, signals, group-bys (Q6) | daily, every view |
+| 2.0% | 7.5 M | 1,390 | 5.4 k | Detail page: peer-anchor 180-day cohort scan (`db/peer-anchors.ts`) | daily, every view |
+| 1.2% | 4.3 M | 87 | 50 k | Metrics page / set EV: rarity averages, advancers, totals, movers | daily |
+| 1.0% | 3.6 M | 357 | 10 k | Set detail: set-name list, products by set, release date, per-set momentum | daily |
+| 0.6% | 2.3 M | 95,470 | 25 | Ingestion (cron): stored history per product, cohort lookup, liquidity, checkpoints | daily job — efficient (98% index efficiency) |
+| 0.5% | 1.9 M | 48 | 39 k | `/api/signals` board — four correlated `market_metrics` subqueries per row | daily |
+| 0.4% | 1.4 M | 87 | 16 k | Live feeds `/data/*` (edge-cached 5 min) | daily |
+| 0.2% | 0.6 M | 33 | 18 k | Readiness `count(*) … where ingestion_run_id=?` — no index, full scan | daily |
+| 0.2% | 0.6 M | 307,965 | 2 | Ingestion writes | daily job |
+
+One-time reads in the 7-day window, now gone from the code: a 20-second set-leaderboard
+window query (5 runs, 119 M rows, replaced 2026-09-01) and one ops diagnostic (1.3 M rows).
+Over the week the set-detail scan was 2.75 B of 3.74 B (73%).
+
+Reads per detail-page view today ≈ 104 k rows (2 × 43 k catalog, 12.9 k early value, 5.4 k
+peer anchor, a few hundred for the product, graded, and pull rates) — the page reads the
+catalog, not the product. With 0013 in place the daily total projects to ~220 M, of which
+the detail path is ~85%.
+
+Fixes, by payoff:
+
+| # | Change | Saves/day | Risk |
+|---|---|---|---|
+| F1 | `getDetail`: derive peers/similar from `game+set` (and `game+set+rarity`) rows via `idx_catalog_game_set` instead of `productRows(kind, game)` twice; keep a per-game in-isolate cache (the `cachedRepository` pattern already used for feeds) for anything that truly needs the whole game | ~160 M | medium — detail tests + `tests/early-value`/`detail-*` pin outputs |
+| F2 | Early value: read the set release date from `product_details.published_on` (already loaded per set) or a precomputed `first_observed` column written by the daily pass, instead of scanning every member's observations | ~22 M | low |
+| F3 | Peer anchors: serve cohort averages from the daily rollup (`cohort_stats` was built for this) instead of a 180-day scan per view | ~7 M | low once R1 runs the rollup |
+| F4 | Sets directory: Q6 (parallel reads, edge cache, or precomputed table) | ~10 M | low |
+| F5 | Index `catalog_products(ingestion_run_id)` (or compare `ingestion_runs.records_written`) for the readiness count | 0.6 M, and it runs on every readiness check | low |
+| F6 | `/api/signals`: one join on the latest `market_metrics` row instead of four correlated subqueries | 1.9 M and ~200 ms per call | low |
+| F7 | `Cache-Control` on detail/set RSC pages (5–15 min) so hover prefetch and bots hit the edge | multiplies every other saving | low |
+
+Together: ~366 M → under 30 M rows/day, with per-view reads proportional to the set (hundreds of
+rows) rather than the catalog (tens of thousands), which is what lets traffic scale 10× inside
+the included allotment.
+
+**Found alongside (todo §R1):** the daily metrics rollup and the tiered history refresh have
+never run in production — the cron policy keys "today's live run" by the TCGCSV publish date,
+but the run completes after midnight UTC, so the gate never opens. `signal_history`,
+`shadow_signal_history`, and `cohort_stats` are empty; liquidity counts are frozen at the
+2026-08-28 backfill.
