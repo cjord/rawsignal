@@ -82,20 +82,14 @@ export async function loadSetEvRows(db: D1DatabaseLike, pullRates?: PullRateConf
   }).filter(row => row.packEv != null);
 }
 
-export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options: { pullRates?: PullRateConfig } = {}): Promise<MetricsPayload | null> {
-  if (!db) return null;
-  const published = await publishedIngestion(db, "metrics-rollup").catch(() => null);
-  if (!published) return null;
-  const bySeries = await readMetricSeries(db);
-  const series = Object.fromEntries(Object.entries(bySeries).map(([key, points]) => [key, toPoints(points)]));
-
-  // Movement follows the per-game top-N index series: sparse backfill dates cover shifting
-  // product populations, which skews a median but barely moves a top-of-market index (dense
-  // history concentrates in exactly those products). Medians stay materialized for later use.
+// Movement follows the per-game top-N index series: sparse backfill dates cover shifting
+// product populations, which skews a median but barely moves a top-of-market index (dense
+// history concentrates in exactly those products). Medians stay materialized for later use.
+async function loadOverview(db: D1DatabaseLike, series: Record<string, PricePoint[]>): Promise<MetricsOverviewRow[]> {
   const totals = (await db.prepare(`select p.game, p.kind, sum(cp.market_cents) as totalCents, count(*) as products
     from catalog_products p join current_prices cp on cp.product_id=p.product_id
     where cp.market_cents is not null group by p.game, p.kind`).bind().all<TotalsRow>()).results ?? [];
-  const overview: MetricsOverviewRow[] = totals
+  return totals
     .filter(row => gameLabel[row.game])
     .map(row => ({
       key: `${row.game}-${row.kind === "single" ? "singles" : "sealed"}`,
@@ -107,10 +101,14 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options
       ...changes(series[`index:${row.game}-${row.kind === "single" ? "cards" : "sealed"}`] ?? []),
     }))
     .sort((a, b) => b.trackedValue - a.trackedValue);
+}
 
-  // Per-set median via the same middle-rank trick used by the rollup; 30D momentum is the
-  // median of member cards' stored change_30_bps. Each game keeps its own top 30 so every
-  // scope has a full table (the ALL view re-ranks the union by tracked value).
+// Per-set median via the same middle-rank trick used by the rollup; 30D momentum is the
+// median of member cards' stored change_30_bps. Each game keeps its own top 30 so every
+// scope has a full table (the ALL view re-ranks the union by tracked value). Sealed-vs-
+// singles divergence (audit H2) reads each set's sealed products' median 30D change the
+// same middle-rank way.
+async function loadSetRows(db: D1DatabaseLike, pullRates?: PullRateConfig): Promise<MetricsSetRow[]> {
   const setRows = (await db.prepare(`with ranked as (
       select p.set_name, p.game, cp.market_cents v,
         row_number() over (partition by p.game, p.set_name order by cp.market_cents desc) rn,
@@ -138,8 +136,6 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options
     )
     select setName, game, totalCents, cards, medianCents, change30Bps from sized where gameRank <= 50 order by totalCents desc`).bind().all<SetRow>()).results ?? [];
 
-  // Sealed-vs-singles divergence (audit H2): each set's sealed products' median 30D change,
-  // read the same middle-rank way as the singles momentum above.
   const sealedSetRows = (await db.prepare(`with momentum as (
       select p.set_name setName, p.game, mm.change_30_bps b,
         row_number() over (partition by p.game, p.set_name order by mm.change_30_bps) rn,
@@ -149,9 +145,9 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options
     ) select setName, game, avg(b) as change30Bps from momentum where rn=(total+1)/2 or rn=total/2+1 group by setName, game`).bind().all<{ setName: string; game: string; change30Bps: number | null }>()).results ?? [];
   const sealedChangeBySet = new Map(sealedSetRows.map(row => [gameSetKey(row.game, row.setName), row.change30Bps]));
 
-  const { packPriceBySet, evBySet } = await loadSetEvData(db, options.pullRates);
+  const { packPriceBySet, evBySet } = await loadSetEvData(db, pullRates);
 
-  const sets: MetricsSetRow[] = setRows.map(row => {
+  return setRows.map(row => {
     const key = gameSetKey(row.game, row.setName);
     const packPrice = packPriceBySet.get(key) ?? null;
     const packEv = evBySet.get(key) ?? null;
@@ -162,10 +158,12 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options
       packPrice, packEv, evRatio: evRatio(packEv, packPrice),
     };
   });
+}
 
-  // Sealed groups by product category — sets barely exist as a sealed concept. Each
-  // momentum window is aggregated once and joined (never a correlated subselect against
-  // a window CTE — the pattern that made this payload pathological before).
+// Sealed groups by product category — sets barely exist as a sealed concept. Each
+// momentum window is aggregated once and joined (never a correlated subselect against
+// a window CTE — the pattern that made this payload pathological before).
+async function loadSealedCategories(db: D1DatabaseLike): Promise<MetricsCategoryRow[]> {
   const categoryRows = (await db.prepare(`with ranked as (
       select p.product_type category, p.game, cp.market_cents v,
         row_number() over (partition by p.game, p.product_type order by cp.market_cents desc) rn,
@@ -207,16 +205,18 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options
     left join c30 on c30.game=m.game and c30.category=m.category
     left join c90 on c90.game=m.game and c90.category=m.category
     order by m.totalCents desc`).bind().all<CategoryRow>()).results ?? [];
-  const sealedCategories: MetricsCategoryRow[] = categoryRows.map(row => ({
+  return categoryRows.map(row => ({
     category: row.category, game: row.game, trackedValue: row.totalCents / 100, medianPrice: row.medianCents / 100, products: row.products,
     change7: row.change7Bps == null ? null : row.change7Bps / 100,
     change30: row.change30Bps == null ? null : row.change30Bps / 100,
     change90: row.change90Bps == null ? null : row.change90Bps / 100,
   }));
+}
 
-  // Era performance (audit R2 / Phase D): every Pokémon set's totals and 30D median fold
-  // into collector eras in JS (prefix + year mapping) — era momentum is the tracked-value-
-  // weighted mean of member sets' median changes, honest to what each set contributes.
+// Era performance (audit R2 / Phase D): every Pokémon set's totals and 30D median fold
+// into collector eras in JS (prefix + year mapping) — era momentum is the tracked-value-
+// weighted mean of member sets' median changes, honest to what each set contributes.
+async function loadEras(db: D1DatabaseLike): Promise<MetricsEraRow[]> {
   const eraSetRows = (await db.prepare(`with totals as (
       select p.set_name setName, max(p.release_year) year, sum(cp.market_cents) totalCents, count(*) cards
       from catalog_products p join current_prices cp on cp.product_id=p.product_id
@@ -242,11 +242,13 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options
     if (row.change30Bps != null) { bucket.weighted += (row.change30Bps / 100) * row.totalCents; bucket.weight += row.totalCents; }
     eraFold.set(era, bucket);
   }
-  const eras: MetricsEraRow[] = [...eraFold.entries()].map(([era, bucket]) => ({
+  return [...eraFold.entries()].map(([era, bucket]) => ({
     era, trackedValue: bucket.trackedValue, cards: bucket.cards, sets: bucket.sets,
     change30: bucket.weight > 0 ? bucket.weighted / bucket.weight : null,
   }));
+}
 
+async function loadMomentum(db: D1DatabaseLike): Promise<MetricsMomentumRow[]> {
   const momentumRows = (await db.prepare(`select p.game, p.kind, count(*) as tracked,
       sum(case when mm.change_7_bps > 0 then 1 else 0 end) as advancers7,
       sum(case when mm.change_7_bps < 0 then 1 else 0 end) as decliners7,
@@ -258,18 +260,20 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options
     join current_prices cp on cp.product_id=p.product_id
     ${metricsJoin}
     where cp.market_cents is not null group by p.game, p.kind`).bind().all<MomentumRow>()).results ?? [];
-  const momentum: MetricsMomentumRow[] = momentumRows.map(row => ({
+  return momentumRows.map(row => ({
     game: row.game, kind: row.kind, tracked: row.tracked ?? 0,
     advancers7: row.advancers7 ?? 0, decliners7: row.decliners7 ?? 0,
     advancers30: row.advancers30 ?? 0, decliners30: row.decliners30 ?? 0,
     atHistoricHigh: row.atHigh ?? 0, atHistoricLow: row.atLow ?? 0,
   }));
+}
 
-  // Movers: each scope's top gainers and decliners per window, floored at $10 singles /
-  // $20 sealed on BOTH ends of the move — the implied prior price must clear the floor too,
-  // or a $2 listing flipping to $89 tops the list as "+4,344%" (repricing noise, not market).
-  // Moves beyond 4x (7D) / 6x (30D) / 10x (90D) in either direction are excluded for the
-  // same reason: at those magnitudes the "move" is listing turnover, not a repricing.
+// Movers: each scope's top gainers and decliners per window, floored at $10 singles /
+// $20 sealed on BOTH ends of the move — the implied prior price must clear the floor too,
+// or a $2 listing flipping to $89 tops the list as "+4,344%" (repricing noise, not market).
+// Moves beyond 4x (7D) / 6x (30D) / 10x (90D) in either direction are excluded for the
+// same reason: at those magnitudes the "move" is listing turnover, not a repricing.
+async function loadMovers(db: D1DatabaseLike): Promise<MetricsMover[]> {
   const moverRows = (await db.prepare(`with eligible as (
       select p.product_id productId, p.name, p.set_name setName, p.game, p.kind, p.image_url image,
         mm.variant printing, cp.market_cents cents, cp.median_cents midCents,
@@ -297,12 +301,25 @@ export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options
     union all
     select productId, name, setName, game, kind, printing, image, cents, midCents, c90, '90d', case when up <= 8 and c90 > 0 then 'up' else 'down' end
       from nineties where (up <= 8 and c90 > 0) or (down <= 8 and c90 < 0)`).bind().all<MoverRow>()).results ?? [];
-  const movers: MetricsMover[] = moverRows.map(row => ({
+  return moverRows.map(row => ({
     productId: row.productId, name: row.name, set: row.setName, game: row.game, kind: row.kind,
     printing: row.printing ?? (row.kind === "sealed" ? "Sealed" : "Normal"), image: row.image ?? null,
     price: row.cents / 100, mid: row.midCents == null ? null : row.midCents / 100,
     change: row.changeBps / 100, window: row.win, direction: row.direction,
   }));
+}
 
+export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options: { pullRates?: PullRateConfig } = {}): Promise<MetricsPayload | null> {
+  if (!db) return null;
+  const published = await publishedIngestion(db, "metrics-rollup").catch(() => null);
+  if (!published) return null;
+  const bySeries = await readMetricSeries(db);
+  const series = Object.fromEntries(Object.entries(bySeries).map(([key, points]) => [key, toPoints(points)]));
+  const overview = await loadOverview(db, series);
+  const sets = await loadSetRows(db, options.pullRates);
+  const sealedCategories = await loadSealedCategories(db);
+  const eras = await loadEras(db);
+  const momentum = await loadMomentum(db);
+  const movers = await loadMovers(db);
   return { generatedAt: new Date().toISOString(), rolledUpAt: published.lastSuccessAt, series, overview, sets, sealedCategories, eras, momentum, movers };
 }

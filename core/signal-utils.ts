@@ -42,13 +42,54 @@ export type SignalContext={liquidity?:SignalLiquidity|null;model?:SignalModel;de
 // archives carry no sales, so the harness can never see this branch (see P1 limit).
 export const SALES_CONFIDENCE_BUMP={sales30:20} as const;
 
+// Boards require real transaction backing: below the floor the evaluation stops here.
+function liquidityExclusion(liquidity:SignalLiquidity|null|undefined):SignalEvaluation|null{
+ if(liquidity&&liquidity.sales30!=null&&(liquidity.sales30<LIQUIDITY_FLOOR.sales30||(liquidity.sales7??0)<LIQUIDITY_FLOOR.sales7)){
+  return{eligible:false,signal:null,code:"insufficient-liquidity",detail:`${liquidity.sales30} completed sale${liquidity.sales30===1?"":"s"} in 30 days${liquidity.sales7!=null?` (${liquidity.sales7} in 7)`:""}; boards require ${LIQUIDITY_FLOOR.sales30}/30D and ${LIQUIDITY_FLOOR.sales7}/7D.`};
+ }
+ return null;
+}
+
+// Winsorized 10th–90th spread relative to the median; v1 and v2 share the volatility term.
+const robustRange=(prices:number[])=>{if(prices.length<2)return 0;const s=[...prices].sort((a,b)=>a-b),median=quantile(s,.5);return median?((quantile(s,.9)-quantile(s,.1))/median)*100:0};
+// The adaptive cutoff: the preset base widened by blended 30/90-day volatility, capped.
+function adaptiveCutoff(p30:number[],p90:number[],preset:{base:number;scale:number;max:number}){
+ const volatility=.6*robustRange(p30)+.4*robustRange(p90);
+ return Math.min(preset.max,Math.max(preset.base,preset.base+preset.scale*volatility));
+}
+
+type Candidate={days:number;prices:number[];sorted:number[]|null;extreme:number;distance:number};
+// The nearest reference extreme across the 30-day, 90-day, and full windows (ties keep
+// that order). v2: the window's winsorized 10th/90th percentile — one anomalous daily mark
+// no longer defines "the low"; v1: the raw min/max. Raw extremes stay as displayed facts.
+function nearestExtreme(windows:{days:number;prices:number[]}[],side:"buy"|"sell",current:number,robust:boolean):Candidate|null{
+ const extrema=(prices:number[],sortedPrices:number[]|null)=>robust?quantile(sortedPrices!,side==="buy"?.1:.9):side==="buy"?Math.min(...prices):Math.max(...prices);
+ const distance=(extreme:number)=>side==="buy"?(current/extreme-1)*100:(1-current/extreme)*100;
+ const candidates=windows.filter(x=>x.prices.length>=2).map(x=>{const s=robust?[...x.prices].sort((a,b)=>a-b):null;return{...x,sorted:s,extreme:extrema(x.prices,s)}}).map(x=>({...x,distance:Math.max(0,distance(x.extreme))}));
+ return candidates.length?candidates.sort((a,b)=>a.distance-b.distance)[0]:null;
+}
+
+// Scores. v1: proximity-led (unchanged, still serving production). v2.2: evidence-led
+// turn confirmation — the feature dump showed proximity is ANTI-predictive, and the
+// sweeps picked a hump-shaped weekly term for buys (a ~3% bounce is the sweet spot;
+// overheated bounces revert), breadth ×.35, and a 90-day trend-context term
+// (docs/backtests.md). All weights are the calibrated round numbers, not fits.
+function scoreSignal(args:{robust:boolean;side:"buy"|"sell";change7:number|null;change30:number|null;change90:number|null;breadth:number;confidence:SignalConfidence;swing:number;distance:number;cutoff:number}){
+ const {robust,side,change7,change30:change30v,change90:change90v,breadth,confidence,swing,distance,cutoff}=args;
+ const clampTo=(value:number|null|undefined,lo:number,hi:number)=>Math.min(hi,Math.max(lo,value??0));
+ const hump=(value:number)=>Math.max(0,(clampTo(value,0,15)/3)*Math.exp(1-clampTo(value,0,15)/3))*25;
+ return robust
+  ?Math.round(Math.min(100,side==="buy"
+    ?hump(change7??0)+clampTo(change30v,0,10)*1.5+breadth*.35+(confidence==="high"?20:confidence==="medium"?5:0)+clampTo(swing,0,15)+clampTo(change90v,0,25)*.4
+    :clampTo(-(change7??0),0,5)*5+clampTo(-(change30v??0),0,10)*1.5+(100-breadth)*.35+(confidence==="high"?10:confidence==="medium"?5:0)+clampTo(swing,0,15)+clampTo(distance,0,8)*1.25+clampTo(-(change90v??0),0,20)*.35))
+  :Math.round(Math.min(100,Math.max(0,1-distance/cutoff)*62+Math.min(24,Math.max(0,swing)*.8)+(confidence==="high"?14:confidence==="medium"?8:3)));
+}
+
 export function evaluateMarketSignal(points:PricePoint[],side:"buy"|"sell",strictness:SignalStrictness,currentOverride?:number|null,context?:SignalContext|null):SignalEvaluation{
  const liquidity=context?.liquidity,robust=context?.model==="v2";
  const sorted=[...points].filter(p=>p.price>0).sort((a,b)=>a.date.localeCompare(b.date));
  const current=currentOverride??sorted.at(-1)?.price;if(!current||!Number.isFinite(current))return{eligible:false,signal:null,code:"missing-current-price",detail:"No positive current market price is available."};
- if(liquidity&&liquidity.sales30!=null&&(liquidity.sales30<LIQUIDITY_FLOOR.sales30||(liquidity.sales7??0)<LIQUIDITY_FLOOR.sales7)){
-  return{eligible:false,signal:null,code:"insufficient-liquidity",detail:`${liquidity.sales30} completed sale${liquidity.sales30===1?"":"s"} in 30 days${liquidity.sales7!=null?` (${liquidity.sales7} in 7)`:""}; boards require ${LIQUIDITY_FLOOR.sales30}/30D and ${LIQUIDITY_FLOOR.sales7}/7D.`};
- }
+ const illiquid=liquidityExclusion(liquidity);if(illiquid)return illiquid;
  const p30=windowPrices(sorted,30),p90=windowPrices(sorted,90),all=sorted.map(p=>p.price);
  const enough90=p90.length>=12,enough30=p30.length>=5;
  let confidence:SignalConfidence=enough90&&all.length>=30?"high":enough30?"medium":"low",cohortNote="";
@@ -60,31 +101,15 @@ export function evaluateMarketSignal(points:PricePoint[],side:"buy"|"sell",stric
   confidence=confidence==="medium"?"high":"medium";
   cohortNote=` · ${liquidity!.sales30} sales/30D backing`;
  }
- const robustRange=(prices:number[])=>{if(prices.length<2)return 0;const s=[...prices].sort((a,b)=>a-b),median=quantile(s,.5);return median?((quantile(s,.9)-quantile(s,.1))/median)*100:0};
- const volatility=.6*robustRange(p30)+.4*robustRange(p90),preset=(robust?presetsV2:presets)[strictness],cutoff=Math.min(preset.max,Math.max(preset.base,preset.base+preset.scale*volatility));
+ const preset=(robust?presetsV2:presets)[strictness],cutoff=adaptiveCutoff(p30,p90,preset);
  const minScore=robust?(side==="buy"?presetsV2[strictness].minScoreBuy:presetsV2[strictness].minScoreSell):presets[strictness].minScore;
- // v2: the reference extreme is the window's winsorized 10th/90th percentile — one
- // anomalous daily mark no longer defines "the low"; raw extremes stay as displayed facts.
- const extrema=(prices:number[],sortedPrices:number[]|null)=>robust?quantile(sortedPrices!,side==="buy"?.1:.9):side==="buy"?Math.min(...prices):Math.max(...prices);
- const distance=(extreme:number)=>side==="buy"?(current/extreme-1)*100:(1-current/extreme)*100;
- const candidates=[{days:30,prices:p30},{days:90,prices:p90},{days:0,prices:all}].filter(x=>x.prices.length>=2).map(x=>{const s=robust?[...x.prices].sort((a,b)=>a-b):null;return{...x,sorted:s,extreme:extrema(x.prices,s)}}).map(x=>({...x,distance:Math.max(0,distance(x.extreme))}));
- if(!candidates.length)return{eligible:false,signal:null,code:"insufficient-history",detail:`${all.length} usable history point${all.length===1?"":"s"}; at least 2 are required.`,confidence};
- const best=candidates.sort((a,b)=>a.distance-b.distance)[0],opposite=robust?quantile(best.sorted!,side==="buy"?.9:.1):side==="buy"?Math.max(...best.prices):Math.min(...best.prices),swing=side==="buy"?(opposite-current)/opposite*100:(current-opposite)/opposite*100;
+ const best=nearestExtreme([{days:30,prices:p30},{days:90,prices:p90},{days:0,prices:all}],side,current,robust);
+ if(!best)return{eligible:false,signal:null,code:"insufficient-history",detail:`${all.length} usable history point${all.length===1?"":"s"}; at least 2 are required.`,confidence};
+ const opposite=robust?quantile(best.sorted!,side==="buy"?.9:.1):side==="buy"?Math.max(...best.prices):Math.min(...best.prices),swing=side==="buy"?(opposite-current)/opposite*100:(current-opposite)/opposite*100;
  const exact=best.distance<=.15;
- // Scores. v1: proximity-led (unchanged, still serving production). v2.2: evidence-led
- // turn confirmation — the feature dump showed proximity is ANTI-predictive, and the
- // sweeps picked a hump-shaped weekly term for buys (a ~3% bounce is the sweet spot;
- // overheated bounces revert), breadth ×.35, and a 90-day trend-context term
- // (docs/backtests.md). All weights are the calibrated round numbers, not fits.
- const clampTo=(value:number|null|undefined,lo:number,hi:number)=>Math.min(hi,Math.max(lo,value??0));
  const change7=changeAtCutoff(sorted,7),change30v=changeAtCutoff(sorted,30),change90v=robust?changeAtCutoff(sorted,90):null;
  const breadth=context?.cohort?.breadth??50;
- const hump=(value:number)=>Math.max(0,(clampTo(value,0,15)/3)*Math.exp(1-clampTo(value,0,15)/3))*25;
- const score=robust
-  ?Math.round(Math.min(100,side==="buy"
-    ?hump(change7??0)+clampTo(change30v,0,10)*1.5+breadth*.35+(confidence==="high"?20:confidence==="medium"?5:0)+clampTo(swing,0,15)+clampTo(change90v,0,25)*.4
-    :clampTo(-(change7??0),0,5)*5+clampTo(-(change30v??0),0,10)*1.5+(100-breadth)*.35+(confidence==="high"?10:confidence==="medium"?5:0)+clampTo(swing,0,15)+clampTo(best.distance,0,8)*1.25+clampTo(-(change90v??0),0,20)*.35))
-  :Math.round(Math.min(100,Math.max(0,1-best.distance/cutoff)*62+Math.min(24,Math.max(0,swing)*.8)+(confidence==="high"?14:confidence==="medium"?8:3)));
+ const score=scoreSignal({robust,side,change7,change30:change30v,change90:change90v,breadth,confidence,swing,distance:best.distance,cutoff});
  // Turn-confirmation gates. v1 buys keep the original stabilization rule (audit C2).
  // v2.2 hardens both (sweep-picked): buys ≥1% off the low AND week ≥ +0.5% (a null
  // change7 is unconfirmed); sells ≥0.8% off the high AND week ≤ −0.5% — a price still
