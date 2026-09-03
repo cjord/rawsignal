@@ -35,6 +35,14 @@ test("one outsized adjacent-day jump reads as a spike",()=>{
  assert.equal(classifyRegime(series([...flat(10,30),13]))?.regime,"spike");
 });
 
+test("a young series is New Release — launch decay is not Falling (P7)",()=>{
+ // 20 daily points sliding ~20%: classic supply absorption, not a downtrend.
+ const launch=series(Array.from({length:20},(_,i)=>10-i*.1));
+ const reading=classifyRegime(launch);
+ assert.equal(reading?.regime,"new-release");
+ assert.match(reading.detail,/launch-window/);
+});
+
 test("cooling demand vetoes breakout",()=>{
  const breakout=series([...flat(10,25),10.4,10.8,11.2,11.6,12,12.4,12.8,13.2,13.6,14]);
  const cooled=classifyRegime(breakout,null,{recent:5,prior:30,change:-83.3});

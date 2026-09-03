@@ -13,6 +13,7 @@ import SiteFooter from "./SiteFooter";
 import {ChaseCardsSection,RelatedSealedSection} from "./detail-tables";
 import {evaluateMarketSignal,type MarketSignal} from "../core/signal-utils";
 import {classifyRegime} from "../core/domain/regime";
+import {MARQUEE_CHASE_RARITIES,MARQUEE_BAND,releaseGuidance} from "../core/domain/release";
 import {RegimeChip} from "./SignalControls";
 import {detailPercentile} from "../core/domain/detail";
 import {demandTrend,drawdownFromPeak,historyDepth,MIN_PEER_OBSERVATIONS,modeledFairValue,momentum,peerAnchorValue,rangePosition,salesWindow,trendSlope,volatilityRange} from "../core/domain/detail-metrics";
@@ -154,6 +155,25 @@ function PullRatesSection({detail}:{detail:SealedDetail}){
 
 function DetailSignalBadge({signal}:{signal:MarketSignal}){return <span className={`signal-badge ${signal.side} confidence-${signal.confidence}`} title={signal.detail}><b>{signal.reason}</b><small>{signal.score} signal · {signal.confidence} confidence</small></span>}
 
+// Early Value Estimate (todo P7): shown only when the server computed one — i.e. the
+// card is in its launch window or presale. The range is the settled-price expectation
+// from mature same-era sibling sets; chase-class rarities carry the marquee caveat
+// because the anchor deliberately excludes set-defining-card premiums.
+function EarlyValuePanel({detail,current}:{detail:CatalogDetail;current:number|null}){
+ if(detail.kind!=="single"||!detail.earlyValue)return null;
+ const eve=detail.earlyValue,guidance=releaseGuidance(detail.game,detail.rarity);
+ const versus=current!=null&&current>0?current>eve.q75?"above":current<eve.q25?"below":"inside":null;
+ return <section className="detail-section"><header><span>New release</span><h2>Early Value Estimate</h2></header>
+  <div className="detail-history-grid">
+   <Metric label="Expected Settled Range" value={`${formatUsd(eve.q25)}–${formatUsd(eve.q75)}`} hint={`Median ${formatUsd(eve.median)}`} info={`The 25th–75th percentile of current prices for ${detail.rarity} cards across ${eve.sets} mature ${formatGameName(detail.game)} sets from the same era (${eve.members} cards). New cards typically settle toward this range as launch supply is absorbed.`}/>
+   <Metric label="Current vs Range" value={versus?versus==="inside"?"In range":versus==="above"?"Above range":"Below range":"N/A"} tone={versus==="above"?"down":versus==="below"?"up":undefined}/>
+  </div>
+  {guidance&&<p className="detail-note">{guidance}</p>}
+  {MARQUEE_CHASE_RARITIES.has(detail.rarity)&&<p className="detail-note">Set-defining chase cards historically settle {MARQUEE_BAND} their rarity cohort — this range excludes that premium, and top-character chases sit at its high end.</p>}
+  <p className="detail-note">Estimates are cohort anchors, not price targets or guarantees; launch-window prices are volatile.</p>
+ </section>;
+}
+
 function SignalsPanel({history,loading,current,strictness}:{history:PriceHistory|null;loading:boolean;current:number|null;strictness:SignalStrictness}){
  // The boards gate on liquidity; this panel must agree with them (todo P2) — a card with
  // known thin sales should not look qualifying on its own page. Absent sales stay neutral.
@@ -210,6 +230,7 @@ export default function ProductDetailPage({detail,market,serverTiming}:{detail:C
  <h3 className="detail-subhead">Sales activity</h3><SalesGrid history={h}/>
  <PrintingsTable detail={detail} printing={printing} onSelect={setVariant}/>
  <p className="detail-note">{h.coverage==="exact"?"Exact":"Fallback"} {h.variant??variant?.printing} · {h.condition??"market"} history. Sales counts are TCGplayer completed sales for this printing and condition, reported in three-day buckets over the trailing 90 days.</p></>}</section>
+ <EarlyValuePanel detail={detail} current={current}/>
  <SignalsPanel history={historyData} loading={!historyData&&!historyError} current={current} strictness={strictness}/>
  {detail.kind==="single"&&<GradedMarketSection graded={detail.graded} current={current}/>}
  {detail.kind==="single"&&<RelatedSealedSection products={detail.relatedSealed} setName={detail.set} market={detail.game}/>}

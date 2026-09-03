@@ -5,7 +5,7 @@ import type {PricePoint} from "./types.ts";
 // optional demand-trend refinement; every threshold is exported so the walk-forward
 // harness can sweep them one dimension at a time. Descriptive labels ship everywhere;
 // the only scoring hook is the v2 sell gate (breakout ≠ overextension).
-export type MarketRegime="falling"|"improving"|"breakout"|"overextended"|"spike"|"steady";
+export type MarketRegime="falling"|"improving"|"breakout"|"overextended"|"spike"|"steady"|"new-release";
 export type RegimeDemand={recent:number;prior:number;change:number};
 export type RegimeReading={regime:MarketRegime;detail:string};
 
@@ -36,6 +36,11 @@ export function classifyRegime(points:PricePoint[],currentOverride?:number|null,
  if(!current||!Number.isFinite(current)||sorted.length<2)return null;
  const cutoff=timestamp(sorted.at(-1)!.date)-90*dayMs,window90=sorted.filter(p=>timestamp(p.date)>=cutoff).map(p=>p.price);
  if(window90.length<5)return null;
+ // New releases (todo P7): under ~30 observed days, launch-window supply absorption is
+ // the dominant dynamic — a normal post-launch slide is not "Falling" and a launch
+ // spike is not "Overextended". The label defers trend reads until history matures.
+ const spanDays=(timestamp(sorted.at(-1)!.date)-timestamp(sorted[0].date))/dayMs;
+ if(spanDays<30)return{regime:"new-release",detail:`${Math.round(spanDays)} days of history — launch-window pricing; trend labels start at 30 days.`};
  const change7=changeAtCutoff(sorted,7),change30=changeAtCutoff(sorted,30);
  const mean30=(()=>{const cut30=timestamp(sorted.at(-1)!.date)-30*dayMs,prices=sorted.filter(p=>timestamp(p.date)>=cut30).map(p=>p.price);return prices.length>=2?prices.reduce((a,b)=>a+b,0)/prices.length:null})();
  const momentum=mean30?(current/mean30-1)*100:null;
@@ -63,4 +68,4 @@ export function classifyRegime(points:PricePoint[],currentOverride?:number|null,
  return{regime:"steady",detail:`No dominant trend: ${change30!=null?`${pct(change30)} over 30 days`:"limited movement data"}.`};
 }
 
-export const REGIME_LABELS:Record<MarketRegime,string>={falling:"Falling",improving:"Improving",breakout:"Breakout",overextended:"Overextended",spike:"Spike",steady:"Steady"};
+export const REGIME_LABELS:Record<MarketRegime,string>={falling:"Falling",improving:"Improving",breakout:"Breakout",overextended:"Overextended",spike:"Spike",steady:"Steady","new-release":"New Release"};

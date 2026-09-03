@@ -10,7 +10,7 @@ export type HistoryWriteMode="replace"|"push"|"skip";
 const singlesViews:SinglesView[]=["large","medium","text","full"],sealedViews:SealedView[]=["medium","text","full"];
 const singlesSorts:SinglesSort[]=["name","signal","set","market","low","high","change7","change30"],sealedSorts:SealedSort[]=["name","signal","set","msrp","market","low","high","change7","change30","profit","profitPct"];
 const signals:SignalSide[]=["leaderboard","buy","sell"],strictnesses:SignalStrictness[]=["conservative","balanced","aggressive"];
-const regimeValues=["falling","improving","breakout","overextended","spike","steady"];
+const regimeValues=["falling","improving","breakout","overextended","spike","steady","new-release"];
 const pageSizes=[20,30,40,50];
 const list=(value:string|null)=>value?.split("|").map(item=>item.trim()).filter(Boolean)??[];
 const choice=<T extends string>(value:string|null,allowed:readonly T[],fallback:T)=>allowed.includes(value as T)?value as T:fallback;

@@ -18,4 +18,4 @@ export function RegimeChip({regime,detail}:{regime:MarketRegime|null|undefined;d
  if(!regime)return null;
  return <span className={`regime-chip regime-${regime}`} title={detail??REGIME_HINTS[regime]}>{REGIME_LABELS[regime]}</span>;
 }
-const REGIME_HINTS:Record<MarketRegime,string>={falling:"Price is trending down over the last 30 days.",improving:"Recovering from a drawdown — turning up this week.",breakout:"Accelerating through its recent high — momentum still building.",overextended:"At its recent high with fading momentum.",spike:"One outsized jump — low confidence until it holds.",steady:"No dominant trend right now."};
+const REGIME_HINTS:Record<MarketRegime,string>={falling:"Price is trending down over the last 30 days.",improving:"Recovering from a drawdown — turning up this week.",breakout:"Accelerating through its recent high — momentum still building.",overextended:"At its recent high with fading momentum.",spike:"One outsized jump — low confidence until it holds.",steady:"No dominant trend right now.","new-release":"Launch-window pricing — new releases typically slide as supply enters, then settle; trend labels start at 30 days."};

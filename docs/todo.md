@@ -1340,6 +1340,18 @@ validated retrospectively (does day-0 EVE predict day-60 better than day-0 price
 (3) "New release" regime chip for cards <~30 days suppressing misleading
 Falling/Overextended labels, carrying the curve guidance. Readiness checklist in the
 gaps doc.
+**Status: LANDED 2026-09-02 (gate green, 200 tests) — two months ahead of Delta
+Reign.** Steps A+B (`scripts/release-curves/study.mjs`, docs/backtests.md): 28
+launches mined, era-conditioned curves confirm the 2026 decay-return, marquee bands
+measured (SIR chases 2–19× cohort), and the EVE gate PASSED its holdouts (ME04 d60:
+EVE error 0.47 vs naive 1.20, wins 80%; ME05 d30 wins 69%) with serving rules derived
+from the failures (mainline sets only, ≥8 members from ≥2 mature era siblings). Step C
+shipped: `new-release` regime (span <30d; label + chips + filter + purple tone),
+`core/domain/release.ts` curated settle guidance (2026H1 cells — regenerate per
+launch), `db/early-value.ts` reader enforcing the serving rules (young/presale singles
+only), and the detail-page Early Value Estimate panel (expected settled range,
+current-vs-range, rarity guidance, marquee caveat, honest disclaimer). Awaiting the
+usual staging review before production.
 
 **P8 (future, separate feature). Riftbound tournament-driven predictions.** Riftbound's
 market is player-driven where Pokémon's is collector-driven — tournament results

@@ -211,6 +211,17 @@ export type CatalogDetailBase = {
   graded: GradedCardData | null;
 };
 
+// Early Value Estimate (todo P7): a new card's expected settled price, anchored on the
+// median of same-rarity cards in mature same-era sibling sets. Serves only while the
+// card is young (launch window / presale); validated in docs/backtests.md.
+export type EarlyValueEstimate = {
+  median: number;
+  q25: number;
+  q75: number;
+  members: number;
+  sets: number;
+};
+
 export type CardDetail = CatalogDetailBase & {
   kind: "single";
   game: SinglesGame;
@@ -224,6 +235,7 @@ export type CardDetail = CatalogDetailBase & {
   pullRate: CardPullRate | null;
   peerAnchor: PeerAnchorStats | null;
   relatedSealed: SealedProduct[];
+  earlyValue?: EarlyValueEstimate | null;
 };
 
 export type SealedDetail = CatalogDetailBase & {

@@ -112,6 +112,7 @@
   .regime-overextended,.regime-spike{border-color:color-mix(in srgb,var(--tone-warn) 55%,var(--line));background:color-mix(in srgb,var(--tone-warn) 12%,var(--surface));color:color-mix(in srgb,var(--tone-warn) 72%,var(--text))}
   .regime-spike{border-style:dashed}
   .regime-breakout{border-color:color-mix(in srgb,var(--blue) 45%,var(--line));background:color-mix(in srgb,var(--blue) 10%,var(--surface));color:var(--blue)}
+  .regime-new-release{border-color:color-mix(in srgb,var(--purple) 45%,var(--line));background:color-mix(in srgb,var(--purple) 10%,var(--surface));color:var(--purple)}
   .signal-cell .regime-chip,.sealed-signal-cell .regime-chip{margin-top:4px}
   /* history-title is space-between; with the chip between title and subtitle, pin the
      subtitle right so the two-child layout looks unchanged when no chip renders. */
