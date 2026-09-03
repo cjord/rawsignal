@@ -143,8 +143,9 @@ word.
 ## Release gate
 
 `npm run check` = production build + ~243 node tests (52 suites) + lint + `tsc --noEmit` + 4
-Playwright journeys. Playwright starts (or reuses) its own dev server on :4173, so the :3000
-dev server can stay up. A few suites still
+Playwright journeys. Playwright starts its own server on :4173, but vinext refuses to start a
+second dev server for the same directory — **stop the :3000 dev server before the gate** or
+`test:browser` fails with "Another vinext dev server is already running". A few suites still
 **regex-match raw source files** (`source-contracts` — the slim successor to the old
 `rendered-html` file, `scalper-mode`, `css-architecture`, `maintainer-docs`,
 `cloudflare-cutover`) — moving or renaming code they pin fails the gate until the
