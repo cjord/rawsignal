@@ -1330,8 +1330,32 @@ with −1.78% median on never-seen JP + MTG markets, beating every baseline — 
 where the simple heuristics collapse (momentum 38.6%, near-extreme 23.9%). The live
 shadow runs v2.2 and remains the only different-regime test.
 
-Deferred (unchanged from research §15.7): character priors, Early Value Estimate,
-pull-difficulty score adjustments, execution-aware net returns.
+**P7. New-release predictions (planned 2026-09-02 — prepare BEFORE Pokémon's Delta
+Reign release).** Three parts, detailed in `docs/model-gaps.md`: (1) release-curve
+priors mined from the archive (median day-0→90 price path by game/rarity — launch
+premium, supply-absorption decay, settling point), backtestable immediately;
+(2) Early Value Estimate — new card's expected settled price anchored on the ladder
+cohort median of same-era siblings, shown as a 25th–75th range next to launch prices,
+validated retrospectively (does day-0 EVE predict day-60 better than day-0 price?);
+(3) "New release" regime chip for cards <~30 days suppressing misleading
+Falling/Overextended labels, carrying the curve guidance. Readiness checklist in the
+gaps doc.
+
+**P8 (future, separate feature). Riftbound tournament-driven predictions.** Riftbound's
+market is player-driven where Pokémon's is collector-driven — tournament results
+(decklist appearance/win-rate deltas, new-archetype jumps) become a Riftbound-only
+descriptive-then-validated signal layer. Needs a structured results source; explicitly
+not applied to Pokémon. Revisit at the 3-month review (`docs/model-gaps.md`).
+
+**Model governance (2026-09-02):** gaps register + accepted limits (strategic buyouts
+are unpredictable from price data — accepted) + monthly-evaluate/trigger-refit review
+calendar live in `docs/model-gaps.md`. 90-day and 1-year model steps documented there;
+30-day market stays the strategic priority. At the next promotion: stamp a model
+version into `signal_history` (track-record integrity).
+
+Deferred (unchanged from research §15.7): character priors,
+pull-difficulty score adjustments, execution-aware net returns. (Early Value Estimate
+graduated to P7.)
 
 ## Decisions — resolved at review (2026-08-27)
 
