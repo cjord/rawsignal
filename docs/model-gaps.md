@@ -103,10 +103,31 @@ turn-confirmation model is rightly silent. Three parts, in order:
    (suppressing Falling/Overextended labels that merely describe normal
    supply-absorption decay) with the curve-based guidance attached.
 
+**Refinements from external research (2026-09-02 web check):**
+- **Era-condition the curves.** The market changed phase mid-2026: the 2025 supply
+  shortage suppressed/reversed launch decay, but Chaos Rising (May 2026) and Pitch
+  Black (Jul 2026) show the classic pattern returned (boxes −17%/−22-24% from launch,
+  ETBs −23%; Misprint/ICv2). Pool nothing: fit per era, and weight the same-series
+  ME01–ME05 launches (all in our archive) heaviest for Delta Reign. Published prior to
+  validate: chase singles ~30–50% hype inflation in the first two weeks.
+- **Timeline:** Delta Reign releases 2026-11-06, prereleases Oct 24–Nov 1 → P7 ships
+  by MID-OCTOBER; EVE activates on presale listings (catalog `isPresale`).
+- **Cohort-size wrinkle:** Delta Reign has only 6 SIRs (vs 14 IR / 17 UR) — below the
+  ≥8 cohort floor, so EVE is rung-2-first (era-sibling median) for small rarities by
+  design.
+- **Sealed joins scope:** the well-evidenced decay data is sealed (box/ETB vs MSRP);
+  sealed release curves ship co-equal with singles.
+- **Character-premium caveat surfaced:** chase is Mega Rayquaza ex; with no catalog
+  character field, EVE underestimates top-character cards ~20–25% early (lifecycle
+  research) — the displayed range carries an "excludes character premium" note. New
+  Legendary Stadium mechanic cards have no clean cohort analog (label, don't anchor).
+- **Retrospective test cases fixed:** EVE must beat the naive day-0 baseline on Chaos
+  Rising and Pitch Black (recent, same series, fully in archive) before serving.
+
 Delta Reign readiness checklist: era mapping covers the new set on release; catalog
 pickup is automatic via the daily walk; EVE + release curves shipped and validated
-retrospectively BEFORE launch; day-0 monitoring of EVE vs actual added to the first
-monthly review after release.
+retrospectively (Chaos Rising + Pitch Black as holdouts) BEFORE mid-October; day-0
+monitoring of EVE vs actual added to the first monthly review after release.
 
 ## Longer horizons: 90-day and 1-year models (documented, queued behind 30-day)
 
