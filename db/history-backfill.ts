@@ -59,7 +59,8 @@ export async function runHistoryBackfillBatch(db: D1DatabaseLike, targets: Histo
     const revisionFloor = new Date(now.getTime() - HISTORY_REVISION_WINDOW_DAYS * 86400000).toISOString().slice(0, 10);
     const fetched = await mapWithConcurrency(present, FETCH_CONCURRENCY, async target => ({ target, history: await fetchHistory(target) }));
     for (const { target, history } of fetched) {
-      const variant = history.variant ?? (target.sealed ? "Sealed" : target.printing), condition = history.condition ?? (target.sealed ? "Unopened" : "Near Mint");
+      // Sealed series always land under the one canonical key (todo R3), whatever the fetch reported.
+      const variant = target.sealed ? "Sealed" : history.variant ?? target.printing, condition = target.sealed ? "Unopened" : history.condition ?? "Near Mint";
       if (history.points.length) {
         const bounds = frontier.get(`${target.productId}|${variant}|${condition}`);
         const newPoints = bounds ? history.points.filter(point => point.date > bounds.maxDate || point.date < bounds.minDate || point.date >= revisionFloor) : history.points;

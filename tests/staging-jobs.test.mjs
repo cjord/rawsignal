@@ -20,6 +20,15 @@ test("staging job endpoint is hidden outside staging and requires its bearer tok
  assert.equal((await handleStagingJob(request("wrong"),{...base,ENVIRONMENT:"staging"})).status,401);
 });
 
+test("the TCGplayer client keys sealed series Sealed/Unopened with exact coverage whatever variant the API reports (R3)",async()=>{
+ const sealedFetcher=async url=>Response.json({result:[{variant:"Normal",language:"English",condition:"Unopened",buckets:[{marketPrice:"120",bucketStartDate:String(url).includes("annual")?"2025-09-01":"2026-08-20"}]}]});
+ const box=await fetchTcgplayerHistory(2,"Sealed",true,sealedFetcher);
+ assert.deepEqual([box.variant,box.condition,box.coverage,box.points.map(point=>point.price)],["Sealed","Unopened","exact",[120,120]]);
+ // Singles keep the API's variant and the printing-match coverage rule.
+ const single=await fetchTcgplayerHistory(1,"Holofoil",false,async()=>Response.json({result:[{variant:"Normal",language:"English",condition:"Near Mint",buckets:[{marketPrice:"5",bucketStartDate:"2026-08-20"}]}]}));
+ assert.deepEqual([single.variant,single.condition,single.coverage],["Normal","Near Mint","fallback"]);
+});
+
 test("shared TCGplayer client merges annual depth with the quarterly series",async()=>{
  const series=range=>range==="quarter"?[{variant:"Holofoil",language:"English",condition:"Near Mint",buckets:[{marketPrice:"12",bucketStartDate:"2026-08-20"}]}]:[{variant:"Holofoil",language:"English",condition:"Near Mint",buckets:[{marketPrice:"8",bucketStartDate:"2025-09-01"}]}];
  const fetcher=async input=>Response.json({result:series(new URL(input).searchParams.get("range"))});

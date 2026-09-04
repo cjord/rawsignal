@@ -384,3 +384,25 @@ not act on; each needs a product or design decision before code changes.
   `tests/scheduled-ingestion.test.mjs` and `tests/cloudflare-cutover.test.mjs`. Any deploy dated
   2026-09-04 or later also breaks the loop on its own (a new run id runs details once, ~1 h, then
   graded → metrics → history). **R1's first production rollup waits on that deploy.**
+- **R3 — sealed products carry two observation series, and the boards read the shallow one (found
+  2026-09-04 while verifying wave 14).** *Fixed 2026-09-04: the TCGplayer client, the history
+  refresh, and `/api/history` key sealed series `Sealed/Unopened` with exact coverage
+  (`core/clients/tcgplayer-history.ts`, `db/history-backfill.ts`, `db/history-read.ts`), and
+  migration 0015 folded the `Normal/Unopened` observations into the canonical key and dropped the
+  1,989 duplicate metrics rows (production and staging). The boards show the merged depth after
+  the next daily walk recomputes metrics; until then the shallow-derived values remain.* The live walk stores sealed observations and
+  derives metrics under `Sealed/Unopened` (2,429 products since 2026-08-28, plus a 533-product
+  `tcgcsv-archive` import back to 2024), while the TCGplayer history backfill and `/api/history`
+  store the same products under the API's own key `Normal/Unopened` (1,989 products, ~72 points
+  each). Singles are unified (`<printing>/Near Mint` on both paths). The "latest `updated_at`"
+  metrics row that the feeds, `/api/signals`, and the detail tables select is therefore the walk's
+  shallow row for ~1,900 sealed products: `change_7_bps` is null on 1,910 of 2,492 latest rows (an
+  older `Normal` row has a value for 1,763 of them), regime reads "new-release" for years-old
+  products, and since wave 13 the sealed boards show "—" for 7D/30D where the client-side
+  computation used to show a (week-stale) number. Fix: one key per product — write TCGplayer sealed
+  series as `Sealed/Unopened` (`db/history-backfill.ts`, `app/api/history/route.ts`), migrate the
+  existing `Normal/Unopened` observations into `Sealed/Unopened` (insert-or-ignore on the primary
+  key, then delete), drop the 1,989 stale `Normal/Unopened` metrics rows, and let the next walk
+  recompute. Needs a one-off production data migration (user authorization). Until then the tiered
+  refresh makes the columns flap: it updates the `Normal` row for due products, the walk updates the
+  `Sealed` row daily, and whichever is newer wins.

@@ -20,10 +20,12 @@ export async function GET(request: Request) {
   catch { return NextResponse.json({ error: "History unavailable" }, { status: 502 }); }
   if(db&&result.points.length)try{
     const fetchedAt=new Date().toISOString();
-    await upsertHistory(db,Number(productId),result.variant!,result.condition!,result.points,fetchedAt);
+    // Sealed series are stored under the one canonical key (todo R3), whatever the fetch reported.
+    const variant=sealed?"Sealed":result.variant!,condition=sealed?"Unopened":result.condition!;
+    await upsertHistory(db,Number(productId),variant,condition,result.points,fetchedAt);
     const price=await db.prepare("select market_cents as marketCents from current_prices where product_id=?").bind(Number(productId)).first<{marketCents:number|null}>();
     const currentPrice=price?.marketCents==null?result.points.at(-1)!.price:price.marketCents/100;
-    await persistDerivedHistory(db,Number(productId),result.variant!,result.condition!,currentPrice,result.points,result.coverage,fetchedAt);
+    await persistDerivedHistory(db,Number(productId),variant,condition,currentPrice,result.points,result.coverage,fetchedAt);
   }catch{/* History remains available to the caller even if cache persistence fails. */}
   return NextResponse.json(result, {
     headers: { "Cache-Control": CACHE_TIERS.hour },

@@ -68,12 +68,16 @@ export async function fetchTcgplayerHistory(productId: number, printing: string,
   const salesBuckets = selected.buckets
     .map(bucket => ({ date: bucket.bucketStartDate, quantity: Math.max(0, Number(bucket.quantitySold) || 0), low: salePrice(bucket.lowSalePrice), high: salePrice(bucket.highSalePrice), lowWithShipping: salePrice(bucket.lowSalePriceWithShipping), highWithShipping: salePrice(bucket.highSalePriceWithShipping) }))
     .sort((a, b) => a.date.localeCompare(b.date));
+  // Sealed products have one series (TCGplayer reports it as "Normal"/"Unopened"); every store
+  // keys it Sealed/Unopened (todo R3), and a sealed-looking series is exact coverage for a sealed
+  // request — the printing a caller names is meaningless for a box.
+  const sealedSeries = sealed && /sealed|unopened/i.test(selected.condition);
   return {
     points,
-    variant: selected.variant,
-    condition: selected.condition,
+    variant: sealed ? "Sealed" : selected.variant,
+    condition: sealed ? "Unopened" : selected.condition,
     sales: { windowDays: 90, totalQuantity: total(selected.totalQuantitySold), totalTransactions: total(selected.totalTransactionCount), buckets: salesBuckets },
-    coverage: exact ? "exact" : "fallback",
+    coverage: exact || sealedSeries ? "exact" : "fallback",
     ...deriveHistoryMetrics(points),
   };
 }
