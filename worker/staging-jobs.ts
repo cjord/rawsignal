@@ -8,7 +8,7 @@ import { runDailyMarketIngestionBatch, type DailyCatalogSnapshot } from "../db/d
 import { runDetailIngestionBatch } from "../db/detail-ingestion.ts";
 import { runGradedRotationBatch, type GradedRotationDeps } from "../db/graded-ingestion.ts";
 import { runHistoryBackfillBatch, type HistoryBackfillTarget } from "../db/history-backfill.ts";
-import { dueHistoryTargets, readHistoryTargetRows } from "../db/history-targets.ts";
+import { dueHistoryTargets, readHistoryTargetRowsFor } from "../db/history-targets.ts";
 import { runLiveDailyIngestionBatch, type LiveSyncDeps, type TcgcsvClient } from "../db/live-ingestion.ts";
 import { runBenchmarkIngestion } from "../db/benchmark-ingestion.ts";
 import { runMetricsRollup } from "../db/metrics-ingestion.ts";
@@ -148,7 +148,7 @@ export async function runHistoryJob(env: StagingJobEnv, request: Request, batchS
   // operator backfills pass all:true to refresh everything regardless of cadence. The
   // bundled snapshot only backs an empty database (fresh sandbox, tests) — an empty
   // DUE list on a populated catalog is a completed no-op day, not a fallback.
-  const rows = await readHistoryTargetRows(env.DB);
+  const rows = await readHistoryTargetRowsFor(env.DB, `${options.all ? "history-backfill" : "history-daily"}:${sourceUpdatedAt}`);
   const targets = rows.length
     ? dueHistoryTargets(rows, sourceUpdatedAt, options)
     : historyTargets(await loadStagingSnapshot(request, env.ASSETS, sourceUpdatedAt));

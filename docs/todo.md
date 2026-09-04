@@ -339,6 +339,22 @@ not act on; each needs a product or design decision before code changes.
   one join instead of four correlated subqueries in `/api/signals`; F7 edge cache for detail
   and set pages. Expected: ~366 M → under 30 M rows/day, and reads that scale with the set
   size rather than the catalog size.
+  *2026-09-04 re-measure (per-query `rows_read`, review §15): the audit's projection missed the
+  early-value sibling-set list (14 k rows on every detail view), the sets directory's true cost
+  (~400 k rows per uncached view) and the metrics page (~600 k, never cached), so the post-wave-12
+  floor was ~105 M/day, not 30 M; and the tiered history refresh would have added ~180 M/day the
+  first night it ran (1.6 M rows per tick to build its target list). Wave 14 removed the
+  detail-table and mover history fan-out, memoized the set list, bounded the target read,
+  edge-cached `/metrics`, and fixed R2; the estimate is now ~65 M/day at today's traffic, with the
+  sets directory the largest line. Remaining levers are Q8.*
+- **Q8 — precompute the daily aggregates the whole-catalog pages recompute per view (from review
+  §15).** The sets directory (six group-bys and two window queries, ~400 k rows), set EV (49 k,
+  read by set detail, `/api/set-ev`, and metrics), and the metrics payload (~600 k) all derive from
+  the day's rows and change only when a run publishes. Computing them in the metrics rollup into a
+  small table (or KV) turns each view into a few hundred rows and stops depending on the colo
+  cache hit rate; the set-detail observation aggregation (Ps × days, growing ~365 rows per member
+  per year) belongs in the same rollup as a per-set daily index. Order: set EV → directory →
+  set index → metrics payload.
 
 ## R. Production ingestion cadence bug (found 2026-09-03 during the D1 audit)
 
@@ -357,3 +373,14 @@ not act on; each needs a product or design decision before code changes.
   published and the rollup for that date is not), and pin it in `tests/cloudflare-cutover.test.mjs`
   with a live run that completes the next UTC day. Then run one manual `metrics` job to backfill
   today's snapshot. **Priority: above everything in §Q — the model program's evidence depends on it.**
+- **R2 — a same-day redeploy stalled the cron on "details" (found 2026-09-04 02:00Z from
+  `wrangler tail`; fixed in wave 14, deploy pending).** `product-details` runs are keyed by the
+  deploy snapshot's date. After the five deploys of 2026-09-03 the completed run
+  `product-details:2026-09-03` no longer matched the newest snapshot timestamp, and the gate compared
+  it against `product-details:<wall-clock today>` (2026-09-04), so every tick re-dispatched the
+  finished run ("223/223 done", two writes) and never reached graded, the R1 rollup, or the history
+  refresh — `metrics-rollup:2026-08-28` is still the last rollup. `worker/scheduled-decision.ts` now
+  gates on the run id derived from the deploy snapshot (`detailsRunIdFor`), pinned in
+  `tests/scheduled-ingestion.test.mjs` and `tests/cloudflare-cutover.test.mjs`. Any deploy dated
+  2026-09-04 or later also breaks the loop on its own (a new run id runs details once, ~1 h, then
+  graded → metrics → history). **R1's first production rollup waits on that deploy.**

@@ -4,7 +4,7 @@ import {DatabaseSync} from "node:sqlite";
 import test from "node:test";
 import {runDailyMarketIngestion} from "../db/daily-ingestion.ts";
 import {upsertHistory} from "../db/repository.ts";
-import {TIER_DAILY_MIN_DEPTH,dueHistoryTargets,historyTier,readHistoryTargetRows,tierDue,utcDayNumber} from "../db/history-targets.ts";
+import {TIER_DAILY_MIN_DEPTH,dueHistoryTargets,historyTier,readHistoryTargetRows,readHistoryTargetRowsFor,tierDue,utcDayNumber} from "../db/history-targets.ts";
 
 class LocalStatement{
   constructor(statement){this.statement=statement;this.values=[]}
@@ -47,6 +47,17 @@ test("off-day tiers stagger by product id",()=>{
   assert.equal([0,1,2,3,4,5,6].filter(offset=>tierDue("weekly",11,day+offset)).length,1);
 });
 
+test("a run's target rows are read once per database; a new run key reads again",async()=>{
+  const database=await migratedDatabase(),db=new LocalD1(database);
+  let prepared=0;const counting={prepare(sql){prepared++;return db.prepare(sql)},batch:statements=>db.batch(statements)};
+  const first=await readHistoryTargetRowsFor(counting,"history-daily:2026-08-28");
+  assert.equal(await readHistoryTargetRowsFor(counting,"history-daily:2026-08-28"),first);
+  assert.equal(prepared,1);
+  await readHistoryTargetRowsFor(counting,"history-daily:2026-08-29");
+  assert.equal(prepared,2);
+  database.close();
+});
+
 test("due targets derive from the live catalog with tier cadence (M5+M4)",async()=>{
   const database=await migratedDatabase(),db=new LocalD1(database);
   const day=utcDayNumber("2026-08-28");
@@ -64,6 +75,9 @@ test("due targets derive from the live catalog with tier cadence (M5+M4)",async(
   await upsertHistory(db,spreadId,"Holofoil","Near Mint",backPoints,"2026-08-28T12:00:00Z");
   const rows=await readHistoryTargetRows(db);
   assert.deepEqual(rows.map(row=>row.productId),[weeklyId,spreadId,newId]);
+  // Depth is consulted only below TIER_DAILY_MIN_DEPTH, so the read stops counting there
+  // (the deepened products hold 25 observations each).
+  assert.deepEqual(rows.map(row=>row.depth),[TIER_DAILY_MIN_DEPTH,TIER_DAILY_MIN_DEPTH,1]);
   // Only the thin-depth sealed product is due on the fixture date (M4 cadence)...
   assert.deepEqual(dueHistoryTargets(rows,"2026-08-28"),[{productId:newId,printing:"Sealed",sealed:true,currentPrice:79.99}]);
   // ...while an operator run covers everything, singles keeping their catalog printing.

@@ -1,5 +1,5 @@
 "use client";
-import {useMemo,useState} from "react";
+import {useCallback,useMemo,useState} from "react";
 import InfoHint from "./InfoHint";
 import MarketTabs from "./MarketTabs";
 import {readStoredMarket,storeMarket} from "./state/market-memory";
@@ -15,7 +15,7 @@ import MarketRow from "./leaderboard/MarketRow";
 import HistoryPopover from "./leaderboard/HistoryPopover";
 import ProductIdentity from "./leaderboard/ProductIdentity";
 import {favoriteKey,type FavoriteEntry} from "./state/favorites";
-import {historyTargetKey,useHistoryOnce,type HistoryTarget} from "./data/usePriceHistoryBatch";
+import {usePriceHistoryBatch,type HistoryTarget} from "./data/usePriceHistoryBatch";
 import {canonicalSealedType} from "../core/catalog-query";
 import {deriveHistoryMetrics} from "../core/domain/history-metrics";
 import {POKEMON_ERAS,eraLabel} from "../core/domain/eras";
@@ -197,15 +197,15 @@ const moverTarget=(mover:MetricsMover):HistoryTarget=>mover.kind==="single"?{pro
 const moverFavorite=(mover:MetricsMover):FavoriteEntry=>({key:favoriteKey(mover.kind,mover.productId),kind:mover.kind,game:mover.game,productId:mover.productId,name:mover.name,set:mover.set,number:null,section:null,image:mover.image||null,price:mover.price,addedAt:""});
 const moverMetrics=(mover:MetricsMover,history?:PriceHistory):HistoryMetric[]=>standardHistoryMetrics(mover.price,mover.mid,history,"N/A");
 
-function MoverTable({title,movers,history,empty}:{title:string;movers:MetricsMover[];history:Record<string,PriceHistory>;empty:string}){
+function MoverTable({title,movers,history,onReveal,empty}:{title:string;movers:MetricsMover[];history:Record<number,PriceHistory>;onReveal:(mover:MetricsMover)=>void;empty:string}){
  return <div className="metrics-mover-list"><h3>{title}</h3>
   {movers.length?<>
    <div className="metrics-mover-head" aria-hidden="true"><span/><span>Name</span><span>Market Price</span><span>% Change</span></div>
    <div className="metrics-mover-rows">{movers.map(mover=>{
-    const h=history[historyTargetKey(moverTarget(mover))];
-    return <MarketRow className="metrics-mover-row" key={`${mover.window}:${mover.kind}:${mover.productId}`} href={mover.kind==="single"?`/cards/${mover.productId}`:`/sealed/${mover.productId}`} label={`View ${mover.name} details`}
+    const h=history[mover.productId];
+    return <MarketRow className="metrics-mover-row" key={`${mover.window}:${mover.kind}:${mover.productId}`} href={mover.kind==="single"?`/cards/${mover.productId}`:`/sealed/${mover.productId}`} label={`View ${mover.name} details`} onReveal={()=>onReveal(mover)}
      popover={<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={mover.image} alt={`${mover.name} ${mover.kind==="single"?"card":"product"}`} label={`${mover.name} price history`}>
-      <HistoryPanel title={mover.kind==="single"?"Near Mint Market History":"Sealed Market History"} subtitle={mover.kind==="single"?mover.printing:"Unopened"} points={h?.points??[]} metrics={moverMetrics(mover,h)}/>
+      <HistoryPanel title={mover.kind==="single"?"Near Mint Market History":"Sealed Market History"} subtitle={mover.kind==="single"?mover.printing:"Unopened"} points={h?.points??[]} metrics={moverMetrics(mover,h)} loading={!h}/>
      </HistoryPopover>}>
      <span className="mover-star"><FavoriteStar entry={moverFavorite(mover)}/></span>
      <ProductIdentity className="identity mover-identity" image={mover.image} alt="" title={mover.name} meta={`${mover.set} · ${formatGameName(mover.game)}`}/>
@@ -278,8 +278,10 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
   const categories=mode==="sealed"?payload.sealedCategories.filter(row=>market==="all"||row.game===market):[];
   return {overview,combined,momentum,gainers,decliners,sets,categories};
  },[payload,series,kind,mode,market,moversWindow]);
- const moverTargets=useMemo(()=>scoped?[...scoped.gainers,...scoped.decliners].map(moverTarget):[],[scoped]);
- const moverHistory=useHistoryOnce(moverTargets);
+ // Mover rows render from the payload; a series loads only for a row's chart on its first
+ // popover reveal (wave 14) — never on page load, and never with hover previews off.
+ const {history:moverHistory,ensure:ensureMoverHistory}=usePriceHistoryBatch();
+ const revealMover=useCallback((mover:MetricsMover)=>{void ensureMoverHistory([moverTarget(mover)])},[ensureMoverHistory]);
 
  return <><main className="detail-page metrics-page"><TopBar active="metrics" strictness={strictness} onStrictness={changeStrictness}/>
   <header className="masthead" id="top">
@@ -301,8 +303,8 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
    <section className="detail-section"><header><span>Movers</span><h2>Top Movers<InfoHint label="About movers">Largest price changes over the selected window among products worth at least $10 (singles) or $20 (sealed) before and after the move. Extreme swings that typically reflect listing turnover rather than market movement are excluded. Rows open the product&apos;s detail page; hover for its price history.</InfoHint></h2>
     <div className="metrics-seg metrics-seg-small" role="tablist" aria-label="Movers window">{(["7d","30d","90d"] as const).map(item=><button key={item} type="button" role="tab" aria-selected={moversWindow===item} className={moversWindow===item?"active":""} onClick={()=>setMoversWindow(item)}>{item.toUpperCase()}</button>)}</div></header>
     <div className="metrics-movers">
-     <MoverTable title="Gainers" movers={scoped?.gainers??[]} history={moverHistory} empty="No qualifying gainers in this window."/>
-     <MoverTable title="Decliners" movers={scoped?.decliners??[]} history={moverHistory} empty="No qualifying decliners in this window."/>
+     <MoverTable title="Gainers" movers={scoped?.gainers??[]} history={moverHistory} onReveal={revealMover} empty="No qualifying gainers in this window."/>
+     <MoverTable title="Decliners" movers={scoped?.decliners??[]} history={moverHistory} onReveal={revealMover} empty="No qualifying decliners in this window."/>
     </div></section>
    <section className="detail-section"><header><span>Breadth</span><h2>Momentum<InfoHint label="About breadth">Advancers and decliners count tracked products whose price moved over each window. Broad moves are sturdier than narrow ones; all-time marks compare today&apos;s price against each product&apos;s stored history.</InfoHint></h2></header>
     {scoped&&<><div className="metrics-ratio-stack">

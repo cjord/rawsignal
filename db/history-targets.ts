@@ -64,10 +64,14 @@ const targetOf = (row: HistoryTargetRow): HistoryBackfillTarget => row.kind === 
   ? { productId: row.productId, printing: "Sealed", sealed: true, currentPrice: row.marketCents / 100 }
   : { productId: row.productId, printing: row.printing ?? "Normal", currentPrice: row.marketCents / 100 };
 
+// Depth only matters below TIER_DAILY_MIN_DEPTH, so the correlated count stops there: rows
+// read fall from every stored observation (1.6 M per call on 2026-09-04) to at most 14 per
+// product. The tier inputs also change while the walk runs, so the same-run memo below is
+// what keeps a tiered day's target list stable across ticks.
 export async function readHistoryTargetRows(db: D1DatabaseLike): Promise<HistoryTargetRow[]> {
   return (await db.prepare(`select p.product_id as productId, p.kind, p.printing, cp.market_cents as marketCents,
       mm.sales_30 as sales30, mm.change_7_bps as change7Bps,
-      (select count(*) from price_observations po where po.product_id = p.product_id) as depth
+      (select count(*) from (select 1 from price_observations po where po.product_id = p.product_id limit ${TIER_DAILY_MIN_DEPTH})) as depth
     from catalog_products p
     join current_prices cp on cp.product_id = p.product_id
     left join market_metrics mm on mm.product_id = p.product_id
@@ -75,6 +79,18 @@ export async function readHistoryTargetRows(db: D1DatabaseLike): Promise<History
       and mm.condition = case p.kind when 'sealed' then 'Unopened' else 'Near Mint' end
     where cp.market_cents > 0
     order by p.product_id`).bind().all<HistoryTargetRow>()).results ?? [];
+}
+
+// The tiered run recomputes its target list every tick (the durable cursor slices it), and
+// the list depends only on the day's tier inputs: an isolate keeps the rows it read for the
+// same run and database, so a warm tick reads nothing. A failed read is not kept.
+const targetRowsMemo = new WeakMap<D1DatabaseLike, { key: string; rows: Promise<HistoryTargetRow[]> }>();
+export function readHistoryTargetRowsFor(db: D1DatabaseLike, runKey: string): Promise<HistoryTargetRow[]> {
+  const hit = targetRowsMemo.get(db);
+  if (hit && hit.key === runKey) return hit.rows;
+  const rows = readHistoryTargetRows(db).catch(error => { targetRowsMemo.delete(db); throw error; });
+  targetRowsMemo.set(db, { key: runKey, rows });
+  return rows;
 }
 
 // asOfDate keys the day's stagger; `all` bypasses the tier filter (operator backfills

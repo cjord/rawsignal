@@ -22,7 +22,8 @@ test("GET requests under /api/, /data/, and the public pages are candidates; onl
   assert.equal(edgeCacheableRequest(new Request("https://rawsignal.cards/data/pokemon-ultra-rares.json")), true);
   assert.equal(edgeCacheableRequest(new Request("https://rawsignal.cards/sets")), true);
   assert.equal(edgeCacheableRequest(new Request("https://rawsignal.cards/import")), false);
-  assert.equal(edgeCacheableRequest(new Request("https://rawsignal.cards/metrics")), false);
+  assert.equal(edgeCacheableRequest(new Request("https://rawsignal.cards/metrics")), true);
+  assert.equal(edgeCacheableRequest(new Request("https://rawsignal.cards/metrics?mode=sealed&market=pokemon")), true);
   assert.equal(edgeCacheableRequest(new Request("https://rawsignal.cards/__ops/staging-jobs")), false);
   assert.equal(edgeCacheableRequest(new Request("https://rawsignal.cards/api/collectr", { method: "POST" })), false);
   assert.equal(edgeCacheableResponse(json({ ok: 1 }, "public, s-maxage=300")), true);

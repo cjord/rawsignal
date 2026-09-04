@@ -10,7 +10,6 @@ export type ScheduledInput = {
   deploySnapshotUpdatedAt: string;
   detailsPublishedUpdatedAt: string | null;
   detailsPublishedRunId: string | null;
-  detailsTodayRunId: string;
   gradedKeyConfigured: boolean;
   gradedPublishedRunId: string | null;
   gradedTodayRunId: string;
@@ -38,6 +37,12 @@ export type ScheduledPlan =
 export const liveRunDate = (livePublishedRunId: string | null) => livePublishedRunId ? runIdDate(livePublishedRunId) : null;
 export const metricsRunIdFor = (liveDate: string) => ingestionRunId("metrics-rollup", liveDate);
 export const historyRunIdFor = (liveDate: string) => ingestionRunId("history-daily", liveDate);
+// Details runs are keyed by the deploy snapshot's date (`product-details:<date>`, the runner's
+// own rule), so the gate asks whether THAT run is complete — never whether a run dated the
+// wall-clock day is. (Until 2026-09-04 it compared against today's date: after a same-day
+// redeploy the completed run was re-dispatched every tick, "finishing" its empty tail again
+// and again, and graded, metrics, and history never ran — todo R2.)
+export const detailsRunIdFor = (deploySnapshotUpdatedAt: string) => ingestionRunId("product-details", deploySnapshotUpdatedAt);
 
 // Guard-cron policy (docs/todo.md G1): every tick advances at most one checkpointed batch,
 // and only when work is genuinely due.
@@ -48,7 +53,8 @@ export const historyRunIdFor = (liveDate: string) => ingestionRunId("history-dai
 //   the probe entirely once today's run is complete; probeUpdatedAt is null on probe failure,
 //   which simply retries next tick.
 // - Details: bundled enrichment chunks are keyed to the deploy snapshot — ingested once per
-//   deploy, at most once per day; the FK filter inside the runner handles catalog drift.
+//   deploy, at most once per day (a later deploy the same day finds its run, keyed by that
+//   day, already complete); the FK filter inside the runner handles catalog drift.
 // - Graded rotation: once per day when the PokemonPriceTracker key is configured; the runner
 //   spends its own credit budget and stops on the API's rate headers.
 // - Metrics rollup: once per published live run, keyed to that run's date — no fresh
@@ -62,8 +68,8 @@ export function decideScheduledAction(input: ScheduledInput): ScheduledAction {
   const liveTodayCompleted = input.livePublishedRunId === input.liveTodayRunId;
   if (!liveTodayCompleted && input.probeUpdatedAt != null && input.probeUpdatedAt !== input.livePublishedUpdatedAt) return "live";
   const detailsIngested = input.detailsPublishedUpdatedAt === input.deploySnapshotUpdatedAt;
-  const detailsTodayCompleted = input.detailsPublishedRunId === input.detailsTodayRunId;
-  if (!detailsIngested && !detailsTodayCompleted) return "details";
+  const detailsSnapshotCompleted = input.detailsPublishedRunId === detailsRunIdFor(input.deploySnapshotUpdatedAt);
+  if (!detailsIngested && !detailsSnapshotCompleted) return "details";
   if (input.gradedKeyConfigured && input.gradedPublishedRunId !== input.gradedTodayRunId) return "graded";
   const liveDate = liveRunDate(input.livePublishedRunId);
   const metricsForLiveCompleted = liveDate != null && input.metricsPublishedRunId === metricsRunIdFor(liveDate);

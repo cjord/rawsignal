@@ -407,3 +407,59 @@ never run in production — the cron policy keys "today's live run" by the TCGCS
 but the run completes after midnight UTC, so the gate never opens. `signal_history`,
 `shadow_signal_history`, and `cohort_stats` are empty; liquidity counts are frozen at the
 2026-08-28 backfill.
+
+## 15. D1 read inventory and complexity (2026-09-04, per-query `rows_read` via `wrangler d1 execute --remote`)
+
+Database: 18,361 catalog rows (14,295 Pokémon singles, 2,926 Pokémon sealed, 649 Riftbound singles, 491 other sealed), 1.55 M `price_observations` over 17,467 products (mean 89 per product, max 1,017; 2024-02-08 → today, growing ~17 k rows a day), 19.7 k `market_metrics`, 34.8 k `market_signals`, 404 sets, 292 MB on disk, one region (ENAM), read replication off.
+
+Symbols: P = catalog rows, Pg = rows of one game+kind (14.3 k), Ps = rows of one set (50–450), O = stored observations (1.55 M), Op = observations per product (89 mean), D = days a set has been observed, M = metrics rows. Rows read count index entries too, which is why a whole-game load with two joins reads ~3 × Pg.
+
+| Path | Query | Rows read | Scales with | Cache |
+|---|---|---|---|---|
+| every page/route | published run lookup | 2 | O(1) | — |
+| `/api/catalog`, `/api/signals` | readiness count (index 0014) | 18 k | Pg | route 60 s / 1 h |
+| detail view | own-kind whole game (F1) | 46.7 k | 3 × Pg | per isolate 10 min |
+| detail view | set rows, product, details, graded, set metrics (wave 14) | ~700 | Ps | page 10 min |
+| detail view | peer anchor (180-day cohort) | 3.7 k | cohort × 180 | page 10 min |
+| detail view | early value: sibling-set list | 14.3 k → memoized (wave 14) | Pg | per isolate 10 min |
+| detail view | early value: firsts, own, rung | ~400 | Ps | page 10 min |
+| detail view (client) | hero history | 85 | Op | route 1 h |
+| detail view (client), before wave 14 | related-sealed / chase-card batch | ~1–3 k | rows × Op | route 1 h |
+| set detail | set-name lookup | 17 k | Pg | page 10 min |
+| set detail | observation aggregation (index 0013) | 19 k | Ps × D | page 10 min |
+| set detail | momentum, release, signals | ~1 k | Ps | page 10 min |
+| set detail, `/api/set-ev`, metrics | set-EV pack + tier averages | 48.7 k | P | page / route |
+| sets directory | six group-bys + two momentum windows | ~400 k (133 k per window) | P, M | page 10 min |
+| leaderboard | section feed / sealed feed | 18–24 k | section × 2 | route 5 min |
+| signal boards | `/api/signals` | 3.8 k | signal rows | route 1 h |
+| history | single / batch of 40 | 85 / 3.5 k | Op / 40 × Op | route 1 h |
+| `/api/catalog` (compact paged) | candidates + facets + derived | 134 k | 3 × Pg + M | route 60 s |
+| metrics page | series, totals, set rows, categories, eras, momentum, movers | ~600 k (set rows 220 k) | P, M (window functions) | page 10 min (wave 14) |
+| cron: live walk | stored history + cohort per product | ~90 per product | Op | daily job |
+| cron: history tick, before wave 14 | target rows | 1.62 M | O | every tick |
+| cron: history tick, wave 14 | target rows (bounded, memoized) | ≤ 14 × P cold, 0 warm | P | per run |
+| rollup (daily) | nine index series (3-day window) + two cohort stats | ~3.4 M once | P × 3 days, M | daily job |
+
+Daily volume at today's traffic (24-hour `d1 insights` window: ~2,700 detail views, ~85 uncached
+directory views, ~50 set views, ~15 metrics views, feeds every 5 minutes per colo): about 105 M
+rows a day after waves 12–13 (the 2026-09-03 audit projected 30 M because it did not price the
+sibling-set list, the directory's window queries, or the metrics page), and about 65 M after
+wave 14 — the sets directory (~34 M) and the detail page's per-view set-scoped reads (~14 M) are
+the largest lines, then cold-isolate whole-game loads (47 k each; frequency depends on how many
+colos and isolates the traffic touches). The tiered history refresh would have added ~180 M a
+day (6,780 due targets ÷ 60 per tick × 1.6 M) on the first night the R1 rollup ran; after wave 14
+a cold tick reads ~0.3 M and a warm tick nothing.
+
+Complexity classes:
+- **Per view, scales with the catalog (Pg or P):** the whole-game rows (amortized by the isolate cache), the sets directory, the metrics page, `/api/catalog`, set EV, the set-name lookup. These grow slowly with catalog size but multiply with traffic; the page and route caches absorb repeats within a colo for ten minutes, so growth in *distinct* URLs (crawlers over 18 k product pages) is what raises them.
+- **Per view, scales with observation depth (Op or D):** the set-detail aggregation (Ps × D: 19 k today, ~55 k in a year for a 2024 set), history single/batch (Op: 89 → ~450 mean in a year), peer anchors (bounded at 180 days). These grow linearly with time regardless of traffic.
+- **Whole-observation scans (O):** the rollup's backfill mode and, until wave 14, every history tick. O grows ~6.4 M rows a year.
+- **Writes:** ~17.4 k products × (catalog + price + observation + metrics + up to eight signal rows) ≈ 200 k row writes per live day plus delta-only history points — well inside the 50 M a month included.
+
+Concerns for scaling, ranked:
+1. **Depth growth in `price_observations`.** Every history read and the set index are O(depth). Levers: cap the stored-series read at the chart's longest window (one year) or downsample points older than a year; precompute each set's daily index in the rollup (O(D) rows per view instead of Ps × D).
+2. **Whole-catalog pages recompute the same daily numbers per view** (`/sets`, `/metrics`, set EV). Precompute them in the rollup (todo Q8): reads drop from 10^5–10^6 to 10^2–10^3 per view and stop depending on the cache hit rate.
+3. **Crawlers over the detail long tail.** 2.7 k views a day across 18 k product URLs defeats the page cache; the isolate caches cover the whole-game rows and the set list, but ~5 k rows of set-scoped reads run per view. Levers: a precomputed similar-items table, trimming the whole-game query to the columns similarity needs, robots rules for the tail.
+4. **One region, no read replication.** Every render pays a round trip to ENAM (0.85–1.6 s cold set page from Europe). D1 read replication (Sessions API) would serve reads near the visitor; it needs bookmark handling in the Worker and does not reduce rows read.
+5. **Platform limits.** 10 GB per D1 database (292 MB today, +~0.6 GB a year at current ingestion), 25 B rows read a month included then $0.001 per million, 50 M rows written a month included, 30 s cron CPU, 1,000 subrequests per invocation, 100 bound parameters per statement (hence the chunked `IN` lists).
+6. **Verification.** Re-run `wrangler d1 insights --timePeriod 1d` after the wave 14 deploy and again after the first `history-daily` run; `signal_history` must fill the day after the first rollup (blocked today by R2 until a deploy lands).

@@ -113,6 +113,20 @@ test("details, graded, and metrics dispatch with their named batch sizes and rep
   assert.deepEqual(metrics.calls, [["metrics", "daily", "2026-08-28"]]);
 });
 
+test("a later deploy on the same day finds the day's details run complete and moves on (R2)", async () => {
+  // Details runs are keyed by the deploy snapshot's DATE: a second deploy that day changes the
+  // snapshot timestamp but not the run id, so the completed run satisfies the gate. Until
+  // 2026-09-04 the gate compared against the wall-clock day and re-dispatched the finished
+  // run every tick, blocking graded, metrics, and history behind an empty "223/223 done".
+  const redeploy = harness({ published: { ...liveDone, ...detailsDone }, versionTimestamp: "2026-08-28T22:00:00.000Z" });
+  assert.deepEqual(await runScheduledIngestionTick(redeploy.env, redeploy.deps), { action: "graded", detail: "12/90 updated, ~91 credits" });
+  assert.equal(redeploy.calls.some(([name]) => name === "details"), false);
+  // A deploy dated a new day is a new run id: details run again, once, for that snapshot.
+  const nextDay = harness({ published: { ...liveDone, ...detailsDone }, versionTimestamp: "2026-08-29T01:00:00.000Z" });
+  assert.deepEqual(await runScheduledIngestionTick(nextDay.env, nextDay.deps), { action: "details", detail: "4/40" });
+  assert.deepEqual(nextDay.calls, [["details", 4, "2026-08-29T01:00:00.000Z"]]);
+});
+
 test("without a graded key the rotation is skipped, not attempted", async () => {
   const { env, deps, calls } = harness({ published: { ...liveDone, ...detailsDone }, gradedKey: null });
   const result = await runScheduledIngestionTick(env, deps);
@@ -178,7 +192,7 @@ test("a completed history run dated today leaves the tick idle", async () => {
 test("the plan refuses a live action without a probe value instead of passing an undefined snapshot", () => {
   const input = {
     probeUpdatedAt: PROBE, livePublishedUpdatedAt: null, livePublishedRunId: null, liveTodayRunId: "live-daily:2026-08-28",
-    deploySnapshotUpdatedAt: DEPLOY, detailsPublishedUpdatedAt: DEPLOY, detailsPublishedRunId: "product-details:2026-08-28", detailsTodayRunId: "product-details:2026-08-28",
+    deploySnapshotUpdatedAt: DEPLOY, detailsPublishedUpdatedAt: DEPLOY, detailsPublishedRunId: "product-details:2026-08-28",
     gradedKeyConfigured: false, gradedPublishedRunId: null, gradedTodayRunId: "graded-rotation:2026-08-28",
     metricsPublishedRunId: null, metricsTodayRunId: "metrics-rollup:2026-08-28",
     historyCheckpointRunId: null, historyPublishedRunId: null, historyTodayRunId: "history-daily:2026-08-28",

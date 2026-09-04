@@ -62,7 +62,6 @@ export async function runScheduledIngestionTick(env: StagingJobEnv, deps: Schedu
     deploySnapshotUpdatedAt,
     detailsPublishedUpdatedAt: details?.sourceUpdatedAt ?? null,
     detailsPublishedRunId: details?.runId ?? null,
-    detailsTodayRunId: ingestionRunId("product-details", today),
     gradedKeyConfigured: Boolean(env.POKEMONPRICETRACKER_API_KEY),
     gradedPublishedRunId: graded?.runId ?? null,
     gradedTodayRunId: ingestionRunId("graded-rotation", today),

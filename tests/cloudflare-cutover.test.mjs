@@ -36,12 +36,12 @@ test("either environment opts into a guard cron explicitly; none is inherited",(
 
 test("scheduled ticks advance due work and never start history backfills",()=>{
  const probeUpdatedAt="2026-08-28T20:05:00Z",deploySnapshotUpdatedAt="2026-08-28T04:00:00.000Z";
- const liveTodayRunId="live-daily:2026-08-28",detailsTodayRunId="product-details:2026-08-28";
+ const liveTodayRunId="live-daily:2026-08-28",detailsRunId="product-details:2026-08-28";
  const liveDone={livePublishedUpdatedAt:probeUpdatedAt,livePublishedRunId:liveTodayRunId};
- const detailsDone={detailsPublishedUpdatedAt:deploySnapshotUpdatedAt,detailsPublishedRunId:detailsTodayRunId};
+ const detailsDone={detailsPublishedUpdatedAt:deploySnapshotUpdatedAt,detailsPublishedRunId:detailsRunId};
  const gradedTodayRunId="graded-rotation:2026-08-28",gradedDone={gradedPublishedRunId:gradedTodayRunId};
  const metricsDone={metricsPublishedRunId:"metrics-rollup:2026-08-28"};
- const decide=overrides=>decideScheduledAction({probeUpdatedAt,livePublishedUpdatedAt:null,livePublishedRunId:null,liveTodayRunId,deploySnapshotUpdatedAt,detailsPublishedUpdatedAt:null,detailsPublishedRunId:null,detailsTodayRunId,gradedKeyConfigured:true,gradedPublishedRunId:null,gradedTodayRunId,metricsPublishedRunId:null,historyCheckpointRunId:null,historyPublishedRunId:null,...overrides});
+ const decide=overrides=>decideScheduledAction({probeUpdatedAt,livePublishedUpdatedAt:null,livePublishedRunId:null,liveTodayRunId,deploySnapshotUpdatedAt,detailsPublishedUpdatedAt:null,detailsPublishedRunId:null,gradedKeyConfigured:true,gradedPublishedRunId:null,gradedTodayRunId,metricsPublishedRunId:null,historyCheckpointRunId:null,historyPublishedRunId:null,...overrides});
  // A TCGCSV publish not yet ingested is due, whether the mismatch is absence or staleness.
  assert.equal(decide({...detailsDone}),"live");
  assert.equal(decide({livePublishedUpdatedAt:"2026-08-27T20:04:00Z",livePublishedRunId:"live-daily:2026-08-27",historyCheckpointRunId:"history-backfill:2026-08-27"}),"live");
@@ -57,6 +57,9 @@ test("scheduled ticks advance due work and never start history backfills",()=>{
  // Details are keyed to the deploy snapshot, at most once per day.
  assert.equal(decide({...liveDone}),"details");
  assert.equal(decide({...liveDone,detailsPublishedUpdatedAt:"2026-08-27T00:00:00Z",detailsPublishedRunId:"product-details:2026-08-27"}),"details");
+ // A same-day redeploy (new snapshot timestamp, same run date) never re-runs the completed
+ // details run (R2): the tick moves on to graded.
+ assert.equal(decide({...liveDone,...detailsDone,deploySnapshotUpdatedAt:"2026-08-28T22:00:00.000Z"}),"graded");
  // Graded rotation runs once per day, only when its key is configured.
  assert.equal(decide({...liveDone,...detailsDone}),"graded");
  assert.equal(decide({...liveDone,...detailsDone,gradedPublishedRunId:"graded-rotation:2026-08-27"}),"graded");

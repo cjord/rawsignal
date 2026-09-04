@@ -141,12 +141,13 @@ async function loadDerived(db: D1DatabaseLike, kind: "single" | "sealed", game: 
 // The live feeds carry each row's latest market metrics (review §14 follow-up) so the
 // leaderboard renders its 7-/30-day columns, range, and regime chip without a per-row
 // history request. One indexed lookup per product; the variant match mirrors loadDerived.
-type FeedRow = ProductRow & { change7Bps: number | null; change30Bps: number | null; low30Cents: number | null; high30Cents: number | null; regime: string | null; metricsUpdatedAt: string | null };
+type MetricColumns = { change7Bps: number | null; change30Bps: number | null; low30Cents: number | null; high30Cents: number | null; regime: string | null; metricsUpdatedAt: string | null };
+type FeedRow = ProductRow & MetricColumns;
 const feedSqlBase = `${productsSqlBase}
   left join market_metrics mm on mm.rowid=(select rowid from market_metrics where product_id=p.product_id and (variant=p.printing or p.kind='sealed') order by updated_at desc limit 1)`;
 const feedColumns = ", mm.change_7_bps as change7Bps, mm.change_30_bps as change30Bps, mm.low_30_cents as low30Cents, mm.high_30_cents as high30Cents, mm.regime, mm.updated_at as metricsUpdatedAt";
 const withFeedSelect = (sql: string) => sql.replace("sd.msrp_cents as msrpCents,sd.msrp_source as msrpSource", `sd.msrp_cents as msrpCents,sd.msrp_source as msrpSource${feedColumns}`);
-function rowMetrics(row: FeedRow): RowMetrics | undefined {
+function rowMetrics(row: MetricColumns): RowMetrics | undefined {
   if (row.metricsUpdatedAt == null) return undefined;
   return { change7: percent(row.change7Bps), change30: percent(row.change30Bps), low30: dollars(row.low30Cents), high30: dollars(row.high30Cents), regime: row.regime ?? null };
 }
@@ -155,6 +156,20 @@ const withMetrics = <T extends Card | SealedProduct>(row: FeedRow, item: T | nul
   const metrics = rowMetrics(row);
   return metrics ? { ...item, metrics } : item;
 };
+
+// The latest metrics row of every product in one set, keyed by product id: the detail page's
+// set-scoped tables (chase cards, related sealed) render their change/range columns from it
+// instead of requesting every row's history on load (review §14, wave 14). One index seek on
+// (game, set_name) plus one metrics lookup per member — a few hundred rows.
+export async function readSetRowMetrics(db: D1DatabaseLike, game: string, setName: string): Promise<Map<number, RowMetrics>> {
+  const rows = (await db.prepare(`select p.product_id as productId${feedColumns}
+    from catalog_products p
+    left join market_metrics mm on mm.rowid=(select rowid from market_metrics where product_id=p.product_id and (variant=p.printing or p.kind='sealed') order by updated_at desc limit 1)
+    where p.game=? and p.set_name=?`).bind(game, setName).all<MetricColumns & { productId: number }>()).results ?? [];
+  const metrics = new Map<number, RowMetrics>();
+  for (const row of rows) { const value = rowMetrics(row); if (value) metrics.set(row.productId, value); }
+  return metrics;
+}
 
 export async function readSectionFeed(db: D1DatabaseLike, sections: string[]): Promise<Card[]> {
   const rows = (await db.prepare(withFeedSelect(`${feedSqlBase} where p.kind='single' and p.section in (${sections.map(() => "?").join(",")}) and cp.market_cents is not null
@@ -402,14 +417,19 @@ export function createD1CatalogRepository(db: D1DatabaseLike, ingestionRunId?: s
       // game (similar items by name, game-wide rarity/category averages); the other kind is
       // only ever read within the product's set (related sealed, chase cards, pack price,
       // unit lookup), so it comes from one index seek (review §14 F1).
-      const [ownKindRows,setKindRows]=await Promise.all([productRows(kind,row.game),setRows(row.game,row.setName)]);
+      const [ownKindRows,setKindRows,setMetrics]=await Promise.all([productRows(kind,row.game),setRows(row.game,row.setName),readSetRowMetrics(db,row.game,row.setName)]);
       const peerRows=kind==="single"?[...ownKindRows,...setKindRows.filter(item=>item.kind==="sealed")]:[...setKindRows.filter(item=>item.kind==="single"),...ownKindRows];
       const cards=peerRows.map(toCard).filter((item):item is Card=>item!==null),sealed=peerRows.map(toSealed).filter((item):item is SealedProduct=>item!==null),detailRow=await db.prepare(`select category_id as categoryId,group_id as groupId,set_abbreviation as setAbbreviation,published_on as publishedOn,modified_on as modifiedOn,image_count as imageCount,is_presale as isPresale,presale_note as presaleNote,metadata_json as metadataJson,price_variants_json as priceVariantsJson,source_updated_at as sourceUpdatedAt from product_details where product_id=?`).bind(productId).first<DetailRow>();
       let enrichments:CatalogDetailEnrichment[]=[];if(detailRow)try{enrichments=[{kind,productId,metadata:JSON.parse(detailRow.metadataJson) as DetailMetadataField[],priceVariants:JSON.parse(detailRow.priceVariantsJson) as DetailPriceVariant[],source:{categoryId:detailRow.categoryId,groupId:detailRow.groupId,setAbbreviation:detailRow.setAbbreviation,publishedOn:detailRow.publishedOn,modifiedOn:detailRow.modifiedOn,imageCount:detailRow.imageCount,isPresale:detailRow.isPresale==null?null:Boolean(detailRow.isPresale),presaleNote:detailRow.presaleNote,sourceUpdatedAt:detailRow.sourceUpdatedAt}}]}catch{/* Invalid optional detail JSON must not hide the core catalog record. */}
       const graded=kind==="single"?await readGradedCard(db,productId):null;
       const peerAnchor=kind==="single"?await readPeerAnchor(db,row.game,row.setName,row.rarity):null;
       const anchorKey=`${row.game}|${row.setName}|${row.rarity}`;
-      return createMemoryCatalogRepository(cards,sealed,enrichments,pullRateConfig,graded?{[String(productId)]:graded}:undefined,peerAnchor?{[anchorKey]:peerAnchor}:undefined).getDetail(kind,productId,market);
+      const detail=await createMemoryCatalogRepository(cards,sealed,enrichments,pullRateConfig,graded?{[String(productId)]:graded}:undefined,peerAnchor?{[anchorKey]:peerAnchor}:undefined).getDetail(kind,productId,market);
+      if(!detail)return null;
+      // The set-scoped tables carry each row's latest metrics so the page renders their
+      // change/range columns at once; a row's chart loads only on its first popover reveal.
+      const attach=<T extends Card|SealedProduct>(item:T):T=>{const metrics=setMetrics.get(item.productId);return metrics?{...item,metrics}:item};
+      return detail.kind==="single"?{...detail,relatedSealed:detail.relatedSealed.map(attach)}:{...detail,chaseCards:detail.chaseCards.map(attach),relatedSealed:detail.relatedSealed.map(attach)};
     },
   };
 }

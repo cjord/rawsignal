@@ -79,6 +79,15 @@ test("EVE anchors a new card on mature same-era siblings and refuses everything 
   assert.equal(await readEarlyValue(db,902),null);
 });
 
+test("the sibling-set list is read once per database and reused across detail views",async()=>{
+  const database=await migratedDatabase();let setListReads=0;
+  const inner=new LocalD1(database),db={prepare(sql){if(sql.includes("group by set_name"))setListReads++;return inner.prepare(sql)},batch:statements=>inner.batch(statements)};
+  await startIngestion(db,"seed","fixture","2026-09-01T00:00:00Z",{});
+  await upsertCard(db,card(900,"ME06: Delta Reign","Special Illustration Rare",250),"2026-09-01T00:00:00Z","seed");
+  await readEarlyValue(db,900);await readEarlyValue(db,900);
+  assert.equal(setListReads,1);
+});
+
 test("EVE serves sealed products on the product-type rung (P7 follow-up 2026-09-03)",async()=>{
   const db=new LocalD1(await migratedDatabase());
   await startIngestion(db,"seed","fixture","2026-09-01T00:00:00Z",{});

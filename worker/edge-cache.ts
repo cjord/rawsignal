@@ -8,7 +8,7 @@
 // Two classes of request are cached:
 // - `/api/*` and `/data/*`: for the shared lifetime the route itself declares (`s-maxage`),
 //   capped below.
-// - the public D1-heavy pages (`/sets`, `/sets/…`, `/cards/…`, `/sealed/…`): for a fixed
+// - the public D1-heavy pages (`/sets`, `/sets/…`, `/cards/…`, `/sealed/…`, `/metrics`): for a fixed
 //   ten minutes. vinext's own ISR (`export const revalidate`) was tried first and never wrote
 //   an entry in production — it flags these renders as dynamic, and its store is per isolate
 //   — so the Worker caches the finished response itself. Pages are identical for every
@@ -19,7 +19,7 @@ type CacheLike = { match(request: Request): Promise<Response | undefined>; put(r
 type WaitUntil = { waitUntil(promise: Promise<unknown>): void };
 
 const ROUTE_CACHED_PREFIXES = ["/api/", "/data/"];
-const PAGE_CACHED_PATTERN = /^\/(sets|cards|sealed)(\/|$)/;
+const PAGE_CACHED_PATTERN = /^\/(sets|cards|sealed|metrics)(\/|$)/;
 // Upper bound on how long a colo keeps a route copy, whatever the route's own s-maxage says:
 // the data changes once a day when the live run publishes (~05:00Z), and a board that stayed
 // on yesterday's numbers for the signals route's full hour would be visible.

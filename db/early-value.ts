@@ -18,6 +18,23 @@ const NEW_WINDOW_DAYS = 45;
 const MIN_SETS = 2;
 const minMembers = (kind: string) => (kind === "sealed" ? 4 : 8);
 
+// The sibling-set list (one row per set of the game+kind, ~14 k rows read on Pokémon singles)
+// was the one catalog-wide read left on every detail view (review §15). It changes only when
+// a run publishes, so each isolate keeps it per database for a few minutes.
+const SET_LIST_TTL_MS = 10 * 60_000;
+type SetListRow = { s: string; y: number | null };
+const setListCache = new WeakMap<D1DatabaseLike, Map<string, { at: number; rows: Promise<SetListRow[]> }>>();
+function cachedSetList(db: D1DatabaseLike, game: string, kind: string): Promise<SetListRow[]> {
+  const perDb = setListCache.get(db) ?? new Map<string, { at: number; rows: Promise<SetListRow[]> }>();
+  setListCache.set(db, perDb);
+  const key = `${game}|${kind}`, hit = perDb.get(key), now = Date.now();
+  if (hit && now - hit.at < SET_LIST_TTL_MS) return hit.rows;
+  const rows = db.prepare("select set_name as s, max(release_year) as y from catalog_products where game=? and kind=? group by set_name")
+    .bind(game, kind).all<SetListRow>().then(result => result.results ?? []).catch(error => { perDb.delete(key); throw error; });
+  perDb.set(key, { at: now, rows });
+  return rows;
+}
+
 const quantile = (sorted: number[], q: number) => {
   const index = (sorted.length - 1) * q, lo = Math.floor(index), hi = Math.ceil(index);
   return sorted[lo] + (sorted[hi] - sorted[lo]) * (index - lo);
@@ -56,8 +73,7 @@ export async function readEarlyValue(db: D1DatabaseLike, productId: number, pres
   }
 
   const era = setGroupKey(meta.game, meta.setName, meta.releaseYear);
-  const sets = (await db.prepare("select set_name as s, max(release_year) as y from catalog_products where game=? and kind=? group by set_name")
-    .bind(meta.game, meta.kind).all<{ s: string; y: number | null }>()).results ?? [];
+  const sets = await cachedSetList(db, meta.game, meta.kind);
   const siblings = sets.filter(row => row.s !== meta.setName && !eveIneligibleSet(row.s, null) && setGroupKey(meta.game, row.s, row.y) === era).map(row => row.s);
   if (siblings.length < MIN_SETS) return null;
   const placeholders = siblings.map(() => "?").join(",");
