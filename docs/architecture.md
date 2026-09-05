@@ -35,7 +35,7 @@ Repository implementations are transport-neutral:
 
 Production reads D1 (catalog, sealed, and signals report `source: "database"`); bundled feeds remain the automatic fallback for any market without a completed published run. Repository parity is verified with `npm run cloudflare:parity` during cutovers.
 
-Two caches sit in front of D1 (review §14): `worker/edge-cache.ts` stores `/api/*` and `/data/*` GET responses in the colo's Cache API for the `s-maxage` each route declares (Cloudflare does not cache Worker-generated responses on its own; responses carry `X-Raw-Signal-Edge: HIT|MISS`), and the sets, card detail, sealed detail, and metrics pages are cached by the same layer for ten minutes, keyed by URL plus the request headers vinext varies on (its ISR was tried and never wrote an entry in production). The D1 catalog repository also keeps whole-game product rows per isolate for 10 minutes, keyed by the published run id, and the early-value reader keeps its sibling-set list the same way. All of these are accelerators: a cold isolate or colo behaves exactly as before.
+Two caches sit in front of D1 (review §14): `worker/edge-cache.ts` stores `/api/*` and `/data/*` GET responses in the colo's Cache API for the `s-maxage` each route declares (Cloudflare does not cache Worker-generated responses on its own; responses carry `X-Raw-Signal-Edge: HIT|MISS`), and the sets, card detail, sealed detail, and metrics pages are cached by the same layer, keyed by URL, the request headers vinext varies on, and a publish signature (the published run ids plus the deployed version, `worker/page-signature.ts`), so an entry lives until the next publish or deploy (vinext's ISR was tried and never wrote an entry in production). `public/robots.txt` keeps crawlers off `/api/`, `/data/`, and the tooling paths, and `/sitemap.xml` lists the boards, the sets directory, the metrics page, and every set page — not the 18 k product pages. The D1 catalog repository also keeps whole-game product rows per isolate for 10 minutes, keyed by the published run id, and the early-value reader keeps its sibling-set list the same way. All of these are accelerators: a cold isolate or colo behaves exactly as before.
 
 ### History and signals
 
@@ -79,6 +79,7 @@ New rules should use the shared tokens and component-owned styles rather than ap
 4. Last-good publication replaces generated feeds only after validation succeeds.
 5. Daily D1 ingestion upserts catalog/current prices, records dated observations, derives metrics/signals, and advances the published pointer only after success.
 6. Resumable history backfill processes bounded batches and publishes signal readiness only when the complete target set finishes.
+7. The eBay listings rotation (`db/ebay-ingestion.ts`) refreshes one product's active-listing snapshot per Browse call, stalest first over every product priced at $20 or more, on cron ticks the daily chain leaves idle; it checkpoints its call count and completes the day's run at its budget, the pool's end, or eBay's push-back.
 
 See [Data ingestion](data-ingestion.md) for operations and failure behavior.
 
@@ -89,7 +90,9 @@ See [Data ingestion](data-ingestion.md) for operations and failure behavior.
 - An interrupted history backfill must resume from its durable cursor.
 - Missing data must not be silently inferred.
 - Listing prices must not be described as sales volume.
-- Rows and artwork are non-navigational; a marketplace action can be added later as an explicit button.
+- Rows and artwork are non-navigational; marketplace actions are explicit buttons — the TCGplayer tile inside every history popover and the TCGplayer, PriceCharting, and eBay buttons on the detail page (`core/domain/marketplace-links.ts` builds every outbound URL).
+- eBay figures are active-listing asks from the Browse API (`ebay_listings`), never sales; they are labelled as asks and never enter modeled fair value or signals. The only eBay sale price shown is PokemonPriceTracker's raw-card completed-sales figure, labelled with its provenance.
+- Images (2026-09-04 audit: every catalog row carries a TCGplayer CDN image and none of 60 sampled URLs were broken): product art is TCGplayer's; a Pokémon card whose image fails to load — or loads as the CDN's 400×570 "no photo" placeholder — falls back once to TCGdex's scan (`core/domain/card-images.ts`, index from `scripts/sets/sync-tcgdex.mjs`); set logos come from pokemontcg.io (`scripts/sets/sync-set-logos.mjs`, English sets only) and every other set shows its highest-market product's art as cover; curated supplemental sealed products carry the matching TCGplayer product's image where one now exists, else the publisher's official product shot (Riot, Bandai), recorded in `scripts/scalper/supplemental-products.json` and the bundled feeds.
 
 ## Tests and release gate
 

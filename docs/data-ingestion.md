@@ -61,3 +61,76 @@ When hosting moves to a directly managed Cloudflare Worker:
 7. monitor failed ingestion runs and source freshness without advancing the last-success pointer.
 
 Daily TCGCSV observations are sufficient for ongoing history after backfill. Detailed TCGplayer history remains the bootstrap and cache-miss source rather than a daily full-catalog fan-out.
+
+## eBay listings rotation (2026-09-04)
+
+`db/ebay-ingestion.ts` keeps `ebay_listings` (migration 0016): one row per product with the
+filtered active-listing count, the lowest and median buy-it-now asks, and up to five sample
+listings, fetched from the eBay Browse API (`core/clients/ebay-browse.ts`, application token
+from the client-credentials grant, cached per isolate). Asks are listing prices and are
+labelled as such everywhere they render.
+
+- **Pool and order.** Every product with a current market price of $20 or more, never-fetched
+  first, then the stalest snapshot, the higher price breaking ties; rows refreshed today are
+  out of the pool.
+- **Budget.** A day's run `ebay-listings:<date>` spends at most 1,500 Browse calls (the default
+  keyset allows 5,000) in ticks of 40 with 250 ms between calls. The cron dispatches the
+  `ebay` action only on ticks nothing else claims, so the rotation never delays the daily
+  chain. The run checkpoints its call count under the `ebay-listings` refresh key and
+  completes when the budget is spent, the pool is exhausted, or eBay pushes back (429 →
+  `rate-limited`; 401/403 or a token failure → `auth`; five consecutive server errors →
+  `http-<status>`). `ingestion_runs.stats_json` carries `calls`, `updated`, `dailyBudget`,
+  and `stopped`.
+- **Query.** The same text the site's eBay search links use (`ebaySearchQuery`), the
+  individual-cards category for singles, ungraded (singles) or new (sealed) condition, and a
+  price window of ¼× to 4× the TCGplayer market price; fewer than three survivors records
+  the count with the asks unavailable.
+- **Configuration.** Secrets `EBAY_CLIENT_ID` and `EBAY_CLIENT_SECRET` (production only —
+  staging keeps none and runs the job by hand); optional var `EBAY_EPN_CAMPAIGN_ID` for
+  affiliate item URLs. Without the secrets the action never fires and the detail panel shows
+  the search links only.
+- **Operator run.** `POST /__ops/staging-jobs` with `{"job":"ebay","batchSize":40}` on
+  staging, once the secrets are set there for the trial.
+
+## Image sources (2026-09-04)
+
+Product images are TCGplayer's CDN (`tcgplayer-cdn.tcgplayer.com/product/<id>_in_1000x1000.jpg`),
+complete for every catalog row in production. The CDN never 404s a product id: an id it has no
+photo for returns a 200 placeholder JPEG (400×570; 200×285 for `_200w`), so `DeferredImage`
+treats a loaded CDN image of exactly that size as a failure (audit: 0 placeholders in 300
+sampled production URLs). Two manual sync scripts keep the fallbacks current:
+
+- `node scripts/sets/sync-set-logos.mjs` — Pokémon set logos and symbols from pokemontcg.io into
+  `app/data/set-logos.json` (141 of 308 production Pokémon sets match; Japanese sets, promos,
+  trainer kits, and non-Pokémon games have no free logo source and show cover art instead).
+- `node scripts/sets/sync-tcgdex.mjs` — the TCGdex set index into `app/data/tcgdex-sets.json`
+  (English and Japanese sets with cards, keyed by set code and by name) for the card-image
+  fallback; run when a new Pokémon set ships.
+
+Sets without a logo show their highest-market product's art (`SetDirectoryRow.cover`, one
+catalog scan inside the cached sets query). Supplemental sealed products carry their image in
+`scripts/scalper/supplemental-products.json` (`image`, with an `imageNote` where the shot is a
+stand-in) and the Riftbound Chinese/Korean editions in `public/data/sealed-riftbound.json`; the
+next live run upserts those into `catalog_products.image_url`.
+
+Sources considered and rejected: pokemontcg.io's API (timed out during the audit; its image
+host answered), TCGdex Japanese logos (none published), Riftcodex (Riot CDN card images keyed by
+TCGplayer id, but behind a browser-only challenge and with no set logos), Bandai's English site
+(current products only), and API TCG (checked with a key: 300 requests a minute, sets for all
+our games but no logos or set images, and product images that are TCGplayer CDN URLs — useful
+only as a product-search index over TCGplayer's catalog, which is how two supplemental
+products found their images).
+
+## Per-tier set aggregates (2026-09-04, todo J2)
+
+`set_rarity_stats` (migration 0017) holds one row per set × tier for every rarity in a TCGCSV
+singles group, including the commons, uncommons, and rares the catalog never tracks. The live
+walk computes it from the products and prices files it already fetches (`summarizeGroupRarities`)
+and upserts the group's rows with the group's first slice each run — about 3 k rows a day, no
+extra requests. Riftbound's showcase and rare tiers key by section slug (`alt-arts`,
+`overnumbered`, `signatures`, `rares`, `epics`) because they share rarity strings; every other
+tier keys by rarity. `sum_cents` is over priced cards, `card_count` over all cards, so the
+displayed average divides by every card. Japanese promo groups (fixed section, no rarity
+taxonomy) and sealed-only categories write nothing. The set page reads a set's rows with one
+primary-key range scan and prices them with the curated `perPack` (cards per pack) and
+packs-per-hit tables in `public/data/pull-rates.json`.

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import index from "../tcg-index.json";
 import { useFreshness } from "./data/useFreshness";
 import HistoryPanel, { movementMetric, movementTone } from "./HistoryPanel";
+import { tcgplayerMetric } from "../core/domain/marketplace-links";
 import {
   SegmentedView,
   SortableHeader,
@@ -447,6 +448,7 @@ export default function SealedView({
           movement("7 Day", h?.change7),
           movement("30 Day", h?.change30),
           movement("90 Day", h?.change90),
+          tcgplayerMetric(product.productId, product.url),
         ]}
         large={large}
       />

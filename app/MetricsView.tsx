@@ -9,6 +9,7 @@ import PriceChart from "./PriceChart";
 import TopBar from "./TopBar";
 import SiteFooter from "./SiteFooter";
 import HistoryPanel,{standardHistoryMetrics,type HistoryMetric} from "./HistoryPanel";
+import {tcgplayerMetric} from "../core/domain/marketplace-links";
 import {NumberedPagination,SegmentedView} from "./MarketUI";
 import FavoriteStar from "./FavoriteStar";
 import MarketRow from "./leaderboard/MarketRow";
@@ -195,7 +196,7 @@ function CategoryTable({categories}:{categories:MetricsCategoryRow[]}){
 
 const moverTarget=(mover:MetricsMover):HistoryTarget=>mover.kind==="single"?{productId:mover.productId,printing:mover.printing}:{productId:mover.productId,printing:"Sealed",sealed:true};
 const moverFavorite=(mover:MetricsMover):FavoriteEntry=>({key:favoriteKey(mover.kind,mover.productId),kind:mover.kind,game:mover.game,productId:mover.productId,name:mover.name,set:mover.set,number:null,section:null,image:mover.image||null,price:mover.price,addedAt:""});
-const moverMetrics=(mover:MetricsMover,history?:PriceHistory):HistoryMetric[]=>standardHistoryMetrics(mover.price,mover.mid,history,"N/A");
+const moverMetrics=(mover:MetricsMover,history?:PriceHistory):HistoryMetric[]=>[...standardHistoryMetrics(mover.price,mover.mid,history,"N/A"),tcgplayerMetric(mover.productId)];
 
 function MoverTable({title,movers,history,onReveal,empty}:{title:string;movers:MetricsMover[];history:Record<number,PriceHistory>;onReveal:(mover:MetricsMover)=>void;empty:string}){
  return <div className="metrics-mover-list"><h3>{title}</h3>

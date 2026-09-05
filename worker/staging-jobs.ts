@@ -7,6 +7,10 @@ import { fetchJson, fetchText } from "../core/clients/http-json.ts";
 import { runDailyMarketIngestionBatch, type DailyCatalogSnapshot } from "../db/daily-ingestion.ts";
 import { runDetailIngestionBatch } from "../db/detail-ingestion.ts";
 import { runGradedRotationBatch, type GradedRotationDeps } from "../db/graded-ingestion.ts";
+import { runEbayListingsBatch, type EbayListingsDeps } from "../db/ebay-ingestion.ts";
+import { EBAY_CONDITION_NEW, EBAY_CONDITION_UNGRADED, EbayAuthError, createEbayBrowseClient, type EbayCredentials } from "../core/clients/ebay-browse.ts";
+import { EBAY_CATEGORY_SINGLES, ebaySearchQuery } from "../core/domain/marketplace-links.ts";
+import { priceGuard, summarizeEbayListings } from "../core/ebay-summary.ts";
 import { runHistoryBackfillBatch, type HistoryBackfillTarget } from "../db/history-backfill.ts";
 import { dueHistoryTargets, readHistoryTargetRowsFor } from "../db/history-targets.ts";
 import { runLiveDailyIngestionBatch, type LiveSyncDeps, type TcgcsvClient } from "../db/live-ingestion.ts";
@@ -43,6 +47,10 @@ export type StagingJobEnv = {
   STAGING_JOB_TOKEN?: string;
   POKEMONPRICETRACKER_API_KEY?: string;
   ALPHAVANTAGE_API_KEY?: string;
+  // eBay Browse keyset (secrets) and the EPN campaign id (a public identifier, todo O1).
+  EBAY_CLIENT_ID?: string;
+  EBAY_CLIENT_SECRET?: string;
+  EBAY_EPN_CAMPAIGN_ID?: string;
   CF_VERSION_METADATA?: { id: string; tag: string; timestamp: string };
 };
 
@@ -133,6 +141,33 @@ export function runGradedJob(env: StagingJobEnv, budget: number) {
   return runGradedRotationBatch(env.DB, gradedRotationDeps(env.POKEMONPRICETRACKER_API_KEY!), { budget });
 }
 
+// One Browse search per target: the shared eBay query (the same text the search links use),
+// the individual-cards category for singles, ungraded/new condition, and a price window
+// around the TCGplayer market price so lots and proxies never set the low ask. A token
+// failure reports as an auth status so the day's run stops instead of retrying every tick.
+export function ebayListingsDeps(credentials: EbayCredentials, fetcher: typeof fetch = fetch): EbayListingsDeps {
+  const client = createEbayBrowseClient(credentials, { fetch: fetcher });
+  return {
+    async fetchListings(target) {
+      const query = ebaySearchQuery({ kind: target.kind, name: target.name, set: target.set, number: target.number });
+      const categoryId = target.kind === "single" ? EBAY_CATEGORY_SINGLES : null;
+      const market = target.marketCents == null ? null : target.marketCents / 100;
+      try {
+        const result = await client.search({ query, categoryId, conditionIds: [target.kind === "single" ? EBAY_CONDITION_UNGRADED : EBAY_CONDITION_NEW], priceRange: priceGuard(market), limit: 50 });
+        const ok = result.status >= 200 && result.status < 300;
+        return { status: result.status, query, categoryId, summary: ok ? summarizeEbayListings(result.items, result.total, { market }) : null };
+      } catch (error) {
+        if (error instanceof EbayAuthError) return { status: error.status === 429 ? 429 : 401, query, categoryId, summary: null };
+        throw error;
+      }
+    },
+  };
+}
+
+export function runEbayJob(env: StagingJobEnv, calls: number) {
+  return runEbayListingsBatch(env.DB, ebayListingsDeps({ clientId: env.EBAY_CLIENT_ID!, clientSecret: env.EBAY_CLIENT_SECRET!, campaignId: env.EBAY_EPN_CAMPAIGN_ID ?? null }), { calls });
+}
+
 export async function runMetricsJob(env: StagingJobEnv, mode: "daily" | "backfill", asOfDate?: string) {
   const result = await runMetricsRollup(env.DB, { mode, asOfDate });
   // The S&P benchmark rides the metrics cadence: one Alpha Vantage call per run, skipped
@@ -180,6 +215,11 @@ export async function handleStagingJob(request: Request, env: StagingJobEnv): Pr
       if (!env.POKEMONPRICETRACKER_API_KEY) return json({ error: "Graded rotation key is not configured" }, 503);
       const budget = typeof input.batchSize === "number" ? input.batchSize : 90;
       return json({ job: "graded", result: await runGradedJob(env, budget) });
+    }
+    if (input.job === "ebay") {
+      if (!env.EBAY_CLIENT_ID || !env.EBAY_CLIENT_SECRET) return json({ error: "eBay Browse credentials are not configured" }, 503);
+      const calls = typeof input.batchSize === "number" ? input.batchSize : 40;
+      return json({ job: "ebay", result: await runEbayJob(env, calls) });
     }
     if (input.job === "metrics") {
       return json({ job: "metrics", result: await runMetricsJob(env, input.batchSize === 0 ? "daily" : "backfill") });

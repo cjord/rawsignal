@@ -1,0 +1,11 @@
+# Raw Signal — https://rawsignal.cards
+# The boards, the sets directory, the metrics page, and the product pages are for indexing.
+# The JSON feeds, the API, the image optimizer, and the ops adapter are not content.
+User-agent: *
+Disallow: /api/
+Disallow: /data/
+Disallow: /_vinext/
+Disallow: /__ops/
+Crawl-delay: 5
+
+Sitemap: https://rawsignal.cards/sitemap.xml

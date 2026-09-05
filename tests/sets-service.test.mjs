@@ -95,6 +95,10 @@ test("the sets directory aggregates counts, momentum, releases, and signals per 
   assert.deepEqual({ chase: surging.chase, sealed: surging.sealed, group: surging.group, slug: surging.slug, releaseDate: surging.releaseDate, buy: surging.buySignals, sell: surging.sellSignals },
     { chase: 3, sealed: 2, group: "sv", slug: "surging-sparks", releaseDate: "2024-11-08", buy: 1, sell: 1 });
   assert.equal(surging.trackedValue, 140);
+  // Cover art is the set's highest-market product image; a set whose products carry no image has none.
+  assert.equal(surging.cover, "https://example.com/3.jpg");
+  assert.equal(payload.sets.find(row => row.game === "riftbound" && row.set === "Surging Sparks").cover, "https://example.com/20.jpg");
+  assert.equal(payload.sets.find(row => row.game === "onepiece").cover, null);
   // Median of 100/300/500 bps = 3% (7D) and -400/800/1200 => 800 bps = 8% (30D).
   assert.equal(surging.change7, 3);
   assert.equal(surging.change30, 8);
@@ -135,9 +139,26 @@ test("set detail resolves slugs, applies the chase cutoff and the index coverage
   assert.deepEqual(detail.sealedIndex, [{ date: "2026-08-28", price: 14 }, { date: "2026-08-29", price: 15 }]);
   assert.equal(detail.singlesChange30, 8);
   assert.equal(detail.cards.length, 3);
+  assert.equal(detail.cover, "https://example.com/3.jpg");
   assert.equal(await loadSetDetail(db, "pokemon", "no-such-set"), null);
   // The riftbound collision resolves to ITS set, not the Pokémon one.
   const rift = await loadSetDetail(db, "riftbound", "surging-sparks");
   assert.deepEqual({ game: rift.game, chaseCount: rift.chaseCount, sealedCount: rift.sealedCount }, { game: "riftbound", chaseCount: 1, sealedCount: 0 });
   database.close();
+});
+
+test("set detail carries the per-tier value breakdown once stats exist, and none before", async () => {
+  const { database, db } = await seeded();
+  assert.equal((await loadSetDetail(db, "riftbound", "surging-sparks")).valueBreakdown, null);
+  const insert = database.prepare("insert into set_rarity_stats (game,set_name,tier,rarity,section,card_count,priced_count,sum_cents,top_cents,top_product_id,updated_at,ingestion_run_id) values (?,?,?,?,?,?,?,?,?,?,?,?)");
+  insert.run("riftbound", "Surging Sparks", "Common", "Common", null, 88, 88, 1672, 333, 20, "2026-08-29T12:00:00.000Z", "sets-run");
+  insert.run("riftbound", "Surging Sparks", "epics", "Epic", "epics", 42, 42, 49014, 7084, 20, "2026-08-29T12:00:00.000Z", "sets-run");
+  insert.run("riftbound", "Surging Sparks", "signatures", "Showcase", "signatures", 12, 12, 1621716, 347441, 20, "2026-08-29T12:00:00.000Z", "sets-run");
+  const config = { games: { riftbound: { default: { Epic: 4, signatures: 720 }, sets: {}, perPack: { default: { Common: 7 }, sets: {} } } } };
+  const detail = await loadSetDetail(db, "riftbound", "surging-sparks", config);
+  assert.deepEqual(detail.valueBreakdown.tiers.map(tier => [tier.label, tier.kind, tier.chase, Math.round(tier.evPerPack * 100) / 100]), [["Common", "slot", false, 1.33], ["Epic", "chase", false, 2.92], ["Signature", "chase", true, 1.88]]);
+  assert.equal(detail.valueBreakdown.impliedPackSize.toFixed(4), (7 + 0.25 + 1 / 720).toFixed(4));
+  assert.equal(detail.valueBreakdown.updatedAt, "2026-08-29T12:00:00.000Z");
+  // Without a config every tier is unrated → no breakdown.
+  assert.equal((await loadSetDetail(db, "riftbound", "surging-sparks")).valueBreakdown, null);
 });

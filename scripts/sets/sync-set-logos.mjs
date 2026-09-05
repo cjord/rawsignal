@@ -2,7 +2,8 @@ import { writeFile } from "node:fs/promises";
 
 // Pokémon set logo/symbol art for the sets view (2026-08-29): pokemontcg.io is the one
 // free, stable source of official set imagery. This regenerates
-// public/data/set-logos.json — keys are normalized set names, matched by the view with
+// app/data/set-logos.json (bundled module data, moved out of public/ 2026-09-04 so Vite
+// ships it once) — keys are normalized set names, matched by the view with
 // the same normalizer. Riftbound/One Piece have no source yet and render typographic
 // tiles. Run manually when new Pokémon sets ship: node scripts/sets/sync-set-logos.mjs
 // The newest sets can lag on pokemontcg.io — a missing entry falls back gracefully.
@@ -46,5 +47,5 @@ for (const set of sets) {
 for (const [key, set] of Object.entries(aliases)) if (!mapping[key]) register(key, set);
 
 const payload = { source: "pokemontcg.io/v2/sets", syncedAt: new Date().toISOString(), count: Object.keys(mapping).length, sets: mapping };
-await writeFile(new URL("../../public/data/set-logos.json", import.meta.url), `${JSON.stringify(payload)}\n`);
+await writeFile(new URL("../../app/data/set-logos.json", import.meta.url), `${JSON.stringify(payload)}\n`);
 console.log(`set-logos.json written: ${payload.count} sets`);

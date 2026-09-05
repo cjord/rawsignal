@@ -10,25 +10,29 @@ const NOW = new Date("2026-08-28T21:00:00Z");
 const DEPLOY = "2026-08-28T04:00:00.000Z";
 const PROBE = "2026-08-28T20:05:00Z";
 
-function fakeDb({ published = {}, checkpoint = null } = {}) {
-  return {
-    prepare(sql) {
+// `leaseHeld` makes the tick-lease claim report no change (another tick holds it, R4).
+function fakeDb({ published = {}, checkpoint = null, leaseHeld = false } = {}) {
+  const db = { leaseClaims: 0, leaseReleases: 0 };
+  db.prepare = (sql) => ({
+    bind(key) {
       return {
-        bind(key) {
-          return {
-            async first() {
-              if (sql.includes("refresh_state r join ingestion_runs")) return published[key] ?? null;
-              if (sql.includes("refresh_state r left join")) return checkpoint;
-              throw new Error(`unexpected query: ${sql}`);
-            },
-          };
+        async run() {
+          if (sql.includes("insert into refresh_state (key, cursor)")) { db.leaseClaims++; return { meta: { changes: leaseHeld ? 0 : 1 } }; }
+          if (sql.includes("set cursor = null where key")) { db.leaseReleases++; return { meta: { changes: 1 } }; }
+          throw new Error(`unexpected write: ${sql}`);
+        },
+        async first() {
+          if (sql.includes("refresh_state r join ingestion_runs")) return published[key] ?? null;
+          if (sql.includes("refresh_state r left join")) return checkpoint;
+          throw new Error(`unexpected query: ${sql}`);
         },
       };
     },
-  };
+  });
+  return db;
 }
 
-function harness({ published, checkpoint, probe = async () => PROBE, gradedKey = "key", versionTimestamp = DEPLOY } = {}) {
+function harness({ published, checkpoint, probe = async () => PROBE, gradedKey = "key", ebayKey = null, versionTimestamp = DEPLOY, leaseHeld = false } = {}) {
   const calls = [];
   // Recorded without the env and the synthetic asset Request: the values that matter are the
   // batch size, the snapshot identity, and the target-list mode.
@@ -42,9 +46,10 @@ function harness({ published, checkpoint, probe = async () => PROBE, gradedKey =
       graded: record("graded", { updated: 12, targets: 90, spent: 91, stopped: null }),
       metrics: record("metrics", { series: 3, seriesRows: 900, benchmark: { done: true, rows: 250 } }),
       history: record("history", { cursor: 60, total: 600, done: false }),
+      ebay: record("ebay", { runId: "ebay-listings:2026-08-28", calls: 240, updated: 30, targets: 40, stopped: null, done: false }),
     },
   };
-  const env = { DB: fakeDb({ published, checkpoint }), ASSETS: {}, POKEMONPRICETRACKER_API_KEY: gradedKey, CF_VERSION_METADATA: { id: "v", tag: "t", timestamp: versionTimestamp } };
+  const env = { DB: fakeDb({ published, checkpoint, leaseHeld }), ASSETS: {}, POKEMONPRICETRACKER_API_KEY: gradedKey, EBAY_CLIENT_ID: ebayKey ?? undefined, EBAY_CLIENT_SECRET: ebayKey ?? undefined, CF_VERSION_METADATA: { id: "v", tag: "t", timestamp: versionTimestamp } };
   return { env, deps, calls };
 }
 
@@ -200,4 +205,33 @@ test("the plan refuses a live action without a probe value instead of passing an
   assert.deepEqual(planScheduledAction(input), { action: "live", sourceUpdatedAt: PROBE });
   // With the probe missing, policy itself never chooses live — the plan is the idle fallthrough.
   assert.deepEqual(planScheduledAction({ ...input, probeUpdatedAt: null }), { action: "idle" });
+});
+
+test("the eBay listings rotation takes only idle ticks, once a day, and only with Browse credentials", async () => {
+  const chainDone = { ...liveDone, ...detailsDone, ...gradedDone, ...metricsDone, "history-signals": published("history-daily:2026-08-28") };
+  // Without credentials the tick is idle; with them the day's run is dispatched with its tick budget.
+  assert.deepEqual(await runScheduledIngestionTick(harness({ published: chainDone }).env, harness({ published: chainDone }).deps), { action: "idle", detail: "No ingestion work due" });
+  const due = harness({ published: chainDone, ebayKey: "keyset" });
+  assert.deepEqual(await runScheduledIngestionTick(due.env, due.deps), { action: "ebay", detail: "30/40 updated, 240 calls today" });
+  assert.deepEqual(due.calls, [["ebay", 40]]);
+  // A completed run dated today satisfies the gate; yesterday's does not.
+  const done = harness({ published: { ...chainDone, "ebay-listings": published("ebay-listings:2026-08-28") }, ebayKey: "keyset" });
+  assert.equal((await runScheduledIngestionTick(done.env, done.deps)).action, "idle");
+  const stale = harness({ published: { ...chainDone, "ebay-listings": published("ebay-listings:2026-08-27") }, ebayKey: "keyset" });
+  assert.equal((await runScheduledIngestionTick(stale.env, stale.deps)).action, "ebay");
+  // The chain always comes first: with history still due, eBay waits.
+  const historyDue = harness({ published: { ...liveDone, ...detailsDone, ...gradedDone, ...metricsDone }, ebayKey: "keyset" });
+  assert.equal((await runScheduledIngestionTick(historyDue.env, historyDue.deps)).action, "history");
+});
+
+test("a tick claims the lease before doing anything and releases it after; a held lease makes the tick idle (R4)", async () => {
+  const { env, deps, calls } = harness({ published: { ...detailsDone } });
+  assert.equal((await runScheduledIngestionTick(env, deps)).action, "live");
+  assert.deepEqual({ claims: env.DB.leaseClaims, releases: env.DB.leaseReleases }, { claims: 1, releases: 1 });
+  assert.equal(calls.length, 1);
+  // The previous minute's tick is still running: nothing is planned, nothing is probed or dispatched.
+  let probed = 0;
+  const held = harness({ published: { ...detailsDone }, leaseHeld: true, probe: async () => { probed++; return PROBE; } });
+  assert.deepEqual(await runScheduledIngestionTick(held.env, held.deps), { action: "idle", detail: "Previous tick still running" });
+  assert.deepEqual({ claims: held.env.DB.leaseClaims, releases: held.env.DB.leaseReleases, probed, calls: held.calls.length }, { claims: 1, releases: 0, probed: 0, calls: 0 });
 });

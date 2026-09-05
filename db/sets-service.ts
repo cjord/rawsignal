@@ -2,8 +2,10 @@ import { setGroupKey } from "../core/domain/eras.ts";
 import { setSlug } from "../core/domain/formatters.ts";
 import type { SetDetailPayload, SetDirectoryRow, SetsDirectoryPayload } from "../core/domain/sets.ts";
 import type { PricePoint, PullRateConfig } from "../core/domain/types.ts";
+import { buildValueBreakdown } from "../core/domain/value-breakdown.ts";
 import { readGameSetProducts } from "./catalog-repository.ts";
 import { loadSetEvData } from "./metrics-service.ts";
+import { readSetRarityStats } from "./rarity-stats.ts";
 import { publishedIngestion, type D1DatabaseLike } from "./repository.ts";
 
 // The sets directory (sets view 2026-08-29): one row per game+set with the counts,
@@ -52,12 +54,21 @@ export async function loadSetsDirectory(db: D1DatabaseLike | undefined): Promise
     where p.kind='single' and ms.strictness='balanced'
     group by p.game, p.set_name, ms.side`).bind().all<{ game: string; setName: string; side: "buy" | "sell"; n: number }>();
 
-  const [singlesResult, sealedResult, momentum7Result, momentum30Result, releasesResult, signalsResult] = await Promise.all([
+  // Cover art per set (2026-09-04): the image of the set's highest-market product — SQLite
+  // returns the bare column from the max() row — so a tile without an official logo still
+  // shows art we already serve. One catalog scan, cached with the page.
+  const coversQuery = db.prepare(`select p.game, p.set_name setName, p.image_url image, max(coalesce(cp.market_cents, 0)) cents
+    from catalog_products p left join current_prices cp on cp.product_id=p.product_id
+    where p.image_url is not null and p.image_url<>''
+    group by p.game, p.set_name`).bind().all<{ game: string; setName: string; image: string }>();
+
+  const [singlesResult, sealedResult, momentum7Result, momentum30Result, releasesResult, signalsResult, coversResult] = await Promise.all([
     singlesQuery, sealedQuery,
     db.prepare(momentumWindow("change_7_bps")).bind().all<MomentumRow>(),
     db.prepare(momentumWindow("change_30_bps")).bind().all<MomentumRow>(),
-    releasesQuery, signalsQuery,
+    releasesQuery, signalsQuery, coversQuery,
   ]);
+  const coverBy = new Map((coversResult.results ?? []).map(row => [gameSetKey(row.game, row.setName), row.image]));
   const singles = singlesResult.results ?? [], sealed = sealedResult.results ?? [];
   const momentum7 = momentum7Result.results ?? [], momentum30 = momentum30Result.results ?? [];
   const releases = releasesResult.results ?? [], signals = signalsResult.results ?? [];
@@ -88,6 +99,7 @@ export async function loadSetsDirectory(db: D1DatabaseLike | undefined): Promise
       releaseDate: releaseBy.get(key) ?? null, releaseYear,
       chase: 0, sealed: 0, trackedValue: 0, change7: null, change30: null,
       buySignals: signalsBy.get(key)?.buy ?? 0, sellSignals: signalsBy.get(key)?.sell ?? 0,
+      cover: coverBy.get(key) ?? null,
     };
     rows.set(key, row);
     return row;
@@ -108,6 +120,12 @@ export async function loadSetsDirectory(db: D1DatabaseLike | undefined): Promise
     row.change30 = source?.bps30 == null ? null : source.bps30 / 100;
   }
   return { generatedAt: new Date().toISOString(), sets: [...rows.values()] };
+}
+
+// Every game+set pair with its slug (one index scan): the sitemap's set pages.
+export async function readSetIndex(db: D1DatabaseLike): Promise<{ game: string; set: string; slug: string }[]> {
+  const rows = (await db.prepare("select distinct game, set_name setName from catalog_products order by game, set_name").bind().all<{ game: string; setName: string }>()).results ?? [];
+  return rows.map(row => ({ game: row.game, set: row.setName, slug: setSlug(row.setName) }));
 }
 
 // One set's detail payload (sets view 2026-08-29): products of both kinds, the daily
@@ -138,7 +156,7 @@ export async function loadSetDetail(db: D1DatabaseLike | undefined, game: string
 
   // Every read below depends only on game+set, so they run concurrently: the observation
   // aggregation dominates the page (review 2026-09-03) and the other six overlap with it.
-  const [{ cards, sealed }, observations, singlesChange30, sealedChange30, release, signalRows, { packPriceBySet, evBySet }] = await Promise.all([
+  const [{ cards, sealed }, observations, singlesChange30, sealedChange30, release, signalRows, { packPriceBySet, evBySet }, rarityStats] = await Promise.all([
     readGameSetProducts(db, game, setName),
     db.prepare(`select o.observed_date date, p.kind, sum(o.market_cents) cents, count(distinct o.product_id) members
       from price_observations o join catalog_products p on p.product_id=o.product_id and (o.variant=p.printing or p.kind='sealed')
@@ -155,6 +173,9 @@ export async function loadSetDetail(db: D1DatabaseLike | undefined, game: string
       where p.game=? and p.set_name=? and p.kind='single' and ms.strictness='balanced'
       group by ms.side`).bind(game, setName).all<{ side: "buy" | "sell"; n: number }>().then(result => result.results ?? []),
     loadSetEvData(db, pullRates),
+    // Per-tier aggregate (todo J2): one primary-key range read; empty until the live walk
+    // has written the set (the table may also predate its migration — read as none).
+    readSetRarityStats(db, game, setName).catch(() => []),
   ]);
 
   const packs = sealed.filter(product => product.category === "Booster Packs" && product.marketPrice != null && product.marketPrice > 0);
@@ -171,6 +192,9 @@ export async function loadSetDetail(db: D1DatabaseLike | undefined, game: string
   const evKey = `${game}|${setName}`;
   const packEv = evBySet.get(evKey) ?? null;
   const evPack = packPriceBySet.get(evKey) ?? packPrice;
+  // Cover art: the set's highest-market product image (the directory's rule), from the rows already loaded.
+  const cover = [...cards.map(card => ({ image: card.image, price: card.marketPrice })), ...sealed.map(product => ({ image: product.image, price: product.marketPrice ?? 0 }))]
+    .filter(item => item.image).sort((a, b) => b.price - a.price)[0]?.image ?? null;
   return {
     generatedAt: new Date().toISOString(),
     game, set: setName, slug, group: setGroupKey(game, setName, releaseYear),
@@ -188,6 +212,8 @@ export async function loadSetDetail(db: D1DatabaseLike | undefined, game: string
     sellSignals: signalCount("sell"),
     singlesIndex: seriesFor("single"),
     sealedIndex: seriesFor("sealed"),
+    cover,
+    valueBreakdown: buildValueBreakdown(pullRates, game, setName, rarityStats, setGroupKey(game, setName, releaseYear)),
     cards, sealed,
   };
 }

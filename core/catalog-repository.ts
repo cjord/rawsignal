@@ -1,4 +1,4 @@
-import type { Card, CatalogDetail, CatalogDetailEnrichment, CatalogKind, GradedCardData, PeerAnchorStats, PullRateConfig, RarityPullRate, SealedProduct } from "./domain/types.ts";
+import type { Card, CatalogDetail, CatalogDetailEnrichment, CatalogKind, GradedCardData, PeerAnchorStats, PullRateConfig, PullRateTables, RarityPullRate, SealedProduct } from "./domain/types.ts";
 import {exactTcgplayerUrl,marketRank,similarCards,similarSealed} from "./domain/detail.ts";
 import { querySealedCatalog, querySinglesCatalog, type CatalogDerived, type CatalogPage, type SealedCatalogQuery, type SinglesCatalogQuery } from "./catalog-query.ts";
 
@@ -25,13 +25,27 @@ function peerAverage(label:string,prices:(number|null)[],current:number|null=nul
 // Curated community-measured packs-per-hit. Config keys may be a rarity string or a section
 // slug; the section wins when both match (tiers like Riftbound's Showcase share one rarity).
 // Exported so the metrics payload prices set-level pack EV with the same resolution rules.
-export function pullRateFor(config:PullRateConfig|undefined,game:string,set:string,card:{rarity:string;section?:string}){
+// Tables in resolution order: the set's override, its era's default (when the caller knows the
+// era — `pokemonEra`/`setGroupKey`), then the game default.
+const rateTables=(entry:PullRateTables,set:string,era?:string|null)=>[entry.sets[set],era?entry.eras?.[era]:undefined,entry.default];
+const resolveTier=(table:Record<string,number>|undefined,card:{rarity:string;section?:string})=>{
+ if(!table)return null;
+ if(card.section&&typeof table[card.section]==="number"&&table[card.section]>0)return {key:card.section,value:table[card.section],bySection:true};
+ if(typeof table[card.rarity]==="number"&&table[card.rarity]>0)return {key:card.rarity,value:table[card.rarity],bySection:false};
+ return null;
+};
+
+export function pullRateFor(config:PullRateConfig|undefined,game:string,set:string,card:{rarity:string;section?:string},era?:string|null){
  const entry=config?.games[game];if(!entry)return null;
- for(const table of [entry.sets[set],entry.default]){
-  if(!table)continue;
-  if(card.section&&typeof table[card.section]==="number"&&table[card.section]>0)return {key:card.section,packsPerHit:table[card.section],bySection:true};
-  if(typeof table[card.rarity]==="number"&&table[card.rarity]>0)return {key:card.rarity,packsPerHit:table[card.rarity],bySection:false};
- }
+ for(const table of rateTables(entry,set,era)){const hit=resolveTier(table,card);if(hit)return {key:hit.key,packsPerHit:hit.value,bySection:hit.bySection}}
+ return null;
+}
+
+// Cards per pack for a guaranteed slot (todo J2): the same section-then-rarity resolution over
+// the config's `perPack` tables; null when the tier has no curated slot count.
+export function perPackFor(config:PullRateConfig|undefined,game:string,set:string,card:{rarity:string;section?:string},era?:string|null){
+ const entry=config?.games[game]?.perPack;if(!entry)return null;
+ for(const table of rateTables(entry,set,era)){const hit=resolveTier(table,card);if(hit)return {key:hit.key,perPack:hit.value,bySection:hit.bySection}}
  return null;
 }
 const tierLabel=(key:string,bySection:boolean)=>bySection?key.split("-").map(word=>word.charAt(0).toUpperCase()+word.slice(1)).join(" "):key;

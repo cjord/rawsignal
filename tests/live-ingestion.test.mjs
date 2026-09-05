@@ -201,3 +201,36 @@ test("a truncated upstream day never publishes and resets the walk",async()=>{
   const checkpoint=await db.prepare("select cursor from refresh_state where key='live-daily-progress'").bind().first();
   assert.equal(checkpoint.cursor,"0:0");
 });
+
+test("the live walk writes a per-tier aggregate for every singles group, bulk tiers included (J2)",async()=>{
+  const db=new LocalD1(await migratedDatabase()),options={sourceUpdatedAt:"2026-08-28T20:00:00Z",minimumRecords:5,now:new Date("2026-08-28T20:00:00Z")};
+  await runLiveDailyIngestionBatch(db,deps,{...options,batchSize:2});
+  await runLiveDailyIngestionBatch(db,deps,{...options,batchSize:100});
+  const rows=(await db.prepare("select game, set_name setName, tier, rarity, section, card_count cardCount, priced_count pricedCount, sum_cents sumCents, top_cents topCents, top_product_id topProductId, ingestion_run_id runId from set_rarity_stats order by game, set_name, tier").bind().all()).results.map(row=>({...row}));
+  assert.deepEqual(rows,[
+    // Group A: the illustration rare and the promo are cards; the booster box (no rarity) is not.
+    {game:"pokemon",setName:"Fixture Set",tier:"Illustration Rare",rarity:"Illustration Rare",section:null,cardCount:1,pricedCount:1,sumCents:1200,topCents:1200,topProductId:101,runId:"live-daily:2026-08-28"},
+    {game:"pokemon",setName:"Fixture Set",tier:"Promo",rarity:"Promo",section:null,cardCount:1,pricedCount:1,sumCents:500,topCents:500,topProductId:107,runId:"live-daily:2026-08-28"},
+    {game:"pokemon",setName:"Promo Reprints",tier:"Promo",rarity:"Promo",section:null,cardCount:1,pricedCount:1,sumCents:900,topCents:900,topProductId:107,runId:"live-daily:2026-08-28"},
+    // Riftbound rares key by section; Japanese promo groups (fixed section) and sealed-only
+    // categories write nothing.
+    {game:"riftbound",setName:"Rift Set",tier:"rares",rarity:"Rare",section:"rares",cardCount:1,pricedCount:1,sumCents:300,topCents:300,topProductId:301,runId:"live-daily:2026-08-28"},
+  ]);
+});
+
+test("the truncation guard judges the day by the rows the run stamped, so a reset re-walk still publishes (R4)",async()=>{
+  const db=new LocalD1(await migratedDatabase()),options={sourceUpdatedAt:"2026-08-28T20:00:00Z",minimumRecords:5,now:new Date("2026-08-28T20:00:00Z")};
+  const first=await runLiveDailyIngestionBatch(db,deps,{...options,batchSize:100});
+  assert.equal(first.done,true);
+  // Simulate the reset the old guard performed on an undercounted counter: cursor back to
+  // the start, the checkpointed count wiped, the publish pointer still on the run.
+  await db.prepare("update refresh_state set cursor='0:0' where key='live-daily-progress'").bind().run();
+  await db.prepare("update ingestion_runs set stats_json='{\"recordsWritten\":0}', records_written=0 where id='live-daily:2026-08-28'").bind().run();
+  const rewalk=await runLiveDailyIngestionBatch(db,deps,{...options,batchSize:100});
+  // Every record was already stamped (all duplicates, nothing newly written), yet the day is
+  // complete because the database holds the run's rows.
+  assert.deepEqual({done:rewalk.done,duplicates:rewalk.duplicateDecisions>=10,stamped:rewalk.recordsWritten},{done:true,duplicates:true,stamped:10});
+  assert.equal((await publishedIngestion(db,"daily-market"))?.runId,"live-daily:2026-08-28");
+  const run=await db.prepare("select status, records_written written from ingestion_runs where id='live-daily:2026-08-28'").bind().first();
+  assert.deepEqual({...run},{status:"succeeded",written:10});
+});

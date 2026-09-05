@@ -162,6 +162,8 @@ test("keeps the generated feeds inside their contracts", async () => {
 
 test("keeps resilient image fallback and data-saver respect", async () => {
   const [image, prefetch] = await Promise.all([read("app/DeferredImage.tsx"), read("app/leaderboard/detail-prefetch.ts")]);
-  assert.match(image, /onError=\{\(\)=>setFailed\(true\)\}/);
+  // A failed load tries the `fallback` source once (the TCGdex scan for Pokémon cards, 2026-09-04) and only then marks the image failed.
+  assert.match(image, /const onError=\(\)=>\{if\(!useFallback&&fallback&&fallback!==src\)\{setUseFallback\(true\);return\}setFailed\(true\)\}/);
+  assert.match(image, /onError=\{onError\}/);
   assert.match(prefetch, /saveData/);
 });

@@ -34,7 +34,7 @@ function pokemonSection(rarity: string, year: number): [string, string] | null {
   return year <= 2010 ? ["vintage", "Vintage"] : null;
 }
 
-function riftboundSection(productName: string, rarity: string): [string, string] | null {
+export function riftboundSection(productName: string, rarity: string): [string, string] | null {
   if (/\(Signature\)/i.test(productName)) return ["signatures", "Signatures"];
   if (/\(Overnumbered\)/i.test(productName)) return ["overnumbered", "Overnumbered"];
   if (/\(Alternate Art\)/i.test(productName)) return ["alt-arts", "Alt Arts"];
@@ -43,7 +43,7 @@ function riftboundSection(productName: string, rarity: string): [string, string]
   return null;
 }
 
-function preferredPrices(prices: SinglesPriceRow[]) {
+export function preferredPrices(prices: SinglesPriceRow[]) {
   const byId = new Map<number, SinglesPriceRow>();
   for (const price of prices) {
     if (!(Number(price.marketPrice) > 0)) continue;

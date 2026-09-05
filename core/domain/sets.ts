@@ -13,11 +13,14 @@ export type SetDirectoryRow = {
   change30: number | null;
   buySignals: number;
   sellSignals: number;
+  // Cover art for tiles without an official logo (todo I5, 2026-09-04): the set's own
+  // highest-market product image — TCGplayer art we already serve, so every set has one.
+  cover: string | null;
 };
 
 export type SetsDirectoryPayload = { generatedAt: string; sets: SetDirectoryRow[] };
 
-import type { Card, PricePoint, SealedProduct } from "./types.ts";
+import type { Card, PricePoint, SealedProduct, ValueBreakdown } from "./types.ts";
 
 export type SetDetailPayload = {
   generatedAt: string;
@@ -37,6 +40,10 @@ export type SetDetailPayload = {
   sealedChange30: number | null;
   buySignals: number;
   sellSignals: number;
+  cover: string | null;
+  // "Where the value sits" (todo J2): per-tier pack value from `set_rarity_stats` and the
+  // curated pack odds; null until the live walk has written the set's rows.
+  valueBreakdown: ValueBreakdown | null;
   // Raw daily set values (sum of observed members, coverage-floored); the view rebases.
   singlesIndex: PricePoint[];
   sealedIndex: PricePoint[];

@@ -1,6 +1,6 @@
 {
-  "note": "Community-measured pull-rate estimates, expressed as packs per hit of ANY card of the tier. Curated by hand; the UI must always label derived values as estimates. Keys may be a card rarity (e.g. 'Special Illustration Rare') or a section slug (e.g. 'signatures'); a section key wins when both match, which lets tiers that share a rarity string (Riftbound's Showcase cards) carry different rates. Per-card odds multiply by the count of matching cards in the set. Set-level entries override the game default. Tiers without an entry render as unavailable.",
-  "sources": "Pokemon: aggregated community opening data (JustInBasil-style rate summaries and TCGplayer pull-rate articles) for the Scarlet & Violet / Mega Evolution era. Riftbound: community per-box estimates (Epic ~6/box, Alt Art ~2/box, Showcase/Overnumbered ~1 per 3 boxes, Signature ~1 per 30 boxes), applied across all sets until per-set data exists.",
+  "note": "Community-measured pull-rate estimates, expressed as packs per hit of ANY card of the tier. Curated by hand; the UI must always label derived values as estimates. Keys may be a card rarity (e.g. 'Special Illustration Rare') or a section slug (e.g. 'signatures'); a section key wins when both match, which lets tiers that share a rarity string (Riftbound's Showcase cards) carry different rates. Per-card odds multiply by the count of matching cards in the set. Set-level entries override the game default. Tiers without an entry render as unavailable. The optional perPack tables (2026-09-04, todo J2) carry cards per pack for guaranteed slots, from the publisher's printed pack composition, and use the same keys and override rules; a tier with neither kind of odds stays unrated and outside the pack-value total. perPack tables may also carry era defaults (keys from core/domain/eras.ts), resolved between a set override and the game default.",
+  "sources": "Pokemon: aggregated community opening data (JustInBasil-style rate summaries and TCGplayer pull-rate articles) for the Scarlet & Violet / Mega Evolution era. Riftbound: Riot, \"Collectability in Riftbound: Origins\" (playriftbound.com, 2025) — each pack has 7 common, 3 uncommon, and 2 rare-or-better slots plus 1 foil slot and 1 token slot; Epics in about 1 of 4 packs (replacing a rare slot); alt-art champions about 2 per 24-pack box (1 in 12 packs); Overnumbered about 1 per 3 boxes (1 in 72); about 1 in 10 Overnumbers is a Signature (1 in 720). The foil slot has no published per-rarity odds and is not valued. Pokemon pack composition (2026-09-04, expected/average per era, used as defaults): pack sizes from Bulbapedia \"Booster pack (TCG)\" — 11 cards WotC (Base–Neo Destiny), 9 cards e-Card/EX, 10 cards from Diamond & Pearl on, plus a basic energy from Sun & Moon and a code card from Sword & Shield; rarity splits are community-reported (WotC 7/3/1, EX 5/2/1, DP–SWSH 5/3/1 rare + 1 reverse holo) except Scarlet & Violet/Mega Evolution where Pokemon Center support states 4 commons, 3 uncommons, and 3 foil slots with at least one rare or higher (Bulbapedia's table reads 4/3/1 reverse/1 rare). The rare slot is split Rare 0.67 / Holo Rare 0.33 (the ~1-in-3 holo rate) through Sword & Shield and counted as 1 Rare from Scarlet & Violet, where higher rarities replace it at their own packs-per-hit. Reverse-holo and extra foil slots hold cards of mixed rarity and are not valued (unrated), which understates pack value slightly. Per-set overrides go under sets.",
   "games": {
     "pokemon": {
       "default": {
@@ -16,6 +16,64 @@
           "Illustration Rare": 8,
           "Special Illustration Rare": 45
         }
+      },
+      "perPack": {
+        "default": {},
+        "eras": {
+          "wotc": {
+            "Common": 7,
+            "Uncommon": 3,
+            "Rare": 0.67,
+            "Holo Rare": 0.33
+          },
+          "ex": {
+            "Common": 5,
+            "Uncommon": 2,
+            "Rare": 0.67,
+            "Holo Rare": 0.33
+          },
+          "dp": {
+            "Common": 5,
+            "Uncommon": 3,
+            "Rare": 0.67,
+            "Holo Rare": 0.33
+          },
+          "bw": {
+            "Common": 5,
+            "Uncommon": 3,
+            "Rare": 0.67,
+            "Holo Rare": 0.33
+          },
+          "xy": {
+            "Common": 5,
+            "Uncommon": 3,
+            "Rare": 0.67,
+            "Holo Rare": 0.33
+          },
+          "sm": {
+            "Common": 5,
+            "Uncommon": 3,
+            "Rare": 0.67,
+            "Holo Rare": 0.33
+          },
+          "swsh": {
+            "Common": 5,
+            "Uncommon": 3,
+            "Rare": 0.67,
+            "Holo Rare": 0.33
+          },
+          "sv": {
+            "Common": 4,
+            "Uncommon": 3,
+            "Rare": 1
+          },
+          "me": {
+            "Common": 4,
+            "Uncommon": 3,
+            "Rare": 1
+          }
+        },
+        "sets": {}
       }
     },
     "riftbound": {
@@ -25,7 +83,15 @@
         "overnumbered": 72,
         "signatures": 720
       },
-      "sets": {}
+      "sets": {},
+      "perPack": {
+        "default": {
+          "Common": 7,
+          "Uncommon": 3,
+          "Rare": 2
+        },
+        "sets": {}
+      }
     }
   }
 }

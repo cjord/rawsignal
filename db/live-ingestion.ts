@@ -2,7 +2,9 @@ import type { Card, SealedProduct } from "../core/domain/types.ts";
 import { normalizeSinglesGroup, type SinglesPriceRow, type SinglesSourceProduct } from "../core/normalize/singles.ts";
 import { normalizeJapaneseSealedProduct, normalizeOnePieceSealedProduct, normalizePokemonSealedProduct, normalizeRiftboundSealedProduct, preferredSealedPrice, sealedIdentity, type SealedPriceRow } from "../core/normalize/sealed.ts";
 import { JAPANESE_SEALED_SINCE, type SealedSourceProduct } from "../core/sealed-product-utils.ts";
+import { summarizeGroupRarities, type GroupRarityStat } from "../core/normalize/rarity-stats.ts";
 import { persistRecord } from "./daily-ingestion.ts";
+import { writeSetRarityStats } from "./rarity-stats.ts";
 import { clampBatchSize, markIngestionFailed, parseStatsJson, resumeCheckpoint } from "./ingestion-batch.ts";
 import { checkpointIngestion, completeIngestion, failIngestion, startIngestion, type D1DatabaseLike } from "./repository.ts";
 
@@ -80,9 +82,15 @@ async function buildWorkList(client: TcgcsvClient, now: Date): Promise<WorkEntry
   return entries;
 }
 
-async function loadEntryRecords(entry: WorkEntry, deps: LiveSyncDeps, msrp: () => Promise<Map<number, unknown>>, curatedRiftbound: () => Promise<Map<number, SealedProduct>>, rejected: Record<string, number>): Promise<(Card | SealedProduct)[]> {
-  if (entry.type === "bundled") return deps.loadBundledSealed(entry.market);
+type EntryLoad = { records: (Card | SealedProduct)[]; rarityStats: GroupRarityStat[] };
+
+async function loadEntryRecords(entry: WorkEntry, deps: LiveSyncDeps, msrp: () => Promise<Map<number, unknown>>, curatedRiftbound: () => Promise<Map<number, SealedProduct>>, rejected: Record<string, number>): Promise<EntryLoad> {
+  if (entry.type === "bundled") return { records: await deps.loadBundledSealed(entry.market), rarityStats: [] };
   const [products, prices] = await Promise.all([deps.client.products(entry.categoryId, entry.group.groupId), deps.client.prices(entry.categoryId, entry.group.groupId)]);
+  // Per-tier aggregate over EVERY card in a singles group (todo J2): the bulk tiers the
+  // catalog never keeps are priced here, from the files this walk already fetched.
+  // Fixed-section groups (Japanese promos) have no rarity taxonomy and are skipped.
+  const rarityStats = entry.type === "tcgcsv" && !entry.fixedSection ? summarizeGroupRarities({ game: entry.game, products: products as SinglesSourceProduct[], prices: prices as SinglesPriceRow[] }) : [];
   if (entry.type === "tcgcsv-sealed") {
     const pricesById = new Map<number, Record<string, unknown>[]>();
     for (const row of prices) { const id = Number(row.productId); const rows = pricesById.get(id) ?? []; rows.push(row); pricesById.set(id, rows); }
@@ -99,7 +107,7 @@ async function loadEntryRecords(entry: WorkEntry, deps: LiveSyncDeps, msrp: () =
       seenIdentity.add(identity);
       sealed.push(normalized);
     }
-    return sealed.sort((a, b) => a.productId - b.productId);
+    return { records: sealed.sort((a, b) => a.productId - b.productId), rarityStats };
   }
   // Wire rows narrow once at this boundary; everything downstream is typed.
   const normalized = normalizeSinglesGroup({ game: entry.game, group: entry.group, products: products as SinglesSourceProduct[], prices: prices as SinglesPriceRow[], fixedSection: entry.fixedSection ?? null });
@@ -107,7 +115,7 @@ async function loadEntryRecords(entry: WorkEntry, deps: LiveSyncDeps, msrp: () =
   const records: (Card | SealedProduct)[] = [...normalized.cards].sort((a, b) => a.productId - b.productId);
   // Fixed-section categories (Japanese promos) contribute singles only — their sealed
   // products are out of scope and must not slip into the English sealed catalog.
-  if (entry.fixedSection) return records;
+  if (entry.fixedSection) return { records, rarityStats };
   const pricesByProduct = new Map<number, Record<string, unknown>[]>();
   for (const row of prices) { const id = Number(row.productId); const rows = pricesByProduct.get(id) ?? []; rows.push(row); pricesByProduct.set(id, rows); }
   // Sealed normalizes from the same group walk as singles. Pokémon MSRPs come from the
@@ -130,7 +138,7 @@ async function loadEntryRecords(entry: WorkEntry, deps: LiveSyncDeps, msrp: () =
     sealed.push(normalizedSealed);
   }
   records.push(...sealed.sort((a, b) => a.productId - b.productId));
-  return records;
+  return { records, rarityStats };
 }
 
 // Cross-group duplicates (promo cards reprinted across sets) follow the local sync's rules:
@@ -175,7 +183,9 @@ export async function runLiveDailyIngestionBatch(db: D1DatabaseLike, deps: LiveS
       const sealedOnly = entry.type === "tcgcsv-sealed";
       if (sealedOnly ? sealedGroupFetches >= SEALED_GROUP_FETCH_CAP : groupFetches >= groupFetchCap) break;
       if (sealedOnly) sealedGroupFetches++; else groupFetches++;
-      const records = await loadEntryRecords(entry, deps, msrp, curatedRiftbound, rejected);
+      const { records, rarityStats } = await loadEntryRecords(entry, deps, msrp, curatedRiftbound, rejected);
+      // The tier aggregate lands once per group per run, with the group's first slice.
+      if (recordOffset === 0 && rarityStats.length && entry.type === "tcgcsv") await writeSetRarityStats(db, entry.game, entry.group.name, rarityStats, observedAt, runId);
       const slice = records.slice(recordOffset, recordOffset + remaining);
       const existing = slice.length ? await existingRunRows(db, runId, slice.map(record => record.productId)) : new Map<number, { kind: string; marketCents: number | null }>();
       for (const record of slice) {
@@ -195,14 +205,23 @@ export async function runLiveDailyIngestionBatch(db: D1DatabaseLike, deps: LiveS
     }
     const done = groupIndex >= workList.length;
     const stats = { totalEntries: workList.length, recordsWritten, duplicateDecisions, rejected };
-    if (done && recordsWritten < minimumRecords) {
-      // A truncated upstream day must never publish: reset the walk and surface the failure.
-      await checkpointIngestion(db, runId, "live-daily-progress", workList.length, recordsWritten, "0:0", stats);
-      await failIngestion(db, runId, new Date().toISOString(), `Live snapshot below minimum records: ${recordsWritten} < ${minimumRecords}`);
-      throw new Error(`Live snapshot below minimum records: ${recordsWritten} < ${minimumRecords}`);
+    if (done) {
+      // The truncation guard judges the day by what the database holds for this run, not by
+      // the checkpointed counter (R4, 2026-09-05): overlapping ticks clobbered that counter to
+      // half the true total, the guard reset a complete walk, and the re-walk — every row
+      // already stamped, so nothing "written" — could never satisfy it again.
+      const stamped = (await db.prepare("select count(*) as n from catalog_products where ingestion_run_id=?").bind(runId).first<{ n: number }>())?.n ?? 0;
+      if (stamped < minimumRecords) {
+        // A truncated upstream day must never publish: reset the walk and surface the failure.
+        await checkpointIngestion(db, runId, "live-daily-progress", workList.length, recordsWritten, "0:0", stats);
+        await failIngestion(db, runId, new Date().toISOString(), `Live snapshot below minimum records: ${stamped} < ${minimumRecords}`);
+        throw new Error(`Live snapshot below minimum records: ${stamped} < ${minimumRecords}`);
+      }
+      await checkpointIngestion(db, runId, "live-daily-progress", workList.length, recordsWritten, `${groupIndex}:${recordOffset}`, stats);
+      await completeIngestion(db, runId, "daily-market", new Date().toISOString(), workList.length, stamped, Object.values(rejected).reduce((sum, count) => sum + count, 0), duplicateDecisions, { ...stats, stamped });
+      return { runId, cursor: `${groupIndex}:${recordOffset}`, entries: workList.length, entryIndex: groupIndex, done, processed, recordsWritten: stamped, duplicateDecisions };
     }
     await checkpointIngestion(db, runId, "live-daily-progress", workList.length, recordsWritten, `${groupIndex}:${recordOffset}`, stats);
-    if (done) await completeIngestion(db, runId, "daily-market", new Date().toISOString(), workList.length, recordsWritten, Object.values(rejected).reduce((sum, count) => sum + count, 0), duplicateDecisions, stats);
     return { runId, cursor: `${groupIndex}:${recordOffset}`, entries: workList.length, entryIndex: groupIndex, done, processed, recordsWritten, duplicateDecisions };
   } catch (error) {
     // The minimum-records guard already failed the run itself; everything else fails here.

@@ -1,6 +1,8 @@
 [
   {
-    "sourceLines": [7],
+    "sourceLines": [
+      7
+    ],
     "game": "pokemon",
     "productId": 990000001,
     "name": "Mega Evolution—Ascended Heroes 2-Pack Blister",
@@ -10,17 +12,23 @@
     "msrpSource": "Curated Scalper table (approximate)"
   },
   {
-    "sourceLines": [24],
+    "sourceLines": [
+      24
+    ],
     "game": "pokemon",
     "productId": 990000002,
     "name": "Mega Evolution Mini Tin / 2.5 Mini Tin",
     "set": "ME: Mega Evolution",
-    "url": "https://www.tcgplayer.com/search/pokemon/product?q=Mega+Evolution+Mini+Tin&productLineName=pokemon",
+    "url": "https://www.tcgplayer.com/product/649392",
     "msrp": 9.99,
-    "msrpSource": "Curated Scalper table (approximate)"
+    "msrpSource": "Curated Scalper table (approximate)",
+    "image": "https://tcgplayer-cdn.tcgplayer.com/product/649392_in_1000x1000.jpg",
+    "imageNote": "Mega Heroes Mini Tin display (TCGplayer 649392) — the mini-tin line this entry tracks"
   },
   {
-    "sourceLines": [34],
+    "sourceLines": [
+      34
+    ],
     "game": "onepiece",
     "productId": 990000003,
     "name": "Devil Fruits Collection Vol. 4 [DF-04]",
@@ -30,47 +38,62 @@
     "msrpSource": "Curated Scalper table"
   },
   {
-    "sourceLines": [50],
+    "sourceLines": [
+      50
+    ],
     "game": "pokemon",
     "productId": 990000004,
     "name": "Enhanced 2-Pack Blister — Oddish, Gloom & Vileplume",
     "set": "Miscellaneous Cards & Products",
-    "url": "https://www.tcgplayer.com/search/pokemon/product?q=Enhanced+2-Pack+Blister+Oddish+Gloom+Vileplume&productLineName=pokemon",
+    "url": "https://www.tcgplayer.com/product/683264",
     "msrp": 10.99,
-    "msrpSource": "Curated Scalper table"
+    "msrpSource": "Curated Scalper table",
+    "image": "https://tcgplayer-cdn.tcgplayer.com/product/683264_in_1000x1000.jpg"
   },
   {
-    "sourceLines": [65],
+    "sourceLines": [
+      65
+    ],
     "game": "pokemon",
     "productId": 990000005,
     "name": "Team Rocket's Mewtwo ex Box",
     "set": "SV10: Destined Rivals",
-    "url": "https://www.tcgplayer.com/search/pokemon/product?q=Team+Rocket%27s+Mewtwo+ex+Box&productLineName=pokemon",
+    "url": "https://www.tcgplayer.com/product/625695",
     "msrp": 21.99,
-    "msrpSource": "Curated Scalper table (approximate)"
+    "msrpSource": "Curated Scalper table (approximate)",
+    "image": "https://tcgplayer-cdn.tcgplayer.com/product/625695_in_1000x1000.jpg"
   },
   {
-    "sourceLines": [102, 103],
+    "sourceLines": [
+      102,
+      103
+    ],
     "game": "yugioh",
     "productId": 990000006,
     "name": "Quarter Century Stampede Booster Box",
     "set": "Quarter Century Stampede",
-    "url": "https://www.tcgplayer.com/search/yugioh/product?q=Quarter+Century+Stampede+Booster+Box&productLineName=yugioh",
+    "url": "https://www.tcgplayer.com/product/605103",
     "msrp": 143.76,
-    "msrpSource": "Curated Scalper table"
+    "msrpSource": "Curated Scalper table",
+    "image": "https://tcgplayer-cdn.tcgplayer.com/product/605103_in_1000x1000.jpg"
   },
   {
-    "sourceLines": [105],
+    "sourceLines": [
+      105
+    ],
     "game": "onepiece",
     "productId": 682789,
     "name": "Double Pack Set Vol. 10 — Adventure on Kami's Island [OP15-EB04]",
     "set": "OP15-EB04: Adventure on Kami's Island",
     "url": "https://www.tcgplayer.com/product/682789",
     "msrp": 11.99,
-    "msrpSource": "Curated Scalper table (approximate)"
+    "msrpSource": "Curated Scalper table (approximate)",
+    "image": "https://tcgplayer-cdn.tcgplayer.com/product/682789_in_1000x1000.jpg"
   },
   {
-    "sourceLines": [106],
+    "sourceLines": [
+      106
+    ],
     "game": "football",
     "productId": 990000008,
     "name": "2025 Topps Chrome Football Value Box / Blaster Box",
@@ -80,7 +103,9 @@
     "msrpSource": "Curated Scalper table"
   },
   {
-    "sourceLines": [107],
+    "sourceLines": [
+      107
+    ],
     "game": "football",
     "productId": 990000009,
     "name": "2025 Topps Chrome Football Hanger Box",
@@ -90,93 +115,122 @@
     "msrpSource": "Curated Scalper table"
   },
   {
-    "sourceLines": [114],
+    "sourceLines": [
+      114
+    ],
     "game": "pokemon",
     "productId": 990000010,
     "name": "30th Celebration Greninja ex Box",
     "set": "Pokémon 30th Celebration",
-    "url": "https://www.tcgplayer.com/search/pokemon/product?productLineName=pokemon&q=Greninja+ex+30th+Celebration+%28English%29",
+    "url": "https://www.tcgplayer.com/product/704168",
     "msrp": 24.99,
-    "msrpSource": "Curated Scalper table"
+    "msrpSource": "Curated Scalper table",
+    "image": "https://tcgplayer-cdn.tcgplayer.com/product/704168_in_1000x1000.jpg"
   },
   {
-    "sourceLines": [115],
+    "sourceLines": [
+      115
+    ],
     "game": "pokemon",
     "productId": 990000011,
     "name": "30th Celebration Sylveon ex Box",
     "set": "Pokémon 30th Celebration",
-    "url": "https://www.tcgplayer.com/search/pokemon/product?q=Sylveon-EX&productLineName=pokemon",
+    "url": "https://www.tcgplayer.com/product/704155",
     "msrp": 24.99,
-    "msrpSource": "Curated Scalper table"
+    "msrpSource": "Curated Scalper table",
+    "image": "https://tcgplayer-cdn.tcgplayer.com/product/704155_in_1000x1000.jpg"
   },
   {
-    "sourceLines": [116],
+    "sourceLines": [
+      116
+    ],
     "game": "pokemon",
     "productId": 990000012,
     "name": "30th Celebration ex Tin — Greninja ex / Sylveon ex",
     "set": "Pokémon 30th Celebration",
-    "url": "https://www.tcgplayer.com/search/all/product?page=1&q=Celebrations+Tin&view=grid",
+    "url": "https://www.tcgplayer.com/product/704151",
     "msrp": 29.99,
-    "msrpSource": "Curated Scalper table"
+    "msrpSource": "Curated Scalper table",
+    "image": "https://tcgplayer-cdn.tcgplayer.com/product/704151_in_1000x1000.jpg"
   },
   {
-    "sourceLines": [117],
+    "sourceLines": [
+      117
+    ],
     "game": "pokemon",
     "productId": 990000013,
     "name": "30th Celebration Tech Sticker Collection — Lucario / Alolan Exeggutor",
     "set": "Pokémon 30th Celebration",
-    "url": "https://www.tcgplayer.com/search/pokemon-japan/product?productLineName=pokemon-japan&q=Greninja+ex+30th+Celebration+%28Japanese%29",
+    "url": "https://www.tcgplayer.com/product/704147",
     "msrp": 14.99,
-    "msrpSource": "Curated Scalper table"
+    "msrpSource": "Curated Scalper table",
+    "image": "https://tcgplayer-cdn.tcgplayer.com/product/704147_in_1000x1000.jpg"
   },
   {
-    "sourceLines": [118],
+    "sourceLines": [
+      118
+    ],
     "game": "pokemon",
     "productId": 990000014,
     "name": "30th Celebration Booster Bundle",
     "set": "Pokémon 30th Celebration",
-    "url": "https://www.tcgplayer.com/search/pokemon/product?page=1&productLineName=pokemon&q=Pokemon+TCG+30th+Celebration&view=grid",
+    "url": "https://www.tcgplayer.com/product/704171",
     "msrp": 26.94,
-    "msrpSource": "Curated Scalper table"
+    "msrpSource": "Curated Scalper table",
+    "image": "https://tcgplayer-cdn.tcgplayer.com/product/704171_in_1000x1000.jpg"
   },
   {
-    "sourceLines": [135],
+    "sourceLines": [
+      135
+    ],
     "game": "onepiece",
     "productId": 990000015,
     "name": "Set Sail Deck Set",
     "set": "Set Sail Deck Set",
-    "url": "https://www.tcgplayer.com/search/one-piece-card-game/set-sail-deck-set?page=1&productLineName=one-piece-card-game&setName=set-sail-deck-set&view=grid",
+    "url": "https://www.tcgplayer.com/product/694893",
     "msrp": 39.99,
-    "msrpSource": "Curated Scalper table (approximate)"
+    "msrpSource": "Curated Scalper table (approximate)",
+    "image": "https://en.onepiece-cardgame.com/onepiececg/bccard/en/product/2026/08/20/0n05b5CKWOsu1yNX/img_item01.webp",
+    "imageNote": "Bandai official product shot (TCGplayer 694893 has no image yet)"
   },
   {
-    "sourceLines": [136],
+    "sourceLines": [
+      136
+    ],
     "game": "onepiece",
     "productId": 990000016,
     "name": "Starter Deck 31 — RED Monkey.D.Luffy [ST-31]",
     "set": "Starter Deck 31",
-    "url": "https://www.tcgplayer.com/search/one-piece-card-game/product?q=Starter+Deck+31+RED+Monkey.D.Luffy&productLineName=one-piece-card-game",
+    "url": "https://www.tcgplayer.com/product/704885",
     "msrp": 16.99,
-    "msrpSource": "Curated Scalper table (approximate)"
+    "msrpSource": "Curated Scalper table (approximate)",
+    "image": "https://tcgplayer-cdn.tcgplayer.com/product/704885_in_1000x1000.jpg"
   },
   {
-    "sourceLines": [142],
+    "sourceLines": [
+      142
+    ],
     "game": "onepiece",
     "productId": 990000017,
     "name": "Double Pack Set Vol. 12 [DP-12]",
     "set": "Double Pack Set Vol. 12",
     "url": "https://www.tcgplayer.com/search/one-piece-card-game/product?q=Double+Pack+Set+Vol.+12+DP-12&productLineName=one-piece-card-game",
     "msrp": 11.99,
-    "msrpSource": "Curated Scalper table (approximate)"
+    "msrpSource": "Curated Scalper table (approximate)",
+    "image": "https://en.onepiece-cardgame.com/onepiececg/bccard/en/product/2026/07/23/HcvCMImPo8xj7Gfo/img_item01.webp",
+    "imageNote": "Bandai official product shot (not on TCGplayer)"
   },
   {
-    "sourceLines": [143],
+    "sourceLines": [
+      143
+    ],
     "game": "onepiece",
     "productId": 990000018,
     "name": "OP-16 Booster Pack",
     "set": "OP-16",
-    "url": "https://www.tcgplayer.com/search/one-piece-card-game/product?q=OP-16+Booster+Pack&productLineName=one-piece-card-game",
+    "url": "https://www.tcgplayer.com/product/689341",
     "msrp": 4.99,
-    "msrpSource": "Curated Scalper table"
+    "msrpSource": "Curated Scalper table",
+    "image": "https://tcgplayer-cdn.tcgplayer.com/product/689341_in_1000x1000.jpg"
   }
 ]

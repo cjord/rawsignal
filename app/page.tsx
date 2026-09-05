@@ -10,6 +10,8 @@ import {
   type Direction,
 } from "./MarketUI";
 import HistoryPanel, { movementTone, standardHistoryMetrics } from "./HistoryPanel";
+import { tcgplayerMetric } from "../core/domain/marketplace-links";
+import { cardImageFallback } from "./data/card-images";
 import { normalized } from "../core/market-utils";
 import CardFilters, { type MovementFilters } from "./CardFilters";
 import { REGIME_LABELS, type MarketRegime } from "../core/domain/regime";
@@ -150,8 +152,10 @@ const sealedMarkets = [
 const scalpingMarket = { key: "scalping", label: "Obey Products" } as const;
 const signalSort = { label: "Signal", key: "signal" as SortKey };
 const ascendingSinglesSorts = new Set<SortKey>(["name", "set"]);
-const cardHistoryMetrics = (card: Card, history?: History) =>
-  standardHistoryMetrics(card.marketPrice, card.midPrice, history);
+const cardHistoryMetrics = (card: Card, history?: History) => [
+  ...standardHistoryMetrics(card.marketPrice, card.midPrice, history),
+  tcgplayerMetric(card.productId, card.url),
+];
 function FullCard({
   card,
   history,
@@ -239,6 +243,7 @@ function HoverCard({
       className="hover-card"
       identityClassName="hover-card-art"
       image={card.image}
+      fallback={cardImageFallback(card)}
       alt={`${card.name} card`}
       badge={signal && <SignalBadge signal={signal} />}
       label={`${card.name} price history`}
@@ -998,6 +1003,7 @@ export default function Home() {
                 <ProductIdentity
                   className="identity"
                   image={c.image}
+                  fallback={cardImageFallback(c)}
                   alt=""
                   title={c.name}
                   meta={cardMeta(c)}

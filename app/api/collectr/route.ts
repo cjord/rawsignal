@@ -44,6 +44,8 @@ export type CollectrMatch = {
   rarity: string;
   marketPrice: number;
   image: string | null;
+  // The matched catalog product's TCGplayer id, for the hover tile's outbound link (todo O3).
+  productId: number;
   detailPath: string;
 };
 
@@ -70,6 +72,7 @@ const toSingleMatch = (match: Card, matchTier: MatchTier): CollectrMatch => ({
   rarity: match.rarity,
   marketPrice: match.marketPrice,
   image: match.image || null,
+  productId: match.productId,
   detailPath: `/cards/${match.productId}`,
 });
 
@@ -83,6 +86,7 @@ const toSealedMatch = (match: SealedProduct, matchTier: MatchTier): CollectrMatc
   rarity: match.category,
   marketPrice: match.marketPrice ?? 0,
   image: match.image || null,
+  productId: match.productId,
   detailPath: `/sealed/${match.productId}`,
 });
 

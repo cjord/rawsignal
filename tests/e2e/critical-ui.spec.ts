@@ -98,3 +98,26 @@ test("enables Scalper features without navigating away from Singles",async({page
  await expect(page.getByRole("tab",{name:"Obey Products"})).toHaveCount(0);
  await expect(page).toHaveURL(/market=pokemon/);
 });
+
+test("opens a row's hover chart with a TCGplayer link tile",async({page})=>{
+ await page.goto(singlesUrl);
+ await waitForApp(page);
+ const row=page.locator(".market-row-shell").first();
+ await row.locator("summary").hover();
+ const tile=row.locator(".market-row-popover .history-stats a",{hasText:"TCGplayer"});
+ await expect(tile).toBeVisible();
+ await expect(tile).toHaveAttribute("href",/^https:\/\/www\.tcgplayer\.com\/product\/\d+/);
+ await expect(tile).toHaveAttribute("target","_blank");
+});
+
+test("swaps a Pokémon card image to its TCGdex scan when the TCGplayer image fails",async({page})=>{
+ await page.goto(singlesUrl);
+ await waitForApp(page);
+ const image=page.locator(".leader-row .identity img").first();
+ await expect(image).toBeVisible();
+ await expect(image).toHaveAttribute("src",/tcgplayer-cdn\.tcgplayer\.com/);
+ // Point the loaded image at a product the CDN has no photo for: it answers with its 400×570 placeholder JPEG,
+ // which the component treats as a failure and retries once with the fallback scan.
+ await image.evaluate(element=>{(element as HTMLImageElement).src="https://tcgplayer-cdn.tcgplayer.com/product/0_in_1000x1000.jpg"});
+ await expect(page.locator(".leader-row .identity img").first()).toHaveAttribute("src",/^https:\/\/assets\.tcgdex\.net\/en\//);
+});

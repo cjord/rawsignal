@@ -1,4 +1,6 @@
-import setLogos from "../../public/data/set-logos.json";
+// Bundled module data (not a public asset: Vite would otherwise ship the file twice — once
+// as a static URL, once inlined here — and warn about importing from public/).
+import setLogos from "./set-logos.json";
 
 // Pokémon set logo lookup (sets view 2026-08-29). Keys in set-logos.json are
 // pokemontcg.io names normalized by the SAME rules as `normalize` below (the sync

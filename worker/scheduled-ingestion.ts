@@ -1,7 +1,9 @@
 import { publishedIngestion, readRefreshCursor } from "../db/repository.ts";
+import { claimTickLease, releaseTickLease } from "../db/tick-lease.ts";
 import { ingestionRunId } from "../db/run-id.ts";
 import { planScheduledAction, type ScheduledAction, type ScheduledPlan } from "./scheduled-decision.ts";
-import { probeTcgcsvUpdatedAt, runDetailsJob, runGradedJob, runHistoryJob, runLiveJob, runMetricsJob, type StagingJobEnv } from "./staging-jobs.ts";
+import { probeTcgcsvUpdatedAt, runDetailsJob, runEbayJob, runGradedJob, runHistoryJob, runLiveJob, runMetricsJob, type StagingJobEnv } from "./staging-jobs.ts";
+import { EBAY_LISTINGS_KEY, EBAY_TICK_CALLS } from "../db/ebay-ingestion.ts";
 
 // The assets binding routes by pathname; the host of this synthetic request is irrelevant.
 const assetsBase = "https://raw-signal.internal/";
@@ -23,13 +25,14 @@ export type ScheduledTickDeps = {
     graded: typeof runGradedJob;
     metrics: typeof runMetricsJob;
     history: typeof runHistoryJob;
+    ebay: typeof runEbayJob;
   };
 };
 
 const defaultDeps: ScheduledTickDeps = {
   now: () => new Date(),
   probe: () => probeTcgcsvUpdatedAt(),
-  jobs: { live: runLiveJob, details: runDetailsJob, graded: runGradedJob, metrics: runMetricsJob, history: runHistoryJob },
+  jobs: { live: runLiveJob, details: runDetailsJob, graded: runGradedJob, metrics: runMetricsJob, history: runHistoryJob, ebay: runEbayJob },
 };
 
 export type ScheduledTickResult = { action: ScheduledAction; detail: string };
@@ -37,15 +40,26 @@ export type ScheduledTickResult = { action: ScheduledAction; detail: string };
 export async function runScheduledIngestionTick(env: StagingJobEnv, deps: ScheduledTickDeps = defaultDeps): Promise<ScheduledTickResult> {
   if (!env.DB) return { action: "idle", detail: "No database binding" };
   const now = deps.now();
+  // One tick at a time (R4): a tick that outlives its minute must not be joined by the next.
+  if (!await claimTickLease(env.DB, now)) return { action: "idle", detail: "Previous tick still running" };
+  try {
+    return await runLeasedTick(env, deps, now);
+  } finally {
+    await releaseTickLease(env.DB).catch(() => { /* the lease expires on its own */ });
+  }
+}
+
+async function runLeasedTick(env: StagingJobEnv, deps: ScheduledTickDeps, now: Date): Promise<ScheduledTickResult> {
   const deploySnapshotUpdatedAt = env.CF_VERSION_METADATA?.timestamp ?? now.toISOString();
   const today = now.toISOString().slice(0, 10);
-  const [live, details, graded, metrics, historyCheckpoint, historyPublished] = await Promise.all([
+  const [live, details, graded, metrics, historyCheckpoint, historyPublished, ebay] = await Promise.all([
     publishedIngestion(env.DB, "daily-market"),
     publishedIngestion(env.DB, "product-details"),
     publishedIngestion(env.DB, "graded-rotation"),
     publishedIngestion(env.DB, "metrics-rollup"),
     readRefreshCursor(env.DB, "history-backfill"),
     publishedIngestion(env.DB, "history-signals"),
+    publishedIngestion(env.DB, EBAY_LISTINGS_KEY),
   ]);
   const liveTodayRunId = ingestionRunId("live-daily", today);
   // Probe only while today's live run is incomplete; a failed probe retries next tick.
@@ -68,6 +82,9 @@ export async function runScheduledIngestionTick(env: StagingJobEnv, deps: Schedu
     metricsPublishedRunId: metrics?.runId ?? null,
     historyCheckpointRunId: historyCheckpoint?.ingestionRunId ?? null,
     historyPublishedRunId: historyPublished?.runId ?? null,
+    ebayKeyConfigured: Boolean(env.EBAY_CLIENT_ID && env.EBAY_CLIENT_SECRET),
+    ebayPublishedRunId: ebay?.runId ?? null,
+    ebayTodayRunId: ingestionRunId(EBAY_LISTINGS_KEY, today),
   });
   return dispatch(env, plan, deps.jobs);
 }
@@ -95,5 +112,9 @@ async function dispatch(env: StagingJobEnv, plan: ScheduledPlan, jobs: Scheduled
     }
     case "history":
       return { action, detail: progress(await jobs.history(env, syntheticRequest, HISTORY_BATCH_SIZE, plan.sourceUpdatedAt, { all: plan.all })) };
+    case "ebay": {
+      const result = await jobs.ebay(env, EBAY_TICK_CALLS);
+      return { action, detail: `${result.updated}/${result.targets} updated, ${result.calls} calls today${result.stopped ? ` (${result.stopped})` : ""}${result.done ? " done" : ""}` };
+    }
   }
 }

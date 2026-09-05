@@ -178,8 +178,56 @@ export type GradedCardData = {
   grades: Record<string, GradedGradeStat>;
 };
 
+// Curated pack odds per game with per-set overrides (todo J2): `default`/`sets` carry packs
+// per hit for chase tiers; the optional `perPack` tables carry cards per pack for guaranteed
+// slots (Riftbound's 7 commons, 3 uncommons, 2 rares). Keys are a rarity string or a section slug.
+// Resolution order: the set's own table, then its era's (Pokémon packs changed size and split
+// by era — `core/domain/eras.ts` keys), then the game default.
+export type PullRateTables = { default: Record<string, number>; sets: Record<string, Record<string, number>>; eras?: Record<string, Record<string, number>> };
 export type PullRateConfig = {
-  games: Record<string, { default: Record<string, number>; sets: Record<string, Record<string, number>> }>;
+  games: Record<string, PullRateTables & { perPack?: PullRateTables }>;
+};
+
+// One set × tier aggregate from `set_rarity_stats` (every card in the TCGCSV group, tracked
+// or not); `sumMarket` is over priced cards, `cardCount` over all of them.
+export type SetRarityStat = {
+  tier: string;
+  rarity: string;
+  section: string | null;
+  cardCount: number;
+  pricedCount: number;
+  sumMarket: number;
+  topMarket: number | null;
+  topProductId: number | null;
+  updatedAt: string;
+};
+
+// "Where the value sits": a set's pack value by tier. `slot` tiers are guaranteed cards per
+// pack, `chase` tiers hit odds; `unrated` tiers have no curated odds and sit outside the total.
+export type ValueBreakdownTier = {
+  key: string;
+  label: string;
+  kind: "slot" | "chase" | "unrated";
+  perPack: number | null;
+  packsPerHit: number | null;
+  cardCount: number;
+  pricedCount: number;
+  average: number | null;
+  topMarket: number | null;
+  topProductId: number | null;
+  evPerPack: number | null;
+  share: number | null;
+  chase: boolean;
+};
+
+export type ValueBreakdown = {
+  tiers: ValueBreakdownTier[];
+  totalEv: number;
+  chaseEv: number;
+  chaseShare: number | null;
+  impliedPackSize: number;
+  unratedTiers: string[];
+  updatedAt: string | null;
 };
 
 export type CardPullRate = {
@@ -222,6 +270,9 @@ export type CatalogDetailBase = {
   marketRankTotal: number | null;
   peerContext: DetailPeerContext | null;
   graded: GradedCardData | null;
+  // eBay active-listing snapshot (todo O2), attached by the D1 detail loader; absent on the
+  // bundled fallback and null for products the rotation has not reached.
+  ebay?: EbayListingSnapshot | null;
 };
 
 // Early Value Estimate (todo P7): a new product's expected settled price — the
@@ -277,4 +328,28 @@ export type HistoryMetric = {
   label: string;
   value: string;
   tone?: "up" | "down" | "neutral";
+  // A tile that is an outbound link (the marketplace tile, todo O3) renders as an anchor.
+  href?: string;
+};
+
+// A stored eBay active-listing snapshot for one product (todo O2): asks, never sales. The
+// samples are the cheapest listings that survived the price guard, for the detail panel.
+export type EbayListingSample = {
+  itemId: string;
+  title: string;
+  price: number;
+  shipping: number | null;
+  condition: string | null;
+  url: string;
+};
+
+export type EbayListingSnapshot = {
+  query: string;
+  categoryId: number | null;
+  listingCount: number;
+  lowestAsk: number | null;
+  medianAsk: number | null;
+  samples: EbayListingSample[];
+  fetchedAt: string;
+  updatedAt: string;
 };

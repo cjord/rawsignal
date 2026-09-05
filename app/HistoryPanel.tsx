@@ -11,7 +11,9 @@ export default function HistoryPanel({title,subtitle,points,label="market",metri
  // Regime label (todo P3): descriptive context computed from the same points the chart
  // draws — never a recommendation.
  const reading=points.length?classifyRegime(points):null;
- return <span className="history-panel"><div className="history-title"><small>{title}</small>{reading&&<RegimeChip regime={reading.regime} detail={reading.detail}/>}<b>{subtitle}</b></div><PriceChart points={points} loading={loading} label={label} large={large}/><div className="history-stats">{metrics.map(metric=><span key={metric.label}><small>{metric.label}</small><b className={metric.tone}>{metric.value}</b></span>)}</div>{hint&&<small className="touch-hint">{hint}</small>}</span>;
+ return <span className="history-panel"><div className="history-title"><small>{title}</small>{reading&&<RegimeChip regime={reading.regime} detail={reading.detail}/>}<b>{subtitle}</b></div><PriceChart points={points} loading={loading} label={label} large={large}/><div className="history-stats">{metrics.map(metric=>metric.href
+  ?<a key={metric.label} href={metric.href} target="_blank" rel="noopener noreferrer"><small>{metric.label}</small><b className={metric.tone}>{metric.value}</b></a>
+  :<span key={metric.label}><small>{metric.label}</small><b className={metric.tone}>{metric.value}</b></span>)}</div>{hint&&<small className="touch-hint">{hint}</small>}</span>;
 }
 
 export const movementTone=(value:number|null|undefined):HistoryMetric["tone"]=>value==null?"neutral":value<0?"down":"up";
@@ -23,6 +25,8 @@ export const movementMetric=(label:string,value:number|null|undefined,unavailabl
 // The tile list every card-shaped history popover renders (leaderboard rows, detail
 // tables, metrics movers): market + 30D range + historic low + median, then movement.
 // Sealed rows keep their own bespoke list (MSRP, basis label, profit) in SealedView.
+// Every surface appends the marketplace link tile (`tcgplayerMetric`, todo O3) itself; a
+// metric with `href` renders as an anchor tile above.
 export const standardHistoryMetrics=(marketPrice:number|null,midPrice:number|null,history:PriceHistory|undefined,unavailable="—"):HistoryMetric[]=>{
  const usd=(value:number|null)=>formatUsd(value,unavailable);
  return [

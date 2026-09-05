@@ -81,6 +81,20 @@ Deferred to a later phase at the user's direction:
    Details) section; render it **only in scalper mode**; and let a **purchase price be
    entered manually** to replace the MSRP-derived total cost in the profit math.
 
+4. **Image sources (researched and implemented 2026-09-04).** Audit: every production
+   catalog row has a TCGplayer CDN image and 0 of 60 sampled URLs were broken; the gaps
+   were 6 Riftbound Chinese/Korean supplemental products, 18 bundled scalper rows, and
+   set logos (Pokémon 141/308 via pokemontcg.io; Riftbound and One Piece none). Shipped:
+   cover art from each set's top product where no logo exists; TCGplayer images for the
+   12 supplemental products TCGCSV now lists, Riot/Bandai official shots for the T1,
+   Lunar Revel, Set Sail, and DP-12 products; a once-only TCGdex fallback for Pokémon card
+   images (`scripts/sets/sync-tcgdex.mjs`). API TCG checked with the user's key the same
+   day: its sets carry no logos for any game and its product images are TCGplayer CDN URLs,
+   so it adds no image source — but its product search found Team Rocket's Mewtwo ex Box
+   (625695) and the Oddish 2-pack blister (683264), now applied. Still without an image:
+   Ascended Heroes 2-pack blister, Devil Fruits Vol. 4, and the two Topps football boxes
+   (not on TCGplayer; no official page found).
+
 ## J. Sets view backlog (added 2026-08-29)
 
 **J1. Sort control on `/sets` (user-deferred at planning, 2026-08-29).** A control on the
@@ -88,6 +102,16 @@ sets browse page reordering set tiles WITHIN their era/category groups by releas
 (default), 30D momentum, or tracked value — groups keep their order, tiles re-rank
 inside them, so "which Scarlet & Violet set is moving" is answerable without scanning.
 Excluded from the initial build; revisit after the browse page has real usage.
+
+**J2. "Where the value sits" — per-rarity pack value breakdown (planned 2026-09-04).**
+Replace the single Pack EV number with a per-rarity breakdown for every market: per-pack
+value and share bar per rarity, CHASE badges, "chase prints are X% of EV", a purchase-price
+slider from MSRP to market, and the bulk tiers valued from a new `set_rarity_stats`
+aggregate the live ingestion can write from the TCGCSV group files it already downloads
+(commons/uncommons need no catalog rows). Pack composition (`perPack`) joins `packsPerHit`
+in `pull-rates.json`, curated only. Plan, model, costs, and phases:
+`docs/set-value-breakdown-plan-2026-09.md`. Needs curated pack compositions per game/era
+and a packs-per-product table from the user before Phase 2.
 
 ## K. Signal display (added 2026-08-30)
 
@@ -223,6 +247,31 @@ eBay Browse/Finding APIs for live listings or sold-comps pricing next to the TCG
 market price (API keys, rate limits, and a caching/ingestion path to size at review —
 sold-comps would be a genuinely differentiating data source but is the expensive half).
 Plan the link tier first; the API tier is its own phase.
+*Planned 2026-09-04 — `docs/ebay-integration-plan-2026-09.md`: tier A links (no API, 0 D1
+reads), tier B affiliate tags, tier C Browse-API active-listing rotation (`ebay_listings`,
+≤ 1,500 calls/day, +1 row per detail view and per first hover reveal), tier D sold comps via
+the PokemonPriceTracker tier. eBay sold data itself is closed to us (Marketplace Insights is
+a limited release; the public sold search went behind a login in late August 2026).*
+*Implemented 2026-09-04 (working tree): tiers A and C. Product pages carry an "eBay
+Listings" panel under Modeled Fair Value (`EbayMarketPanel`): lowest/median ask and the
+active-listing count from `ebay_listings` (migration 0016, `db/ebay-ingestion.ts` rotation,
+cron action `ebay` on idle ticks, ops job `ebay`), the raw eBay sale price PokemonPriceTracker
+already supplies as the sold data point, up to five sample listings, and the search/sold
+links; the hero gains an eBay button. Needs the user's eBay developer keyset as the
+`EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET` secrets before the rotation fills the table; until
+then the panel is the links and a note. Tier B tagging stays open (O1).*
+
+**O3. TCGplayer link inside every hover chart.** Every card-shaped popover (leaderboard,
+sealed rows, full-view cards, detail tables, metrics movers, Collectr import) gets an
+explicit "TCGplayer ↗" button under the stats, built from the row's `url` (exact
+`source_url`, present on all 18,361 catalog rows) or the id form
+`https://www.tcgplayer.com/product/<id>` where a row carries no URL (movers, import matches).
+Zero additional D1 reads: `rows_read` counts rows, not columns, and every surface already
+holds the data. Plan and cost table: `docs/ebay-integration-plan-2026-09.md` §A.
+*Implemented 2026-09-04 (working tree): `tcgplayerMetric` in
+`core/domain/marketplace-links.ts` renders as an anchor tile (`HistoryMetric.href`) in every
+popover — leaderboard, sealed rows, detail tables, movers, Collectr import (the match payload
+now carries `productId`). Affiliate tagging is a TODO(O1) in that module.*
 
 ## P. Signal-model evolution (planned 2026-09-01; from docs/buy-sell-estimation-research.md §15)
 
@@ -356,7 +405,71 @@ not act on; each needs a product or design decision before code changes.
   per year) belongs in the same rollup as a per-set daily index. Order: set EV → directory →
   set index → metrics payload.
 
+## S. Crawler and bot traffic (Cloudflare analytics, 2026-09-04)
+
+- **S1 — most visits are automated.** Analytics showed ~3.8 requests and ~30 KB per visit against
+  ~34 per visit in the prior period, 4xx errors up 907%, 2% unencrypted requests, and datacenter
+  geographies (Russia, China, Finland, Netherlands, France, Germany). *Shipped 2026-09-04 (wave 15):
+  the page edge cache is keyed by the publish signature and held 36 h; `public/robots.txt`
+  disallows `/api/`, `/data/`, `/_vinext/`, `/__ops/` with a crawl delay; `/sitemap.xml` lists the
+  core pages and every set page.* Operator steps still open, in order: read Security → Bots for the
+  verified/unverified split; enable Bot Fight Mode and Block AI bots (and AI Labyrinth); WAF rule
+  challenging non-verified datacenter-ASN traffic on `/cards/*`, `/sealed/*`, `/sets/*`; a WAF rule
+  blocking `/api/*` and `/data/*` requests without `Sec-Fetch-Site: same-origin` (verified bots
+  excepted); one rate limit on the detail paths (~30/min per IP); Turnstile on the Collectr import;
+  re-read the D1 24 h counter and the Bots panel a day later.
+
 ## R. Production ingestion cadence bug (found 2026-09-03 during the D1 audit)
+
+**R4. Overlapping guard-cron ticks halve the live walk, then the minimum-records guard
+resets it (found 2026-09-05 03:50Z).** The `live-daily:2026-09-04` run took 7.2 h
+(20:07→03:19Z) against 4.4 h the day before, wrote
+9,123 records with 9,591 duplicate decisions (1,320 the day before), and stamped rows at a
+flat 2,400/h — 40 a minute against an 80-record tick every minute. No minute wrote more than
+80 observations, so ticks are not writing concurrently; the pattern fits a trailing tick that
+starts while the previous one is still mid-slice, reads the same cursor, finds every record
+already stamped (all duplicates, no writes), and checkpoints the same cursor — one wasted
+minute in two. Ticks are ~12 D1 ops per record × 80 records, i.e. right at the 60 s cron
+period, so any D1 latency increase tips them over. Second-order effect, observed 03:54Z: each
+tick checkpoints `recordsWritten` from the stats it read at start plus its own writes, so the
+trailing tick's checkpoint clobbers the leader's count; by the end of the pass the stat read
+9,123 while 18,284 rows carried the run id, the `minimumRecords` (10,000) guard judged the
+day truncated and reset the cursor to 0:0, and the re-walk (cursor 1:133 at 03:54Z) finds
+every row stamped, so it will write nothing, fail the guard again, and loop until the run id
+changes with the next publish — the 2026-09-04 publish never lands, and the rollup and
+history for it never run. Fixes, in order: (1) a tick lease in `refresh_state`
+(`key='cron-lease'`, `lease_until`) claimed with one conditional UPDATE at tick start and
+released at the end — a tick that cannot claim it exits idle; (2) the guard counts stamped rows
+in D1 (`count(*) where ingestion_run_id=?`) instead of the racy stat, and a reset re-walk that
+finds rows already stamped counts them as written; (3) halve the live slice to 40 records so a
+tick finishes well inside its minute (the chain has hours of headroom).
+*Fixes 1 and 2 implemented in the working tree 2026-09-05: `db/tick-lease.ts` claims a 170 s
+lease in `refresh_state` (`cron-lease`) with one conditional upsert and the tick exits idle
+when it cannot; the live walk's truncation guard and its published count use the rows the
+database holds for the run, so a reset re-walk publishes. Deploying before the 2026-09-05
+publish (~20:05Z) lets the stuck 2026-09-04 re-walk complete under the new guard and land
+(18,284 stamped rows ≥ 10,000); otherwise that day re-keys itself at the next TCGCSV timestamp
+and its rollup and history are lost.*
+
+**R5. Observations dated by wall clock, not by the run.** `observed_date` is the tick's UTC
+date, so a live walk that straddles midnight splits one TCGCSV publish across two dates
+(2026-09-04: 8,742 observations dated the 4th, ~9.5 k dated the 5th; the 3rd's run put 1,607
+onto the 4th). The set index and metrics treat each date as a day of coverage, so straddled
+days undercount members and can fall under the 60% coverage floor. Fix: date observations
+and `as_of_date` by the run's source date (`sourceUpdatedAt`), one date per publish; decide
+how to treat the existing split days (leave, or re-date the post-midnight rows of a run).
+
+**Q9. Peer anchor is now the largest read (2026-09-05 insights, first clean day after wave
+14: 66.0 M rows/day, from 337 M).** `db/peer-anchors.ts` — the detail page's 180-day cohort
+average — read 40.1 M rows in 24 h (61% of all reads): 13.9 k rows per call averaged over
+~2,900 detail views, far above the 3.7 k the review measured on one cohort, because large
+cohorts (promo sets, hundreds of cards × 180 days) dominate. Every card of one set+rarity
+shares a cohort, so a per-isolate memo keyed by (game, set, rarity) with a ten-minute TTL
+(the early-value set-list pattern) removes most repeats from crawlers walking a set; the
+durable fix is a per-cohort daily average table written by the rollup (Q8). Remaining lines
+that day: whole-game isolate loads 6.1 M (278 cold isolates), `/api/signals` 2.9 M, set EV
+2.3 M; 6.9 M were the operator's own R3 verification queries (full observation scans) and
+will not recur.
 
 - **R1 — the daily metrics rollup and the tiered history refresh have never run in production.** *Fixed in wave 12 (`liveRunDate` keying, pinned in `tests/cloudflare-cutover.test.mjs` and `tests/scheduled-ingestion.test.mjs`). After deploy the first tick runs `metrics-rollup:<latest live date>`; the production ops adapter refuses jobs, so earlier days are not backfilled — the track record starts from the deploy day.*
   `refresh_state` shows `metrics-rollup:2026-08-28` (the manual backfill) and

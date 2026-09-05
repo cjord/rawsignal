@@ -8,23 +8,30 @@
 // Two classes of request are cached:
 // - `/api/*` and `/data/*`: for the shared lifetime the route itself declares (`s-maxage`),
 //   capped below.
-// - the public D1-heavy pages (`/sets`, `/sets/…`, `/cards/…`, `/sealed/…`, `/metrics`): for a fixed
-//   ten minutes. vinext's own ISR (`export const revalidate`) was tried first and never wrote
-//   an entry in production — it flags these renders as dynamic, and its store is per isolate
-//   — so the Worker caches the finished response itself. Pages are identical for every
-//   visitor (preferences live in localStorage; no cookies), and HTML and RSC payloads are
-//   kept apart by folding vinext's `Vary` request headers into the cache key.
+// - the public D1-heavy pages (`/sets`, `/sets/…`, `/cards/…`, `/sealed/…`, `/metrics`): until
+//   the next publish or deploy. The caller folds a publish signature (the published run ids
+//   and the deployed version, `worker/page-signature.ts`) into the key, so a new run or a new
+//   build is a new key and the entry itself can be held for a long time (review §15: a crawler
+//   over the product long tail then costs one render per URL per colo per day). vinext's own
+//   ISR (`export const revalidate`) was tried first and never wrote an entry in production — it
+//   flags these renders as dynamic, and its store is per isolate — so the Worker caches the
+//   finished response itself. Pages are identical for every visitor (preferences live in
+//   localStorage; no cookies), and HTML and RSC payloads are kept apart by folding vinext's
+//   `Vary` request headers into the cache key.
 
 type CacheLike = { match(request: Request): Promise<Response | undefined>; put(request: Request, response: Response): Promise<void> };
 type WaitUntil = { waitUntil(promise: Promise<unknown>): void };
 
 const ROUTE_CACHED_PREFIXES = ["/api/", "/data/"];
+const ROUTE_CACHED_PATHS = ["/sitemap.xml"];
 const PAGE_CACHED_PATTERN = /^\/(sets|cards|sealed|metrics)(\/|$)/;
 // Upper bound on how long a colo keeps a route copy, whatever the route's own s-maxage says:
 // the data changes once a day when the live run publishes (~05:00Z), and a board that stayed
 // on yesterday's numbers for the signals route's full hour would be visible.
 export const EDGE_MAX_AGE_SECONDS = 600;
-export const PAGE_EDGE_MAX_AGE_SECONDS = 600;
+// Pages are keyed by their publish signature, so the entry lifetime only has to outlast the gap
+// between publishes (one live run a day) with margin; a new publish or deploy is a new key.
+export const PAGE_EDGE_MAX_AGE_SECONDS = 36 * 3600;
 // The request headers vinext varies page responses on (its responses list them in `Vary`).
 const PAGE_VARY_HEADERS = ["rsc", "next-router-state-tree", "next-router-prefetch", "next-router-segment-prefetch", "next-url", "x-vinext-interception-context", "x-vinext-mounted-slots", "x-vinext-rsc-render-mode", "accept"];
 
@@ -42,28 +49,29 @@ export function sharedMaxAge(cacheControl: string | null): number {
 export function edgeCacheClass(request: Request): EdgeCacheClass {
   if (request.method !== "GET") return null;
   const { pathname } = new URL(request.url);
-  if (ROUTE_CACHED_PREFIXES.some(prefix => pathname.startsWith(prefix))) return "route";
+  if (ROUTE_CACHED_PREFIXES.some(prefix => pathname.startsWith(prefix)) || ROUTE_CACHED_PATHS.includes(pathname)) return "route";
   if (PAGE_CACHED_PATTERN.test(pathname)) return "page";
   return null;
 }
 
 export const edgeCacheableRequest = (request: Request) => edgeCacheClass(request) !== null;
 
-// FNV-1a over the vary-header values: short, stable, and enough to keep variants apart.
-function varyDigest(request: Request): string {
+// FNV-1a over the vary-header values and the publish signature: short, stable, and enough to
+// keep variants and publishes apart.
+function varyDigest(request: Request, signature: string): string {
   let hash = 0x811c9dc5;
-  for (const name of PAGE_VARY_HEADERS) {
-    const text = `${name}=${request.headers.get(name) ?? ""};`;
-    for (let index = 0; index < text.length; index++) { hash ^= text.charCodeAt(index); hash = Math.imul(hash, 0x01000193) >>> 0; }
-  }
+  const mix = (text: string) => { for (let index = 0; index < text.length; index++) { hash ^= text.charCodeAt(index); hash = Math.imul(hash, 0x01000193) >>> 0; } };
+  for (const name of PAGE_VARY_HEADERS) mix(`${name}=${request.headers.get(name) ?? ""};`);
+  mix(`sig=${signature}`);
   return hash.toString(16);
 }
 
-// Routes are keyed by their URL; pages by URL plus a digest of the negotiation headers.
-export function edgeCacheKey(request: Request, kind: EdgeCacheClass = edgeCacheClass(request)): Request {
+// Routes are keyed by their URL; pages by URL plus a digest of the negotiation headers and the
+// publish signature.
+export function edgeCacheKey(request: Request, kind: EdgeCacheClass = edgeCacheClass(request), signature = ""): Request {
   if (kind !== "page") return new Request(request.url, { method: "GET" });
   const url = new URL(request.url);
-  url.searchParams.set("__edge", varyDigest(request));
+  url.searchParams.set("__edge", varyDigest(request, signature));
   return new Request(url.toString(), { method: "GET" });
 }
 
@@ -88,10 +96,10 @@ function edgeCache(): CacheLike | null {
 // Serve from the colo cache when present; otherwise produce, and store a copy in the
 // background when the response may be shared. Any cache failure falls through to the
 // produced response — the cache is an accelerator, never a dependency.
-export async function withEdgeCache(request: Request, ctx: WaitUntil, produce: () => Promise<Response>, cache: CacheLike | null = edgeCache()): Promise<Response> {
+export async function withEdgeCache(request: Request, ctx: WaitUntil, produce: () => Promise<Response>, cache: CacheLike | null = edgeCache(), signature = ""): Promise<Response> {
   const kind = edgeCacheClass(request);
   if (!cache || !kind) return produce();
-  const key = edgeCacheKey(request, kind);
+  const key = edgeCacheKey(request, kind, signature);
   const cached = await cache.match(key).catch(() => undefined);
   if (cached) {
     const headers = new Headers(cached.headers);

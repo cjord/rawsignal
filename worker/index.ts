@@ -3,7 +3,9 @@ import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } fr
 import handler from "vinext/server/app-router-entry";
 import { handleLiveFeed } from "./live-feeds.ts";
 import { runScheduledIngestionTick } from "./scheduled-ingestion.ts";
-import { edgeCacheableRequest, withEdgeCache } from "./edge-cache.ts";
+import { edgeCacheClass, edgeCacheableRequest, withEdgeCache } from "./edge-cache.ts";
+import { pageCacheSignature } from "./page-signature.ts";
+import type { D1DatabaseLike } from "../db/repository.ts";
 import { handleStagingJob, type StagingJobEnv } from "./staging-jobs.ts";
 
 interface Env {
@@ -12,6 +14,9 @@ interface Env {
   ENVIRONMENT?: string;
   STAGING_JOB_TOKEN?: string;
   POKEMONPRICETRACKER_API_KEY?: string;
+  EBAY_CLIENT_ID?: string;
+  EBAY_CLIENT_SECRET?: string;
+  EBAY_EPN_CAMPAIGN_ID?: string;
   CF_VERSION_METADATA?: { id: string; tag: string; timestamp: string };
   IMAGES: {
     input(stream: ReadableStream): {
@@ -62,9 +67,14 @@ const worker = {
       }, allowedWidths);
     }
 
-    // API routes ride the colo cache for the lifetime their own Cache-Control declares, and
-    // the public D1-heavy pages (sets, card and sealed detail) for ten minutes (review §14 F7).
-    if (edgeCacheableRequest(request)) return withEdgeCache(request, ctx, () => handler.fetch(request, env, ctx));
+    // API routes ride the colo cache for the lifetime their own Cache-Control declares (review
+    // §14 F7); the public D1-heavy pages (sets, card and sealed detail, metrics) are keyed by the
+    // published runs and the deployed version, so an entry lives until the next publish or deploy
+    // (review §15: a crawler over the product long tail costs one render per URL per colo per day).
+    if (edgeCacheableRequest(request)) {
+      const signature = edgeCacheClass(request) === "page" ? await pageCacheSignature(env.DB as unknown as D1DatabaseLike | undefined, env.CF_VERSION_METADATA?.id ?? "dev") : "";
+      return withEdgeCache(request, ctx, () => handler.fetch(request, env, ctx), undefined, signature);
+    }
     return handler.fetch(request, env, ctx);
   },
 

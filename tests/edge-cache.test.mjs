@@ -24,6 +24,8 @@ test("GET requests under /api/, /data/, and the public pages are candidates; onl
   assert.equal(edgeCacheableRequest(new Request("https://rawsignal.cards/import")), false);
   assert.equal(edgeCacheableRequest(new Request("https://rawsignal.cards/metrics")), true);
   assert.equal(edgeCacheableRequest(new Request("https://rawsignal.cards/metrics?mode=sealed&market=pokemon")), true);
+  assert.equal(edgeCacheClass(new Request("https://rawsignal.cards/sitemap.xml")), "route");
+  assert.equal(edgeCacheableRequest(new Request("https://rawsignal.cards/robots.txt")), false);
   assert.equal(edgeCacheableRequest(new Request("https://rawsignal.cards/__ops/staging-jobs")), false);
   assert.equal(edgeCacheableRequest(new Request("https://rawsignal.cards/api/collectr", { method: "POST" })), false);
   assert.equal(edgeCacheableResponse(json({ ok: 1 }, "public, s-maxage=300")), true);
@@ -83,8 +85,24 @@ test("pages are keyed by URL plus vinext's negotiation headers, so HTML and RSC 
   assert.match(htmlKey, /[?&]__edge=[0-9a-f]+$/);
   // The sealed detail's ?market= stays in the key: the two markets are different pages.
   assert.notEqual(edgeCacheKey(new Request("https://rawsignal.cards/sealed/12?market=scalping")).url, edgeCacheKey(new Request("https://rawsignal.cards/sealed/12")).url);
-  // Routes keep their plain URL key.
+  // Routes keep their plain URL key, signature or not.
   assert.equal(edgeCacheKey(new Request("https://rawsignal.cards/api/signals?side=buy")).url, "https://rawsignal.cards/api/signals?side=buy");
+  assert.equal(edgeCacheKey(new Request("https://rawsignal.cards/api/signals?side=buy"), "route", "v1|daily-market=x").url, "https://rawsignal.cards/api/signals?side=buy");
+  // Pages fold the publish signature into the key: a new publish or deploy is a new key.
+  assert.notEqual(edgeCacheKey(html, "page", "v1|run-a").url, edgeCacheKey(html, "page", "v1|run-b").url);
+  assert.notEqual(edgeCacheKey(html, "page", "v1|run-a").url, edgeCacheKey(html, "page", "v2|run-a").url);
+  assert.equal(edgeCacheKey(html, "page", "v1|run-a").url, edgeCacheKey(new Request(html.url, { headers: { accept: "text/html" } }), "page", "v1|run-a").url);
+});
+
+test("a page cached under one publish signature is a miss under the next", async () => {
+  const cache = fakeCache(), context = ctx(); let produced = 0;
+  const request = new Request("https://rawsignal.cards/cards/12", { headers: { accept: "text/html" } });
+  const produce = async () => { produced++; return new Response(`<html>${produced}</html>`, { status: 200, headers: { "Content-Type": "text/html" } }); };
+  assert.equal(await (await withEdgeCache(request, context, produce, cache, "v1|run-a")).text(), "<html>1</html>");
+  await Promise.all(context.pending);
+  assert.equal(await (await withEdgeCache(request, context, produce, cache, "v1|run-a")).text(), "<html>1</html>", "same publish: hit");
+  assert.equal(await (await withEdgeCache(request, context, produce, cache, "v1|run-b")).text(), "<html>2</html>", "new publish: miss");
+  assert.equal(produced, 2);
 });
 
 test("page responses are stored for the page lifetime regardless of the no-store vinext stamps on them; only HTML/RSC bodies qualify", async () => {

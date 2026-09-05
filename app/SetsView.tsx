@@ -38,6 +38,7 @@ function SetTile({row,asOf,starred}:{row:SetDirectoryRow;asOf:string;starred:boo
  return <a className="set-tile" href={`/sets/${row.game}/${row.slug}`}>
   <div className="set-tile-head">
    {logo?<span className="set-tile-logo"><DeferredImage src={logo.logo} alt={`${row.set} logo`} className="set-logo-image"/></span>
+    :row.cover?<span className="set-tile-logo set-tile-cover"><DeferredImage src={row.cover} alt={`${row.set} cover art`} className="set-cover-image"/></span>
     :<span className={`set-tile-mark mark-${row.game}`} aria-hidden="true">{row.set}</span>}
    <span className="set-tile-title"><b>{row.set}</b>{release&&<small>{release}</small>}</span>
    <button type="button" className={`set-star ${starred?"is-starred":""}`} aria-label={starred?`Unstar ${row.set}`:`Star ${row.set}`} aria-pressed={starred}

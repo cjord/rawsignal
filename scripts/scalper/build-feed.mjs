@@ -90,7 +90,9 @@ const supplementalProducts = supplemental
     name: product.name,
     set: product.set,
     category: normalizeProductType(product.name),
-    image: null,
+    // Curated image (2026-09-04): the matching TCGplayer product's art where TCGCSV now lists
+    // the product, else the publisher's official product shot; null renders "Image unavailable".
+    image: typeof product.image === "string" && product.image ? product.image : null,
     url: product.url,
     msrp: positive(product.msrp),
     marketPrice: null,

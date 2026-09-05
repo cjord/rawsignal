@@ -251,6 +251,48 @@ export const refreshState = sqliteTable("refresh_state", {
   cursor: text("cursor"),
 });
 
+// Per-set rarity aggregates (todo J2, migration 0017): one row per set × tier for EVERY
+// rarity in a TCGCSV group — the bulk commons/uncommons/rares the catalog never tracks
+// included — written by the live walk from the group files it already downloads.
+// `tier` is the section slug for Riftbound's showcase and rare tiers (which share rarity
+// strings) and the rarity string otherwise; `sum_cents` is over priced cards while
+// `card_count` counts every card, so an average "divides by every card" honestly.
+export const setRarityStats = sqliteTable("set_rarity_stats", {
+  game: text("game").notNull(),
+  setName: text("set_name").notNull(),
+  tier: text("tier").notNull(),
+  rarity: text("rarity").notNull(),
+  section: text("section"),
+  cardCount: integer("card_count").notNull(),
+  pricedCount: integer("priced_count").notNull(),
+  sumCents: integer("sum_cents").notNull(),
+  topCents: integer("top_cents"),
+  topProductId: integer("top_product_id"),
+  updatedAt: text("updated_at").notNull(),
+  ingestionRunId: text("ingestion_run_id").references(() => ingestionRuns.id),
+}, (table) => [
+  primaryKey({ columns: [table.game, table.setName, table.tier] }),
+  index("idx_set_rarity_stats_updated").on(table.updatedAt),
+]);
+
+// eBay active-listing snapshots (todo O2, migration 0016): one row per product the Browse
+// rotation has reached — the filtered listing count, the lowest and median asks in cents, and
+// up to five sample listings for the detail panel. `updated_at` is the day of the fetch
+// (the rotation's staleness key); asks are listing prices, never sales.
+export const ebayListings = sqliteTable("ebay_listings", {
+  productId: integer("product_id").primaryKey().references(() => catalogProducts.productId, { onDelete: "cascade" }),
+  query: text("query").notNull(),
+  categoryId: integer("category_id"),
+  listingCount: integer("listing_count").notNull(),
+  lowestCents: integer("lowest_cents"),
+  medianCents: integer("median_cents"),
+  samplesJson: text("samples_json").notNull().default("[]"),
+  fetchedAt: text("fetched_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  index("idx_ebay_listings_updated").on(table.updatedAt),
+]);
+
 // Collectr-import fuzzy-match audit (2026-08-31): every match reached by a fallback tier
 // (name / normalized / fuzzy, i.e. NOT an exact id-join) is logged here for later manual
 // review, accumulating a seen_count across imports. No FK on matched_product_id — this is

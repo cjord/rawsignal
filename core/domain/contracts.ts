@@ -1,4 +1,4 @@
-import type { Card, CatalogDetailEnrichment, DetailMetadataField, DetailPriceVariant, DetailSource, GradedCardData, PeerAnchorStats, PriceHistory, PricePoint, PullRateConfig, SealedProduct } from "./types.ts";
+import type { Card, CatalogDetailEnrichment, DetailMetadataField, DetailPriceVariant, DetailSource, GradedCardData, PeerAnchorStats, PriceHistory, PricePoint, PullRateConfig, PullRateTables, SealedProduct } from "./types.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -114,9 +114,18 @@ export function parsePullRateConfig(value:unknown):PullRateConfig{
  for(const [game,entry] of Object.entries(value.games)){
   if(!record(entry))throw new TypeError("Invalid pull-rate game entry");
   const rates=(table:unknown,label:string)=>{if(table==null)return{};if(!record(table))throw new TypeError(`Invalid pull-rate ${label}`);const out:Record<string,number>={};for(const [rarity,packs] of Object.entries(table)){if(!finite(packs)||packs<=0)throw new TypeError(`Invalid pull rate for ${rarity}`);out[rarity]=packs}return out};
-  const sets:Record<string,Record<string,number>>={};
-  if(entry.sets!=null){if(!record(entry.sets))throw new TypeError("Invalid pull-rate sets");for(const [set,table] of Object.entries(entry.sets))sets[set]=rates(table,`set ${set}`)}
-  games[game]={default:rates(entry.default,"default"),sets};
+  const tables=(source:Record<string,unknown>,label:string)=>{
+   const sets:Record<string,Record<string,number>>={};
+   if(source.sets!=null){if(!record(source.sets))throw new TypeError(`Invalid ${label} sets`);for(const [set,table] of Object.entries(source.sets))sets[set]=rates(table,`${label} set ${set}`)}
+   const parsed:PullRateTables={default:rates(source.default,`${label} default`),sets};
+   // Era defaults (todo J2): Pokémon packs changed size and split by era, so a game default cannot express them.
+   if(source.eras!=null){if(!record(source.eras))throw new TypeError(`Invalid ${label} eras`);parsed.eras={};for(const [era,table] of Object.entries(source.eras))parsed.eras[era]=rates(table,`${label} era ${era}`)}
+   return parsed;
+  };
+  const parsed:PullRateConfig["games"][string]=tables(entry,"pull-rate");
+  // Cards per pack for guaranteed slots (todo J2): same shape, same positive-number rule.
+  if(entry.perPack!=null){if(!record(entry.perPack))throw new TypeError("Invalid pull-rate perPack");parsed.perPack=tables(entry.perPack,"perPack")}
+  games[game]=parsed;
  }
  return {games};
 }
