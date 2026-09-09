@@ -12,7 +12,7 @@ export default function HistoryPanel({title,subtitle,points,label="market",metri
  // draws — never a recommendation.
  const reading=points.length?classifyRegime(points):null;
  return <span className="history-panel"><div className="history-title"><small>{title}</small>{reading&&<RegimeChip regime={reading.regime} detail={reading.detail}/>}<b>{subtitle}</b></div><PriceChart points={points} loading={loading} label={label} large={large}/><div className="history-stats">{metrics.map(metric=>metric.href
-  ?<a key={metric.label} href={metric.href} target="_blank" rel="noopener noreferrer"><small>{metric.label}</small><b className={metric.tone}>{metric.value}</b></a>
+  ?<a key={metric.label} href={metric.href} target="_blank" rel="noopener noreferrer sponsored"><small>{metric.label}</small><b className={metric.tone}>{metric.value}</b></a>
   :<span key={metric.label}><small>{metric.label}</small><b className={metric.tone}>{metric.value}</b></span>)}</div>{hint&&<small className="touch-hint">{hint}</small>}</span>;
 }
 

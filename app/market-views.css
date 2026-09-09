@@ -357,6 +357,7 @@
   .site-footer-links{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:13px}
   .site-footer-links a{color:#cfd1d6;font-size:var(--text-sm);font-weight:750;text-decoration:none}
   .site-footer-links a:hover,.site-footer-links a:focus-visible{color:#fff;text-decoration:underline}
+  .site-footer-disclosure{margin-top:10px;font-size:var(--text-2xs);color:#9ea2ab;line-height:1.5}
 
   /* N4: phone header flow — 1 title · 2 details line · 3 filters. The header's inner
      div dissolves (display:contents) so the aside orders between the title block and

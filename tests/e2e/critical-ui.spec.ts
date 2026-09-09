@@ -106,7 +106,9 @@ test("opens a row's hover chart with a TCGplayer link tile",async({page})=>{
  await row.locator("summary").hover();
  const tile=row.locator(".market-row-popover .history-stats a",{hasText:"TCGplayer"});
  await expect(tile).toBeVisible();
- await expect(tile).toHaveAttribute("href",/^https:\/\/www\.tcgplayer\.com\/product\/\d+/);
+ // Affiliate link (O1): the Impact tracking URL deep-linking to the product page, marked sponsored.
+ await expect(tile).toHaveAttribute("href",/^https:\/\/partner\.tcgplayer\.com\/c\/7677898\/1780961\/21018\?u=https%3A%2F%2Fwww\.tcgplayer\.com%2Fproduct%2F\d+/);
+ await expect(tile).toHaveAttribute("rel",/sponsored/);
  await expect(tile).toHaveAttribute("target","_blank");
 });
 

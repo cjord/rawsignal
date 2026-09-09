@@ -17,6 +17,9 @@ export default function SiteFooter() {
           </a>
           . Unavailable data displays as unavailable — never estimated.
         </p>
+        <p className="site-footer-disclosure">
+          Affiliate disclosure: TCGplayer links on this site are affiliate links. Raw Signal may earn a commission on purchases made through them, at no extra cost to you.
+        </p>
         <nav className="site-footer-links" aria-label="Site">
           <Link href="/">Rankings</Link>
           <Link href="/sets">Sets</Link>

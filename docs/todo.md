@@ -239,6 +239,10 @@ eBay links from O2 via the eBay Partner Network (EPN campaign id on the URL). Ne
 program signups + credentials (user), a small shared link-builder helper so tags apply
 consistently everywhere links render, and a disclosure line (footer/methodology) per
 program requirements. Scope and plan at review before implementation.
+*TCGplayer half shipped 2026-09-09: every TCGplayer link is the Impact tracking link
+(partner.tcgplayer.com/c/7677898/1780961/21018) with the product page as its u= deep-link
+target (core/domain/marketplace-links.ts), anchors carry rel=sponsored, and both footers show
+the affiliate disclosure. The eBay half waits on the EPN campaign id.*
 
 **O2. eBay product links and integration.** Surface eBay alongside TCGplayer on
 product detail pages (and possibly rows): at minimum a search-style outbound link like
@@ -466,7 +470,9 @@ average — read 40.1 M rows in 24 h (61% of all reads): 13.9 k rows per call av
 cohorts (promo sets, hundreds of cards × 180 days) dominate. Every card of one set+rarity
 shares a cohort, so a per-isolate memo keyed by (game, set, rarity) with a ten-minute TTL
 (the early-value set-list pattern) removes most repeats from crawlers walking a set; the
-durable fix is a per-cohort daily average table written by the rollup (Q8). Remaining lines
+durable fix is a per-cohort daily average table written by the rollup (Q8). *Memo implemented
+2026-09-09 (`readPeerAnchor` keeps each cohort summary per isolate for ten minutes; failed reads
+are not kept) after the query reached 142 M rows a day on 16 k detail views.* Remaining lines
 that day: whole-game isolate loads 6.1 M (278 cold isolates), `/api/signals` 2.9 M, set EV
 2.3 M; 6.9 M were the operator's own R3 verification queries (full observation scans) and
 will not recur.

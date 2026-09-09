@@ -1132,6 +1132,9 @@ export default function Home() {
           ; Near Mint market history from TCGplayer; sealed MSRP from publisher
           sources. Data updated {formatFullDate(freshIso)}.
         </p>
+        <p className="site-footer-disclosure">
+          Affiliate disclosure: TCGplayer links on this site are affiliate links. Raw Signal may earn a commission on purchases made through them, at no extra cost to you.
+        </p>
       </footer>
     </main>
   );

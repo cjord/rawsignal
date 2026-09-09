@@ -3,7 +3,7 @@ import {readFile,readdir} from "node:fs/promises";
 import {DatabaseSync} from "node:sqlite";
 import test from "node:test";
 import {createD1CatalogRepository} from "../db/catalog-repository.ts";
-import {readPeerAnchor} from "../db/peer-anchors.ts";
+import {PEER_ANCHOR_TTL_MS,readPeerAnchor} from "../db/peer-anchors.ts";
 import {startIngestion,upsertCard,upsertHistory} from "../db/repository.ts";
 
 class LocalStatement{
@@ -61,4 +61,28 @@ test("the D1 detail adapter exposes the derived peer anchor",async()=>{
   const db=await seededDb();
   const detail=await createD1CatalogRepository(db).getDetail("single",1);
   assert.deepEqual(detail?.peerAnchor,{current:10,cardCount:2,avg30:10,avg90:10,observations:1});
+});
+
+test("peer anchors are memoized per cohort for ten minutes, and a failed read is not kept (Q9)",async()=>{
+  const inner=await seededDb();
+  // A counting shell around the database: the query is the one thing being counted.
+  let queries=0,fail=false;
+  const db={prepare(sql){if(fail)throw new Error("D1 unavailable");if(/from price_observations o join catalog_products/.test(sql))queries++;return inner.prepare(sql)},batch:statements=>inner.batch(statements)};
+  const first=await readPeerAnchor(db,"pokemon","Fixture Set","Illustration Rare",{now:1_000_000});
+  const again=await readPeerAnchor(db,"pokemon","Fixture Set","Illustration Rare",{now:1_000_000+PEER_ANCHOR_TTL_MS-1});
+  assert.deepEqual(again,first);
+  assert.equal(queries,1);
+  // Another cohort is its own entry; a null result is memoized too.
+  assert.equal(await readPeerAnchor(db,"pokemon","Fixture Set","Ultra Rare",{now:1_000_000}),null);
+  assert.equal(await readPeerAnchor(db,"pokemon","Fixture Set","Ultra Rare",{now:1_000_000+5}),null);
+  assert.equal(queries,2);
+  // Past the TTL the cohort is read again.
+  await readPeerAnchor(db,"pokemon","Fixture Set","Illustration Rare",{now:1_000_000+PEER_ANCHOR_TTL_MS});
+  assert.equal(queries,3);
+  // A failure is not kept: the next call retries instead of serving the rejection.
+  fail=true;
+  await assert.rejects(readPeerAnchor(db,"pokemon","Fixture Set","Promo",{now:2_000_000}),/D1 unavailable/);
+  fail=false;
+  assert.deepEqual(await readPeerAnchor(db,"pokemon","Fixture Set","Promo",{now:2_000_001}),{current:50,cardCount:1,avg30:50,avg90:50,observations:1});
+  assert.equal(queries,4);
 });

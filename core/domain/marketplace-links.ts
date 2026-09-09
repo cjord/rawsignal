@@ -9,22 +9,33 @@ import type {HistoryMetric} from "./types.ts";
 // product's name, set, and card number; the sold-listings variant adds eBay's sold/completed
 // filters (eBay asks signed-out visitors to sign in for those since late August 2026).
 //
-// TODO(O1): once the TCGplayer affiliate (Impact) and eBay Partner Network credentials exist,
-// route both builders through the tracking templates HERE — an Impact wrapper around the
-// product URL and the EPN parameters (mkevt/mkcid/mkrid/campid/toolid/customid) on the eBay
-// URLs — so every surface is tagged at once; links carrying a tag also need rel="sponsored"
-// and the footer disclosure.
+// TCGplayer affiliate (O1, 2026-09-09): every TCGplayer link is the Impact tracking link with
+// the product page as its `u` deep-link target, so clicks attribute to the partner account and
+// still land on the exact product. Anchors that carry it use rel="sponsored"; the footers
+// carry the disclosure. eBay links stay untagged until the EPN campaign exists (TODO(O1): the
+// EPN parameters mkevt/mkcid/mkrid/campid/toolid/customid belong here too).
 
 export const TCGPLAYER_PRODUCT_BASE="https://www.tcgplayer.com/product/";
+export const TCGPLAYER_AFFILIATE_BASE="https://partner.tcgplayer.com/c/7677898/1780961/21018";
+
+// The raw product page (no tracking) — what the affiliate link deep-links to.
+export function tcgplayerProductPage(productId:number,sourceUrl?:string|null):string{
+ if(sourceUrl&&exactTcgplayerUrl(sourceUrl))return sourceUrl;
+ return `${TCGPLAYER_PRODUCT_BASE}${productId}`;
+}
+
+export function tcgplayerAffiliateUrl(target:string):string{
+ return `${TCGPLAYER_AFFILIATE_BASE}?u=${encodeURIComponent(target)}`;
+}
 // eBay's "CCG Individual Cards" category. Sealed product spans several eBay categories, so
 // sealed searches carry no category filter and rely on the query text.
 export const EBAY_CATEGORY_SINGLES=183454;
 
 export type EbaySearchItem={kind:"single"|"sealed";name:string;set:string;number?:string|null};
 
+// The link every surface renders: the affiliate wrapper around the product page.
 export function tcgplayerProductUrl(productId:number,sourceUrl?:string|null):string{
- if(sourceUrl&&exactTcgplayerUrl(sourceUrl))return sourceUrl;
- return `${TCGPLAYER_PRODUCT_BASE}${productId}`;
+ return tcgplayerAffiliateUrl(tcgplayerProductPage(productId,sourceUrl));
 }
 
 // Strip the "Name - 123/456" suffix the catalog appends to single names (the number is added
