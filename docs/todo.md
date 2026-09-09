@@ -422,6 +422,20 @@ not act on; each needs a product or design decision before code changes.
   blocking `/api/*` and `/data/*` requests without `Sec-Fetch-Site: same-origin` (verified bots
   excepted); one rate limit on the detail paths (~30/min per IP); Turnstile on the Collectr import;
   re-read the D1 24 h counter and the Bots panel a day later.
+- **S2 — managed challenge observed live (2026-09-09 ~23:40Z).** Between the 23:09Z status
+  check (curl 200) and the Q9 deploy verification, `rawsignal.cards` began answering
+  `Cf-Mitigated: challenge` (403 "Just a moment…") to non-browser clients: plain curl, a
+  spoofed Googlebot user agent from a residential IP, and `/api/signals` were all challenged;
+  a browser user agent, the in-app browser, and `/sitemap.xml` got 200; workers.dev staging is
+  untouched. Consequences and checks: (1) every external API consumer — including any future
+  public signals endpoint (§O plan) — is challenged unless a WAF exception covers `/api/*` for
+  the intended clients; (2) confirm Security → Bots shows verified bots (Googlebot, Bingbot)
+  allowed through, since Cloudflare verifies them by IP, not user agent — the spoofed test from
+  here proves nothing about the real crawlers; (3) production checks from tooling must send a
+  browser user agent. Measure the effect together with Q9: on 2026-09-09 the day read 273 M rows
+  on ~16 k detail views (peer anchor 142 M); re-read `wrangler d1 info` and the top insights
+  after 2026-09-10 23:00Z to split the drop between the challenge (fewer views) and the memo
+  (fewer rows per view).
 
 ## R. Production ingestion cadence bug (found 2026-09-03 during the D1 audit)
 
