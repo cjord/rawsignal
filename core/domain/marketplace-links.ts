@@ -12,11 +12,18 @@ import type {HistoryMetric} from "./types.ts";
 // TCGplayer affiliate (O1, 2026-09-09): every TCGplayer link is the Impact tracking link with
 // the product page as its `u` deep-link target, so clicks attribute to the partner account and
 // still land on the exact product. Anchors that carry it use rel="sponsored"; the footers
-// carry the disclosure. eBay links stay untagged until the EPN campaign exists (TODO(O1): the
-// EPN parameters mkevt/mkcid/mkrid/campid/toolid/customid belong here too).
+// carry the disclosure.
+//
+// eBay affiliate (O1, 2026-09-09): eBay Partner Network Smart Links. The root layout loads
+// EPN's script with this campaign id, and it rewrites every ebay.com link on the page to the
+// campaign at click time — so the search URLs below stay plain and readable, and the Browse
+// client's affiliate header uses the same id for its item URLs. eBay anchors also carry
+// rel="sponsored" and the disclosure names eBay.
 
 export const TCGPLAYER_PRODUCT_BASE="https://www.tcgplayer.com/product/";
 export const TCGPLAYER_AFFILIATE_BASE="https://partner.tcgplayer.com/c/7677898/1780961/21018";
+export const EBAY_EPN_CAMPAIGN_ID=5339205908;
+export const EBAY_SMART_LINKS_SRC="https://epnt.ebay.com/static/epn-smart-tools.js";
 
 // The raw product page (no tracking) — what the affiliate link deep-links to.
 export function tcgplayerProductPage(productId:number,sourceUrl?:string|null):string{
@@ -31,27 +38,44 @@ export function tcgplayerAffiliateUrl(target:string):string{
 // sealed searches carry no category filter and rely on the query text.
 export const EBAY_CATEGORY_SINGLES=183454;
 
-export type EbaySearchItem={kind:"single"|"sealed";name:string;set:string;number?:string|null};
+export type EbaySearchItem={kind:"single"|"sealed";name:string;set:string;number?:string|null;game?:string|null};
 
 // The link every surface renders: the affiliate wrapper around the product page.
 export function tcgplayerProductUrl(productId:number,sourceUrl?:string|null):string{
  return tcgplayerAffiliateUrl(tcgplayerProductPage(productId,sourceUrl));
 }
 
-// Strip the "Name - 123/456" suffix the catalog appends to single names (the number is added
-// separately) and the parenthetical qualifiers that rarely appear in listing titles.
-const cleanName=(name:string)=>name.replace(/\s+-\s+[\w/]+$/,"").replace(/\s*\([^)]*\)\s*/g," ").replace(/\s+/g," ").trim();
+// Query rules, measured against eBay's own search on 2026-09-09 (the query has to match the
+// way sellers title things; the punctuated forms matched nothing):
+// - the game name leads ("Pokemon", "Riftbound", "One Piece") — titles always carry it;
+// - the "Name - 123/456" suffix and parenthetical qualifiers come off the name;
+// - commas and ampersands come out (a comma-separated epithet or "Scarlet & Violet" matched
+//   nothing where the same words without punctuation matched dozens);
+// - the set keeps its name only, never its TCGCSV code ("SV10: Destined Rivals" → "Destined
+//   Rivals"), and is omitted when the name already contains every word of it;
+// - the collector number stays for Pokémon (it disambiguates reprints) and goes for Riftbound
+//   (five matches with it, thirty-three without).
+const GAME_WORDS:Record<string,string>={pokemon:"Pokemon",riftbound:"Riftbound",onepiece:"One Piece"};
+const tidy=(value:string)=>value.replace(/[,&]/g," ").replace(/\s+/g," ").trim();
+const cleanName=(name:string)=>tidy(name.replace(/\s+-\s+[\w/]+$/,"").replace(/\s*\([^)]*\)\s*/g," "));
+const cleanSet=(set:string)=>tidy(set.replace(/^[A-Za-z0-9.-]+:\s*/,""));
+const words=(value:string)=>value.toLowerCase().split(" ").filter(Boolean);
 
 export function ebaySearchQuery(item:EbaySearchItem):string{
- const name=cleanName(item.name);
- if(item.kind==="sealed")return `${name} ${item.set}`.replace(/\s+/g," ").trim();
- const number=item.number?item.number.split("/")[0]?.trim():"";
- return [name,item.set,number].filter(Boolean).join(" ").replace(/\s+/g," ").trim();
+ const name=cleanName(item.name),set=cleanSet(item.set),nameWords=new Set(words(name));
+ const setPart=set&&!words(set).every(word=>nameWords.has(word))?set:"";
+ const game=item.game?GAME_WORDS[item.game]??"":"";
+ const number=item.kind==="single"&&item.game!=="riftbound"&&item.number?item.number.split("/")[0]?.trim():"";
+ return tidy([game,name,setPart,number].filter(Boolean).join(" "));
 }
 
 // The marketplace tile every card-shaped hover popover ends with (todo O3): an explicit
 // outbound button inside the inspection surface, so rows and artwork stay non-navigational.
 export const tcgplayerMetric=(productId:number,sourceUrl?:string|null):HistoryMetric=>({label:"TCGplayer",value:"View ↗",href:tcgplayerProductUrl(productId,sourceUrl)});
+export const ebayMetric=(item:EbaySearchItem):HistoryMetric=>({label:"eBay",value:"Browse ↗",href:ebaySearchUrl(item)});
+// The two outbound tiles a hover popover renders under its artwork (2026-09-09): TCGplayer's
+// product page and an eBay buy-it-now search, side by side.
+export const marketplaceLinkMetrics=(productId:number,sourceUrl:string|null|undefined,item:EbaySearchItem):HistoryMetric[]=>[tcgplayerMetric(productId,sourceUrl),ebayMetric(item)];
 
 export function ebaySearchUrl(item:EbaySearchItem,options:{sold?:boolean}={}):string{
  const params=new URLSearchParams({_nkw:ebaySearchQuery(item)});

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import index from "../tcg-index.json";
 import { useFreshness } from "./data/useFreshness";
 import HistoryPanel, { movementMetric, movementTone } from "./HistoryPanel";
-import { tcgplayerMetric } from "../core/domain/marketplace-links";
+import { marketplaceLinkMetrics } from "../core/domain/marketplace-links";
 import {
   SegmentedView,
   SortableHeader,
@@ -408,12 +408,17 @@ export default function SealedView({
     setSort(next);
     setPage(1);
   };
+  const productLinks = (product: Product) =>
+    marketplaceLinkMetrics(product.productId, product.url, { kind: "sealed", game: product.game, name: product.name, set: product.set });
   const rowDetails = (
     product: Product,
     result: ReturnType<typeof calculate>,
     h?: History,
     large = false,
     loading = false,
+    // Full-view cards have no artwork column, so their marketplace tiles join the grid;
+    // the hover popover renders them under the image instead (HistoryPopover `links`).
+    withLinks = false,
   ) => {
     const movement = (label: string, value: number | null | undefined) =>
       movementMetric(label, value, "N/A");
@@ -448,7 +453,7 @@ export default function SealedView({
           movement("7 Day", h?.change7),
           movement("30 Day", h?.change30),
           movement("90 Day", h?.change90),
-          tcgplayerMetric(product.productId, product.url),
+          ...(withLinks ? productLinks(product) : []),
         ]}
         large={large}
       />
@@ -792,7 +797,7 @@ export default function SealedView({
                     {product.set} · {product.category}
                   </>
                 }
-                content={rowDetails(product, result, h, false, !history[product.productId])}
+                content={rowDetails(product, result, h, false, !history[product.productId], true)}
               />
             </FullViewCardWrap>
           );
@@ -812,6 +817,7 @@ export default function SealedView({
                 image={product.image}
                 alt={`${product.name} product`}
                 badge={signal && <SignalBadge signal={signal} />}
+                links={productLinks(product)}
                 label={`${product.name} price history`}
               >
                 {rowDetails(product, result, h, false, !history[product.productId])}

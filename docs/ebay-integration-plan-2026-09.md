@@ -9,6 +9,13 @@ half). Remaining for the user: the eBay developer keyset (`EBAY_CLIENT_ID`,
 tier B, which is the only code still to write (the builders in
 `core/domain/marketplace-links.ts` carry the TODO). Deploy order for wave 16 is at the end.
 
+**Live listings on every page (decided 2026-09-09).** Option B, an EPN Smart Placement in
+the eBay panel (eBay-rendered cards under eBay's "Ad" label, keyed by our search query),
+was tried on staging and pulled the same day (ad blockers hide it); option A — a Browse-API grid with images, Listings/Graded
+tabs with counts, and an on-demand fetch cached a day under a daily call budget so every
+card and sealed page shows listings for real visitors — is the target once the eBay
+developer keyset exists. The existing search and sold links stay in both.
+
 Scope: todo §O1 (affiliate tagging), §O2 (eBay links and data), and the new §O3 (a
 TCGplayer link inside every hover chart). Written after the wave 14–15 D1 audit
 (review §15), so every step carries its D1 cost in the same units (`rows_read` per event).

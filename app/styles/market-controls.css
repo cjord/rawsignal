@@ -177,8 +177,15 @@
   font-size: var(--text-2xs) !important;
 }
 
-.view-large .hover-card-art {
+/* Large view shows the artwork on the tile itself, so the popover hides its copy (and the
+   badge) but keeps the marketplace tiles (2026-09-09), which drop below the stats. */
+.view-large .hover-card-art > .deferred-image,
+.view-large .hover-card-art > .signal-badge {
   display: none !important;
+}
+
+.view-large .hover-card-art {
+  order: 2;
 }
 
 .product-toggle button b,

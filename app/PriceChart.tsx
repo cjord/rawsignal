@@ -13,9 +13,14 @@ export default function PriceChart({points,volumes,overlays,mainLabel,formatValu
  // Geometry is memoized (app/chart-geometry.ts): hover re-renders on every pointer move
  // and used to recompute the whole chart, including the O(n²) trailing mean.
  const geometry=useMemo(()=>points.length<2?null:chartGeometry(points,range,overlays,volumes,large),[points,range,overlays,volumes,large]);
- // A popover opened before its series arrived (wave 13: charts load on reveal) says so
- // instead of claiming the history does not exist.
- if(!geometry)return <span className="no-chart">{loading?"Loading history…":"History unavailable"}</span>;
+ // A popover opened before its series arrived (wave 13: charts load on reveal) renders a
+ // skeleton with the finished chart's toolbar and plot box, so the popover keeps its height
+ // when the series lands instead of jumping (2026-09-09); missing history says so in place.
+ if(!geometry&&loading)return <div className={`chart-wrap ${large?"chart-large":""} chart-loading`} aria-busy="true">
+  <div className="chart-toolbar"><div className="chart-readout"><span>Loading history…</span></div><div className="chart-ranges" role="group" aria-label="Chart range">{([7,30,90,365] as const).map(days=><button key={days} className={range===days?"active":""} disabled>{rangeLabel(days)}</button>)}</div></div>
+  <div className="chart-canvas"><div className="chart-plot"><span className="sparkline chart-skeleton" aria-hidden="true"/></div></div>
+ </div>;
+ if(!geometry)return <span className="no-chart">History unavailable</span>;
  const {chartPoints,times,timeSpan,overlays:overlaysShown,min,max,mainMin,mainMax,xy,delta,deltaTone,midDate,line,shownVolumes,maxQuantity,volumeByDate,barWidth,minIndex,maxIndex,maLine}=geometry;
  const active=hovered==null?null:{...chartPoints[hovered],...xy[hovered]};
  const activeQuantity=active?volumeByDate.get(active.date):undefined;

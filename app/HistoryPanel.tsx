@@ -25,7 +25,8 @@ export const movementMetric=(label:string,value:number|null|undefined,unavailabl
 // The tile list every card-shaped history popover renders (leaderboard rows, detail
 // tables, metrics movers): market + 30D range + historic low + median, then movement.
 // Sealed rows keep their own bespoke list (MSRP, basis label, profit) in SealedView.
-// Every surface appends the marketplace link tile (`tcgplayerMetric`, todo O3) itself; a
+// Hover popovers render their marketplace tiles under the artwork (HistoryPopover `links`,
+// todo O3); full-view cards without an artwork column append them here instead, and a
 // metric with `href` renders as an anchor tile above.
 export const standardHistoryMetrics=(marketPrice:number|null,midPrice:number|null,history:PriceHistory|undefined,unavailable="—"):HistoryMetric[]=>{
  const usd=(value:number|null)=>formatUsd(value,unavailable);

@@ -163,9 +163,22 @@
     box-shadow: var(--focus-ring) !important;
   }
 
+  /* The inline card sits under the row, which already shows the artwork; the identity
+     column keeps only its marketplace tiles (2026-09-09), below the stats. */
+  .market-row-shell[open] .hover-card-art > .deferred-image,
+  .market-row-shell[open] .hover-card-art > .signal-badge,
+  .market-row-shell[open] .sealed-hover-identity > .sealed-hover-art,
+  .market-row-shell[open] .sealed-hover-identity > .signal-badge {
+    display: none !important;
+  }
+
   .market-row-shell[open] .hover-card-art,
   .market-row-shell[open] .sealed-hover-identity {
-    display: none !important;
+    order: 2;
+  }
+
+  .market-row-shell[open] .hover-card-links {
+    margin-top: 0;
   }
 
   .market-row-shell[open] .history-panel {

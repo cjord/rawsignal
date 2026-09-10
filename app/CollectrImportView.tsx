@@ -10,7 +10,7 @@ import SlidingTabs from "./SlidingTabs";
 import TopBar from "./TopBar";
 import SiteFooter from "./SiteFooter";
 import HistoryPanel,{standardHistoryMetrics} from "./HistoryPanel";
-import {tcgplayerMetric} from "../core/domain/marketplace-links";
+import {marketplaceLinkMetrics} from "../core/domain/marketplace-links";
 import HistoryPopover from "./leaderboard/HistoryPopover";
 import ProductIdentity from "./leaderboard/ProductIdentity";
 import {NumberedPagination,SegmentedView} from "./MarketUI";
@@ -71,7 +71,7 @@ function ImportRow({card,signal,history}:ImportRowProps){
  </>;
  if(!match)return <div className="leader-row import-row is-untracked">{body}</div>;
  return <a className="leader-row import-row" href={match.detailPath} aria-label={`View ${match.name} details`}>{body}
-  {history&&<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={match.image??""} alt={`${match.name} card`} label={`${match.name} price history`}><HistoryPanel title={card.kind==="sealed"?"Market Price History":"Near Mint Market History"} subtitle={card.kind==="sealed"?(match.rarity||"Sealed"):(card.printing??"Normal")} points={history.points??[]} metrics={[...standardHistoryMetrics(match.marketPrice,null,history),tcgplayerMetric(match.productId)]}/></HistoryPopover>}
+  {history&&<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={match.image??""} alt={`${match.name} card`} links={marketplaceLinkMetrics(match.productId,null,{kind:card.kind,game:match.game,name:match.name,set:match.set,number:card.number})} label={`${match.name} price history`}><HistoryPanel title={card.kind==="sealed"?"Market Price History":"Near Mint Market History"} subtitle={card.kind==="sealed"?(match.rarity||"Sealed"):(card.printing??"Normal")} points={history.points??[]} metrics={standardHistoryMetrics(match.marketPrice,null,history)}/></HistoryPopover>}
  </a>;
 }
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {TCGPLAYER_AFFILIATE_BASE,ebaySearchQuery,ebaySearchUrl,tcgplayerAffiliateUrl,tcgplayerMetric,tcgplayerProductPage,tcgplayerProductUrl} from "../core/domain/marketplace-links.ts";
+import {EBAY_EPN_CAMPAIGN_ID,EBAY_SMART_LINKS_SRC,TCGPLAYER_AFFILIATE_BASE,ebayMetric,ebaySearchQuery,ebaySearchUrl,marketplaceLinkMetrics,tcgplayerAffiliateUrl,tcgplayerMetric,tcgplayerProductPage,tcgplayerProductUrl} from "../core/domain/marketplace-links.ts";
 
 test("the TCGplayer product page prefers the catalog's exact URL and falls back to the id form; every rendered link wraps it in the affiliate tracking link",()=>{
  const exact="https://www.tcgplayer.com/product/610526/pokemon-sv-prismatic-evolutions-crispin-171-131";
@@ -23,17 +23,35 @@ test("the hover tile is an outbound link with the shared label",()=>{
  assert.equal(tile.tone,undefined);
 });
 
-test("eBay queries name the card, its set, and its collector number; sealed products the product and set",()=>{
- assert.equal(ebaySearchQuery({kind:"single",name:"Crispin - 171/131",set:"SV: Prismatic Evolutions",number:"171/131"}),"Crispin SV: Prismatic Evolutions 171");
- assert.equal(ebaySearchQuery({kind:"single",name:"Umbreon ex (Special Illustration Rare)",set:"SV: Prismatic Evolutions",number:"161/131"}),"Umbreon ex SV: Prismatic Evolutions 161");
- assert.equal(ebaySearchQuery({kind:"single",name:"Pikachu",set:"Base Set",number:null}),"Pikachu Base Set");
- assert.equal(ebaySearchQuery({kind:"sealed",name:"Destined Rivals Booster Box",set:"SV10: Destined Rivals"}),"Destined Rivals Booster Box SV10: Destined Rivals");
+test("the popover renders TCGplayer and eBay tiles side by side, both outbound",()=>{
+ const tiles=marketplaceLinkMetrics(610516,"https://www.tcgplayer.com/product/610516/slug",{kind:"single",game:"pokemon",name:"Umbreon ex - 161/131",set:"SV: Prismatic Evolutions",number:"161/131"});
+ assert.deepEqual(tiles.map(tile=>tile.label),["TCGplayer","eBay"]);
+ assert.equal(tiles[0].href,tcgplayerProductUrl(610516,"https://www.tcgplayer.com/product/610516/slug"));
+ assert.equal(tiles[1].value,"Browse ↗");
+ assert.equal(new URL(tiles[1].href).searchParams.get("_nkw"),"Pokemon Umbreon ex Prismatic Evolutions 161");
+ assert.equal(ebayMetric({kind:"sealed",game:"pokemon",name:"Elite Trainer Box",set:"SV10: Destined Rivals"}).href,ebaySearchUrl({kind:"sealed",game:"pokemon",name:"Elite Trainer Box",set:"SV10: Destined Rivals"}));
+});
+
+test("eBay queries lead with the game, drop set codes and punctuation, skip a set the name already says, and keep the number for Pokémon only",()=>{
+ // Measured against eBay's own search (2026-09-09): these forms return dozens of listings; the code/colon, comma, and ampersand forms returned none.
+ assert.equal(ebaySearchQuery({kind:"single",game:"pokemon",name:"Crispin - 171/131",set:"SV: Prismatic Evolutions",number:"171/131"}),"Pokemon Crispin Prismatic Evolutions 171");
+ assert.equal(ebaySearchQuery({kind:"single",game:"pokemon",name:"Umbreon ex (Special Illustration Rare)",set:"SV: Prismatic Evolutions",number:"161/131"}),"Pokemon Umbreon ex Prismatic Evolutions 161");
+ assert.equal(ebaySearchQuery({kind:"single",game:"pokemon",name:"Charizard ex - 199/165",set:"SV: Scarlet & Violet 151",number:"199/165"}),"Pokemon Charizard ex Scarlet Violet 151 199");
+ assert.equal(ebaySearchQuery({kind:"single",game:"pokemon",name:"Pikachu",set:"Base Set",number:null}),"Pokemon Pikachu Base Set");
+ assert.equal(ebaySearchQuery({kind:"single",game:"riftbound",name:"Ahri, Nine-Tailed Fox",set:"Origins",number:"1/298"}),"Riftbound Ahri Nine-Tailed Fox Origins");
+ assert.equal(ebaySearchQuery({kind:"single",game:"riftbound",name:"Jinx, Loose Cannon (Alternate Art)",set:"Origins",number:"300/298"}),"Riftbound Jinx Loose Cannon Origins");
+ assert.equal(ebaySearchQuery({kind:"sealed",game:"pokemon",name:"Destined Rivals Booster Box",set:"SV10: Destined Rivals"}),"Pokemon Destined Rivals Booster Box");
+ assert.equal(ebaySearchQuery({kind:"sealed",game:"pokemon",name:"Elite Trainer Box",set:"SV10: Destined Rivals"}),"Pokemon Elite Trainer Box Destined Rivals");
+ assert.equal(ebaySearchQuery({kind:"sealed",game:"riftbound",name:"Lunar Revel Bundle 2026 (Simplified Chinese)",set:"Lunar Revel 2026"}),"Riftbound Lunar Revel Bundle 2026");
+ assert.equal(ebaySearchQuery({kind:"sealed",game:"onepiece",name:"The Time of Battle Booster Box",set:"The Time of Battle"}),"One Piece The Time of Battle Booster Box");
+ // No game given: the query still works without the prefix.
+ assert.equal(ebaySearchQuery({kind:"single",name:"Pikachu",set:"Base Set"}),"Pikachu Base Set");
 });
 
 test("eBay search URLs filter singles to the individual-cards category and buy-it-now, with a sold variant",()=>{
- const single=new URL(ebaySearchUrl({kind:"single",name:"Crispin - 171/131",set:"SV: Prismatic Evolutions",number:"171/131"}));
+ const single=new URL(ebaySearchUrl({kind:"single",game:"pokemon",name:"Crispin - 171/131",set:"SV: Prismatic Evolutions",number:"171/131"}));
  assert.equal(single.origin+single.pathname,"https://www.ebay.com/sch/i.html");
- assert.equal(single.searchParams.get("_nkw"),"Crispin SV: Prismatic Evolutions 171");
+ assert.equal(single.searchParams.get("_nkw"),"Pokemon Crispin Prismatic Evolutions 171");
  assert.equal(single.searchParams.get("_sacat"),"183454");
  assert.equal(single.searchParams.get("LH_BIN"),"1");
  assert.equal(single.searchParams.get("LH_Sold"),null);
@@ -43,4 +61,9 @@ test("eBay search URLs filter singles to the individual-cards category and buy-i
  assert.equal(sold.searchParams.get("LH_Sold"),"1");
  assert.equal(sold.searchParams.get("LH_Complete"),"1");
  assert.equal(sold.searchParams.get("LH_BIN"),null);
+});
+
+test("the eBay campaign and Smart Links loader are the published EPN values",()=>{
+ assert.equal(EBAY_EPN_CAMPAIGN_ID,5339205908);
+ assert.equal(EBAY_SMART_LINKS_SRC,"https://epnt.ebay.com/static/epn-smart-tools.js");
 });

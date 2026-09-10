@@ -167,3 +167,30 @@ test("keeps resilient image fallback and data-saver respect", async () => {
   assert.match(image, /onError=\{onError\}/);
   assert.match(prefetch, /saveData/);
 });
+
+test("loads eBay Partner Network Smart Links with the site campaign and the popover off, after its config", async () => {
+  const layout = await read("app/layout.tsx");
+  assert.match(layout, /window\._epn=\{campaign:\$\{EBAY_EPN_CAMPAIGN_ID\},smartPopover:false\};/);
+  assert.match(layout, /<script src=\{EBAY_SMART_LINKS_SRC\} defer\/>/);
+  assert.ok(layout.indexOf("window._epn") < layout.indexOf("EBAY_SMART_LINKS_SRC} defer"), "the config script precedes the deferred loader");
+  // Every footer names both programs.
+  for (const file of ["app/SiteFooter.tsx", "app/page.tsx"]) assert.match(await read(file), /TCGplayer and eBay links on this site are affiliate links/);
+});
+
+test("the eBay panel carries no EPN Smart Placement (pulled 2026-09-09: ad blockers hide it) and keeps its search and sold links", async () => {
+  const page = await read("app/ProductDetailPage.tsx");
+  assert.doesNotMatch(page, /epn-placement|EBAY_SMART_PLACEMENT_CONFIG_ID/);
+  assert.match(page, /className="tcgplayer-button ebay-button" href=\{searchHref\}/);
+  assert.match(page, /className="tcgplayer-button ebay-button" href=\{soldHref\}/);
+  // PriceCharting no longer carries its own muted style.
+  assert.doesNotMatch(await read("app/detail.css"), /\.pricecharting-button\{border-color/);
+});
+
+test("the detail hero keeps the favorite star in the eyebrow and the marketplace buttons under the set line", async () => {
+  const page = await read("app/ProductDetailPage.tsx");
+  const hero = page.slice(page.indexOf('<section className="detail-hero">'), page.indexOf('<div className="detail-primary-price">'));
+  assert.ok(hero.length > 0, "detail-hero anchors not found — update the slice anchors");
+  assert.match(hero, /detail-eyebrow"><span className="kicker">[^<]*<\/span><FavoriteStar/);
+  assert.ok(hero.indexOf('<div className="detail-actions">') > hero.indexOf("<h1>{detail.name}</h1>"), "the buttons follow the set line");
+  assert.equal((hero.match(/<FavoriteStar/g) ?? []).length, 1);
+});

@@ -99,17 +99,24 @@ test("enables Scalper features without navigating away from Singles",async({page
  await expect(page).toHaveURL(/market=pokemon/);
 });
 
-test("opens a row's hover chart with a TCGplayer link tile",async({page})=>{
+test("opens a row's hover chart with TCGplayer and eBay link tiles under the artwork",async({page})=>{
  await page.goto(singlesUrl);
  await waitForApp(page);
  const row=page.locator(".market-row-shell").first();
  await row.locator("summary").hover();
- const tile=row.locator(".market-row-popover .history-stats a",{hasText:"TCGplayer"});
+ // The marketplace tiles sit under the card image (2026-09-09), not in the stats grid.
+ const links=row.locator(".market-row-popover .hover-card-art .hover-card-links a");
+ await expect(links).toHaveCount(2);
+ await expect(row.locator(".market-row-popover .history-stats a")).toHaveCount(0);
+ const tile=links.filter({hasText:"TCGplayer"});
  await expect(tile).toBeVisible();
  // Affiliate link (O1): the Impact tracking URL deep-linking to the product page, marked sponsored.
  await expect(tile).toHaveAttribute("href",/^https:\/\/partner\.tcgplayer\.com\/c\/7677898\/1780961\/21018\?u=https%3A%2F%2Fwww\.tcgplayer\.com%2Fproduct%2F\d+/);
  await expect(tile).toHaveAttribute("rel",/sponsored/);
  await expect(tile).toHaveAttribute("target","_blank");
+ const ebay=links.filter({hasText:"eBay"});
+ await expect(ebay).toHaveAttribute("href",/^https:\/\/www\.ebay\.com\/sch\/i\.html\?_nkw=Pokemon/);
+ await expect(ebay).toHaveAttribute("rel",/sponsored/);
 });
 
 test("swaps a Pokémon card image to its TCGdex scan when the TCGplayer image fails",async({page})=>{
@@ -122,4 +129,13 @@ test("swaps a Pokémon card image to its TCGdex scan when the TCGplayer image fa
  // which the component treats as a failure and retries once with the fallback scan.
  await image.evaluate(element=>{(element as HTMLImageElement).src="https://tcgplayer-cdn.tcgplayer.com/product/0_in_1000x1000.jpg"});
  await expect(page.locator(".leader-row .identity img").first()).toHaveAttribute("src",/^https:\/\/assets\.tcgdex\.net\/en\//);
+});
+
+test("configures eBay Smart Links with the site campaign and no popover",async({page})=>{
+ await page.goto(singlesUrl);
+ await waitForApp(page);
+ // The loaded EPN script adds its own fields (toolId) to the config object, which proves it ran.
+ await expect.poll(()=>page.evaluate(()=>(window as unknown as {_epn?:{campaign?:number;smartPopover?:boolean}})._epn)).toMatchObject({campaign:5339205908,smartPopover:false});
+ await expect.poll(()=>page.evaluate(()=>(window as unknown as {_epn?:{toolId?:number}})._epn?.toolId)).toBeTruthy();
+ await expect(page.locator('script[src="https://epnt.ebay.com/static/epn-smart-tools.js"]')).toHaveCount(1);
 });

@@ -242,7 +242,22 @@ program requirements. Scope and plan at review before implementation.
 *TCGplayer half shipped 2026-09-09: every TCGplayer link is the Impact tracking link
 (partner.tcgplayer.com/c/7677898/1780961/21018) with the product page as its u= deep-link
 target (core/domain/marketplace-links.ts), anchors carry rel=sponsored, and both footers show
-the affiliate disclosure. The eBay half waits on the EPN campaign id.*
+the affiliate disclosure.* *eBay half shipped 2026-09-09: EPN Smart Links (campaign
+5339205908, popover off) loaded from the root layout rewrite every ebay.com link at click
+time; eBay anchors carry rel=sponsored; both footers name both programs; the Browse client's
+affiliate header defaults to the same campaign. O1 is complete.*
+*Live-listings widget (2026-09-09): an EPN Smart Placement (eBay-rendered cards keyed by our
+search query) shipped to staging and was pulled the same day — ad blockers block
+`epnt.ebay.com`, so most visitors saw nothing, and EPN fixes a ten-listing floor below which
+the widget collapses. The search-query rules it forced stay for the eBay links and the Browse
+rotation (`core/domain/marketplace-links.ts`: game word first, no set codes, commas or
+ampersands, collector number for Pokémon only; Umbreon ex Prismatic Evolutions found 36
+listings, Ahri Origins 22, Destined Rivals booster box 36). The Browse-API grid — images,
+Listings/Graded tabs with counts, on-demand fetch with a daily budget — is the plan once the
+eBay developer keyset exists (plan doc, option A).*
+*Hover popovers (2026-09-09): the TCGplayer and eBay tiles sit under the artwork
+(`HistoryPopover` `links`), the stats grid is market data only, and the chart's loading state
+is a skeleton with the finished chart's toolbar and plot box so the popover keeps its height.*
 
 **O2. eBay product links and integration.** Surface eBay alongside TCGplayer on
 product detail pages (and possibly rows): at minimum a search-style outbound link like

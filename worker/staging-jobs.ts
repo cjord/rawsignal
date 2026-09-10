@@ -9,7 +9,7 @@ import { runDetailIngestionBatch } from "../db/detail-ingestion.ts";
 import { runGradedRotationBatch, type GradedRotationDeps } from "../db/graded-ingestion.ts";
 import { runEbayListingsBatch, type EbayListingsDeps } from "../db/ebay-ingestion.ts";
 import { EBAY_CONDITION_NEW, EBAY_CONDITION_UNGRADED, EbayAuthError, createEbayBrowseClient, type EbayCredentials } from "../core/clients/ebay-browse.ts";
-import { EBAY_CATEGORY_SINGLES, ebaySearchQuery } from "../core/domain/marketplace-links.ts";
+import { EBAY_CATEGORY_SINGLES, EBAY_EPN_CAMPAIGN_ID, ebaySearchQuery } from "../core/domain/marketplace-links.ts";
 import { priceGuard, summarizeEbayListings } from "../core/ebay-summary.ts";
 import { runHistoryBackfillBatch, type HistoryBackfillTarget } from "../db/history-backfill.ts";
 import { dueHistoryTargets, readHistoryTargetRowsFor } from "../db/history-targets.ts";
@@ -149,7 +149,7 @@ export function ebayListingsDeps(credentials: EbayCredentials, fetcher: typeof f
   const client = createEbayBrowseClient(credentials, { fetch: fetcher });
   return {
     async fetchListings(target) {
-      const query = ebaySearchQuery({ kind: target.kind, name: target.name, set: target.set, number: target.number });
+      const query = ebaySearchQuery({ kind: target.kind, game: target.game, name: target.name, set: target.set, number: target.number });
       const categoryId = target.kind === "single" ? EBAY_CATEGORY_SINGLES : null;
       const market = target.marketCents == null ? null : target.marketCents / 100;
       try {
@@ -165,7 +165,8 @@ export function ebayListingsDeps(credentials: EbayCredentials, fetcher: typeof f
 }
 
 export function runEbayJob(env: StagingJobEnv, calls: number) {
-  return runEbayListingsBatch(env.DB, ebayListingsDeps({ clientId: env.EBAY_CLIENT_ID!, clientSecret: env.EBAY_CLIENT_SECRET!, campaignId: env.EBAY_EPN_CAMPAIGN_ID ?? null }), { calls });
+  // The EPN campaign is the site's (core/domain/marketplace-links.ts); the var only overrides it.
+  return runEbayListingsBatch(env.DB, ebayListingsDeps({ clientId: env.EBAY_CLIENT_ID!, clientSecret: env.EBAY_CLIENT_SECRET!, campaignId: env.EBAY_EPN_CAMPAIGN_ID ?? String(EBAY_EPN_CAMPAIGN_ID) }), { calls });
 }
 
 export async function runMetricsJob(env: StagingJobEnv, mode: "daily" | "backfill", asOfDate?: string) {

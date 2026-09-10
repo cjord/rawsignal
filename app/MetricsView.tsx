@@ -9,7 +9,7 @@ import PriceChart from "./PriceChart";
 import TopBar from "./TopBar";
 import SiteFooter from "./SiteFooter";
 import HistoryPanel,{standardHistoryMetrics,type HistoryMetric} from "./HistoryPanel";
-import {tcgplayerMetric} from "../core/domain/marketplace-links";
+import {marketplaceLinkMetrics} from "../core/domain/marketplace-links";
 import {NumberedPagination,SegmentedView} from "./MarketUI";
 import FavoriteStar from "./FavoriteStar";
 import MarketRow from "./leaderboard/MarketRow";
@@ -196,7 +196,8 @@ function CategoryTable({categories}:{categories:MetricsCategoryRow[]}){
 
 const moverTarget=(mover:MetricsMover):HistoryTarget=>mover.kind==="single"?{productId:mover.productId,printing:mover.printing}:{productId:mover.productId,printing:"Sealed",sealed:true};
 const moverFavorite=(mover:MetricsMover):FavoriteEntry=>({key:favoriteKey(mover.kind,mover.productId),kind:mover.kind,game:mover.game,productId:mover.productId,name:mover.name,set:mover.set,number:null,section:null,image:mover.image||null,price:mover.price,addedAt:""});
-const moverMetrics=(mover:MetricsMover,history?:PriceHistory):HistoryMetric[]=>[...standardHistoryMetrics(mover.price,mover.mid,history,"N/A"),tcgplayerMetric(mover.productId)];
+const moverMetrics=(mover:MetricsMover,history?:PriceHistory):HistoryMetric[]=>standardHistoryMetrics(mover.price,mover.mid,history,"N/A");
+const moverLinks=(mover:MetricsMover)=>marketplaceLinkMetrics(mover.productId,null,{kind:mover.kind,game:mover.game,name:mover.name,set:mover.set});
 
 function MoverTable({title,movers,history,onReveal,empty}:{title:string;movers:MetricsMover[];history:Record<number,PriceHistory>;onReveal:(mover:MetricsMover)=>void;empty:string}){
  return <div className="metrics-mover-list"><h3>{title}</h3>
@@ -205,7 +206,7 @@ function MoverTable({title,movers,history,onReveal,empty}:{title:string;movers:M
    <div className="metrics-mover-rows">{movers.map(mover=>{
     const h=history[mover.productId];
     return <MarketRow className="metrics-mover-row" key={`${mover.window}:${mover.kind}:${mover.productId}`} href={mover.kind==="single"?`/cards/${mover.productId}`:`/sealed/${mover.productId}`} label={`View ${mover.name} details`} onReveal={()=>onReveal(mover)}
-     popover={<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={mover.image} alt={`${mover.name} ${mover.kind==="single"?"card":"product"}`} label={`${mover.name} price history`}>
+     popover={<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={mover.image} alt={`${mover.name} ${mover.kind==="single"?"card":"product"}`} links={moverLinks(mover)} label={`${mover.name} price history`}>
       <HistoryPanel title={mover.kind==="single"?"Near Mint Market History":"Sealed Market History"} subtitle={mover.kind==="single"?mover.printing:"Unopened"} points={h?.points??[]} metrics={moverMetrics(mover,h)} loading={!h}/>
      </HistoryPopover>}>
      <span className="mover-star"><FavoriteStar entry={moverFavorite(mover)}/></span>

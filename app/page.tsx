@@ -10,7 +10,7 @@ import {
   type Direction,
 } from "./MarketUI";
 import HistoryPanel, { movementTone, standardHistoryMetrics } from "./HistoryPanel";
-import { tcgplayerMetric } from "../core/domain/marketplace-links";
+import { marketplaceLinkMetrics } from "../core/domain/marketplace-links";
 import { cardImageFallback } from "./data/card-images";
 import { normalized } from "../core/market-utils";
 import CardFilters, { type MovementFilters } from "./CardFilters";
@@ -152,10 +152,10 @@ const sealedMarkets = [
 const scalpingMarket = { key: "scalping", label: "Obey Products" } as const;
 const signalSort = { label: "Signal", key: "signal" as SortKey };
 const ascendingSinglesSorts = new Set<SortKey>(["name", "set"]);
-const cardHistoryMetrics = (card: Card, history?: History) => [
-  ...standardHistoryMetrics(card.marketPrice, card.midPrice, history),
-  tcgplayerMetric(card.productId, card.url),
-];
+const cardHistoryMetrics = (card: Card, history?: History) =>
+  standardHistoryMetrics(card.marketPrice, card.midPrice, history);
+const cardLinks = (card: Card) =>
+  marketplaceLinkMetrics(card.productId, card.url, { kind: "single", game: card.game, name: card.name, set: card.set, number: card.number });
 function FullCard({
   card,
   history,
@@ -246,6 +246,7 @@ function HoverCard({
       fallback={cardImageFallback(card)}
       alt={`${card.name} card`}
       badge={signal && <SignalBadge signal={signal} />}
+      links={cardLinks(card)}
       label={`${card.name} price history`}
     >
       <HistoryPanel
@@ -1133,7 +1134,7 @@ export default function Home() {
           sources. Data updated {formatFullDate(freshIso)}.
         </p>
         <p className="site-footer-disclosure">
-          Affiliate disclosure: TCGplayer links on this site are affiliate links. Raw Signal may earn a commission on purchases made through them, at no extra cost to you.
+          Affiliate disclosure: TCGplayer and eBay links on this site are affiliate links. Raw Signal may earn a commission on purchases made through them, at no extra cost to you.
         </p>
       </footer>
     </main>
