@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {EBAY_SCOPE,EBAY_SEARCH_URL,EBAY_TOKEN_URL,createEbayBrowseClient,ebaySearchParams} from "../core/clients/ebay-browse.ts";
+import {createEbayListingsDeps} from "../core/clients/ebay-listings.ts";
 
 // A fake eBay: the token endpoint and the search endpoint, recording every request so the
 // client's auth, headers, caching, and retry are checked without a network.
@@ -16,15 +17,17 @@ function fakeEbay(options={}){
  return {fetcher,requests,tokens:()=>tokens};
 }
 
-test("search parameters carry the query, category, condition and price filters, and a bounded limit",()=>{
- const params=ebaySearchParams({query:"Crispin SV: Prismatic Evolutions 171",categoryId:183454,conditionIds:[4000],priceRange:{min:6.97,max:111.6},limit:500});
+test("search parameters carry the query, category, language aspect, condition and price filters, and a bounded limit",()=>{
+ const params=ebaySearchParams({query:"Crispin SV: Prismatic Evolutions 171",categoryId:183454,language:"English",conditionIds:[4000],priceRange:{min:6.97,max:111.6},limit:500});
  assert.equal(params.get("q"),"Crispin SV: Prismatic Evolutions 171");
  assert.equal(params.get("category_ids"),"183454");
+ assert.equal(params.get("aspect_filter"),"categoryId:183454,Language:{English}");
  assert.equal(params.get("filter"),"buyingOptions:{FIXED_PRICE},priceCurrency:USD,conditionIds:{4000},price:[6.97..111.60]");
  assert.equal(params.get("sort"),"price");
  assert.equal(params.get("limit"),"200");
  const sealed=ebaySearchParams({query:"Booster Box",categoryId:null,conditionIds:[],priceRange:null});
  assert.equal(sealed.get("category_ids"),null);
+ assert.equal(sealed.get("aspect_filter"),null);
  assert.equal(sealed.get("filter"),"buyingOptions:{FIXED_PRICE},priceCurrency:USD");
  assert.equal(sealed.get("limit"),"50");
 });
@@ -49,6 +52,15 @@ test("the client mints one application token, reuses it, and sends the marketpla
  now+=3_600_000;await client.search({query:"Pikachu",categoryId:null,conditionIds:[],priceRange:null});
  assert.equal(ebay.tokens(),2);
  assert.equal(ebay.requests.at(-1).init.headers.Authorization,"Bearer tok2");
+});
+
+test("the listings adapter resolves a Japanese promo and sends the Japanese language aspect",async()=>{
+ const ebay=fakeEbay();
+ const deps=createEbayListingsDeps({clientId:"id",clientSecret:"secret"},ebay.fetcher);
+ const result=await deps.fetchListings({productId:257103,kind:"single",game:"pokemon",name:"Pikachu - 227/S-P",set:"Sword & Shield Promo Cards",number:"227/S-P",section:"japanese-promos",marketCents:5000});
+ assert.equal(result.status,200);
+ const search=ebay.requests.find(request=>request.url.startsWith(EBAY_SEARCH_URL));
+ assert.equal(new URL(search.url).searchParams.get("aspect_filter"),"categoryId:183454,Language:{Japanese}");
 });
 
 test("a 401 re-mints once and retries; other failures report their status with no items; a token failure throws",async()=>{

@@ -19,7 +19,7 @@ export const EBAY_DAILY_CALL_LIMIT = 5000;
 export const EBAY_ON_DEMAND_BUDGET = 4000;
 export const EBAY_FETCH_LEASE_MS = 30_000;
 type EbayRunStats = { calls: number; updated: number; dailyBudget: number; stopped: string | null };
-type PoolRow = { productId: number; kind: "single" | "sealed"; game: string; name: string; setName: string; number: string | null; marketCents: number | null };
+type PoolRow = { productId: number; kind: "single" | "sealed"; game: string; name: string; setName: string; number: string | null; section: string | null; marketCents: number | null };
 
 const toCents = (value: number | null) => value == null ? null : Math.round(value * 100);
 
@@ -39,7 +39,7 @@ export async function runEbayListingsBatch(db: D1DatabaseLike, deps: EbayListing
     const batch = Math.min(perTick, Math.max(0, dailyBudget - calls));
     // Never-fetched products first, then the stalest snapshot, the higher market price
     // breaking ties; anything already refreshed today is out of the pool.
-    const targets: PoolRow[] = batch === 0 ? [] : (await db.prepare(`select p.product_id as productId, p.kind, p.game, p.name, p.set_name as setName, p.card_number as number, cp.market_cents as marketCents
+    const targets: PoolRow[] = batch === 0 ? [] : (await db.prepare(`select p.product_id as productId, p.kind, p.game, p.name, p.set_name as setName, p.card_number as number, p.section, cp.market_cents as marketCents
       from catalog_products p join current_prices cp on cp.product_id = p.product_id
       left join ebay_listings e on e.product_id = p.product_id
       where cp.market_cents >= ? and (e.updated_at is null or e.updated_at < ?)
@@ -48,7 +48,7 @@ export async function runEbayListingsBatch(db: D1DatabaseLike, deps: EbayListing
     let stopped: string | null = null, consecutiveFailures = 0, seen = 0;
     for (const target of targets) {
       seen++;
-      const result = await deps.fetchListings({ productId: target.productId, kind: target.kind, game: target.game, name: target.name, set: target.setName, number: target.number, marketCents: target.marketCents });
+      const result = await deps.fetchListings({ productId: target.productId, kind: target.kind, game: target.game, name: target.name, set: target.setName, number: target.number, section: target.section, marketCents: target.marketCents });
       calls++;
       if (result.status === 429) { stopped = "rate-limited"; break; }
       if (result.status === 401 || result.status === 403) { stopped = "auth"; break; }
@@ -129,10 +129,10 @@ async function releaseEbayFetchLease(db: D1DatabaseLike, productId: number, hold
 }
 
 async function readEbayListingTarget(db: D1DatabaseLike, productId: number): Promise<EbayListingTarget | null> {
-  const row = await db.prepare(`select p.product_id as productId,p.kind,p.game,p.name,p.set_name as setName,p.card_number as number,cp.market_cents as marketCents
+  const row = await db.prepare(`select p.product_id as productId,p.kind,p.game,p.name,p.set_name as setName,p.card_number as number,p.section,cp.market_cents as marketCents
     from catalog_products p left join current_prices cp on cp.product_id=p.product_id where p.product_id=?`)
     .bind(productId).first<PoolRow>();
-  return row ? { productId: row.productId, kind: row.kind, game: row.game, name: row.name, set: row.setName, number: row.number, marketCents: row.marketCents } : null;
+  return row ? { productId: row.productId, kind: row.kind, game: row.game, name: row.name, set: row.setName, number: row.number, section: row.section, marketCents: row.marketCents } : null;
 }
 
 export type EbayListingResolution =

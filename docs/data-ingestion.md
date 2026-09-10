@@ -73,10 +73,13 @@ token is minted with the client-credentials grant and cached per Worker isolate.
   a short retry response instead of duplicating the upstream request.
 - **Query.** The request uses the same text as the site's eBay search link, the individual
   cards category for singles, ungraded (singles) or new (sealed) condition, fixed-price USD
-  listings, and a price window of ¼× to 4× the TCGplayer market price. Fewer than three
-  accepted listings still records the result count and samples, but aggregate asks remain
-  unavailable. Samples include an HTTPS image, title, condition, price, shipping, and the
-  affiliate item URL when eBay supplies one.
+  listings, and a price window of ¼× to 4× the TCGplayer market price. Singles also use
+  eBay's `Language` aspect: English by default, Japanese for the `japanese-promos` section
+  and Japanese promo-number families such as `S-P`/`SV-P`, or the language explicitly named
+  by a language-specific promo. The ordinary and sold eBay links carry the matching Language
+  facet. Fewer than three accepted listings still records the result count and samples, but
+  aggregate asks remain unavailable. Samples include an HTTPS image, title, condition, price,
+  shipping, and the affiliate item URL when eBay supplies one.
 - **Configuration.** `EBAY_CLIENT_ID` and `EBAY_CLIENT_SECRET` are Worker secrets, never vars
   or repository files. The eBay Dev ID is not used by the Browse client-credentials flow.
   Optional var `EBAY_EPN_CAMPAIGN_ID` enables affiliate item URLs and a per-product reference

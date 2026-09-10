@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {EBAY_EPN_CAMPAIGN_ID,EBAY_SMART_LINKS_SRC,TCGPLAYER_AFFILIATE_BASE,ebayMetric,ebaySearchQuery,ebaySearchUrl,marketplaceLinkMetrics,tcgplayerAffiliateUrl,tcgplayerMetric,tcgplayerProductPage,tcgplayerProductUrl} from "../core/domain/marketplace-links.ts";
+import {EBAY_EPN_CAMPAIGN_ID,EBAY_SMART_LINKS_SRC,TCGPLAYER_AFFILIATE_BASE,ebayCardLanguage,ebayMetric,ebaySearchQuery,ebaySearchUrl,marketplaceLinkMetrics,tcgplayerAffiliateUrl,tcgplayerMetric,tcgplayerProductPage,tcgplayerProductUrl} from "../core/domain/marketplace-links.ts";
 
 test("the TCGplayer product page prefers the catalog's exact URL and falls back to the id form; every rendered link wraps it in the affiliate tracking link",()=>{
  const exact="https://www.tcgplayer.com/product/610526/pokemon-sv-prismatic-evolutions-crispin-171-131";
@@ -29,7 +29,18 @@ test("the popover renders TCGplayer and eBay tiles side by side, both outbound",
  assert.equal(tiles[0].href,tcgplayerProductUrl(610516,"https://www.tcgplayer.com/product/610516/slug"));
  assert.equal(tiles[1].value,"Browse ↗");
  assert.equal(new URL(tiles[1].href).searchParams.get("_nkw"),"Pokemon Umbreon ex Prismatic Evolutions 161");
+ assert.equal(new URL(tiles[1].href).searchParams.get("Language"),"English");
  assert.equal(ebayMetric({kind:"sealed",game:"pokemon",name:"Elite Trainer Box",set:"SV10: Destined Rivals"}).href,ebaySearchUrl({kind:"sealed",game:"pokemon",name:"Elite Trainer Box",set:"SV10: Destined Rivals"}));
+});
+
+test("eBay card searches default to English and preserve Japanese or explicitly named promo languages",()=>{
+ assert.equal(ebayCardLanguage({kind:"single",game:"pokemon",name:"Crispin - 171/131",set:"SV: Prismatic Evolutions",number:"171/131"}),"English");
+ assert.equal(ebayCardLanguage({kind:"single",game:"pokemon",name:"Pikachu",set:"SV-P Promotional Cards",number:"001/SV-P",section:"japanese-promos"}),"Japanese");
+ assert.equal(ebayCardLanguage({kind:"single",game:"pokemon",name:"Pikachu - 227/S-P",set:"Sword & Shield Promo Cards",number:"227/S-P"}),"Japanese");
+ assert.equal(ebayCardLanguage({kind:"single",game:"pokemon",name:"Pikachu (French)",set:"Pikachu World Collection Promos",number:"PW 7"}),"French");
+ assert.equal(ebayCardLanguage({kind:"single",game:"pokemon",name:"Pikachu (Polish)",set:"Pikachu World Collection Promos",number:"PW 8",section:"japanese-promos"}),"Polish");
+ assert.equal(ebayCardLanguage({kind:"single",game:"pokemon",name:"Promo (Simplified Chinese)",set:"Promos"}),"Chinese");
+ assert.equal(ebayCardLanguage({kind:"sealed",game:"pokemon",name:"Japanese Booster Box",set:"Fixture"}),null);
 });
 
 test("eBay queries lead with the game, drop set codes and punctuation, skip a set the name already says, and keep the number for Pokémon only",()=>{
@@ -53,10 +64,16 @@ test("eBay search URLs filter singles to the individual-cards category and buy-i
  assert.equal(single.origin+single.pathname,"https://www.ebay.com/sch/i.html");
  assert.equal(single.searchParams.get("_nkw"),"Pokemon Crispin Prismatic Evolutions 171");
  assert.equal(single.searchParams.get("_sacat"),"183454");
+ assert.equal(single.searchParams.get("Language"),"English");
  assert.equal(single.searchParams.get("LH_BIN"),"1");
  assert.equal(single.searchParams.get("LH_Sold"),null);
  const sealed=new URL(ebaySearchUrl({kind:"sealed",name:"Destined Rivals Booster Box",set:"SV10: Destined Rivals"}));
  assert.equal(sealed.searchParams.get("_sacat"),null);
+ assert.equal(sealed.searchParams.get("Language"),null);
+ const japanese=new URL(ebaySearchUrl({kind:"single",game:"pokemon",name:"Pikachu - 227/S-P",set:"Sword & Shield Promo Cards",number:"227/S-P"}));
+ assert.equal(japanese.searchParams.get("Language"),"Japanese");
+ const french=new URL(ebaySearchUrl({kind:"single",game:"pokemon",name:"Pikachu (French)",set:"Pikachu World Collection Promos",number:"PW 7"}));
+ assert.equal(french.searchParams.get("Language"),"French");
  const sold=new URL(ebaySearchUrl({kind:"single",name:"Pikachu",set:"Base Set"},{sold:true}));
  assert.equal(sold.searchParams.get("LH_Sold"),"1");
  assert.equal(sold.searchParams.get("LH_Complete"),"1");

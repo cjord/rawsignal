@@ -110,8 +110,12 @@ page; hidden when `links` is empty. Reduced motion and dark theme need nothing n
 ### A3. Wire the six surfaces
 
 (As built, every surface passes `links={marketplaceLinkMetrics(productId, url, {kind, game,
-name, set, number})}`; the eBay query rules — game word first, no set codes, commas, or
-ampersands, collector number for Pokémon only — live in `core/domain/marketplace-links.ts`.)
+name, set, number, section})}`; the eBay query rules — game word first, no set codes, commas,
+or ampersands, collector number for Pokémon only — live in `core/domain/marketplace-links.ts`.
+Single-card searches also resolve a language there: English by default, Japanese for the
+Japanese-promo section/number families, and an explicitly named language for multilingual
+promos. The Browse request sends that value as eBay's category-specific `Language` aspect,
+and outbound search/sold links carry the equivalent facet.)
 
 | Surface | File | Source of the URL | Notes |
 |---|---|---|---|

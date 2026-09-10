@@ -38,7 +38,8 @@ export function tcgplayerAffiliateUrl(target:string):string{
 // sealed searches carry no category filter and rely on the query text.
 export const EBAY_CATEGORY_SINGLES=183454;
 
-export type EbaySearchItem={kind:"single"|"sealed";name:string;set:string;number?:string|null;game?:string|null};
+export type EbayCardLanguage="Arabic"|"Basque"|"Bengali"|"Catalan"|"Chinese"|"Czech"|"Danish"|"Dutch"|"English"|"Finnish"|"French"|"German"|"Greek"|"Hindi/Urdu"|"Hungarian"|"Italian"|"Japanese"|"Korean"|"Latin"|"Malay"|"Norwegian"|"Polish"|"Portuguese"|"Russian"|"Spanish"|"Swedish"|"Thai"|"Vietnamese";
+export type EbaySearchItem={kind:"single"|"sealed";name:string;set:string;number?:string|null;game?:string|null;section?:string|null};
 
 // The link every surface renders: the affiliate wrapper around the product page.
 export function tcgplayerProductUrl(productId:number,sourceUrl?:string|null):string{
@@ -61,6 +62,32 @@ const cleanName=(name:string)=>tidy(name.replace(/\s+-\s+[\w/]+$/,"").replace(/\
 const cleanSet=(set:string)=>tidy(set.replace(/^[A-Za-z0-9.-]+:\s*/,""));
 const words=(value:string)=>value.toLowerCase().split(" ").filter(Boolean);
 
+// eBay exposes Language as an item aspect for category 183454. Catalog cards do not carry
+// a dedicated language column, so ordinary Singles are English and the exceptions are
+// resolved from their explicit catalog identity. The named marker wins over the Japanese
+// section so multilingual promo sets such as Pikachu World Collection stay exact.
+const LANGUAGE_MARKERS:[EbayCardLanguage,RegExp][]=[
+ ["Arabic",/\barabic\b/i],["Basque",/\bbasque\b/i],["Bengali",/\bbengali\b/i],
+ ["Catalan",/\bcatalan\b/i],["Chinese",/\b(?:(?:simplified|traditional)\s+)?chinese\b/i],["Czech",/\bczech\b/i],
+ ["Danish",/\bdanish\b/i],["Dutch",/\bdutch\b/i],["English",/\benglish\b/i],
+ ["Finnish",/\bfinnish\b/i],["French",/\bfrench\b/i],["German",/\bgerman\b/i],
+ ["Greek",/\bgreek\b/i],["Hindi/Urdu",/\b(?:hindi|urdu)\b/i],["Hungarian",/\bhungarian\b/i],
+ ["Italian",/\bitalian\b/i],["Japanese",/\b(?:japanese|japan)\b/i],["Korean",/\bkorean\b/i],
+ ["Latin",/\blatin\b/i],["Malay",/\bmalay\b/i],["Norwegian",/\bnorwegian\b/i],
+ ["Polish",/\bpolish\b/i],["Portuguese",/\bportuguese\b/i],
+ ["Russian",/\brussian\b/i],["Spanish",/\bspanish\b/i],["Swedish",/\bswedish\b/i],
+ ["Thai",/\bthai\b/i],["Vietnamese",/\bvietnamese\b/i],
+];
+const JAPANESE_PROMO_NUMBER=/(?:^|\/)(?:sv|s|sm|xy|bw|dp|dpt|pcg|adv|vs)?-p\b/i;
+
+export function ebayCardLanguage(item:EbaySearchItem):EbayCardLanguage|null{
+ if(item.kind!=="single")return null;
+ const identity=`${item.name} ${item.set}`;
+ for(const [language,marker] of LANGUAGE_MARKERS)if(marker.test(identity))return language;
+ if(item.section==="japanese-promos"||JAPANESE_PROMO_NUMBER.test(item.number??"")||JAPANESE_PROMO_NUMBER.test(item.name))return "Japanese";
+ return "English";
+}
+
 export function ebaySearchQuery(item:EbaySearchItem):string{
  const name=cleanName(item.name),set=cleanSet(item.set),nameWords=new Set(words(name));
  const setPart=set&&!words(set).every(word=>nameWords.has(word))?set:"";
@@ -79,7 +106,10 @@ export const marketplaceLinkMetrics=(productId:number,sourceUrl:string|null|unde
 
 export function ebaySearchUrl(item:EbaySearchItem,options:{sold?:boolean}={}):string{
  const params=new URLSearchParams({_nkw:ebaySearchQuery(item)});
- if(item.kind==="single")params.set("_sacat",String(EBAY_CATEGORY_SINGLES));
+ if(item.kind==="single"){
+  params.set("_sacat",String(EBAY_CATEGORY_SINGLES));
+  params.set("Language",ebayCardLanguage(item)!);
+ }
  if(options.sold){params.set("LH_Sold","1");params.set("LH_Complete","1")}
  else params.set("LH_BIN","1");
  return `https://www.ebay.com/sch/i.html?${params}`;

@@ -36,6 +36,8 @@ The graded rotation (`db/graded-ingestion.ts`) reads PokemonPriceTracker's smart
 
 The eBay on-demand resolver (`db/ebay-ingestion.ts`, clients under `core/clients/`, summary `core/ebay-summary.ts`, table `ebay_listings`) stores one six-hour active buy-it-now snapshot for a detail page after its listing grid nears the viewport: total and accepted counts, lowest and median ask when at least three results survive validation, and up to five sample listings with images. Asks are listing prices, never sales; they are labelled as asks everywhere they render and never enter modeled fair value or signals. D1 holds the shared daily call budget and per-product request leases. The former rotation remains a staging-only operator tool; without the two Browse secrets the detail page keeps its eBay search links and reports listings unavailable.
 
+Single-card searches are language-scoped with eBay's category-specific `Language` aspect. Catalog cards default to English; Japanese promo sections/numbers resolve to Japanese, while explicitly named promo languages (for example French, Korean, or Polish) override that default. Sealed searches are unchanged because they span multiple eBay categories rather than the single-card leaf category.
+
 ## Sealed MSRP
 
 Pokémon Sealed refreshes supplement TCGCSV prices with matched published MSRP records currently obtained through the maintained price-tracker dataset. MSRP provenance is stored per product when available. Riftbound, One Piece, regional, and promotional products may lack MSRP or market price; those fields remain `null` and render as `N/A`. See [MSRP sources](msrp-sources.md) for the verified and derived tables.

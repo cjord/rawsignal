@@ -155,7 +155,7 @@ const ascendingSinglesSorts = new Set<SortKey>(["name", "set"]);
 const cardHistoryMetrics = (card: Card, history?: History) =>
   standardHistoryMetrics(card.marketPrice, card.midPrice, history);
 const cardLinks = (card: Card) =>
-  marketplaceLinkMetrics(card.productId, card.url, { kind: "single", game: card.game, name: card.name, set: card.set, number: card.number });
+  marketplaceLinkMetrics(card.productId, card.url, { kind: "single", game: card.game, name: card.name, set: card.set, number: card.number, section: card.section });
 function FullCard({
   card,
   history,

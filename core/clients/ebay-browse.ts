@@ -5,8 +5,10 @@
 // header (`X-EBAY-C-ENDUSERCTX: affiliateCampaignId=…`) is set only when a campaign id is
 // configured — confirm its syntax against the Browse reference when the EPN account exists.
 
+import type {EbayCardLanguage} from "../domain/marketplace-links.ts";
+
 export type EbayCredentials={clientId:string;clientSecret:string;campaignId?:string|null};
-export type EbaySearchRequest={query:string;categoryId:number|null;conditionIds:number[];priceRange:{min:number;max:number}|null;limit?:number;affiliateReferenceId?:string};
+export type EbaySearchRequest={query:string;categoryId:number|null;conditionIds:number[];priceRange:{min:number;max:number}|null;language?:EbayCardLanguage|null;limit?:number;affiliateReferenceId?:string};
 export type EbaySearchResult={status:number;total:number|null;items:unknown[]};
 export type EbayBrowseDeps={fetch?:typeof fetch;now?:()=>number};
 
@@ -24,7 +26,10 @@ export function ebaySearchParams(request:EbaySearchRequest):URLSearchParams{
  if(request.conditionIds.length)filter.push(`conditionIds:{${request.conditionIds.join("|")}}`);
  if(request.priceRange)filter.push(`price:[${request.priceRange.min.toFixed(2)}..${request.priceRange.max.toFixed(2)}]`);
  const params=new URLSearchParams({q:request.query,filter:filter.join(","),sort:"price",limit:String(Math.max(1,Math.min(200,request.limit??50)))});
- if(request.categoryId!=null)params.set("category_ids",String(request.categoryId));
+ if(request.categoryId!=null){
+  params.set("category_ids",String(request.categoryId));
+  if(request.language)params.set("aspect_filter",`categoryId:${request.categoryId},Language:{${request.language}}`);
+ }
  return params;
 }
 
