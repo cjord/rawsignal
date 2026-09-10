@@ -66,7 +66,7 @@ flowchart TB
 | `/sets`, `/sets/[game]/[slug]` | `app/sets/page.tsx` → `SetsView`; `app/sets/[game]/[slug]/page.tsx` → `SetDetailView` | Sets directory with cover art; set detail with chase cards, related sealed, pack EV |
 | `/import` | `app/import/page.tsx` → `CollectrImportView` | Collectr portfolio import (fetch via the `COLLECTR_FETCH` service binding) |
 | `/sitemap.xml` | `app/sitemap.xml/route.ts` | Boards, sets directory, metrics, every set page (wave 15) |
-| `/api/*` | `app/api/**/route.ts` | catalog, catalog/detail, history, history/batch (≤40 stored series, read-only), metrics, set-ev, signals, collectr, and the lazy `/api/ebay/listings` active-ask cache |
+| `/api/*` | `app/api/**/route.ts` + `worker/index.ts` | catalog, catalog/detail, history, history/batch (≤40 stored series, read-only), metrics, set-ev, signals, collectr, the lazy `/api/ebay/listings` active-ask cache, and the Worker-native `/api/ebay/account-deletion` compliance callback |
 
 ## Layering
 
@@ -135,7 +135,7 @@ presentation.
 | D1 | placeholder binding | `d2e550f5…` — **stale by design** | `af781f30…` — daily ingestion |
 | Cron | none | none (kept cheap) | `*/1` guarded |
 | Ops adapter | n/a | enabled (`ENVIRONMENT=staging`) | refuses |
-| Secrets | none | job token | job token + graded API key; optional `ALPHAVANTAGE_API_KEY` (S&P benchmark, skips when absent); `EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET` serve the on-demand Browse route and `EBAY_EPN_CAMPAIGN_ID` tags affiliate URLs; none are committed |
+| Secrets | none | job token | job token + graded API key; optional `ALPHAVANTAGE_API_KEY` (S&P benchmark, skips when absent); `EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET` serve Browse and eBay public-key validation, `EBAY_DELETION_VERIFICATION_TOKEN` proves ownership of the account-deletion endpoint, and `EBAY_EPN_CAMPAIGN_ID` tags affiliate URLs; none are committed |
 
 Deploy = full gate → `scripts/cloudflare/prepare-deployment.mjs` (writes
 `dist/server/wrangler.<env>.json`) → `npx wrangler deploy --config …`. The gate's
@@ -179,6 +179,10 @@ source text can express.
   product's metrics/signals (`persistDerivedHistory`). Against the local max-profile D1
   every hover does this (archive rows are `source='tcgcsv-archive'`, the route looks for
   `'tcgplayer'`), so the dev database drifts a little during `npm run check`.
+- The eBay deletion callback is intercepted in `worker/index.ts` before vinext and the colo
+  cache. Production Cloudflare security rules must skip managed challenges for that exact
+  path so eBay can complete its GET challenge and deliver signed POST notifications; the
+  handler itself still rejects invalid signatures.
 
 ## Where to change what
 

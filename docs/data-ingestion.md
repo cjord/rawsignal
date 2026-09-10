@@ -81,6 +81,13 @@ token is minted with the client-credentials grant and cached per Worker isolate.
   or repository files. The eBay Dev ID is not used by the Browse client-credentials flow.
   Optional var `EBAY_EPN_CAMPAIGN_ID` enables affiliate item URLs and a per-product reference
   ID. Without both secrets the API returns unavailable and the ordinary search links remain.
+- **Account-deletion compliance.** `GET|POST /api/ebay/account-deletion` runs directly in
+  the Worker, never in the page cache. `EBAY_DELETION_VERIFICATION_TOKEN` is a 32–80 character
+  Worker secret shared only with eBay; the deployment config pins the exact production URL in
+  public var `EBAY_DELETION_ENDPOINT_URL`. POST validates eBay's signed payload with the
+  Notification API public key (one-hour in-isolate cache) before acknowledging it. No current
+  table stores `username`, `userId`, or `eiasToken`, so the deletion processor is deliberately
+  empty until a user-linked eBay field is introduced.
 - **Background job.** The former ≥$20 catalog rotation is not in production cron: a multi-day
   sweep cannot meet the six-hour display rule efficiently. `POST /__ops/staging-jobs` with
   `{"job":"ebay","batchSize":40}` remains only for an explicit staging trial.

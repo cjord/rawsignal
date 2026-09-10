@@ -20,7 +20,7 @@ test("staging config keeps Cron disabled and binds assets plus an isolated D1 da
 test("production config requires an explicit hostname and never inherits a schedule",()=>{
  assert.throws(()=>prepareDeploymentConfig(base,{environment:"production",databaseId,databaseName:"raw-signal-production",workerName:"raw-signal"}),/custom-domain/);
  const config=prepareDeploymentConfig(base,{environment:"production",databaseId,databaseName:"raw-signal-production",workerName:"raw-signal",route:"cards.example.com"});
- assert.equal(config.workers_dev,false);assert.equal(config.vars.ENVIRONMENT,"production");assert.deepEqual(config.routes,[{pattern:"cards.example.com",custom_domain:true}]);assert.deepEqual(config.triggers,{});
+ assert.equal(config.workers_dev,false);assert.equal(config.vars.ENVIRONMENT,"production");assert.equal(config.vars.EBAY_DELETION_ENDPOINT_URL,"https://cards.example.com/api/ebay/account-deletion");assert.deepEqual(config.routes,[{pattern:"cards.example.com",custom_domain:true}]);assert.deepEqual(config.triggers,{});
  // Since the split, production is ingestion's home: an explicit --cron applies there too.
  const scheduled=prepareDeploymentConfig(base,{environment:"production",databaseId,databaseName:"raw-signal-production",workerName:"raw-signal",route:"cards.example.com",cron:"*/2 * * * *"});
  assert.deepEqual(scheduled.triggers,{crons:["*/2 * * * *"]});

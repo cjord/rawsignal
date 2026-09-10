@@ -21,6 +21,8 @@ export function prepareDeploymentConfig(base,{environment,databaseId,databaseNam
  config.images={binding:"IMAGES"};
  config.version_metadata={binding:"CF_VERSION_METADATA"};
  config.vars={...(config.vars??{}),ENVIRONMENT:environment};
+ if(environment==="production")config.vars.EBAY_DELETION_ENDPOINT_URL=`https://${route.trim()}/api/ebay/account-deletion`;
+ else delete config.vars.EBAY_DELETION_ENDPOINT_URL;
  // A schedule exists only when explicitly requested (--cron / env) — never inherited from
  // the base config. Since the 2026-08-28 split, production is ingestion's home and carries
  // the guard cron; staging runs one only while deliberately testing ingestion changes.

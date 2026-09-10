@@ -6,7 +6,9 @@ implementation on `EnhancementTrial`: a lazy `/api/ebay/listings` detail-page re
 six-hour D1 snapshots, an atomic 4,000-call daily interactive budget, per-product leases,
 and an image listing grid. Production cron no longer dispatches the catalog-wide rotation.
 Migration 0018 and the Worker secrets still require the validated deployment; credentials
-are never stored in this repository. Tier D's PokemonPriceTracker upgrade remains open.
+are never stored in this repository. The required account-deletion callback is implemented
+at `/api/ebay/account-deletion` with GET challenge handling, signed POST validation, and a
+one-hour eBay public-key cache. Tier D's PokemonPriceTracker upgrade remains open.
 
 **Live listings on every page — decided 2026-09-09: option B rejected, option A is the
 target.** Option B, an EPN Smart Placement in the eBay panel (eBay-rendered cards under
@@ -283,9 +285,12 @@ expires, not by page requests or catalog size.
 | B affiliate tagging + disclosure | 16b | shipped: TCGplayer Impact links `2ffe444` (production `7132dd9e`), EPN Smart Links `6e5e6f0` (production `9f30fee8`) | — |
 | C1–C3 original schema, client, rotation, ops job | 17 | shipped `d7de3b9`; migration 0016 applied to production, staging, and local; automatic rotation later superseded | — |
 | C3–C6 on-demand quota/lease, route, lazy image grid | 17b | implemented on `EnhancementTrial`; migration 0018 and production activation pending | validated deploy, migrate, attach Worker secrets, smoke-test one card and one sealed page |
+| C7 account-deletion compliance callback | 17b | implemented on `EnhancementTrial`; registration pending | attach `EBAY_DELETION_VERIFICATION_TOKEN`, exempt the exact path from managed challenges, pass eBay's GET challenge and test POST |
 | D PPT tier | — | open | purchase decision (user, todo O4) |
 
 Activation order: pass the full release gate, commit and push the exact source, deploy the
-Worker, apply migration 0018, attach the two production Worker secrets without echoing them,
-then smoke-test one card and one sealed product. Do not add `ebay-listings` to `PUBLISH_KEYS`:
+Worker, apply migration 0018, attach the three production Worker secrets without echoing them,
+add an exact-path Cloudflare security exception for the signed compliance callback, complete
+eBay's endpoint challenge and test notification, then smoke-test one card and one sealed
+product. Do not add `ebay-listings` to `PUBLISH_KEYS`:
 the no-store client island is intentionally independent of cached page HTML.

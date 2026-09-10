@@ -7,6 +7,7 @@ import { edgeCacheClass, edgeCacheableRequest, withEdgeCache } from "./edge-cach
 import { pageCacheSignature } from "./page-signature.ts";
 import type { D1DatabaseLike } from "../db/repository.ts";
 import { handleStagingJob, type StagingJobEnv } from "./staging-jobs.ts";
+import { EBAY_ACCOUNT_DELETION_PATH, handleEbayAccountDeletion, type EbayAccountDeletionEnv } from "./ebay-account-deletion.ts";
 
 interface Env {
   ASSETS: Fetcher;
@@ -16,6 +17,8 @@ interface Env {
   POKEMONPRICETRACKER_API_KEY?: string;
   EBAY_CLIENT_ID?: string;
   EBAY_CLIENT_SECRET?: string;
+  EBAY_DELETION_VERIFICATION_TOKEN?: string;
+  EBAY_DELETION_ENDPOINT_URL?: string;
   EBAY_EPN_CAMPAIGN_ID?: string;
   CF_VERSION_METADATA?: { id: string; tag: string; timestamp: string };
   IMAGES: {
@@ -41,6 +44,12 @@ interface ExecutionContext {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+
+    // eBay must reach this compliance callback without vinext routing or the colo cache.
+    // GET proves endpoint ownership; POST verifies eBay's signed deletion notification.
+    if (url.pathname === EBAY_ACCOUNT_DELETION_PATH) {
+      return handleEbayAccountDeletion(request, env as EbayAccountDeletionEnv);
+    }
 
     const stagingJob = await handleStagingJob(request, env);
     if (stagingJob) return stagingJob;

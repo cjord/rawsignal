@@ -246,6 +246,11 @@ image grid. Production cron no longer dispatches eBay. Migration 0018 and the Wo
 must be applied with the validated deployment before this becomes live. The hover asks tile
 remains a later enhancement; `ebay-listings` does not belong in the page publish signature
 because the no-store client island is independent of the cached page.*
+*Account-deletion compliance implemented on `EnhancementTrial` the same day:
+`/api/ebay/account-deletion` handles the endpoint challenge and validates signed deletion
+notifications against eBay's one-hour-cached ECC public key. Activation still requires the
+production verification-token secret, an exact-path Cloudflare managed-challenge exception,
+deployment, and eBay's test notification.*
 
 **O4. PokemonPriceTracker paid tier (sold comps, eBay plan tier D).** The ~$9.99/mo tier
 lifts the free tier's 100-credit ceiling so the graded/raw-sale rotation covers the pool

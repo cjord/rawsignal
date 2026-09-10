@@ -35,7 +35,7 @@ npm run cloudflare:prepare:staging
 npx wrangler deploy --dry-run --config dist/server/wrangler.staging.json
 ```
 
-The generated file is ignored by Git. Inspect it before deployment and verify that `triggers` is empty, `workers_dev` is true, the `DB` binding references staging, there is no production route, and the injected bindings are present: `images` → `IMAGES`, `version_metadata` → `CF_VERSION_METADATA`, and the service binding `COLLECTR_FETCH` → `raw-signal-collectr`.
+The generated file is ignored by Git. Inspect it before deployment and verify that `triggers` is empty, `workers_dev` is true, the `DB` binding references staging, there is no production route, and the injected bindings are present: `images` → `IMAGES`, `version_metadata` → `CF_VERSION_METADATA`, and the service binding `COLLECTR_FETCH` → `raw-signal-collectr`. Production preparation also pins `EBAY_DELETION_ENDPOINT_URL` to the exact custom-domain callback URL; it is public configuration, not a credential.
 
 ## 3. Migrate and seed staging
 
@@ -102,6 +102,13 @@ node scripts/cloudflare/prepare-deployment.mjs --environment production --route 
 ```
 
 Do not deploy this config until staging parity, backup verification, DNS ownership, Access/preview policy, monitoring, and a rollback window are approved.
+
+For an eBay-enabled release, add `EBAY_DELETION_VERIFICATION_TOKEN` as a Worker secret
+(32–80 characters, only letters, numbers, `_`, and `-`) without placing it in a file. The
+existing eBay client ID and secret are reused to fetch notification public keys. Cloudflare
+security must skip managed challenges for the exact `/api/ebay/account-deletion` path; do not
+disable signature validation or broadly exempt `/api/*`. After deploy, register the exact URL
+and token in eBay, then require both the GET challenge and test POST to succeed.
 
 ## Status — cutover completed 2026-08-28
 
