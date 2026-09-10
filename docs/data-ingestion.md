@@ -79,11 +79,14 @@ token is minted with the client-credentials grant and cached per Worker isolate.
   by a language-specific promo. The ordinary and sold eBay links carry the matching Language
   facet. Fewer than three accepted listings still records the result count and samples, but
   aggregate asks remain unavailable. Samples include an HTTPS image, title, condition, price,
-  shipping, and the affiliate item URL when eBay supplies one.
+  shipping, and the affiliate item URL. The Browse request carries eBay's EPN campaign and
+  per-product reference header; eBay's `itemAffiliateWebUrl` wins, while a response that only
+  carries `itemWebUrl` is tagged directly before storage.
 - **Configuration.** `EBAY_CLIENT_ID` and `EBAY_CLIENT_SECRET` are Worker secrets, never vars
   or repository files. The eBay Dev ID is not used by the Browse client-credentials flow.
-  Optional var `EBAY_EPN_CAMPAIGN_ID` enables affiliate item URLs and a per-product reference
-  ID. Without both secrets the API returns unavailable and the ordinary search links remain.
+  Optional var `EBAY_EPN_CAMPAIGN_ID` can override the published campaign id; otherwise the
+  shared site campaign is used for both the Browse header and direct links. Without both API
+  secrets the API returns unavailable, while ordinary search links remain directly tagged.
 - **Account-deletion compliance.** `GET|POST /api/ebay/account-deletion` runs directly in
   the Worker, never in the page cache. `EBAY_DELETION_VERIFICATION_TOKEN` is a 32–80 character
   Worker secret shared only with eBay; the deployment config pins the exact production URL in

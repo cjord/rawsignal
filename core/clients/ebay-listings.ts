@@ -1,5 +1,5 @@
 import {EBAY_CONDITION_NEW,EBAY_CONDITION_UNGRADED,EbayAuthError,createEbayBrowseClient,type EbayCredentials} from "./ebay-browse.ts";
-import {EBAY_CATEGORY_SINGLES,ebayCardLanguage,ebaySearchQuery} from "../domain/marketplace-links.ts";
+import {EBAY_CATEGORY_SINGLES,EBAY_EPN_CAMPAIGN_ID,ebayCardLanguage,ebaySearchQuery} from "../domain/marketplace-links.ts";
 import {priceGuard,summarizeEbayListings,type EbayListingSummary} from "../ebay-summary.ts";
 
 export type EbayListingTarget={productId:number;kind:"single"|"sealed";game:string;name:string;set:string;number:string|null;section:string|null;marketCents:number|null};
@@ -9,17 +9,19 @@ export type EbayListingsDeps={fetchListings(target:EbayListingTarget):Promise<Eb
 // One Browse search yields the complete grid snapshot. The product-scoped reference id lets
 // EPN attribution be measured without exposing any credential or user identifier.
 export function createEbayListingsDeps(credentials:EbayCredentials,fetcher:typeof fetch=fetch):EbayListingsDeps{
- const client=createEbayBrowseClient(credentials,{fetch:fetcher});
+ const campaignId=credentials.campaignId??String(EBAY_EPN_CAMPAIGN_ID);
+ const client=createEbayBrowseClient({...credentials,campaignId},{fetch:fetcher});
  return {async fetchListings(target){
   const item={kind:target.kind,game:target.game,name:target.name,set:target.set,number:target.number,section:target.section};
   const query=ebaySearchQuery(item);
   const categoryId=target.kind==="single"?EBAY_CATEGORY_SINGLES:null;
   const language=ebayCardLanguage(item);
   const market=target.marketCents==null?null:target.marketCents/100;
+  const affiliateReferenceId=`rawsignal-${target.productId}`;
   try{
-   const result=await client.search({query,categoryId,language,conditionIds:[target.kind==="single"?EBAY_CONDITION_UNGRADED:EBAY_CONDITION_NEW],priceRange:priceGuard(market),limit:50,affiliateReferenceId:`rawsignal-${target.productId}`});
+   const result=await client.search({query,categoryId,language,conditionIds:[target.kind==="single"?EBAY_CONDITION_UNGRADED:EBAY_CONDITION_NEW],priceRange:priceGuard(market),limit:50,affiliateReferenceId});
    const ok=result.status>=200&&result.status<300;
-   return {status:result.status,query,categoryId,summary:ok?summarizeEbayListings(result.items,result.total,{market}):null};
+   return {status:result.status,query,categoryId,summary:ok?summarizeEbayListings(result.items,result.total,{market,affiliateCampaignId:campaignId,affiliateReferenceId}):null};
   }catch(error){
    if(error instanceof EbayAuthError)return {status:error.status===429?429:401,query,categoryId,summary:null};
    throw error;

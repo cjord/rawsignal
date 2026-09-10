@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {EBAY_EPN_CAMPAIGN_ID,EBAY_SMART_LINKS_SRC,TCGPLAYER_AFFILIATE_BASE,ebayCardLanguage,ebayMetric,ebaySearchQuery,ebaySearchUrl,marketplaceLinkMetrics,tcgplayerAffiliateUrl,tcgplayerMetric,tcgplayerProductPage,tcgplayerProductUrl} from "../core/domain/marketplace-links.ts";
+import {EBAY_EPN_CAMPAIGN_ID,EBAY_EPN_MARKET_ID,EBAY_EPN_TOOL_ID,EBAY_SMART_LINKS_SRC,TCGPLAYER_AFFILIATE_BASE,ebayAffiliateUrl,ebayCardLanguage,ebayMetric,ebaySearchQuery,ebaySearchUrl,marketplaceLinkMetrics,tcgplayerAffiliateUrl,tcgplayerMetric,tcgplayerProductPage,tcgplayerProductUrl} from "../core/domain/marketplace-links.ts";
 
 test("the TCGplayer product page prefers the catalog's exact URL and falls back to the id form; every rendered link wraps it in the affiliate tracking link",()=>{
  const exact="https://www.tcgplayer.com/product/610526/pokemon-sv-prismatic-evolutions-crispin-171-131";
@@ -67,6 +67,11 @@ test("eBay search URLs filter singles to the individual-cards category and buy-i
  assert.equal(single.searchParams.get("Language"),"English");
  assert.equal(single.searchParams.get("LH_BIN"),"1");
  assert.equal(single.searchParams.get("LH_Sold"),null);
+ assert.equal(single.searchParams.get("campid"),String(EBAY_EPN_CAMPAIGN_ID));
+ assert.equal(single.searchParams.get("mkevt"),"1");
+ assert.equal(single.searchParams.get("mkcid"),"1");
+ assert.equal(single.searchParams.get("mkrid"),EBAY_EPN_MARKET_ID);
+ assert.equal(single.searchParams.get("toolid"),String(EBAY_EPN_TOOL_ID));
  const sealed=new URL(ebaySearchUrl({kind:"sealed",name:"Destined Rivals Booster Box",set:"SV10: Destined Rivals"}));
  assert.equal(sealed.searchParams.get("_sacat"),null);
  assert.equal(sealed.searchParams.get("Language"),null);
@@ -78,9 +83,23 @@ test("eBay search URLs filter singles to the individual-cards category and buy-i
  assert.equal(sold.searchParams.get("LH_Sold"),"1");
  assert.equal(sold.searchParams.get("LH_Complete"),"1");
  assert.equal(sold.searchParams.get("LH_BIN"),null);
+ assert.equal(sold.searchParams.get("campid"),String(EBAY_EPN_CAMPAIGN_ID));
+});
+
+test("direct eBay affiliate links are idempotent and can carry a per-link reference",()=>{
+ const first=ebayAffiliateUrl("https://www.ebay.com/itm/123?foo=bar",{campaignId:"5338000000",referenceId:"rawsignal-123"});
+ const second=ebayAffiliateUrl(first,{campaignId:"5338000000",referenceId:"rawsignal-123"});
+ assert.equal(second,first);
+ const url=new URL(first);
+ assert.equal(url.searchParams.get("foo"),"bar");
+ assert.equal(url.searchParams.get("campid"),"5338000000");
+ assert.equal(url.searchParams.get("customid"),"rawsignal-123");
+ assert.equal(url.searchParams.getAll("toolid").length,1);
 });
 
 test("the eBay campaign and Smart Links loader are the published EPN values",()=>{
  assert.equal(EBAY_EPN_CAMPAIGN_ID,5339205908);
+ assert.equal(EBAY_EPN_MARKET_ID,"711-53200-19255-0");
+ assert.equal(EBAY_EPN_TOOL_ID,10001);
  assert.equal(EBAY_SMART_LINKS_SRC,"https://epnt.ebay.com/static/epn-smart-tools.js");
 });

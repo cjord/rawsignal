@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {EBAY_MIN_LISTINGS,parseEbayListing,priceGuard,summarizeEbayListings} from "../core/ebay-summary.ts";
+import {ebayAffiliateUrl} from "../core/domain/marketplace-links.ts";
 
 const listing=(itemId,price,overrides={})=>({itemId,title:`Listing ${itemId}`,price:{value:String(price),currency:"USD"},condition:"Ungraded",itemWebUrl:`https://www.ebay.com/itm/${itemId}`,image:{imageUrl:`https://i.ebayimg.com/images/g/${itemId}/s-l500.jpg`},buyingOptions:["FIXED_PRICE"],shippingOptions:[{shippingCost:{value:"4.50",currency:"USD"}}],...overrides});
 
 test("a listing parses to a sample with its price, shipping, condition, and the affiliate URL when present",()=>{
- assert.deepEqual(parseEbayListing(listing("v1|1|0",27.99)),{itemId:"v1|1|0",title:"Listing v1|1|0",price:27.99,shipping:4.5,condition:"Ungraded",imageUrl:"https://i.ebayimg.com/images/g/v1|1|0/s-l500.jpg",url:"https://www.ebay.com/itm/v1|1|0"});
+ assert.deepEqual(parseEbayListing(listing("v1|1|0",27.99)),{itemId:"v1|1|0",title:"Listing v1|1|0",price:27.99,shipping:4.5,condition:"Ungraded",imageUrl:"https://i.ebayimg.com/images/g/v1|1|0/s-l500.jpg",url:ebayAffiliateUrl("https://www.ebay.com/itm/v1|1|0")});
  assert.equal(parseEbayListing(listing("a",10,{itemAffiliateWebUrl:"https://www.ebay.com/itm/a?campid=1"})).url,"https://www.ebay.com/itm/a?campid=1");
+ const fallback=parseEbayListing(listing("tracked",10),{affiliateCampaignId:"5338000000",affiliateReferenceId:"rawsignal-tracked"});
+ assert.equal(new URL(fallback.url).searchParams.get("campid"),"5338000000");
+ assert.equal(new URL(fallback.url).searchParams.get("customid"),"rawsignal-tracked");
  assert.equal(parseEbayListing(listing("b",10,{shippingOptions:[]})).shipping,null);
  // Auctions, foreign currency, and malformed items are dropped.
  assert.equal(parseEbayListing(listing("c",10,{buyingOptions:["AUCTION"]})),null);

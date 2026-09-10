@@ -61,6 +61,9 @@ test("the listings adapter resolves a Japanese promo and sends the Japanese lang
  assert.equal(result.status,200);
  const search=ebay.requests.find(request=>request.url.startsWith(EBAY_SEARCH_URL));
  assert.equal(new URL(search.url).searchParams.get("aspect_filter"),"categoryId:183454,Language:{Japanese}");
+ assert.equal(search.init.headers["X-EBAY-C-ENDUSERCTX"],"affiliateCampaignId=5339205908,affiliateReferenceId=rawsignal-257103");
+ assert.equal(new URL(result.summary.samples[0].url).searchParams.get("campid"),"5339205908");
+ assert.equal(new URL(result.summary.samples[0].url).searchParams.get("customid"),"rawsignal-257103");
 });
 
 test("a 401 re-mints once and retries; other failures report their status with no items; a token failure throws",async()=>{

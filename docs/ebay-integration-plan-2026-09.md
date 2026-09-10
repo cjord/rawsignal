@@ -171,6 +171,11 @@ If the eBay link is later rendered with data (tier C) the costs are in C5 below.
 - `withEpn` appends the parameters from A1; `customid` = product id so EPN reports say which
   products convert. The TCGplayer template wraps the product URL.
 - Links carrying a tag get `rel="noopener noreferrer sponsored"`.
+- As built, `ebayAffiliateUrl` now places the campaign, US market, event, channel, and tool
+  parameters directly on every search/sold URL; Smart Links remains a catch-all rather than
+  the sole attribution path. Browse calls send `affiliateCampaignId` plus the product-scoped
+  `affiliateReferenceId`; returned `itemAffiliateWebUrl` wins, and raw `itemWebUrl` is tagged
+  locally as a defensive fallback.
 - Disclosure: one sentence in `app/SiteFooter.tsx` and the methodology section, rendered only
   when a campaign is configured ("As an eBay Partner, Raw Signal may earn from qualifying
   purchases.") — EPN's terms require it.

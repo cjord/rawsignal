@@ -116,6 +116,10 @@ test("opens a row's hover chart with TCGplayer and eBay link tiles under the art
  await expect(tile).toHaveAttribute("target","_blank");
  const ebay=links.filter({hasText:"eBay"});
  await expect(ebay).toHaveAttribute("href",/^https:\/\/www\.ebay\.com\/sch\/i\.html\?_nkw=Pokemon/);
+ const ebayUrl=new URL((await ebay.getAttribute("href"))!);
+ expect(ebayUrl.searchParams.get("campid")).toBe("5339205908");
+ expect(ebayUrl.searchParams.get("mkevt")).toBe("1");
+ expect(ebayUrl.searchParams.get("toolid")).toBe("10001");
  await expect(ebay).toHaveAttribute("rel",/sponsored/);
 });
 

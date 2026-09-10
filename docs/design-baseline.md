@@ -64,7 +64,7 @@ Defined in `app/styles/tokens.css` (dimensions/motion/stacking) and `app/globals
   (`data-popup-place`, `data-expand`) — never hand-roll popover placement. Anatomy: artwork
   column with the two outbound marketplace tiles under it (`.hover-card-links`: TCGplayer
   and eBay, `rel="noopener noreferrer sponsored"`, built only by
-  `core/domain/marketplace-links.ts`), then title row, chart (skeleton while loading, same
+  `core/domain/marketplace-links.ts`; eBay URLs carry direct EPN parameters), then title row, chart (skeleton while loading, same
   height as the finished chart), and the stats grid, which holds market data only. Every
   page that renders an affiliate link carries the footer disclosure.
 - **Collapsible section** (`.detail-collapsible`): native `<details>`; summary reuses the

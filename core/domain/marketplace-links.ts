@@ -23,6 +23,8 @@ import type {HistoryMetric} from "./types.ts";
 export const TCGPLAYER_PRODUCT_BASE="https://www.tcgplayer.com/product/";
 export const TCGPLAYER_AFFILIATE_BASE="https://partner.tcgplayer.com/c/7677898/1780961/21018";
 export const EBAY_EPN_CAMPAIGN_ID=5339205908;
+export const EBAY_EPN_MARKET_ID="711-53200-19255-0";
+export const EBAY_EPN_TOOL_ID=10001;
 export const EBAY_SMART_LINKS_SRC="https://epnt.ebay.com/static/epn-smart-tools.js";
 
 // The raw product page (no tracking) — what the affiliate link deep-links to.
@@ -33,6 +35,22 @@ export function tcgplayerProductPage(productId:number,sourceUrl?:string|null):st
 
 export function tcgplayerAffiliateUrl(target:string):string{
  return `${TCGPLAYER_AFFILIATE_BASE}?u=${encodeURIComponent(target)}`;
+}
+
+// A direct EPN link keeps attribution when Smart Links is blocked or has not initialized.
+// URLSearchParams also makes this idempotent: an already tagged eBay URL keeps one value for
+// every tracking field. Smart Links remains in the root layout as a catch-all for future links.
+export function ebayAffiliateUrl(target:string,options:{campaignId?:string|number;referenceId?:string|null}={}):string{
+ let url:URL;
+ try{url=new URL(target)}catch{return target}
+ if(url.protocol!=="https:"||!/(^|\.)ebay\.com$/i.test(url.hostname))return target;
+ url.searchParams.set("mkevt","1");
+ url.searchParams.set("mkcid","1");
+ url.searchParams.set("mkrid",EBAY_EPN_MARKET_ID);
+ url.searchParams.set("campid",String(options.campaignId??EBAY_EPN_CAMPAIGN_ID));
+ if(options.referenceId)url.searchParams.set("customid",options.referenceId);
+ url.searchParams.set("toolid",String(EBAY_EPN_TOOL_ID));
+ return url.toString();
 }
 // eBay's "CCG Individual Cards" category. Sealed product spans several eBay categories, so
 // sealed searches carry no category filter and rely on the query text.
@@ -112,5 +130,5 @@ export function ebaySearchUrl(item:EbaySearchItem,options:{sold?:boolean}={}):st
  }
  if(options.sold){params.set("LH_Sold","1");params.set("LH_Complete","1")}
  else params.set("LH_BIN","1");
- return `https://www.ebay.com/sch/i.html?${params}`;
+ return ebayAffiliateUrl(`https://www.ebay.com/sch/i.html?${params}`);
 }
