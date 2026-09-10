@@ -260,6 +260,29 @@ collection and its secret, then remove the bundled fallback and finally drop the
 after a production soak. Active eBay Browse asks are not a replacement for completed sales.
 Plan and acceptance gate: `docs/pokemonpricetracker-removal-plan-2026-09.md`.
 
+**O5. eBay completed-sales market (future; blocked on licensed data access).** Revisit only
+if eBay grants Marketplace Insights access or Raw Signal adopts another licensed source of
+item-level eBay completed sales. The ordinary Browse API returns active listings and cannot
+power this feature. Marketplace Insights is currently restricted and closed to new users;
+its documented history window is up to 90 days.
+
+First release: add a clearly separate "eBay Sold Market" panel with 30-day median sold
+price, most recent sold price/date, matched sold-listing count, 30-day low/high, 7/30/90-day
+median changes, weekly sales cadence, days since last matched sale, and a robust price spread
+(25th–75th percentile or median absolute deviation). Join that data to the existing active
+listing snapshot for an explicitly labelled active-ask-to-sold-median gap and a TCGplayer-
+market-to-eBay-sold-median gap. Below the metrics, show recent matched sales five per desktop
+page and three per mobile page with image, title, sold price, date, condition, buying format,
+and seller feedback when the licensed response supplies them.
+
+Keep raw, graded, language, printing, product variant, and sealed case/unit markets separate;
+reuse the category/language/condition matching rules and record match confidence, source
+timestamp, window, and sample size. Do not label deduplicated sold records as unit volume,
+derive a sell-through rate or days-of-supply figure, claim an accepted Best Offer discount,
+include shipping in sold price unless supplied, blend raw with graded, or estimate sales from
+active asks. This feature must not enter modeled fair value or signals without a separate,
+explicit model decision and backtest.
+
 ## P. Signal-model evolution (planned 2026-09-01; from docs/buy-sell-estimation-research.md §15)
 
 Source research: `docs/buy-sell-estimation-research.md` (baseline-revised 2026-09-01;
