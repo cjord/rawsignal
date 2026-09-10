@@ -61,7 +61,12 @@ Defined in `app/styles/tokens.css` (dimensions/motion/stacking) and `app/globals
   headers on `--control`, row borders `--line`, active row tinted with blue at ~9%.
 - **Popover / hover card**: `--surface-raised`, 1px border, 12–14px radius, strong shadow,
   top border may carry a 3px blue accent. Positioning comes from `useDisclosurePopover`
-  (`data-popup-place`, `data-expand`) — never hand-roll popover placement.
+  (`data-popup-place`, `data-expand`) — never hand-roll popover placement. Anatomy: artwork
+  column with the two outbound marketplace tiles under it (`.hover-card-links`: TCGplayer
+  and eBay, `rel="noopener noreferrer sponsored"`, built only by
+  `core/domain/marketplace-links.ts`), then title row, chart (skeleton while loading, same
+  height as the finished chart), and the stats grid, which holds market data only. Every
+  page that renders an affiliate link carries the footer disclosure.
 - **Collapsible section** (`.detail-collapsible`): native `<details>`; summary reuses the
   section header anatomy plus a rotating `▸` mark; content stays in the DOM.
 - **Info hint** (`.info-hint`): 15px ⓘ toggletip for *explanatory* copy — hover/focus
@@ -71,7 +76,8 @@ Defined in `app/styles/tokens.css` (dimensions/motion/stacking) and `app/globals
 - **Skeleton** (`.detail-skeleton`): shimmer placeholder matching the final component's
   footprint (metric tile, signal card, gauge lines) while client-fetched data resolves;
   static under reduced motion; wrappers are `aria-hidden` with `aria-busy` on the section.
-  Route-level `loading.tsx` stays banned (vinext) — skeletons are always in-page.
+  Route-level `loading.tsx` stays banned (vinext) — skeletons are always in-page. (The ban
+  is convention since `rendered-html.test.mjs` retired; no test pins it today.)
 - **Settings menu** (`.settings-menu`): 230–260px panel, section titles via
   `.settings-section-title`, controls full-width. Device preferences (theme, font size,
   signal strictness, scalper mode) live here — persisted in `localStorage` with

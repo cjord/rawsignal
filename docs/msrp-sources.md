@@ -32,7 +32,7 @@ Japanese imports, pre-2020 products.
 
 | Products | MSRP | Source |
 |---|---|---|
-| One Piece — all 23 tracked sealed products | per-product values in `public/data/sealed-onepiece.json` ($4.99 packs · $12.99–15 double-pack sets · $19.99–24.99 decks/illustration boxes) | Bandai official product pages (en.onepiece-cardgame.com/products/) via the curated feed |
+| One Piece — all tracked sealed products (420 since the 2026-08-31 category-68 walk replaced the curated 23) | per-product values in `public/data/sealed-onepiece.json` ($4.99 packs · $12.99–15 double-pack sets · $19.99–24.99 decks/illustration boxes), exceptions keyed `onepiece:*` in `core/msrp/verified-msrp.ts` | Bandai official product pages (en.onepiece-cardgame.com/products/) |
 | Riftbound — 33 curated products | per-product values in `public/data/sealed-riftbound.json` ($4.49-class packs · $19.99 champion decks · $120 booster displays &c.) | "Asmodee/Riftbound MSRP" — Riot merch + distributor sheets, curated 2026 |
 | Pokémon — ~110 products | per-product values via the community published-MSRP feed | tcg-price-tracker (shizukaziye) matched feed, "Published product MSRP" |
 

@@ -1,6 +1,9 @@
 # Roadmap and deferred work
 
-Status notes captured 2026-08-27; header refreshed 2026-09-01. This file records agreed
+Status notes captured 2026-08-27; header refreshed 2026-09-10. Platform work since
+2026-09-03 (waves 12–17, the 2026-09-09 marketplace work, J2 phase 1, the R-series
+ingestion fixes) is logged in `docs/refactor-plan-2026-09.md` and `docs/todo.md`, not
+here; the "Open decisions" in item 2 below are pre-D1 history kept for the record. This file records agreed
 plans and open decisions that are not yet implemented, so future sessions can resume
 without re-deriving them. Update or remove entries as they land. The signal-model roadmap
 (walk-forward harness, champion/challenger promotion, regimes, cohort evidence) lives in
@@ -41,7 +44,7 @@ Open decisions before scheduling:
   capped at ~6 attempts). An automated workflow that commits regenerated feeds needs an
   explicit AGENTS.md carve-out — it is a standing authorization, distinct from the
   "no unrequested pushes" rule for agents.
-- **The production-freshness gap.** `public/data/` is baked into the Sites bundle at deploy
+- **The production-freshness gap.** *(Historical; resolved by (b) below.)* `public/data/` is baked into the Sites bundle at deploy
   time; regenerated feeds refresh the repo, not production, until a new Site version is
   published (currently a manual upload). Daily-fresh production requires either (a)
   automating the Sites publish after regeneration or (b) completing the D1 path (item 1),
@@ -57,8 +60,8 @@ The production cron runs `db/graded-ingestion.ts` once daily after live+details 
 top-400 Pokémon singles; no separate scheduler is needed. The local script remains for
 manual runs. `npm run data:sync:graded` rotates stalest-first through the top-400 Pokémon singles pool
 under the free-tier budget (100 credits/day, 2 per card → ~46 cards/run, full pool ≈ 9 days).
-A daily scheduled run (same host decision as item 2) keeps the rotation moving. The paid API
-tier would cover the pool daily. Population/GemRate data requires the provider's Business
+The guard cron's `graded` action keeps the rotation moving in production. The paid API
+tier would cover the pool daily (todo O4). Population/GemRate data requires the provider's Business
 plan and stays rendered as unavailable.
 
 ## 4. Fair-value set-rarity anchor — implemented via feed accumulation (2026-08-27); D1 derive-on-read since 2026-08-28
@@ -87,6 +90,9 @@ have never been measured. Each stays within the AGENTS.md rule: transparent,
 documented, labeled a model, no opaque or predictive components without an explicit user
 decision.
 
+- **Since 2026-09-09** the anchor's cohort series is memoized per isolate for ten minutes
+  (`db/peer-anchors.ts`, todo Q9) because it had become the site's largest read line; a
+  rollup-backed per-cohort table is the planned precompute (todo Q8).
 - **Validate the anchor empirically** before tuning anything else: once cohorts hit 14+
   observations, compare anchored vs unanchored fair value against subsequent realized sale
   prices (TCGplayer completed-sale buckets) to see whether the 20% weight helps or hurts.

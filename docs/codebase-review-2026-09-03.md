@@ -25,7 +25,7 @@ modules, **no circular dependencies**. `jscpd`: 11 TypeScript clones (1.2 % of l
 | `npm run typecheck` | `tsc --noEmit` — **new in wave 1** | Was never run by the gate; 4 latent errors had accumulated |
 | `npm run check` | test → lint → typecheck → Playwright (4 journeys on :4173 against a fresh dev server) | The release gate; dev server on :3000 must be stopped; CI (`.github/workflows/quality.yml`) runs the same on Node 24 for pushes to `main` and PRs |
 | `npm run data:*` | feed regeneration (`sync-tcgcsv.mjs`, `sync-sealed*.mjs`, scalper, details, graded, set logos) | External network; last-good protected |
-| `npm run db:*` | `drizzle-kit generate`, local max-profile database build/swap | |
+| `npm run db:*` | local profile database build/swap (`db:local:*`; `drizzle-kit generate` was removed in wave 10, see §"Migrations") | |
 | `npm run backtest:*`, `shadow:scoreboard` | walk-forward harness and champion/challenger scoreboard against local sqlite | research tooling, no production coupling |
 | `npm run cloudflare:prepare:*`, `cloudflare:parity` | writes `dist/server/wrangler.<env>.json` from `dist/server/wrangler.json` + `cloudflare/environments.json`; catalog parity check | production requires `--route rawsignal.cards --cron "*/1 * * * *"` and the D1 UUID via env |
 
@@ -85,8 +85,8 @@ and `docs/architecture.md` said Playwright owns port 3000 (it manages its own se
 4173) and omitted the type check from the gate description; the architecture CSS order
 list lacked `sets.css`/`collectr.css`; the helicopter view's migration and test counts
 were stale; the README's directory map had no `core/` entry. AGENTS.md's repository map
-still lists `app/history-utils.ts` and `app/data/tcgplayer-history-client.ts` (moved to
-`core/clients/tcgplayer-history.ts`) and its Validation section predates the type check —
+listed `app/history-utils.ts` and `app/data/tcgplayer-history-client.ts` (moved to
+`core/clients/tcgplayer-history.ts`; both since corrected) and its Validation section predates the type check —
 AGENTS.md changes are proposed to the user, not applied.
 
 ## 4. Dependency map
@@ -384,7 +384,7 @@ Fixes, by payoff:
 |---|---|---|---|
 | F1 | **Done (wave 12).** Only the product's own kind needs the whole game (name similarity, game-wide rarity averages); the other kind is read by set via `idx_catalog_game_set`, and whole-game rows are cached per isolate for 10 minutes keyed by the published run. Golden-diffed on 60 products: identical except tie order among equal-priced related sealed items, now deterministic | ~160 M (cold view 43 k → ~22 k; warm ~0.5 k) | medium — detail tests + `tests/early-value`/`detail-*` pin outputs |
 | F2 | **Done (wave 12).** One correlated `min(observed_date)` per member rides the product/date index — rows read ≈ members, same result set (`tests/early-value` green) | ~22 M | low |
-| F3 | Peer anchors: serve cohort averages from the daily rollup (`cohort_stats` was built for this) instead of a 180-day scan per view. Deferred: the anchor is a 180-day daily series, not the rollup's summary statistics; F7's page cache absorbs the repeats | ~7 M | low once R1 runs the rollup |
+| F3 | **Done (todo Q9, 2026-09-09) — as a per-isolate memo, not the rollup.** The anchor is a 180-day daily series, not the rollup's summary statistics, so `db/peer-anchors.ts` keeps each cohort's series ten minutes per isolate (it had grown to the site's largest read line, 142 M rows on a 273 M-row day); a rollup-backed precompute stays open as todo Q8 | ~7 M | low |
 | F4 | **Done (wave 12).** The six directory reads share one round trip; the page is ISR-cached for 10 minutes | ~10 M | low |
 | F5 | **Done (wave 12)** — migration 0014 `idx_catalog_ingestion_run` | 0.6 M, and it runs on every readiness check | low |
 | F6 | **Done (wave 12).** One `rowid` lookup of the latest metrics row per signal row; golden-diffed across all 30 boards, ~15% faster locally | 1.9 M and ~200 ms per call | low |

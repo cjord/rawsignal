@@ -117,8 +117,8 @@ function FairValuePanel({history,loading,current,midPrice,kind,peerAnchor}:{hist
 // the PokemonPriceTracker feed already carries as the sold data point, and the search links.
 // Asks are listing prices — labelled as such and never blended into fair value or signals.
 // Without a snapshot the panel is the two links and a note, so the product is still one
-// click from eBay. TODO(O1): the links are untagged until the EPN campaign exists — the
-// tagging lands in core/domain/marketplace-links.ts, not here.
+// click from eBay. Affiliate tagging (O1) lives in core/domain/marketplace-links.ts and the
+// EPN Smart Links script the layout loads, not here.
 function EbayMarketPanel({detail,current}:{detail:CatalogDetail;current:number|null}){
  const item={kind:detail.kind,name:detail.name,set:detail.set,number:detail.kind==="single"?detail.number:null,game:detail.game};
  const searchHref=ebaySearchUrl(item),soldHref=ebaySearchUrl(item,{sold:true});

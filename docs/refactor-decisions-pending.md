@@ -8,11 +8,14 @@ branch. Each item: context → options → recommendation.
 > **Status (ruled 2026-08-28, manual review on `refactor/consolidation`).** Every
 > decision below was reviewed and ruled; the sections are kept as the option record.
 > Rulings: **D1/D2/D4/D8** full `core/` layering pass (done). **D3** canonical
-> producer labels + curated-feed rewrite + data migration (in progress).
-> **D5** straight swap to SQL predicates, verified by a parity suite (in progress).
-> **D6** readiness/cache/error standardization (done). **D7** migrate to behavioral
-> tests + slim `source-contracts` (done — `rendered-html.test.mjs` retired).
-> **D9** quarantine (done). **D10** keep the internal `scalping` value.
+> producer labels + curated-feed rewrite + data migration (done — `categoryAliases`
+> no longer exists; the canonical query module is `core/catalog-query.ts`).
+> **D5** SQL predicates verified by `tests/catalog-parity.test.mjs`; `db/catalog-repository.ts`
+> is the D1 implementation (done). **D6** readiness/cache/error standardization (done).
+> **D7** migrate to behavioral tests + slim `source-contracts` (done — `rendered-html.test.mjs`
+> retired; the paths cited in the option records below predate the `core/` layering).
+> **D9** quarantine (done — option (b): the module lives at `legacy/chatgpt-auth.ts`).
+> **D10** keep the internal `scalping` value.
 > **D11/D13/D14/D15** full state pass with URL fixes (done). **D12** strictness is
 > view-only from links — never persisted (done). CSS slices S7–S14 all approved (done).
 
@@ -54,8 +57,8 @@ Fixing the producer deletes the bridge — but existing `public/data/sealed-rift
 and D1 `catalog_products.product_type` rows carry the old strings.
 **Options.** (a) Normalize at the producer + one-time D1 UPDATE + feed regeneration.
 (b) Keep the alias bridge as the documented seam.
-**Recommendation.** (a) eventually, batched with the next migration-bearing release;
-until then the bridge is tested and harmless.
+**Recommendation.** (a) eventually, batched with the next migration-bearing release.
+*Outcome:* (a) landed; the bridge is deleted.
 
 ## D4. Move `app/data/metrics-service.ts` SQL into `db/`
 
@@ -115,7 +118,8 @@ and 70+ local `site-package-*.tar.gz` archives (gitignored).
 `legacy/` label with a pointer in `docs/legacy-artifacts.md`. (c) Keep as-is.
 **Recommendation.** (b) at minimum; (a) once comfortable that the Cloudflare setup has
 survived long enough that a Sites revival would be a rebuild anyway. Local tarballs
-can be archived off-repo either way.
+can be archived off-repo either way. *Outcome:* (b) — the module is `legacy/chatgpt-auth.ts`,
+recorded in `docs/legacy-artifacts.md`.
 
 ## D10. Rename the internal `scalping` market value
 

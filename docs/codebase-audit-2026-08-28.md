@@ -1,5 +1,16 @@
 # Codebase audit — 2026-08-28
 
+> **Historical snapshot.** Measured on 2026-08-28 and superseded by
+> [codebase-review-2026-09-03.md](codebase-review-2026-09-03.md) and the wave log in
+> [refactor-plan-2026-09.md](refactor-plan-2026-09.md). Its present-tense findings no
+> longer hold: `tests/rendered-html.test.mjs` was retired (decision D7), the `db → scripts`
+> `@ts-ignore` edges are gone (the normalizers are TypeScript under `core/normalize/`), and
+> the `!important` count is ~211, not 301. Paths cited here predate the `core/` layering
+> (`scripts/clients/http-json.mjs` → `core/clients/http-json.ts`, `sealed-product-utils.mjs`
+> → `core/sealed-product-utils.ts`, `app/data/catalog-repository.ts` →
+> `core/catalog-repository.ts` / `db/catalog-repository.ts`, `app/data/metrics-service.ts`
+> → `db/metrics-service.ts`).
+
 Successor to the 2026-08-25 refactor program (`refactor-plan.md`, `refactor-results.txt`).
 That program's goals were achieved and held; this audit measures the debt re-accumulated by
 the three weeks of feature work since (metrics page, scalper rework, navigation rework,

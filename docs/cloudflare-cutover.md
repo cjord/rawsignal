@@ -1,14 +1,14 @@
 # Cloudflare cutover runbook
 
-Status 2026-08-27: the staging Worker is the published deployment of record (backfill complete, parity passed, guard Cron live) and OpenAI Sites hosting is dormant as the rollback path. The gates below were followed for staging and remain the checklist for promoting a dedicated production Worker, D1 database, and custom hostname — that promotion is still a separate, explicitly approved step. Do not reuse production data or change hostnames during preparation.
+Status: the cutover completed on 2026-08-28 (see the final section). Production is the `raw-signal` Worker on `rawsignal.cards`, staging is the cron-less `raw-signal-staging` sandbox, and OpenAI Sites is dormant as the rollback path. The gates below are the historical checklist that was followed; they remain the pattern for any future environment promotion. Do not reuse production data or change hostnames during preparation.
 
 ## Environment boundaries
 
 | Environment | Runtime | Database | Traffic |
 | --- | --- | --- | --- |
-| Current production | OpenAI Sites | Sites `DB` binding | Public production URL |
+| Dormant rollback | OpenAI Sites | Sites `DB` binding | None (retained only as a rollback path) |
 | Cloudflare staging | `raw-signal-staging` Worker | `raw-signal-staging` D1 | `workers.dev` and version preview URLs |
-| Future production | `raw-signal` Worker | `raw-signal-production` D1 | Explicit custom hostname after approval |
+| Production | `raw-signal` Worker | `raw-signal-production` D1 | `rawsignal.cards` custom domain (workers.dev off) |
 
 `cloudflare/environments.json` stores only non-secret names. Account IDs, database UUIDs, tokens, generated deployment configs, exports, and backups must stay outside Git.
 
@@ -26,7 +26,7 @@ Record the returned D1 UUIDs in the deployment environment or secret manager, no
 
 ## 2. Build and generate a staging config
 
-The vinext build produces the base Worker configuration. The preparation script converts it into an environment-specific config, binds static assets as `ASSETS`, selects the isolated D1 database, and clears all Cron triggers unless staging explicitly opts in (`--cron "*/1 * * * *"` or `RAW_SIGNAL_STAGING_CRON`); production never carries a schedule from this script. The Worker's `scheduled()` handler is a guard tick: it advances at most one checkpointed catalog batch when the deployed feed snapshot has not been fully ingested, continues an operator-started history backfill, and otherwise no-ops.
+The vinext build produces the base Worker configuration. The preparation script converts it into an environment-specific config, binds static assets as `ASSETS`, selects the isolated D1 database, and clears all Cron triggers unless the run explicitly opts in (`--cron "*/1 * * * *"` or `RAW_SIGNAL_STAGING_CRON`, honored for either environment); neither environment inherits a schedule from the build, and production is where the guard cron runs. The Worker's `scheduled()` handler is a guard tick: it advances at most one checkpointed catalog batch when the deployed feed snapshot has not been fully ingested, continues an operator-started history backfill, and otherwise no-ops.
 
 ```powershell
 npm run check
@@ -35,7 +35,7 @@ npm run cloudflare:prepare:staging
 npx wrangler deploy --dry-run --config dist/server/wrangler.staging.json
 ```
 
-The generated file is ignored by Git. Inspect it before deployment and verify that `triggers` is empty, `workers_dev` is true, the `DB` binding references staging, and there is no production route.
+The generated file is ignored by Git. Inspect it before deployment and verify that `triggers` is empty, `workers_dev` is true, the `DB` binding references staging, there is no production route, and the injected bindings are present: `images` → `IMAGES`, `version_metadata` → `CF_VERSION_METADATA`, and the service binding `COLLECTR_FETCH` → `raw-signal-collectr`.
 
 ## 3. Migrate and seed staging
 
@@ -63,15 +63,17 @@ npx wrangler secret put STAGING_JOB_TOKEN --config dist/server/wrangler.staging.
 
 Invoke catalog ingestion with `{"job":"daily","batchSize":80}` until the response reports `done: true`. The staging adapter caps catalog batches at 80 because each record performs multiple D1 operations and larger batches can exceed Workers' per-invocation API-request limit. The job checkpoints after every batch and does not publish `daily-market` readiness until every catalog record is written. Invoke history with `{"job":"history","batchSize":20}`; it uses an independent durable cursor and publishes `history-signals` only after all eligible products are processed.
 
-Until those two readiness markers exist, the catalog and signal APIs intentionally retain their bounded feed fallbacks. The adapter is not a public administrative API: it is hidden outside staging, has no GET behavior, uses constant-time bearer verification, and must be removed or replaced by a service binding or Workflow before production cutover.
+Until those two readiness markers exist, the catalog and signal APIs intentionally retain their bounded feed fallbacks. The adapter is not a public administrative API: it is hidden outside staging (`ENVIRONMENT === "staging"` gate in `worker/staging-jobs.ts`), has no GET behavior, and uses constant-time bearer verification. The accepted outcome at cutover was to keep it shipped behind that runtime gate rather than replace it with a service binding or Workflow.
 
 ## 4. Prove API parity
 
-After staging ingestion completes, compare the complete paginated catalog and facets against the current Sites production API:
+After staging ingestion completes, compare the complete paginated catalog and facets against production:
 
 ```powershell
-npm run cloudflare:parity -- --baseline https://raw-signal-pokemon-watch.drdrrr.chatgpt.site --candidate https://<staging-worker>.workers.dev
+npm run cloudflare:parity -- --baseline https://rawsignal.cards --candidate https://<staging-worker>.workers.dev
 ```
+
+Pass `--allow-feed-candidate` when the candidate is expected to still be serving the bundled feed (an incomplete ingestion), otherwise a feed-sourced candidate fails the check.
 
 The parity command checks representative Pokémon and Riftbound Singles categories plus Pokémon, Riftbound, and One Piece Sealed catalogs. It fails when records, counts, or facets differ, or when the candidate API reports a fallback source instead of `database`.
 
@@ -105,7 +107,7 @@ Do not deploy this config until staging parity, backup verification, DNS ownersh
 
 All slices of this runbook are done. Final topology: production Worker `raw-signal`
 serves `rawsignal.cards` (custom domain; workers.dev off; `ENVIRONMENT=production`;
-guard Cron `*/1` — raised from `*/2` per todo M2 on 2026-08-31, effective at the
+guard Cron `*/1` — raised from `*/2` per todo M2 on 2026-08-31 and live since the
 next production deploy; verified $0 against every billing meter) on D1
 `raw-signal-production`; sandbox Worker `raw-signal-staging` keeps its workers.dev
 URL and `raw-signal-staging` D1 with no schedule (stale by design — update only when

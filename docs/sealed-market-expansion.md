@@ -35,7 +35,7 @@ is too high for the value right now.** Plan notes preserved below and in todo §
 | Cron ticks/day | +~15 | +~77 |
 | D1 catalog rows | +420 | +2,450 |
 
-Combined they would take the cron from ~500 to ~600 of 720 ticks/day and ~3× the
+Combined they would take the cron from ~500 to ~600 ticks/day (of 1,440 since M2; the draft assumed 720) and ~3× the
 TCGCSV request volume. **MTG alone is ~6× the One Piece cost for the same feature**
 — hence the deferral. A "modern-only" cutoff barely helps (303 of 455 MTG groups
 are 2015+). If MTG is revived, the cost lever is a sealed-group cache: after one
@@ -56,6 +56,9 @@ newly published groups (~30–40% savings), or walk weekly instead of daily.
    `'onepiece'` and `catalog_products_onepiece_sealed_check` (onepiece ⇒ sealed)
    matches a sealed-only ingest. MTG (or OP **singles**) would force a SQLite
    table rebuild — CHECK constraints can't be altered in place.
+(Steps 4 and 5 shipped 2026-08-31: the `tcgcsv-sealed` work entry for category 68 in
+`db/live-ingestion.ts`, and `sync-sealed-onepiece.mjs` producing the 420-product feed.)
+
 4. **Live walk** (`db/live-ingestion.ts`): add cat 68 as a `sealedOnly` work-entry
    flavor (skip `normalizeSinglesGroup`); retire the bundled-onepiece pseudo-entry
    in favor of the walk, merging curated MSRPs by productId like Riftbound does.
@@ -84,7 +87,7 @@ Option B covers every Collectr §L1 miss (Eevee Heroes S6a 2021-05-28, VSTAR Uni
 2022, Shiny Treasure ex 2023, 151 JP 2023 — publishedOn is era-accurate). JP sealed
 stays `game:"pokemon"` — no migration, joins the English sealed catalog/feeds. Promo
 groups stay singles-only. Full JP singles (~15,800 priced, +~263 history ticks) would
-blow the 720-tick cron budget; curated chase rarities (~3–4k, +~80–105 ticks) is the
+blow the tick budget (drafted against 720; 1,440 since M2); curated chase rarities (~3–4k, +~80–105 ticks) is the
 only viable singles shape — deliberately unscheduled.
 
 ## One Piece: sealed-only vs singles+sealed
@@ -97,7 +100,7 @@ differences are all downstream:
 |---|---|---|---|
 | Records | ~420 | ~7,500 | ~1,500–2,500 (est.) |
 | History calls/day | +~400 | +~7,100 | +~1,500–2,500 |
-| Cron ticks/day | +~15 | +~210 (near the 720 cap) | +~50–80 |
+| Cron ticks/day | +~15 | +~210 (near the cap as drafted at 720; 1,440 since M2) | +~50–80 |
 | Migration | none | table rebuild (drop onepiece⇒sealed check) | same rebuild |
 | Code surface | already plumbed | new singles market end-to-end: `SinglesGame` union, OP rarity taxonomy + `allowedRarities.onepiece` sections, main-page market tab, detail enrichment chunks, metrics index, signals | same |
 

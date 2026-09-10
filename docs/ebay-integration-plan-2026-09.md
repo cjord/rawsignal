@@ -1,20 +1,24 @@
 # eBay integration and marketplace links — implementation plan (2026-09-04)
 
-**Status 2026-09-04:** tiers A and C are implemented in the working tree (wave 16 in the
-refactor plan): the TCGplayer tile is in every popover, and the eBay panel, `ebay_listings`
-table (migration 0016), Browse client, rotation job, cron action, and ops job exist. The
-panel shows the PokemonPriceTracker raw eBay sale as the sold data point (tier D's display
-half). Remaining for the user: the eBay developer keyset (`EBAY_CLIENT_ID`,
-`EBAY_CLIENT_SECRET` secrets) so the rotation fills the table; EPN and Impact approvals for
-tier B, which is the only code still to write (the builders in
-`core/domain/marketplace-links.ts` carry the TODO). Deploy order for wave 16 is at the end.
+**Status 2026-09-10.** Tiers A and B shipped (commits `d7de3b9`, `2ffe444`, `6e5e6f0`;
+production `9f30fee8`): TCGplayer and eBay tiles under the artwork of every popover, the
+Impact affiliate wrapper on every TCGplayer link, EPN Smart Links loaded from the root
+layout, `rel="sponsored"` on the anchors, and the disclosure in both footers. Tier C is
+partly shipped: the `ebay_listings` table (migration 0016), Browse client, rotation job,
+cron action, ops job, and the detail-page eBay panel exist, and the panel shows the
+PokemonPriceTracker raw eBay sale as the sold data point (tier D's display half). Still
+open in C: the hover route `/api/ebay/listings` (C4) and adding `ebay-listings` to
+`PUBLISH_KEYS` (C3). Blocked on the user: the eBay developer keyset (`EBAY_CLIENT_ID`,
+`EBAY_CLIENT_SECRET`) so the rotation fills the table; tier D's PokemonPriceTracker tier
+upgrade (todo O4).
 
-**Live listings on every page (decided 2026-09-09).** Option B, an EPN Smart Placement in
-the eBay panel (eBay-rendered cards under eBay's "Ad" label, keyed by our search query),
-was tried on staging and pulled the same day (ad blockers hide it); option A — a Browse-API grid with images, Listings/Graded
+**Live listings on every page — decided 2026-09-09: option B rejected, option A is the
+target.** Option B, an EPN Smart Placement in the eBay panel (eBay-rendered cards under
+eBay's "Ad" label, keyed by our search query), was tried on staging and pulled the same
+day because ad blockers hide it. Option A — a Browse-API grid with images, Listings/Graded
 tabs with counts, and an on-demand fetch cached a day under a daily call budget so every
-card and sealed page shows listings for real visitors — is the target once the eBay
-developer keyset exists. The existing search and sold links stay in both.
+card and sealed page shows listings for real visitors — waits on the keyset. The search
+and sold links stay either way.
 
 Scope: todo §O1 (affiliate tagging), §O2 (eBay links and data), and the new §O3 (a
 TCGplayer link inside every hover chart). Written after the wave 14–15 D1 audit
@@ -46,7 +50,7 @@ Facts this plan rests on (verified 2026-09-04; re-check the flagged ones at impl
 - The eBay sold-price signal we already have: PokemonPriceTracker's `salesByGrade.ungraded`
   is eBay completed sales for raw cards, stored in `graded_prices` for the top-600 rotation
   pool and rendered on the detail page as "Raw (eBay)". That is the realistic sold-comps path
-  (todo R3: the ~$9.99/mo tier lifts the 100-credit ceiling).
+  (todo O4: the ~$9.99/mo tier lifts the 100-credit ceiling).
 - Pool sizes in production (current price ≥ $20 / ≥ $50 / ≥ $100): Pokémon singles
   5,379 / 2,868 / 1,522; Riftbound singles 163 / 139 / 89; Pokémon sealed 1,745 / 1,285 / 914;
   One Piece sealed 252 / 178 / 131; Riftbound sealed 42 / 30 / 20. Total ≥ $20 ≈ 7,600.
@@ -58,7 +62,7 @@ Facts this plan rests on (verified 2026-09-04; re-check the flagged ones at impl
 | A. Links (O3 + O2 link half) | TCGplayer link in every hover chart and full-view card; eBay active-listings search link on the detail page and in the hover charts | none (EPN campaign id optional) | **0 additional rows read** |
 | B. Affiliate tagging (O1) | One link builder tags TCGplayer (Impact template) and eBay (EPN parameters); disclosure line | program approvals: EPN, TCGplayer/Impact (user) | 0 |
 | C. eBay active-listing snapshot (O2 API half) | Daily cron rotation over the ≥ $20 pool via the Browse API → `ebay_listings`; detail-page panel; hover tile; `/api/ebay/listings` | eBay developer keyset (user); secrets `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET` | +1 row per detail view, +1 row per first hover reveal; ≤ 1,500 row writes a day |
-| D. Sold comps | Widen the PokemonPriceTracker rotation; surface "Raw (eBay)" in the hover for covered cards | PPT tier upgrade (user, todo R3) | 0 new reads (the detail page already reads `graded_prices`); +1 PK row per hover reveal if surfaced there |
+| D. Sold comps | Widen the PokemonPriceTracker rotation; surface "Raw (eBay)" in the hover for covered cards | PPT tier upgrade (user, todo O4) | 0 new reads (the detail page already reads `graded_prices`); +1 PK row per hover reveal if surfaced there |
 
 Order: A → B → C. D is a purchase decision, not code. Sold comps through eBay's own APIs are
 not available to us; the plan does not pretend otherwise.
@@ -88,11 +92,15 @@ export function withEpn(url: string, campaign: EpnCampaign, customId: string): s
   search URL escaping (`&`, `'`, `é`), EPN parameters present only with a campaign, custom id
   equals the product id, sold URL only when asked.
 
-### A2. Hover chart link slot — `app/HistoryPanel.tsx`
+### A2. Hover chart link slot — as built: `app/leaderboard/HistoryPopover.tsx`
 
-Add an optional `links?: { label: string; href: string; rel?: string }[]` prop rendered
-after `.history-stats` as `<span className="history-links">` (`target="_blank"
-rel="noopener noreferrer"`; affiliate links add `sponsored`). The popover already sits above
+*As built (2026-09-09):* the slot is a `links?: HistoryMetric[]` prop on `HistoryPopover`,
+rendered as `<span className="hover-card-links">` under the artwork (not after the stats),
+with two tiles from `marketplaceLinkMetrics(productId, sourceUrl, item)` — TCGplayer and an
+eBay buy-it-now search — each `target="_blank" rel="noopener noreferrer sponsored"`.
+`HistoryPanel` only gained anchor rendering for metrics that carry `href`. The original
+proposal follows for the record: an optional `links` prop rendered after `.history-stats`
+(`target="_blank" rel="noopener noreferrer"`; affiliate links add `sponsored`). The popover already sits above
 the row's cover link (`.market-row-popover` z-index 6 over `.market-row-detail-link` z-index
 4) and outside the `<summary>`, so a click in the slot neither toggles the disclosure nor
 navigates the row. On touch the popover opens on tap and the links are ordinary tappable
@@ -103,9 +111,13 @@ page; hidden when `links` is empty. Reduced motion and dark theme need nothing n
 
 ### A3. Wire the six surfaces
 
+(As built, every surface passes `links={marketplaceLinkMetrics(productId, url, {kind, game,
+name, set, number})}`; the eBay query rules — game word first, no set codes, commas, or
+ampersands, collector number for Pokémon only — live in `core/domain/marketplace-links.ts`.)
+
 | Surface | File | Source of the URL | Notes |
 |---|---|---|---|
-| Singles leaderboard popover | `app/page.tsx` `HoverCard` | `card.url` / `card.productId` | pass `links={marketplaceLinks(card)}` |
+| Singles leaderboard popover | `app/page.tsx` `HoverCard` | `card.url` / `card.productId` | pass `links={marketplaceLinkMetrics(…)}` |
 | Full-view card (chart inline) | `app/page.tsx` `FullCard` | same | the large panel gets the same slot |
 | Sealed leaderboard popover | `app/SealedView.tsx` `rowDetails` | `product.url` / `product.productId` | scalping market included |
 | Detail tables (chase cards, related sealed) | `app/detail-tables.tsx` | `card.url`, `product.url` | |
@@ -142,8 +154,8 @@ already has the data it needs in memory:
 | The reveal itself | one `/api/history` ≈ 85 rows (mean 89 observations per product; route-cached 1 h per colo), or nothing when already loaded | 0 |
 
 No new route, no new query, no new table. The bundled fallback feeds also carry `url`, so the
-non-D1 deployment renders the same links. Daily D1 volume stays at the wave-14 projection
-(~65 M rows/day at current traffic).
+non-D1 deployment renders the same links. Daily D1 volume is unchanged by the links (the
+current baseline and its crawler-driven swings are tracked in todo Q9/S2, not here).
 
 If the eBay link is later rendered with data (tier C) the costs are in C5 below.
 
@@ -177,7 +189,7 @@ CREATE TABLE `ebay_listings` (
   `listing_count` integer NOT NULL,          -- eBay's `total` for the filtered search
   `lowest_cents` integer,                    -- lowest fixed-price ask inside the price guard
   `median_cents` integer,                    -- median of the returned asks (≤ 50)
-  `samples_json` text NOT NULL DEFAULT '[]', -- up to 3 {itemId,title,cents,url} for the panel
+  `samples_json` text NOT NULL DEFAULT '[]', -- up to 5 {itemId,title,cents,url,shipping,condition} for the panel (shipped as EBAY_SAMPLE_COUNT = 5)
   `fetched_at`   text NOT NULL,
   `updated_at`   text NOT NULL               -- YYYY-MM-DD, the rotation's staleness key
 );
@@ -209,7 +221,7 @@ they forbid it, store aggregates only).
 
 - Pool: `catalog_products ⋈ current_prices` where `market_cents ≥ 2000`, left-joined to
   `ebay_listings`, stalest first (never-fetched sorts ahead), ≈ 7,600 products.
-- Budget: `EBAY_DAILY_CALLS = 1,500` (30 % of the 5,000 default, leaving room for retries and
+- Budget: `EBAY_DAILY_BUDGET = 1,500` (30 % of the 5,000 default, leaving room for retries and
   the token mints) split into ticks of `EBAY_TICK_CALLS = 40` with 250 ms spacing (≈ 20–25 s
   wall per tick, far inside the 1,000-subrequest limit; fetch wall time is not CPU time).
   1,500 a day refreshes the pool every ≈ 5 days; a ≥ $50 pool (≈ 4,500) every 3. Stop on 429
@@ -217,16 +229,19 @@ they forbid it, store aggregates only).
 - Run identity `ebay-listings:<today>`, checkpointed by cursor in `refresh_state` like the
   history run, so the day's calls spread across ticks; completion writes `last_success_at`.
 - Cron policy (`worker/scheduled-decision.ts`): new action `"ebay"` **after** the history
-  gate — `ebayKeyConfigured && historyDoneForLive && ebayPublishedRunId !== ebayTodayRunId`
-  (continue a checkpointed run first). It therefore consumes only idle ticks once the daily
-  chain (live → details → graded → metrics → history) has landed, ≈ 40 ticks a day.
+  gate — as built, `ebayKeyConfigured && ebayPublishedRunId !== ebayTodayRunId`, relying on
+  statement order rather than an explicit `historyDoneForLive` conjunct: the live, details,
+  graded, metrics, and history gates all return first when due, so eBay takes only idle
+  ticks (≈ 40 a day) once the daily chain has landed. One consequence: with no published
+  live run at all, the metrics/history gates are skipped and eBay can claim the tick.
   Tests: policy table rows for "not configured", "history still running", "run due",
   "run complete".
 - Ops: `__ops/staging-jobs` gains `job: "ebay"` for staging trials (staging stays cheap: no
   cron, secrets set only for the trial and removed after).
 - Publish signature: add `ebay-listings` to `PUBLISH_KEYS` so detail pages re-render after a
   run completes (one signature change a day; without it the 36 h page cache would serve
-  yesterday's asks).
+  yesterday's asks). **Not yet done** — `worker/page-signature.ts` still lists five keys;
+  do it when the keyset lands and the rotation starts writing.
 - `docs/data-ingestion.md`: a section on the rotation, its budget, and how to read
   `ingestion_runs` stats (`targets`, `updated`, `calls`, `stopped`).
 
@@ -234,8 +249,8 @@ they forbid it, store aggregates only).
 
 - Detail page: `getDetail` adds `readEbayListings(db, productId)` to its `Promise.all`
   (one PK row) and renders an "eBay asks" panel beside the graded section: lowest ask,
-  median ask, listing count, three sample listings (affiliate-tagged once B ships), fetch
-  date, and the search link from A. Cards outside the pool render the link only.
+  median ask, listing count, five sample listings (affiliate-tagged by Smart Links), fetch
+  date, and the search link from A. Cards outside the pool render the link only. *(Shipped.)*
 - Hover charts: `GET /api/ebay/listings?productId=` (PK lookup, `CACHE_TIERS.hour`, route
   edge cache) fetched by `usePriceHistoryBatch().ensure`'s sibling on first reveal; the panel
   appends one tile, "eBay low ask", when data exists. Keeping it out of `/api/history` leaves
@@ -253,8 +268,8 @@ they forbid it, store aggregates only).
 | Cron tick (ebay) | — | ≈ 40 pool rows + 40 PK upserts | the pool query is `Pg`-scoped (~7.6 k rows) once per run, then cursor-sliced |
 | Rows written | — | ≤ 1,500/day | inside the 50 M/month allowance by four orders of magnitude |
 
-Net: well under 0.1 % of the ~65 M rows/day the site reads today. The external constraint is
-the eBay call budget, not D1.
+Net: well under 0.1 % of the site's daily reads (todo Q9 carries the current figure). The
+external constraint is the eBay call budget, not D1.
 
 ### C6. Failure behaviour
 
@@ -267,7 +282,7 @@ the eBay call budget, not D1.
 
 ## Tier D — sold comps without eBay's closed APIs
 
-- Upgrade PokemonPriceTracker (todo R3) and widen `runGradedRotationBatch`'s pool from 600
+- Upgrade PokemonPriceTracker (todo O4) and widen `runGradedRotationBatch`'s pool from 600
   toward the ≥ $20 singles pool; the detail page already renders the raw eBay sale price from
   `graded_prices.grades_json.ungraded`.
 - Optionally surface that "Raw (eBay) sold" value as a hover tile for covered cards: +1 PK row
@@ -277,14 +292,13 @@ the eBay call budget, not D1.
 
 ## Sequence and estimates
 
-| Step | Wave | Effort | Blocked on |
+| Step | Wave | Status | Blocked on |
 |---|---|---|---|
-| A1–A5 links in hover charts + eBay search link | 16 | one session | nothing |
-| B affiliate tagging + disclosure | 16b | half a session | EPN and Impact approvals (user) |
-| C1–C3 schema, client, rotation, cron policy, ops job | 17 | one to two sessions | eBay developer keyset (user); staging trial first |
-| C4–C6 detail panel, hover tile, route | 17b | one session | 17 deployed, one full rotation observed |
-| D PPT tier | — | config only | purchase decision (user) |
+| A1–A5 links in hover charts + eBay search link | 16 | shipped `d7de3b9` (2026-09-05, production `ea6fdbaf`); tiles moved under the artwork with an eBay tile in `6e5e6f0` | — |
+| B affiliate tagging + disclosure | 16b | shipped: TCGplayer Impact links `2ffe444` (production `7132dd9e`), EPN Smart Links `6e5e6f0` (production `9f30fee8`) | — |
+| C1–C3 schema, client, rotation, cron policy, ops job | 17 | shipped `d7de3b9`; migration 0016 applied to production, staging, and local | eBay developer keyset (user) before the rotation writes; `PUBLISH_KEYS` entry then |
+| C4–C6 detail panel, hover tile, route | 17b | detail panel shipped `d7de3b9`; hover tile and `/api/ebay/listings` open | keyset, one full rotation observed |
+| D PPT tier | — | open | purchase decision (user, todo O4) |
 
-Deploy order for wave 17: deploy first, apply migration 0016 to production, staging, and the
-local dev database (`node:sqlite` against the miniflare file for local, as for 0015), then set
-the two secrets and watch the first `ebay-listings:<date>` run in `wrangler tail`.
+When the keyset lands: set the two secrets on production, watch the first
+`ebay-listings:<date>` run in `wrangler tail`, then add `ebay-listings` to `PUBLISH_KEYS`.

@@ -19,7 +19,7 @@ ingestion), a set of **node sync scripts** (feed generation), and a **D1 databas
 ```mermaid
 flowchart TB
   subgraph frontend["Frontend (app/)"]
-    pages["pages: page.tsx (Singles + shell) · SealedView · MetricsView · buylist · ProductDetailPage"]
+    pages["pages: page.tsx (Singles + shell) · SealedView · MetricsView · buylist · ProductDetailPage · SetsView · SetDetailView · CollectrImportView"]
     prims["shared UI: leaderboard/* · filters/* · MarketTabs · SignalControls · TopBar · MarketUI · HistoryPanel · PriceChart"]
     state["state/: market-query codec · scalper-mode store · market-memory · favorites"]
     dataL["data/: repositories · services · hooks"]
@@ -27,21 +27,21 @@ flowchart TB
     css["stylesheets, import-order dependent; tokens in styles/tokens.css"]
   end
   subgraph core["core/ — pure, framework-free, shared by all three consumers"]
-    domain["domain: types · contracts · formatters · history-metrics · eras · pack-ev"]
+    domain["domain: types · contracts · formatters · history-metrics · eras · pack-ev · value-breakdown · marketplace-links · card-images · regime · detail-metrics"]
     engine["catalog-query engine · catalog-repository · market-state · signal-utils · market-utils"]
     pipe["clients · normalize · sealed-product-utils · peer-history · msrp · graded"]
   end
   subgraph backend["Worker + DB"]
     worker["worker/: index (fetch) · scheduled-ingestion (cron) · staging-jobs (ops) · live-feeds"]
     db["db/: schema · repository · readiness · ingestion modules · backfill"]
-    drizzle["drizzle/: migrations 0000-0014 (hand-written since 0005)"]
+    drizzle["drizzle/: migrations 0000-0017 (hand-written since 0005)"]
   end
   subgraph pipeline["Feed pipeline (node)"]
     sync["sync-tcgcsv.mjs · sync-sealed.mjs (roots)"]
     scripts["scripts/: validate · details · scalper · graded · io · cloudflare"]
     feeds["public/data/*.json (generated, last-good protected)"]
   end
-  tests["tests/: 60 node suites (~270 tests) + 4 Playwright — behavioral suites, characterization pins, a slim source-contract file"]
+  tests["tests/: 70 node suites (320 tests) + 7 Playwright — behavioral suites, characterization pins, a slim source-contract file"]
   docs["docs/: maintained + gate-enforced"]
 
   pages --> prims --> dataL
@@ -62,8 +62,11 @@ flowchart TB
 | `/` | `app/page.tsx` | App shell + Singles leaderboard; renders `SealedView` when `mode=sealed` (remounted via a revision key on market change) |
 | `/metrics` | `app/metrics/page.tsx` → `MetricsView` | Movers, indexes, momentum, category/set leaderboards |
 | `/buylist` | `app/buylist/page.tsx` | Favorites-driven list + fullscreen mode |
-| `/cards/[id]`, `/sealed/[id]` | `ProductDetailPage` via `detail-route` + `data/load-detail` | Shared detail surface for both product kinds |
-| `/api/*` | `app/api/**/route.ts` | catalog, catalog/detail, history, history/batch (≤40 stored series, read-only), metrics, set-ev, signals — read D1 first, bundled feeds as fallback |
+| `/cards/[id]`, `/sealed/[id]` | `ProductDetailPage` via `detail-route` + `data/load-detail` | Shared detail surface for both product kinds (eBay panel, marketplace buttons) |
+| `/sets`, `/sets/[game]/[slug]` | `app/sets/page.tsx` → `SetsView`; `app/sets/[game]/[slug]/page.tsx` → `SetDetailView` | Sets directory with cover art; set detail with chase cards, related sealed, pack EV |
+| `/import` | `app/import/page.tsx` → `CollectrImportView` | Collectr portfolio import (fetch via the `COLLECTR_FETCH` service binding) |
+| `/sitemap.xml` | `app/sitemap.xml/route.ts` | Boards, sets directory, metrics, every set page (wave 15) |
+| `/api/*` | `app/api/**/route.ts` | catalog, catalog/detail, history, history/batch (≤40 stored series, read-only), metrics, set-ev, signals, collectr — read D1 first, bundled feeds as fallback; deliberately no `/api/ebay/*` yet |
 
 ## Layering
 
@@ -107,7 +110,7 @@ flowchart LR
   norm["core/normalize (pure)"]
   val["scripts/validate + last-good publish"]
   pub["public/data feeds (bundled into deploys)"]
-  cron["production cron */1 — guard: one checkpointed batch when due; rollup + daily history keyed to the live run's date"]
+  cron["production cron */1 — guard: claim the 170 s cron-lease or exit idle; one checkpointed batch of the first due job (live → details → graded → metrics → history → ebay); rollup + daily history keyed to the live run's date"]
   d1[("D1: catalog · observations · signals · graded · metrics")]
   repos["repositories: D1 first, feed fallback"]
   engine["catalog-query engine (one impl for browser + server)"]
@@ -132,7 +135,7 @@ presentation.
 | D1 | placeholder binding | `d2e550f5…` — **stale by design** | `af781f30…` — daily ingestion |
 | Cron | none | none (kept cheap) | `*/1` guarded |
 | Ops adapter | n/a | enabled (`ENVIRONMENT=staging`) | refuses |
-| Secrets | none | job token | job token + graded API key (sole spender) |
+| Secrets | none | job token | job token + graded API key; optional `ALPHAVANTAGE_API_KEY` (S&P benchmark, skips when absent); `EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET` + var `EBAY_EPN_CAMPAIGN_ID` read by the eBay rotation — keyset pending from the user, so the action never fires yet |
 
 Deploy = full gate → `scripts/cloudflare/prepare-deployment.mjs` (writes
 `dist/server/wrangler.<env>.json`) → `npx wrangler deploy --config …`. The gate's
@@ -142,7 +145,7 @@ word.
 
 ## Release gate
 
-`npm run check` = production build + ~270 node tests (60 suites) + lint + `tsc --noEmit` + 4
+`npm run check` = production build + 320 node tests (70 suites) + lint + `tsc --noEmit` + 7
 Playwright journeys. Playwright starts its own server on :4173, but vinext refuses to start a
 second dev server for the same directory — **stop the :3000 dev server before the gate** or
 `test:browser` fails with "Another vinext dev server is already running". A few suites still
@@ -190,3 +193,4 @@ source text can express.
 | Change ingestion | `db/*-ingestion.ts` + `worker/scheduled-*` (cron) or `worker/staging-jobs.ts` (ops) |
 | Add a migration | `drizzle/` — apply to BOTH D1s; bookmark production first |
 | Change feed generation | `sync-*.mjs` + `core/normalize` + validators — never bypass last-good |
+| Change an outbound marketplace link or affiliate tag | `core/domain/marketplace-links.ts` (the only builder; TCGplayer Impact wrapper, eBay query rules, popover tiles) + the EPN Smart Links snippet in `app/layout.tsx` (pinned by `tests/source-contracts.test.mjs`); both footers carry the disclosure |

@@ -1,6 +1,6 @@
 # Scalper Mode variant review
 
-Generated from `scalper.txt` against the current TCGCSV catalogs. No synthetic products are included. The recommendations below preserve every legitimate retail-art variant while excluding cases, displays, and multipacks unless the watchlist explicitly names one.
+Historical review, generated from `scalper.txt` (a one-off watchlist input, no longer in the repository) against the TCGCSV catalogs of the time; the resolved decisions live in `scripts/scalper/approved-variants.json`. No synthetic products are included. The recommendations below preserve every legitimate retail-art variant while excluding cases, displays, and multipacks unless the watchlist explicitly names one.
 
 ## Recommended: include every listed individual variant
 

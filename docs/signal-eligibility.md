@@ -57,6 +57,9 @@ live shadow comparison (todo §P, P1b):
 - **Breakout sell gate** (`breakout-continuation`) — a price accelerating through its
   high is a breakout in progress, not overextension; v2 sells wait for momentum to
   fade, mirroring the buy side's stabilization gate.
+- **Roll-over sell gate** (`awaiting-rollover`) — the non-breakout half of the same
+  check: a v2 sell within 0.8% of its high, or still up over 7 days, is excluded until
+  the price confirms a roll-over (the sell-side mirror of `awaiting-stabilization`).
 
 Backtest evidence for both lives in [docs/backtests.md](backtests.md).
 

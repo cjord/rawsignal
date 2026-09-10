@@ -1,5 +1,12 @@
 # Product Audit — 2026-08-28
 
+> **Historical snapshot.** Findings and numbers date from 2026-08-28; the "landed" notes
+> inline record what shipped that day, and later work is tracked in `docs/todo.md` and
+> `docs/todo-completed.md`. Paths cited here predate the `core/` layering
+> (`scripts/msrp/*.mjs` → `core/msrp/*.ts`, `app/domain/*` → `core/domain/*`), and the
+> Japanese promos section referenced near the end has been live since production's first
+> live walk (`japanese-promos` in `core/market-state.ts`).
+
 Scope: data-quality and data-opportunity analysis (metrics and Hot Buys/Hot Sells emphasized),
 new sealed↔singles relationships, user research into what TCG market-tool users want, and a
 two-pass UI/UX review of the live production build at rawsignal.cards (pass 1: ruthless

@@ -2,7 +2,7 @@
 
 ## Current operating model
 
-OpenAI Sites hosts the application and owns the logical `DB` binding. Sites does not currently configure a Cron Trigger for this project, so production refreshes remain controlled sync operations. Do not expose an unauthenticated ingestion route as a scheduling substitute.
+The production Worker `raw-signal` owns the `DB` binding to the production D1 database and runs a `*/1 * * * *` guard cron (`worker/scheduled-ingestion.ts`, policy in `worker/scheduled-decision.ts`). Every tick first claims the single-flight `cron-lease` row in `refresh_state` for 170 seconds (`db/tick-lease.ts`) or exits idle, then advances at most one checkpointed batch of the first due job in policy order: live catalog walk → product details → graded rotation → metrics rollup → history backfill → eBay listings. Staging carries no schedule; its jobs run only through the operator adapter. Do not expose an unauthenticated ingestion route as a scheduling substitute.
 
 `sync-tcgcsv.mjs` and `sync-sealed.mjs` separate four concerns:
 
@@ -18,9 +18,10 @@ Every successful sync produces provenance metadata containing schema version, so
 ```powershell
 npm run data:sync:singles
 npm run data:sync:sealed
+npm run data:sync:sealed:onepiece
 ```
 
-Both commands access external services and can rewrite generated feeds. Review validation output and diffs before committing them. `sync-sealed.mjs` currently regenerates Pokémon Sealed only; Riftbound and One Piece Sealed feeds are maintained assets until dedicated validated generators are added.
+These commands access external services and can rewrite generated feeds. Review validation output and diffs before committing them. `sync-sealed.mjs` regenerates Pokémon Sealed and `sync-sealed-onepiece.mjs` regenerates One Piece Sealed (TCGCSV category 68, same validation and last-good publication); the Riftbound Sealed feed is a maintained asset until a dedicated validated generator is added.
 
 ## Durable market observations
 
@@ -33,6 +34,7 @@ Both commands access external services and can rewrite generated feeds. Review v
 - classifies and stores the market-regime label (`market_metrics.regime`) from the same points, plus the demand-trend counts (`sales_30_prior` alongside `sales_7`/`sales_30`) when the fetch carried sale buckets;
 - replaces all Conservative, Balanced, and Aggressive Buy/Sell signals, deleting signals that no longer qualify (evaluated with the liquidity floor and demand trend via `SignalContext`);
 - evaluates the v2 challenger at balanced strictness into `shadow_signals` (todo P1b) — never served; the daily metrics rollup (keyed to the live run's publish date, `metrics-rollup:<date>`, and run by the guard cron once that live run is published — R1, 2026-09-03) snapshots its top-100 boards into `shadow_signal_history` for the champion/challenger scoreboard;
+- writes the per-tier set aggregates (`set_rarity_stats`, see "Per-tier set aggregates" below) from the group files the walk already fetched;
 - records coverage, observation date, counts, rejection totals, duplicate decisions, and source freshness;
 - advances `refresh_state` only after every record succeeds.
 
@@ -40,25 +42,17 @@ The catalog API compares the published run count with records bearing that run I
 
 ## History backfill and signal readiness
 
-The transitional browser implementation evaluates at most 400 candidates. Pokémon currently has 499 Illustration Rares and 721 cards across Illustration Rare plus Special Illustration Rare, so 99 and 321 candidates respectively can be unevaluated in that fallback.
+The `history-signals` readiness marker has been published in production since 2026-08-28, so the bounded browser evaluation below is the cold-start fallback for a database without it, not a live transition. That fallback evaluates at most 400 candidates (`SIGNAL_FALLBACK_LIMIT`). Pokémon has 499 Illustration Rares and 721 cards across Illustration Rare plus Special Illustration Rare, so 99 and 321 candidates respectively can be unevaluated in that fallback.
 
 Candidate selection is proportional across selected rarities and evenly stratified through each rarity's existing price order. An earlier source file or only the highest-priced records can no longer consume the full budget.
 
-`runHistoryBackfillBatch` removes that limitation without creating one oversized Worker invocation. It processes a bounded batch, persists its cursor, stores exact/fallback coverage, and derives signals from normalized observations. Only completion advances the independent `history-signals` marker. Singles and Sealed use persisted signals only when that marker exists; otherwise they retain the bounded fallback. Singles discloses its evaluated-candidate count during this transition.
+`runHistoryBackfillBatch` removes that limitation without creating one oversized Worker invocation. It processes a bounded batch, persists its cursor, stores exact/fallback coverage, and derives signals from normalized observations. Only completion advances the independent `history-signals` marker. Singles and Sealed use persisted signals only when that marker exists; otherwise they retain the bounded fallback, and Singles discloses its evaluated-candidate count.
 
 See [Signal eligibility](signal-eligibility.md) for the qualification and exclusion contract.
 
-## Direct Cloudflare activation
+## Cloudflare activation (completed 2026-08-28)
 
-When hosting moves to a directly managed Cloudflare Worker:
-
-1. bind the migrated D1 database as `DB`;
-2. implement the scheduled adapter that obtains a validated live TCGCSV snapshot and calls `runDailyMarketIngestion`;
-3. configure a daily Cron Trigger for catalog/current-price ingestion;
-4. configure bounded continuation invocations for `runHistoryBackfillBatch` until it reports `done`;
-5. verify catalog counts, nullable values, representative histories, rejection totals, and signal counts against the bundled feeds;
-6. confirm `history-signals` is present before removing the browser fallback;
-7. monitor failed ingestion runs and source freshness without advancing the last-success pointer.
+The move to a directly managed Worker is done (see [Cloudflare cutover](cloudflare-cutover.md)): the production D1 database is bound as `DB`; the scheduled adapter walks TCGCSV live and calls `runDailyMarketIngestion` in checkpointed batches; the guard cron runs every minute rather than daily, taking the first due job in policy order; `runHistoryBackfillBatch` continues on idle ticks until it reports `done`; catalog counts, nullable values, representative histories, rejection totals, and signal counts were verified against the bundled feeds; `history-signals` is present; and failed runs are recorded without advancing the last-success pointer.
 
 Daily TCGCSV observations are sufficient for ongoing history after backfill. Detailed TCGplayer history remains the bootstrap and cache-miss source rather than a daily full-catalog fan-out.
 
@@ -88,7 +82,9 @@ labelled as such everywhere they render.
 - **Configuration.** Secrets `EBAY_CLIENT_ID` and `EBAY_CLIENT_SECRET` (production only —
   staging keeps none and runs the job by hand); optional var `EBAY_EPN_CAMPAIGN_ID` for
   affiliate item URLs. Without the secrets the action never fires and the detail panel shows
-  the search links only.
+  the search links only. Production also reads the optional `ALPHAVANTAGE_API_KEY` on each
+  metrics tick for the S&P benchmark (`db/benchmark-ingestion.ts`); when it is absent the
+  benchmark step skips silently.
 - **Operator run.** `POST /__ops/staging-jobs` with `{"job":"ebay","batchSize":40}` on
   staging, once the secrets are set there for the trial.
 

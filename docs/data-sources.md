@@ -1,10 +1,10 @@
 # Data sources and ownership
 
-Raw Signal separates current catalog/listing data, dated market history, supplemental MSRP, and external artwork. These sources have different meanings and must not be blended into unsupported metrics.
+Raw Signal separates current catalog/listing data, dated market history, completed-sale data, active-listing asks, supplemental MSRP, and external artwork. These sources have different meanings and must not be blended into unsupported metrics. (Refreshed 2026-09-10 against the code; the eBay and PokemonPriceTracker sections are the additions since the original 2026-08-27 register.)
 
 ## TCGCSV / TCGplayer catalog pricing
 
-TCGCSV is the primary current catalog and price source. The active sync reads Pokémon category 3 and Riftbound category 89. Product IDs remain the stable source identities.
+TCGCSV is the primary current catalog and price source. The live walk (`db/live-ingestion.ts`) and the feed generator (`sync-tcgcsv.mjs`) read Pokémon category 3 (plus the Japanese promo groups of category 85, published as the `japanese-promos` section), Riftbound category 89, and One Piece category 68 (sealed products only). Product IDs remain the stable source identities.
 
 Used fields include:
 
@@ -24,25 +24,33 @@ The history endpoint retrieves normalized Near Mint market history for Singles a
 - historic low and high;
 - Buy/Sell proximity and volatility calculations.
 
-The same endpoint reports completed-sale activity per variant/condition SKU: quantity sold and transaction counts in three-day buckets over the trailing quarter, window totals, and realized low/high sale prices with and without shipping. This is the only authorized sales-volume source. Volume is presented per printing/condition with its window and bucket size labeled, and is never inferred from listings or observation counts.
+The same endpoint reports completed-sale activity per variant/condition SKU: quantity sold and transaction counts in three-day buckets over the trailing quarter, window totals, and realized low/high sale prices with and without shipping. This is the only authorized source of per-printing TCGplayer sales volume. Volume is presented per printing/condition with its window and bucket size labeled, and is never inferred from listings or observation counts.
 
 History availability varies by product. Missing or unmatched history remains unavailable and can prevent signal qualification.
 
+## PokemonPriceTracker graded and raw sales
+
+The graded rotation (`db/graded-ingestion.ts`) reads PokemonPriceTracker's smart-market prices per grade and its raw-card eBay completed-sales figure (price, sale count, and date). It is the site's only eBay *sale* price and is always labelled with its provenance ("eBay completed sales via PokemonPriceTracker"). It does not enter modeled fair value or signals.
+
+## eBay active listings (Browse API)
+
+The eBay listings rotation (`db/ebay-ingestion.ts`, client `core/clients/ebay-browse.ts`, summary `core/ebay-summary.ts`, table `ebay_listings`) stores one active buy-it-now listing snapshot per product priced at $20 or more: listing count, lowest and median ask, and up to five sample listings. Asks are listing prices, never sales; they are labelled as asks everywhere they render and never enter modeled fair value or signals. The rotation runs only where the Browse keyset is configured (production, once the secrets exist); without it the detail page shows eBay search links only.
+
 ## Sealed MSRP
 
-Pokémon Sealed refreshes supplement TCGCSV prices with matched published MSRP records currently obtained through the maintained price-tracker dataset. MSRP provenance is stored per product when available. Riftbound, One Piece, regional, and promotional products may lack MSRP or market price; those fields remain `null` and render as `N/A`.
+Pokémon Sealed refreshes supplement TCGCSV prices with matched published MSRP records currently obtained through the maintained price-tracker dataset. MSRP provenance is stored per product when available. Riftbound, One Piece, regional, and promotional products may lack MSRP or market price; those fields remain `null` and render as `N/A`. See [MSRP sources](msrp-sources.md) for the verified and derived tables.
 
 The normalizer enforces market ownership. A product must not appear in Pokémon because its name resembles a Pokémon product; Lorcana, One Piece, Riftbound, and other cross-market records are rejected.
 
 ## Artwork
 
-Artwork remains externally hosted and is loaded lazily after text and pricing. Raw Signal does not currently own an R2 image archive. Failed images use the application fallback and must not delay market data.
+Artwork remains externally hosted and is loaded lazily after text and pricing. Raw Signal does not currently own an R2 image archive. Product art is TCGplayer's CDN image; a Pokémon card whose image fails to load, or loads as the CDN's 400×570 "no photo" placeholder, falls back once to TCGdex's scan (`core/domain/card-images.ts`, set index `app/data/tcgdex-sets.json` from `scripts/sets/sync-tcgdex.mjs`), and only then to the application's "Image unavailable" fallback (`app/DeferredImage.tsx`). Set logos come from pokemontcg.io (`scripts/sets/sync-set-logos.mjs`). Failed images must not delay market data.
 
 ## Generated feeds
 
 `public/data/` contains validated generated or maintained feeds. Production refresh code owns these files; do not hand-edit them to repair an individual record.
 
-`tcg-index.json` defines current markets, rarity ordering, totals, and source freshness. Catalog manifests record schema version, counts, rejection reasons, duplicate decisions, and source timestamps.
+The root-level `tcg-index.json` defines current markets, rarity ordering, totals, and source freshness. Catalog manifests record schema version, counts, rejection reasons, duplicate decisions, and source timestamps. The bundled set indexes under `app/data/` (TCGdex sets, set logos) are generated the same way.
 
 ## Explicitly unavailable metrics
 
@@ -50,9 +58,9 @@ Raw Signal does not currently publish:
 
 - most-frequently-sold rankings;
 - TCGplayer sales rank;
-- bid/ask depth.
+- bid-side depth (eBay ask summaries are published, labelled as asks, never as sales or bids).
 
-TCGCSV price files do not provide transaction counts; sales volume comes only from the TCGplayer history endpoint's completed-sale buckets described above. Price observations, listings, and the number of visible history points are still not substitutes for sales volume.
+TCGCSV price files do not provide transaction counts; sales volume comes only from the TCGplayer history endpoint's completed-sale buckets described above, and eBay sale prices only from PokemonPriceTracker. Price observations, listings, and the number of visible history points are still not substitutes for sales volume.
 
 ## Legacy PriceCharting research
 

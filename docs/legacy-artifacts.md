@@ -29,4 +29,4 @@ Do not wire either into the active build. If the Cloudflare setup outlives its
 first few months, delete both — a Sites revival at that point would be a rebuild,
 not a rollback.
 
-Production Singles data comes from `sync-tcgcsv.mjs`; current Pokémon Sealed generation comes from `sync-sealed.mjs`. Dated price history is normalized through `/api/history` and the durable backfill boundary.
+Production Singles data comes from `sync-tcgcsv.mjs`; current Pokémon Sealed generation comes from `sync-sealed.mjs` and One Piece Sealed from `sync-sealed-onepiece.mjs`. Dated price history is normalized through `/api/history` and the durable backfill boundary.

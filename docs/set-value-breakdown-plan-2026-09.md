@@ -1,6 +1,6 @@
 # "Where the value sits" — per-rarity pack value breakdown (plan, 2026-09-04)
 
-**Status 2026-09-04: Phase 1 implemented (working tree).** Migration 0017 `set_rarity_stats`;
+**Status: Phase 1 shipped 2026-09-05 (commit `d7de3b9`, production `ea6fdbaf`).** Migration 0017 `set_rarity_stats`;
 the live walk aggregates every singles group tier by tier (`core/normalize/rarity-stats.ts`,
 `db/rarity-stats.ts`, written once per group per run); `packValueBreakdown` and
 `buildValueBreakdown` (`core/domain/pack-ev.ts`, `core/domain/value-breakdown.ts`) with the
@@ -8,8 +8,10 @@ curated tier order and CHASE set; `pull-rates.json` gains `perPack` (Riftbound 7
 Riot's published composition, sourced in the file); `SetDetailPayload.valueBreakdown` is
 populated (null until the next live run writes the set's rows). Against the reference set the
 model reproduces the mock: tier values 1.33 / 1.53 / 2.82 / 2.92 / 1.71 / 2.14 / 1.88, chase
-prints 40.0% of EV, implied pack size 12.35. Phase 2 (panel, slider) is next; the Pokémon
-composition research below is what it needs confirmed.
+prints 40.0% of EV, implied pack size 12.35. Phase 2 (panel, slider, custom rates) is next;
+no `app/` surface reads `valueBreakdown` yet. The Pokémon era compositions below are already
+encoded as `perPack.eras` defaults in `pull-rates.json`, so Phase 2 needs only
+`packsPerProduct`, MSRP per pack where the pack product has none, and the SV 3-foil reading.
 
 ## Pack composition research (2026-09-04)
 
@@ -89,8 +91,11 @@ only the allowed rarities. The bulk cards pass through that job every day; what 
 is an aggregate, not a fetch. The plan adds one small table written in that same pass:
 
 ```
-set_rarity_stats (game, set_name, rarity, card_count, priced_count, sum_cents, top_cents,
-                  top_product_id, updated_at, ingestion_run_id)  primary key (game, set_name, rarity)
+-- as built (drizzle/0017_set_rarity_stats.sql): keyed by the curated tier, with the
+-- source rarity label and section kept alongside
+set_rarity_stats (game, set_name, tier, rarity, section, card_count, priced_count, sum_cents,
+                  top_cents, top_product_id, updated_at, ingestion_run_id)
+                  primary key (game, set_name, tier)
 ```
 
 - One row per set × rarity for **every** rarity in the group, tracked or not (Pokémon
@@ -191,15 +196,15 @@ control:
 | Path | Today | After |
 |---|---|---|
 | Set page breakdown | — | +≤10 rows (one PK-range read on `set_rarity_stats`) |
-| `loadSetEvData` (set page, sealed hover feed, metrics) | ~48.7 k rows per uncached view | ~3 k rows (the stats table) — a net reduction, and Q8's precompute for this query |
+| `loadSetEvData` (set page, sealed hover feed, metrics) | ~48.7 k rows per uncached view (still the case: the loader scans priced singles) | ~3 k rows once Phase 2 switches it to the stats table — a net reduction, and Q8's precompute for this query |
 | Live ingestion | — | +~3 k upserts a day; +~170 One Piece group fetches a day in Phase 3 |
 
 ## Phases
 
 | Phase | Work | Needs from the user |
 |---|---|---|
-| 1 | Migration 0017 `set_rarity_stats`; the live job's per-group aggregate (all rarities); `packValueBreakdown` + tests; `pull-rates.json` gains `perPack` for Riftbound (the reference set) | Riot's published Riftbound pack composition confirmed |
-| 2 | Set-page and sealed-page panel, slider, hover/metrics relabel; set EV loader switched to the stats table; Playwright journey (slider moves the ratio) | Pokémon compositions by era (SV/ME, SWSH, SM, XY, WotC, Japanese) with sources; `packsPerProduct` table; MSRP per pack where the pack product has none |
+| 1 | **Shipped `d7de3b9`.** Migration 0017 `set_rarity_stats`; the live job's per-group aggregate (all rarities); `packValueBreakdown` + tests; `pull-rates.json` gains `perPack` for Riftbound (7 / 3 / 2, Riot's published composition) and Pokémon era defaults | done (Riftbound composition sourced in the file) |
+| 2 | Set-page and sealed-page panel, MSRP↔market slider, optional custom rates, hover/metrics relabel; set EV loader switched to the stats table; Playwright journey (slider moves the ratio) | `packsPerProduct` table; MSRP per pack where the pack product has none; a decision on the SV 3-foil reading |
 | 3 | One Piece: walk its singles groups for stats only; composition and packs per product | One Piece pack composition (12 cards; DON!! slot) |
 | 4 | Optional: daily stats history → 30-day tier movement; a "value by rarity" ring on the sets directory tiles | — |
 

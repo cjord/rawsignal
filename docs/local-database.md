@@ -29,8 +29,11 @@ The gate's Playwright specs boot against whichever profile is active; both pass.
 ## How it works
 
 - Archives: `backups/tcgcsv-archive/` holds all 936 daily TCGCSV price archives
-  (2024-02-08 →, downloaded by the M6 backfill; ~3.8 GB, kept for reuse). Extraction
+  (2024-02-08 →, downloaded by the M6 backfill; ~3.2 GB, kept for reuse). Extraction
   uses Windows' built-in bsdtar, which reads PPMd 7z natively.
+- Scratch: `scripts/local-db/build-ext-db.mjs` and `analyze-categories.mjs` are one-off
+  experiments (the `max-ext` artifacts under `.wrangler/local-profiles/`), not one of the
+  two supported profiles above.
 - `parse-archives.mjs` walks categories 3/68/85/89 per day, matching singles to their
   feed printing (`subTypeName`) and sealed through the shared preferred-price rule,
   appending per-day NDJSON (resumable).

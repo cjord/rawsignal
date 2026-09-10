@@ -12,8 +12,9 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Current priorities (proposed 2026-09-03 — confirm at review)
 
-Everything through P7 is in production (2026-09-03, Worker version `c00fd0fb`). What
-remains falls into three tiers:
+Everything through P7, waves 12–19 of the refactor program, J2 phase 1, and the R1–R4
+ingestion fixes are in production (2026-09-10, Worker version `9f30fee8`). What remains
+falls into three tiers:
 
 1. **Standing commitments with dates.** The October model-verification review (Scheduled
    tasks below) is the gate for promoting v2.2; it needs the **model-version stamp in
@@ -26,8 +27,8 @@ remains falls into three tiers:
    (needs a "very close" definition first); §L4/§M13 the retailer-exclusive classifier
    audit; §M11 the per-run work-list cache (free tidy-up).
 3. **Larger phases, in recommended order:** §L2 One Piece curated chase singles (the one
-   catalog expansion that fits the cron budget and unlocks OP import matching); §O1/§O2
-   affiliate + eBay link tier (cheap once the program credentials exist — user action);
+   catalog expansion that fits the cron budget and unlocks OP import matching); §O2's
+   Browse-API listings grid (blocked on the eBay developer keyset — user action);
    §I.1 large-grid phone treatment; §J1 sets sort control (after usage data); §M7/§M8
    category registry + game-check widening (do together with the next new game).
 
@@ -59,7 +60,9 @@ are defined in `docs/model-gaps.md` → "Review calendar" and "Update policy".
 §I queued visual-pass items · §J sets view · §K signal display · §L catalog coverage
 gaps · §M ingestion scaling (M7–M13 open; M1–M6 shipped) · §O monetization · §P
 signal-model program (P8 + governance TODOs; P1–P7 shipped — see the completed doc) · §Q
-code-review follow-ups (Q1–Q7, decisions pending) · §R production ingestion cadence bug (R1, urgent).
+code-review follow-ups (Q1–Q5 and Q8 open; Q6/Q7/Q9 shipped in part) · §R production
+ingestion (R4 fix 3 and R5 open; R1–R3 shipped — see the completed doc) · §S crawler and
+bot traffic (S2 measurement due).
 
 ## I. Queued from the staging visual pass (2026-08-28)
 
@@ -81,20 +84,6 @@ Deferred to a later phase at the user's direction:
    Details) section; render it **only in scalper mode**; and let a **purchase price be
    entered manually** to replace the MSRP-derived total cost in the profit math.
 
-4. **Image sources (researched and implemented 2026-09-04).** Audit: every production
-   catalog row has a TCGplayer CDN image and 0 of 60 sampled URLs were broken; the gaps
-   were 6 Riftbound Chinese/Korean supplemental products, 18 bundled scalper rows, and
-   set logos (Pokémon 141/308 via pokemontcg.io; Riftbound and One Piece none). Shipped:
-   cover art from each set's top product where no logo exists; TCGplayer images for the
-   12 supplemental products TCGCSV now lists, Riot/Bandai official shots for the T1,
-   Lunar Revel, Set Sail, and DP-12 products; a once-only TCGdex fallback for Pokémon card
-   images (`scripts/sets/sync-tcgdex.mjs`). API TCG checked with the user's key the same
-   day: its sets carry no logos for any game and its product images are TCGplayer CDN URLs,
-   so it adds no image source — but its product search found Team Rocket's Mewtwo ex Box
-   (625695) and the Oddish 2-pack blister (683264), now applied. Still without an image:
-   Ascended Heroes 2-pack blister, Devil Fruits Vol. 4, and the two Topps football boxes
-   (not on TCGplayer; no official page found).
-
 ## J. Sets view backlog (added 2026-08-29)
 
 **J1. Sort control on `/sets` (user-deferred at planning, 2026-08-29).** A control on the
@@ -103,15 +92,17 @@ sets browse page reordering set tiles WITHIN their era/category groups by releas
 inside them, so "which Scarlet & Violet set is moving" is answerable without scanning.
 Excluded from the initial build; revisit after the browse page has real usage.
 
-**J2. "Where the value sits" — per-rarity pack value breakdown (planned 2026-09-04).**
+**J2. "Where the value sits" — per-rarity pack value breakdown (phase 1 shipped 2026-09-05, `d7de3b9`; phase 2 open).**
 Replace the single Pack EV number with a per-rarity breakdown for every market: per-pack
 value and share bar per rarity, CHASE badges, "chase prints are X% of EV", a purchase-price
 slider from MSRP to market, and the bulk tiers valued from a new `set_rarity_stats`
 aggregate the live ingestion can write from the TCGCSV group files it already downloads
 (commons/uncommons need no catalog rows). Pack composition (`perPack`) joins `packsPerHit`
 in `pull-rates.json`, curated only. Plan, model, costs, and phases:
-`docs/set-value-breakdown-plan-2026-09.md`. Needs curated pack compositions per game/era
-and a packs-per-product table from the user before Phase 2.
+`docs/set-value-breakdown-plan-2026-09.md`. Phase 1 — the `set_rarity_stats` aggregate
+(migration 0017), the breakdown model, and `perPack` tables with Pokémon era defaults — is in
+production; no page renders it yet. Phase 2 (panel, MSRP↔market slider, optional custom rates)
+needs a packs-per-product table and per-pack MSRP where the pack product has none.
 
 ## K. Signal display (added 2026-08-30)
 
@@ -212,12 +203,10 @@ unchanged points per product nightly. Each item below is a proposal awaiting a c
 |---|---|---|---|
 | M1 | **RELEASED 2026-08-31 — Delta-only history writes** — persist only points newer than the stored max observed_date | S–M | cuts D1 writes ~97%; removes the only projected overage; bill stays $5 at any catalog size |
 | M2 | **LIVE since the 2026-08-31 release — Cron `*/2` → `*/1`** | XS | doubles tick budget to 1,440/day; verified $0 (requests/reads/CPU all ≪ included) |
-| M4/M5 | **IMPLEMENTED 2026-08-31** — see `docs/ingestion-scaling.md` for the measured tier split, the dropped signal rule, and the production sales-null discovery | — | staging-verified; activates on next production deploy |
 | M6 | **EXECUTED 2026-09-01** — 279,945 archive observations for 574 OP/JP sealed loaded to production; `index:onepiece-sealed` now draws 191 days; details in `docs/ingestion-scaling.md` | — | archive cache kept for a cat-3/89 extension |
 | M3 | **RELEASED 2026-08-31 — Sealed-only groupFetchCap 12 → 40** | XS | sealed groups yield ~1 record; ~3× sealed-walk speed at ~80 of 1,000 allowed subrequests |
 | M4 | **RELEASED 2026-09-01 — Tiered history cadence** — hot/liquid daily, long tail every 3–7 days; the cron self-starts the daily run | M | catalog can ~3× without the history tax tripling; our own daily observations already capture the close |
 | M5 | **RELEASED 2026-09-01 — History targets from D1** instead of deploy-time bundled feeds | M | expansions stop requiring sync-script regen; coverage tracks the walk automatically |
-| M6 | **Archive sealed-history backfill (one-shot)** — TCGCSV daily price archives (4 MB, back to 2024-02-08) rebuilt locally for categories 68/85 | M | 2.5 years of daily history for the 587 new OP/JP sealed; TCGplayer's API is thin on sealed |
 | M7 | **Category registry** shared by walk + sync scripts + tests | M | next game becomes a config entry + normalizer instead of a five-file change |
 | M8 | **Widen the `catalog_products` game CHECK once** (mtg/yugioh/lorcana) | S | batches the per-game SQLite table-rebuild migration tax |
 | M9 | **Sealed-group cache** — re-walk only groups containing sealed + new groups | M | ~30–40% off sealed walks; build only if MTG revives |
@@ -232,33 +221,6 @@ both fit) → M4+M5 before the next singles expansion → M7+M8 with the next ne
 
 ## O. Monetization & marketplace integration (added 2026-09-01, unplanned)
 
-**O1. eBay and TCGplayer affiliate links.** Convert the outbound product links into
-affiliate/partner-tagged URLs: the existing TCGplayer buttons (detail-page hero,
-leaderboard "View on TCGplayer") via the TCGplayer affiliate/impact program, and the
-eBay links from O2 via the eBay Partner Network (EPN campaign id on the URL). Needs:
-program signups + credentials (user), a small shared link-builder helper so tags apply
-consistently everywhere links render, and a disclosure line (footer/methodology) per
-program requirements. Scope and plan at review before implementation.
-*TCGplayer half shipped 2026-09-09: every TCGplayer link is the Impact tracking link
-(partner.tcgplayer.com/c/7677898/1780961/21018) with the product page as its u= deep-link
-target (core/domain/marketplace-links.ts), anchors carry rel=sponsored, and both footers show
-the affiliate disclosure.* *eBay half shipped 2026-09-09: EPN Smart Links (campaign
-5339205908, popover off) loaded from the root layout rewrite every ebay.com link at click
-time; eBay anchors carry rel=sponsored; both footers name both programs; the Browse client's
-affiliate header defaults to the same campaign. O1 is complete.*
-*Live-listings widget (2026-09-09): an EPN Smart Placement (eBay-rendered cards keyed by our
-search query) shipped to staging and was pulled the same day — ad blockers block
-`epnt.ebay.com`, so most visitors saw nothing, and EPN fixes a ten-listing floor below which
-the widget collapses. The search-query rules it forced stay for the eBay links and the Browse
-rotation (`core/domain/marketplace-links.ts`: game word first, no set codes, commas or
-ampersands, collector number for Pokémon only; Umbreon ex Prismatic Evolutions found 36
-listings, Ahri Origins 22, Destined Rivals booster box 36). The Browse-API grid — images,
-Listings/Graded tabs with counts, on-demand fetch with a daily budget — is the plan once the
-eBay developer keyset exists (plan doc, option A).*
-*Hover popovers (2026-09-09): the TCGplayer and eBay tiles sit under the artwork
-(`HistoryPopover` `links`), the stats grid is market data only, and the chart's loading state
-is a skeleton with the finished chart's toolbar and plot box so the popover keeps its height.*
-
 **O2. eBay product links and integration.** Surface eBay alongside TCGplayer on
 product detail pages (and possibly rows): at minimum a search-style outbound link like
 the existing PriceCharting button (no API needed); deeper integration could use the
@@ -271,26 +233,22 @@ reads), tier B affiliate tags, tier C Browse-API active-listing rotation (`ebay_
 ≤ 1,500 calls/day, +1 row per detail view and per first hover reveal), tier D sold comps via
 the PokemonPriceTracker tier. eBay sold data itself is closed to us (Marketplace Insights is
 a limited release; the public sold search went behind a login in late August 2026).*
-*Implemented 2026-09-04 (working tree): tiers A and C. Product pages carry an "eBay
+*Implemented 2026-09-05 (`d7de3b9`, production `ea6fdbaf`): tiers A and C. Product pages carry an "eBay
 Listings" panel under Modeled Fair Value (`EbayMarketPanel`): lowest/median ask and the
 active-listing count from `ebay_listings` (migration 0016, `db/ebay-ingestion.ts` rotation,
 cron action `ebay` on idle ticks, ops job `ebay`), the raw eBay sale price PokemonPriceTracker
 already supplies as the sold data point, up to five sample listings, and the search/sold
 links; the hero gains an eBay button. Needs the user's eBay developer keyset as the
 `EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET` secrets before the rotation fills the table; until
-then the panel is the links and a note. Tier B tagging stays open (O1).*
+then the panel is the links and a note. Tier B (affiliate tagging) shipped 2026-09-09 under O1
+(completed doc). Still open here: the Browse-API listings grid (plan option A) and the hover
+asks tile once the keyset lands, and adding `ebay-listings` to the publish signature then.*
 
-**O3. TCGplayer link inside every hover chart.** Every card-shaped popover (leaderboard,
-sealed rows, full-view cards, detail tables, metrics movers, Collectr import) gets an
-explicit "TCGplayer ↗" button under the stats, built from the row's `url` (exact
-`source_url`, present on all 18,361 catalog rows) or the id form
-`https://www.tcgplayer.com/product/<id>` where a row carries no URL (movers, import matches).
-Zero additional D1 reads: `rows_read` counts rows, not columns, and every surface already
-holds the data. Plan and cost table: `docs/ebay-integration-plan-2026-09.md` §A.
-*Implemented 2026-09-04 (working tree): `tcgplayerMetric` in
-`core/domain/marketplace-links.ts` renders as an anchor tile (`HistoryMetric.href`) in every
-popover — leaderboard, sealed rows, detail tables, movers, Collectr import (the match payload
-now carries `productId`). Affiliate tagging is a TODO(O1) in that module.*
+**O4. PokemonPriceTracker paid tier (sold comps, eBay plan tier D).** The ~$9.99/mo tier
+lifts the free tier's 100-credit ceiling so the graded/raw-sale rotation covers the pool
+daily instead of every ~9 days, and "Raw (eBay)" could surface in the hover for covered
+cards. Purchase decision (user); config only once bought. Previously cited as "todo R3" in
+`docs/ebay-integration-plan-2026-09.md`; R3 is the sealed-series fix (completed doc).
 
 ## P. Signal-model evolution (planned 2026-09-01; from docs/buy-sell-estimation-research.md §15)
 
@@ -372,7 +330,7 @@ not act on; each needs a product or design decision before code changes.
 - **Q5 — Feed payload size.** The largest section feeds are 1–2 MB uncompressed; trim fields
   the leaderboard never renders, or page the largest sections through `/api/catalog`. A
   product decision (review §11).
-- **Q6 — `/sets` directory latency (measured 2026-09-03).** *Wave 12: fixes (a) and (b) shipped — one round trip, ISR 10 min; (c) precompute remains optional.* Time to first byte is 1.8–3.5 s
+- **Q6 — `/sets` directory latency (measured 2026-09-03).** *Wave 12: fixes (a) and (b) shipped — one round trip; since wave 15 the directory is served from the Worker's colo cache keyed by the publish signature (ISR was removed in wave 13); (c) precompute remains optional.* Time to first byte is 1.8–3.5 s
   on production, versus ~0.45 s for the home page or a static asset and 0.7–1.5 s for a
   one-query API route; staging's older build shows the same, so it predates the refactor.
   The cron was idle during measurement, so it is not ingestion contention. Cause, from
@@ -413,8 +371,8 @@ not act on; each needs a product or design decision before code changes.
   floor was ~105 M/day, not 30 M; and the tiered history refresh would have added ~180 M/day the
   first night it ran (1.6 M rows per tick to build its target list). Wave 14 removed the
   detail-table and mover history fan-out, memoized the set list, bounded the target read,
-  edge-cached `/metrics`, and fixed R2; the estimate is now ~65 M/day at today's traffic, with the
-  sets directory the largest line. Remaining levers are Q8.*
+  edge-cached `/metrics`, and fixed R2; the estimate was ~65 M/day at that traffic; Q9 carries the measured figures
+  since (66 M on a clean day, 273 M on the 2026-09-09 crawler day). Remaining levers are Q8.*
 - **Q8 — precompute the daily aggregates the whole-catalog pages recompute per view (from review
   §15).** The sets directory (six group-bys and two window queries, ~400 k rows), set EV (49 k,
   read by set detail, `/api/set-ev`, and metrics), and the metrics payload (~600 k) all derive from
@@ -423,6 +381,20 @@ not act on; each needs a product or design decision before code changes.
   cache hit rate; the set-detail observation aggregation (Ps × days, growing ~365 rows per member
   per year) belongs in the same rollup as a per-set daily index. Order: set EV → directory →
   set index → metrics payload.
+
+**Q9. Peer anchor is now the largest read (2026-09-05 insights, first clean day after wave
+14: 66.0 M rows/day, from 337 M).** `db/peer-anchors.ts` — the detail page's 180-day cohort
+average — read 40.1 M rows in 24 h (61% of all reads): 13.9 k rows per call averaged over
+~2,900 detail views, far above the 3.7 k the review measured on one cohort, because large
+cohorts (promo sets, hundreds of cards × 180 days) dominate. Every card of one set+rarity
+shares a cohort, so a per-isolate memo keyed by (game, set, rarity) with a ten-minute TTL
+(the early-value set-list pattern) removes most repeats from crawlers walking a set; the
+durable fix is a per-cohort daily average table written by the rollup (Q8). *Memo implemented
+2026-09-09 (`readPeerAnchor` keeps each cohort summary per isolate for ten minutes; failed reads
+are not kept) after the query reached 142 M rows a day on 16 k detail views.* Remaining lines
+that day: whole-game isolate loads 6.1 M (278 cold isolates), `/api/signals` 2.9 M, set EV
+2.3 M; 6.9 M were the operator's own R3 verification queries (full observation scans) and
+will not recur.
 
 ## S. Crawler and bot traffic (Cloudflare analytics, 2026-09-04)
 
@@ -452,7 +424,7 @@ not act on; each needs a product or design decision before code changes.
   after 2026-09-10 23:00Z to split the drop between the challenge (fewer views) and the memo
   (fewer rows per view).
 
-## R. Production ingestion cadence bug (found 2026-09-03 during the D1 audit)
+## R. Production ingestion (R1–R3 shipped — see the completed doc; R4 fix 3 and R5 open)
 
 **R4. Overlapping guard-cron ticks halve the live walk, then the minimum-records guard
 resets it (found 2026-09-05 03:50Z).** The `live-daily:2026-09-04` run took 7.2 h
@@ -476,13 +448,13 @@ released at the end — a tick that cannot claim it exits idle; (2) the guard co
 in D1 (`count(*) where ingestion_run_id=?`) instead of the racy stat, and a reset re-walk that
 finds rows already stamped counts them as written; (3) halve the live slice to 40 records so a
 tick finishes well inside its minute (the chain has hours of headroom).
-*Fixes 1 and 2 implemented in the working tree 2026-09-05: `db/tick-lease.ts` claims a 170 s
+*Fixes 1 and 2 shipped 2026-09-05 (`d7de3b9`, production `ea6fdbaf`): `db/tick-lease.ts` claims a 170 s
 lease in `refresh_state` (`cron-lease`) with one conditional upsert and the tick exits idle
 when it cannot; the live walk's truncation guard and its published count use the rows the
-database holds for the run, so a reset re-walk publishes. Deploying before the 2026-09-05
-publish (~20:05Z) lets the stuck 2026-09-04 re-walk complete under the new guard and land
-(18,284 stamped rows ≥ 10,000); otherwise that day re-keys itself at the next TCGCSV timestamp
-and its rollup and history are lost.*
+database holds for the run, so a reset re-walk publishes. The stuck 2026-09-04 re-walk completed under the new
+guard and published at 07:48Z on 2026-09-05; the chain has run daily since. Fix (3), the
+40-record live slice, is not implemented (`LIVE_BATCH_SIZE` stays 80) — open, low priority
+while ticks finish inside the lease.*
 
 **R5. Observations dated by wall clock, not by the run.** `observed_date` is the tick's UTC
 date, so a live walk that straddles midnight splits one TCGCSV publish across two dates
@@ -491,66 +463,3 @@ onto the 4th). The set index and metrics treat each date as a day of coverage, s
 days undercount members and can fall under the 60% coverage floor. Fix: date observations
 and `as_of_date` by the run's source date (`sourceUpdatedAt`), one date per publish; decide
 how to treat the existing split days (leave, or re-date the post-midnight rows of a run).
-
-**Q9. Peer anchor is now the largest read (2026-09-05 insights, first clean day after wave
-14: 66.0 M rows/day, from 337 M).** `db/peer-anchors.ts` — the detail page's 180-day cohort
-average — read 40.1 M rows in 24 h (61% of all reads): 13.9 k rows per call averaged over
-~2,900 detail views, far above the 3.7 k the review measured on one cohort, because large
-cohorts (promo sets, hundreds of cards × 180 days) dominate. Every card of one set+rarity
-shares a cohort, so a per-isolate memo keyed by (game, set, rarity) with a ten-minute TTL
-(the early-value set-list pattern) removes most repeats from crawlers walking a set; the
-durable fix is a per-cohort daily average table written by the rollup (Q8). *Memo implemented
-2026-09-09 (`readPeerAnchor` keeps each cohort summary per isolate for ten minutes; failed reads
-are not kept) after the query reached 142 M rows a day on 16 k detail views.* Remaining lines
-that day: whole-game isolate loads 6.1 M (278 cold isolates), `/api/signals` 2.9 M, set EV
-2.3 M; 6.9 M were the operator's own R3 verification queries (full observation scans) and
-will not recur.
-
-- **R1 — the daily metrics rollup and the tiered history refresh have never run in production.** *Fixed in wave 12 (`liveRunDate` keying, pinned in `tests/cloudflare-cutover.test.mjs` and `tests/scheduled-ingestion.test.mjs`). After deploy the first tick runs `metrics-rollup:<latest live date>`; the production ops adapter refuses jobs, so earlier days are not backfilled — the track record starts from the deploy day.*
-  `refresh_state` shows `metrics-rollup:2026-08-28` (the manual backfill) and
-  `history-backfill:2026-08-28` as the last runs; there is no `history-daily:*` run at all, and
-  `signal_history`, `shadow_signal_history`, and `cohort_stats` are empty. Cause: the guard-cron
-  policy (`worker/scheduled-decision.ts`) gates metrics and history on
-  `livePublishedRunId === live-daily:<today>`, but the live run is keyed by the TCGCSV publish
-  date and finishes after midnight UTC (20:05Z start → ~04:56Z finish), so on day D the published
-  id is `live-daily:D-1` and "today's live run" is never complete when the tick looks.
-  Consequences: no signal track record (P1b/P3 scoreboard inputs), regime cohort breadth always
-  neutral (P4), liquidity `sales_7/30` frozen at the 2026-08-28 backfill values, and the October
-  model-verification review has no shadow data. Fix: key the rollup and the daily history run to
-  the live run they follow (`metrics-rollup:<liveRunDate>`, due when the live run for that date is
-  published and the rollup for that date is not), and pin it in `tests/cloudflare-cutover.test.mjs`
-  with a live run that completes the next UTC day. Then run one manual `metrics` job to backfill
-  today's snapshot. **Priority: above everything in §Q — the model program's evidence depends on it.**
-- **R2 — a same-day redeploy stalled the cron on "details" (found 2026-09-04 02:00Z from
-  `wrangler tail`; fixed in wave 14, deploy pending).** `product-details` runs are keyed by the
-  deploy snapshot's date. After the five deploys of 2026-09-03 the completed run
-  `product-details:2026-09-03` no longer matched the newest snapshot timestamp, and the gate compared
-  it against `product-details:<wall-clock today>` (2026-09-04), so every tick re-dispatched the
-  finished run ("223/223 done", two writes) and never reached graded, the R1 rollup, or the history
-  refresh — `metrics-rollup:2026-08-28` is still the last rollup. `worker/scheduled-decision.ts` now
-  gates on the run id derived from the deploy snapshot (`detailsRunIdFor`), pinned in
-  `tests/scheduled-ingestion.test.mjs` and `tests/cloudflare-cutover.test.mjs`. Any deploy dated
-  2026-09-04 or later also breaks the loop on its own (a new run id runs details once, ~1 h, then
-  graded → metrics → history). **R1's first production rollup waits on that deploy.**
-- **R3 — sealed products carry two observation series, and the boards read the shallow one (found
-  2026-09-04 while verifying wave 14).** *Fixed 2026-09-04: the TCGplayer client, the history
-  refresh, and `/api/history` key sealed series `Sealed/Unopened` with exact coverage
-  (`core/clients/tcgplayer-history.ts`, `db/history-backfill.ts`, `db/history-read.ts`), and
-  migration 0015 folded the `Normal/Unopened` observations into the canonical key and dropped the
-  1,989 duplicate metrics rows (production and staging). The boards show the merged depth after
-  the next daily walk recomputes metrics; until then the shallow-derived values remain.* The live walk stores sealed observations and
-  derives metrics under `Sealed/Unopened` (2,429 products since 2026-08-28, plus a 533-product
-  `tcgcsv-archive` import back to 2024), while the TCGplayer history backfill and `/api/history`
-  store the same products under the API's own key `Normal/Unopened` (1,989 products, ~72 points
-  each). Singles are unified (`<printing>/Near Mint` on both paths). The "latest `updated_at`"
-  metrics row that the feeds, `/api/signals`, and the detail tables select is therefore the walk's
-  shallow row for ~1,900 sealed products: `change_7_bps` is null on 1,910 of 2,492 latest rows (an
-  older `Normal` row has a value for 1,763 of them), regime reads "new-release" for years-old
-  products, and since wave 13 the sealed boards show "—" for 7D/30D where the client-side
-  computation used to show a (week-stale) number. Fix: one key per product — write TCGplayer sealed
-  series as `Sealed/Unopened` (`db/history-backfill.ts`, `app/api/history/route.ts`), migrate the
-  existing `Normal/Unopened` observations into `Sealed/Unopened` (insert-or-ignore on the primary
-  key, then delete), drop the 1,989 stale `Normal/Unopened` metrics rows, and let the next walk
-  recompute. Needs a one-off production data migration (user authorization). Until then the tiered
-  refresh makes the columns flap: it updates the `Normal` row for due products, the walk updates the
-  `Sealed` row daily, and whichever is newer wins.

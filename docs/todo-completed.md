@@ -3,10 +3,13 @@
 Moved out of `docs/todo.md` on 2026-09-03 so the plan of record holds only open work.
 Entries keep their original build notes, dates, and decisions — this is the historical
 record of how each feature landed (Phases 1–4 of the 2026-08-27 UI/platform plan, the
-metrics and mobile batches, the ingestion-scaling fixes, and signal-model steps P1–P7).
-Open items, current priorities, and the scheduled-task calendar stay in `docs/todo.md`.
+metrics and mobile batches, the ingestion-scaling fixes, signal-model steps P1–P7, and,
+from 2026-09-10, the items migrated in §T below: images I.4, monetization O1/O3, and the
+ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task calendar
+stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
+`9f30fee8`).
 
-## Summary
+## Phase 1–4 summary (the later sections M, N, P, and T are not indexed here)
 
 | # | Item | Phase | Effort | Risk |
 |---|------|-------|--------|------|
@@ -1228,3 +1231,126 @@ EVE-vs-actual monitoring for the presale products already being served.
 - **Phase 4:** G1 (after the UI phases, gated on Gate 0 authorization).
 - Each phase ends with the full gate (`npm run check`, dev server stopped first) and, on
   request, a Worker deploy (vN tarball handoffs retired 2026-08-27 with the hosting move).
+
+## T. Migrated 2026-09-10 — items that shipped between 2026-09-04 and 2026-09-09
+
+Moved out of `docs/todo.md` on 2026-09-10 with their build notes intact. Commits: `d7de3b9`
+(waves 15–17, J2 phase 1, R4; production `ea6fdbaf`), `2ffe444` (Q9 memo, TCGplayer affiliate
+links; production `7132dd9e`), `6e5e6f0` (Smart Links, popover tiles, chart skeleton, hero;
+production `9f30fee8`). The refactor plan's wave table and function-change log carry the
+per-change detail.
+
+### I.4 Image sources (2026-09-04, wave 17)
+
+4. **Image sources (researched and implemented 2026-09-04).** Audit: every production
+   catalog row has a TCGplayer CDN image and 0 of 60 sampled URLs were broken; the gaps
+   were 6 Riftbound Chinese/Korean supplemental products, 18 bundled scalper rows, and
+   set logos (Pokémon 141/308 via pokemontcg.io; Riftbound and One Piece none). Shipped:
+   cover art from each set's top product where no logo exists; TCGplayer images for the
+   12 supplemental products TCGCSV now lists, Riot/Bandai official shots for the T1,
+   Lunar Revel, Set Sail, and DP-12 products; a once-only TCGdex fallback for Pokémon card
+   images (`scripts/sets/sync-tcgdex.mjs`). API TCG checked with the user's key the same
+   day: its sets carry no logos for any game and its product images are TCGplayer CDN URLs,
+   so it adds no image source — but its product search found Team Rocket's Mewtwo ex Box
+   (625695) and the Oddish 2-pack blister (683264), now applied. Still without an image:
+   Ascended Heroes 2-pack blister, Devil Fruits Vol. 4, and the two Topps football boxes
+   (not on TCGplayer; no official page found).
+
+### O1. eBay and TCGplayer affiliate links (complete 2026-09-09)
+
+**O1. eBay and TCGplayer affiliate links.** Convert the outbound product links into
+affiliate/partner-tagged URLs: the existing TCGplayer buttons (detail-page hero,
+leaderboard "View on TCGplayer") via the TCGplayer affiliate/impact program, and the
+eBay links from O2 via the eBay Partner Network (EPN campaign id on the URL). Needs:
+program signups + credentials (user), a small shared link-builder helper so tags apply
+consistently everywhere links render, and a disclosure line (footer/methodology) per
+program requirements. Scope and plan at review before implementation.
+*TCGplayer half shipped 2026-09-09: every TCGplayer link is the Impact tracking link
+(partner.tcgplayer.com/c/7677898/1780961/21018) with the product page as its u= deep-link
+target (core/domain/marketplace-links.ts), anchors carry rel=sponsored, and both footers show
+the affiliate disclosure.* *eBay half shipped 2026-09-09: EPN Smart Links (campaign
+5339205908, popover off) loaded from the root layout rewrite every ebay.com link at click
+time; eBay anchors carry rel=sponsored; both footers name both programs; the Browse client's
+affiliate header defaults to the same campaign. O1 is complete.*
+*Live-listings widget (2026-09-09): an EPN Smart Placement (eBay-rendered cards keyed by our
+search query) shipped to staging and was pulled the same day — ad blockers block
+`epnt.ebay.com`, so most visitors saw nothing, and EPN fixes a ten-listing floor below which
+the widget collapses. The search-query rules it forced stay for the eBay links and the Browse
+rotation (`core/domain/marketplace-links.ts`: game word first, no set codes, commas or
+ampersands, collector number for Pokémon only; Umbreon ex Prismatic Evolutions found 36
+listings, Ahri Origins 22, Destined Rivals booster box 36). The Browse-API grid — images,
+Listings/Graded tabs with counts, on-demand fetch with a daily budget — is the plan once the
+eBay developer keyset exists (plan doc, option A).*
+*Hover popovers (2026-09-09): the TCGplayer and eBay tiles sit under the artwork
+(`HistoryPopover` `links`), the stats grid is market data only, and the chart's loading state
+is a skeleton with the finished chart's toolbar and plot box so the popover keeps its height.*
+
+### O3. Marketplace tiles inside every hover chart (2026-09-05; reshaped 2026-09-09)
+
+**O3. TCGplayer link inside every hover chart.** Every card-shaped popover (leaderboard,
+sealed rows, full-view cards, detail tables, metrics movers, Collectr import) gets an
+explicit "TCGplayer ↗" button under the stats, built from the row's `url` (exact
+`source_url`, present on all 18,361 catalog rows) or the id form
+`https://www.tcgplayer.com/product/<id>` where a row carries no URL (movers, import matches).
+Zero additional D1 reads: `rows_read` counts rows, not columns, and every surface already
+holds the data. Plan and cost table: `docs/ebay-integration-plan-2026-09.md` §A.
+*Implemented 2026-09-05 (`d7de3b9`): `tcgplayerMetric` in
+`core/domain/marketplace-links.ts` renders as an anchor tile (`HistoryMetric.href`) in every
+popover — leaderboard, sealed rows, detail tables, movers, Collectr import (the match payload
+now carries `productId`). Affiliate tagging was a TODO(O1) in that module at the time.*
+*Reshaped 2026-09-09 (`6e5e6f0`): the popover renders two tiles — TCGplayer and an eBay
+buy-it-now search — under the artwork via `HistoryPopover` `links` and
+`marketplaceLinkMetrics`; the stats grid holds market data only; the tiles stay visible in
+the large view and the tapped-open card. Affiliate tagging is the O1 wrapper and the EPN
+Smart Links script; no TODO remains in the module.*
+
+### R1–R3. Production ingestion cadence bugs (found 2026-09-03/04; fixed waves 12–14, deployed `d7de3b9`)
+
+- **R1 — the daily metrics rollup and the tiered history refresh have never run in production.** *Fixed in wave 12 (`liveRunDate` keying, pinned in `tests/cloudflare-cutover.test.mjs` and `tests/scheduled-ingestion.test.mjs`). Deployed in `d7de3b9` (production `ea6fdbaf`); the first tick after it ran `metrics-rollup:<latest live date>` and the rollup has run daily since; the production ops adapter refuses jobs, so earlier days are not backfilled — the track record starts from the deploy day.*
+  `refresh_state` shows `metrics-rollup:2026-08-28` (the manual backfill) and
+  `history-backfill:2026-08-28` as the last runs; there is no `history-daily:*` run at all, and
+  `signal_history`, `shadow_signal_history`, and `cohort_stats` are empty. Cause: the guard-cron
+  policy (`worker/scheduled-decision.ts`) gates metrics and history on
+  `livePublishedRunId === live-daily:<today>`, but the live run is keyed by the TCGCSV publish
+  date and finishes after midnight UTC (20:05Z start → ~04:56Z finish), so on day D the published
+  id is `live-daily:D-1` and "today's live run" is never complete when the tick looks.
+  Consequences: no signal track record (P1b/P3 scoreboard inputs), regime cohort breadth always
+  neutral (P4), liquidity `sales_7/30` frozen at the 2026-08-28 backfill values, and the October
+  model-verification review has no shadow data. Fix: key the rollup and the daily history run to
+  the live run they follow (`metrics-rollup:<liveRunDate>`, due when the live run for that date is
+  published and the rollup for that date is not), and pin it in `tests/cloudflare-cutover.test.mjs`
+  with a live run that completes the next UTC day. Then run one manual `metrics` job to backfill
+  today's snapshot. **Priority: above everything in §Q — the model program's evidence depends on it.**
+- **R2 — a same-day redeploy stalled the cron on "details" (found 2026-09-04 02:00Z from
+  `wrangler tail`; fixed in wave 14, deployed in `d7de3b9`).** `product-details` runs are keyed by the
+  deploy snapshot's date. After the five deploys of 2026-09-03 the completed run
+  `product-details:2026-09-03` no longer matched the newest snapshot timestamp, and the gate compared
+  it against `product-details:<wall-clock today>` (2026-09-04), so every tick re-dispatched the
+  finished run ("223/223 done", two writes) and never reached graded, the R1 rollup, or the history
+  refresh — `metrics-rollup:2026-08-28` is still the last rollup. `worker/scheduled-decision.ts` now
+  gates on the run id derived from the deploy snapshot (`detailsRunIdFor`), pinned in
+  `tests/scheduled-ingestion.test.mjs` and `tests/cloudflare-cutover.test.mjs`. Any deploy dated
+  2026-09-04 or later also breaks the loop on its own (a new run id runs details once, ~1 h, then
+  graded → metrics → history). **R1's first production rollup waits on that deploy.**
+- **R3 — sealed products carry two observation series, and the boards read the shallow one (found
+  2026-09-04 while verifying wave 14).** *Fixed 2026-09-04: the TCGplayer client, the history
+  refresh, and `/api/history` key sealed series `Sealed/Unopened` with exact coverage
+  (`core/clients/tcgplayer-history.ts`, `db/history-backfill.ts`, `db/history-read.ts`), and
+  migration 0015 folded the `Normal/Unopened` observations into the canonical key and dropped the
+  1,989 duplicate metrics rows (production and staging). The boards show the merged depth after
+  the next daily walk recomputes metrics; until then the shallow-derived values remain.* The live walk stores sealed observations and
+  derives metrics under `Sealed/Unopened` (2,429 products since 2026-08-28, plus a 533-product
+  `tcgcsv-archive` import back to 2024), while the TCGplayer history backfill and `/api/history`
+  store the same products under the API's own key `Normal/Unopened` (1,989 products, ~72 points
+  each). Singles are unified (`<printing>/Near Mint` on both paths). The "latest `updated_at`"
+  metrics row that the feeds, `/api/signals`, and the detail tables select is therefore the walk's
+  shallow row for ~1,900 sealed products: `change_7_bps` is null on 1,910 of 2,492 latest rows (an
+  older `Normal` row has a value for 1,763 of them), regime reads "new-release" for years-old
+  products, and since wave 13 the sealed boards show "—" for 7D/30D where the client-side
+  computation used to show a (week-stale) number. Fix: one key per product — write TCGplayer sealed
+  series as `Sealed/Unopened` (`db/history-backfill.ts`, `app/api/history/route.ts`), migrate the
+  existing `Normal/Unopened` observations into `Sealed/Unopened` (insert-or-ignore on the primary
+  key, then delete), drop the 1,989 stale `Normal/Unopened` metrics rows, and let the next walk
+  recompute. Needs a one-off production data migration (user authorization). Until then the tiered
+  refresh makes the columns flap: it updates the `Normal` row for due products, the walk updates the
+  `Sealed` row daily, and whichever is newer wins.

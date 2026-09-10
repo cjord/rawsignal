@@ -17,6 +17,8 @@ todo §M (the actionable fix list distilled from this document).
 3. **Group fetches: capped at 12/tick.** For sealed-only categories tick cost scales
    with *group count*, not product count (MTG: 455 groups for ~2,450 keeps). The cap
    is calibrated for heavy singles groups; sealed-only groups yield ~1 record each.
+   (M3 landed 2026-08-31: sealed-only categories now walk 40 groups per tick,
+   `SEALED_GROUP_FETCH_CAP` in `db/live-ingestion.ts`; singles stay at 12, max 20.)
 
 Subrequests to TCGCSV are **free** on Workers and TCGCSV is explicitly built for bulk
 pulls — request count is never the cost; ticks and the daily history tax are.
@@ -100,7 +102,7 @@ new game; M6 whenever chart depth for the new sealed matters; M9/M10 parked unti
 MTG revives.
 
 **M1+M2+M3 implemented 2026-08-31** (see todo §M status note for the details); M2's
-`*/1` cadence activates at the next production deploy. Post-M1 expected steady state:
+`*/1` cadence has been live in production since the following deploy. Post-M1 expected steady state:
 D1 writes drop from ~1.5–2M/day to well under 200k/day; post-M2+M3 the tick budget is
 1,440/day with sealed walks ~3× faster — OP curated singles and MTG sealed both fit.
 
@@ -123,7 +125,7 @@ derived 16,829 targets from D1 (`skippedMissingCatalog: 0`) and wrote only
 `pointsWritten: 20` for 5 full-history products — M5 and M1 confirmed live.
 
 **M6 executed 2026-09-01** (`scripts/history/backfill-sealed-archive.mjs`, one-shot).
-All 936 daily archives (2024-02-08 → 2026-08-31, ~3.8 GB, zero missing) downloaded
+All 936 daily archives (2024-02-08 → 2026-08-31, ~3.2 GB, zero missing) downloaded
 with 8-way concurrency and extracted with Windows' built-in bsdtar (reads PPMd 7z —
 no 7-Zip install); the parse phase is resumable via an NDJSON progress log. Result:
 **279,945 daily observations for 574 sealed products** (420 One Piece + 154 Japanese)
