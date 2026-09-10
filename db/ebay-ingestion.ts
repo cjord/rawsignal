@@ -1,5 +1,6 @@
-import type { EbayListingSample, EbayListingSnapshot } from "../core/domain/types.ts";
-import type { EbayListingSummary } from "../core/ebay-summary.ts";
+import type { EbayAskHistory, EbayAskHistoryPoint, EbayListingSample, EbayListingSnapshot } from "../core/domain/types.ts";
+import { summarizeEbaySamples, type EbayListingSummary } from "../core/ebay-summary.ts";
+import { ebayListingDeltas } from "../core/ebay-history.ts";
 import type { EbayFetchResult, EbayListingTarget, EbayListingsDeps } from "../core/clients/ebay-listings.ts";
 import { clampBatchSize, markIngestionFailed, parseStatsJson, resumeCheckpoint } from "./ingestion-batch.ts";
 import { checkpointIngestion, completeIngestion, startIngestion, type D1DatabaseLike } from "./repository.ts";
@@ -58,7 +59,7 @@ export async function runEbayListingsBatch(db: D1DatabaseLike, deps: EbayListing
         continue;
       }
       consecutiveFailures = 0;
-      await writeEbayListing(db, target.productId, result.query, result.categoryId, result.summary, new Date().toISOString(), today);
+      await writeEbayListing(db, target.productId, result.query, result.categoryId, result.summary, new Date().toISOString(), today, target.marketCents);
       updated++;
       if (seen < targets.length) await wait(250);
     }
@@ -73,28 +74,65 @@ export async function runEbayListingsBatch(db: D1DatabaseLike, deps: EbayListing
   }
 }
 
-export async function writeEbayListing(db: D1DatabaseLike, productId: number, query: string, categoryId: number | null, summary: EbayListingSummary, fetchedAt: string, updatedAt: string) {
+type StoredPayload={version:2;reviewedCount:number;samples:EbayListingSample[]};
+const storedPayload=(summary:EbayListingSummary):StoredPayload=>({version:2,reviewedCount:summary.reviewedCount,samples:summary.samples});
+const record=(value:unknown):value is Record<string,unknown>=>typeof value==="object"&&value!==null;
+function storedSamples(value:string):{samples:EbayListingSample[];reviewedCount:number|null}{
+ try{
+  const parsed=JSON.parse(value) as unknown;
+  if(Array.isArray(parsed))return {samples:parsed as EbayListingSample[],reviewedCount:null};
+  if(record(parsed)&&Array.isArray(parsed.samples))return {samples:parsed.samples as EbayListingSample[],reviewedCount:Number.isFinite(Number(parsed.reviewedCount))?Number(parsed.reviewedCount):null};
+ }catch{/* malformed historical JSON becomes an empty sample */}
+ return {samples:[],reviewedCount:null};
+}
+const migrationPending=(error:unknown)=>error instanceof Error&&/no such table:\s*ebay_listing_observations/i.test(error.message);
+
+export async function writeEbayListing(db: D1DatabaseLike, productId: number, query: string, categoryId: number | null, summary: EbayListingSummary, fetchedAt: string, updatedAt: string, marketCents: number|null=null) {
   const expiresAt = new Date(new Date(fetchedAt).getTime() + EBAY_LISTING_TTL_MS).toISOString();
+  const previous=await db.prepare("select samples_json as samplesJson from ebay_listings where product_id=?").bind(productId).first<{samplesJson:string}>();
+  const computed=summarizeEbaySamples(summary.samples,summary.listingCount,{market:marketCents==null?null:marketCents/100,reviewedCount:summary.reviewedCount??summary.acceptedCount});
+  const enriched={...computed,listingCount:summary.listingCount,reviewedCount:summary.reviewedCount??summary.acceptedCount,acceptedCount:summary.acceptedCount,lowestAsk:summary.lowestAsk,medianAsk:summary.medianAsk};
+  const deltas=ebayListingDeltas(previous?storedSamples(previous.samplesJson).samples:null,enriched.samples);
   await db.prepare(`insert into ebay_listings (product_id,query,category_id,listing_count,accepted_count,lowest_cents,median_cents,samples_json,fetched_at,expires_at,updated_at)
     values (?,?,?,?,?,?,?,?,?,?,?)
     on conflict(product_id) do update set query=excluded.query,category_id=excluded.category_id,listing_count=excluded.listing_count,accepted_count=excluded.accepted_count,
     lowest_cents=excluded.lowest_cents,median_cents=excluded.median_cents,samples_json=excluded.samples_json,fetched_at=excluded.fetched_at,expires_at=excluded.expires_at,updated_at=excluded.updated_at`)
-    .bind(productId, query, categoryId, summary.listingCount, summary.acceptedCount, toCents(summary.lowestAsk), toCents(summary.medianAsk), JSON.stringify(summary.samples), fetchedAt, expiresAt, updatedAt).run();
+    .bind(productId, query, categoryId, enriched.listingCount, enriched.acceptedCount, toCents(enriched.lowestAsk), toCents(enriched.medianAsk), JSON.stringify(storedPayload(enriched)), fetchedAt, expiresAt, updatedAt).run();
+  try{
+    await db.prepare(`insert into ebay_listing_observations (product_id,observed_date,observed_at,reference_market_cents,listing_count,reviewed_count,accepted_count,lowest_cents,median_cents,lowest_delivered_cents,median_delivered_cents,delivered_q1_cents,delivered_q3_cents,below_market_count,near_market_count,free_shipping_count,best_offer_count,new_listing_count,missing_listing_count,price_reduction_count)
+      values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      on conflict(product_id,observed_date) do update set observed_at=excluded.observed_at,reference_market_cents=excluded.reference_market_cents,listing_count=excluded.listing_count,reviewed_count=excluded.reviewed_count,accepted_count=excluded.accepted_count,lowest_cents=excluded.lowest_cents,median_cents=excluded.median_cents,lowest_delivered_cents=excluded.lowest_delivered_cents,median_delivered_cents=excluded.median_delivered_cents,delivered_q1_cents=excluded.delivered_q1_cents,delivered_q3_cents=excluded.delivered_q3_cents,below_market_count=excluded.below_market_count,near_market_count=excluded.near_market_count,free_shipping_count=excluded.free_shipping_count,best_offer_count=excluded.best_offer_count,new_listing_count=excluded.new_listing_count,missing_listing_count=excluded.missing_listing_count,price_reduction_count=excluded.price_reduction_count`)
+      .bind(productId,fetchedAt.slice(0,10),fetchedAt,marketCents,enriched.listingCount,enriched.reviewedCount,enriched.acceptedCount,toCents(enriched.lowestAsk),toCents(enriched.medianAsk),toCents(enriched.lowestDeliveredAsk),toCents(enriched.medianDeliveredAsk),toCents(enriched.deliveredQ1),toCents(enriched.deliveredQ3),enriched.belowMarketCount,enriched.nearMarketCount,enriched.freeShippingCount,enriched.bestOfferCount,deltas.newListingCount,deltas.missingListingCount,deltas.priceReductionCount).run();
+  }catch(error){
+    if(!migrationPending(error))console.error(JSON.stringify({event:"ebay_listing_history_write_failed",productId,message:error instanceof Error?error.message:"Unknown failure"}));
+  }
 }
 
-type ListingRow = { query: string; categoryId: number | null; listingCount: number; acceptedCount: number; lowestCents: number | null; medianCents: number | null; samplesJson: string; fetchedAt: string; expiresAt: string | null; updatedAt: string };
+type ListingRow = { query: string; categoryId: number | null; listingCount: number; acceptedCount: number; lowestCents: number | null; medianCents: number | null; samplesJson: string; fetchedAt: string; expiresAt: string | null; updatedAt: string; marketCents:number|null };
 
 export async function readEbayListing(db: D1DatabaseLike, productId: number): Promise<EbayListingSnapshot | null> {
-  const row = await db.prepare(`select query, category_id as categoryId, listing_count as listingCount, accepted_count as acceptedCount, lowest_cents as lowestCents, median_cents as medianCents,
-    samples_json as samplesJson, fetched_at as fetchedAt, expires_at as expiresAt, updated_at as updatedAt from ebay_listings where product_id = ?`).bind(productId).first<ListingRow>();
+  const row = await db.prepare(`select e.query,e.category_id as categoryId,e.listing_count as listingCount,e.accepted_count as acceptedCount,e.lowest_cents as lowestCents,e.median_cents as medianCents,
+    e.samples_json as samplesJson,e.fetched_at as fetchedAt,e.expires_at as expiresAt,e.updated_at as updatedAt,cp.market_cents as marketCents from ebay_listings e left join current_prices cp on cp.product_id=e.product_id where e.product_id = ?`).bind(productId).first<ListingRow>();
   if (!row) return null;
-  let samples: EbayListingSample[] = [];
-  try { const parsed = JSON.parse(row.samplesJson) as unknown; if (Array.isArray(parsed)) samples = parsed as EbayListingSample[]; } catch { /* a malformed sample list renders as no samples */ }
+  const stored=storedSamples(row.samplesJson),computed=summarizeEbaySamples(stored.samples,row.listingCount,{market:row.marketCents==null?null:row.marketCents/100,reviewedCount:stored.reviewedCount??row.acceptedCount});
   return {
-    query: row.query, categoryId: row.categoryId, listingCount: row.listingCount, acceptedCount: row.acceptedCount,
+    query: row.query, categoryId: row.categoryId, listingCount: row.listingCount, reviewedCount: computed.reviewedCount, acceptedCount: row.acceptedCount,highConfidenceCount:computed.highConfidenceCount,
     lowestAsk: row.lowestCents == null ? null : row.lowestCents / 100, medianAsk: row.medianCents == null ? null : row.medianCents / 100,
-    samples, fetchedAt: row.fetchedAt, expiresAt: row.expiresAt ?? row.fetchedAt, updatedAt: row.updatedAt,
+    lowestDeliveredAsk:computed.lowestDeliveredAsk,medianDeliveredAsk:computed.medianDeliveredAsk,deliveredQ1:computed.deliveredQ1,deliveredQ3:computed.deliveredQ3,
+    belowMarketCount:computed.belowMarketCount,nearMarketCount:computed.nearMarketCount,freeShippingCount:computed.freeShippingCount,bestOfferCount:computed.bestOfferCount,
+    samples:stored.samples, fetchedAt: row.fetchedAt, expiresAt: row.expiresAt ?? row.fetchedAt, updatedAt: row.updatedAt,
   };
+}
+
+type HistoryRow={observedDate:string;observedAt:string;referenceMarketCents:number|null;listingCount:number;reviewedCount:number;acceptedCount:number;lowestCents:number|null;medianCents:number|null;lowestDeliveredCents:number|null;medianDeliveredCents:number|null;deliveredQ1Cents:number|null;deliveredQ3Cents:number|null;belowMarketCount:number;nearMarketCount:number;freeShippingCount:number;bestOfferCount:number;newListingCount:number|null;missingListingCount:number|null;priceReductionCount:number|null};
+const dollars=(cents:number|null)=>cents==null?null:cents/100;
+export async function readEbayListingHistory(db:D1DatabaseLike,productId:number,now=new Date()):Promise<EbayAskHistory>{
+ const from=new Date(now.getTime()-92*86_400_000).toISOString().slice(0,10);
+ try{
+  const rows=(await db.prepare(`select observed_date as observedDate,observed_at as observedAt,reference_market_cents as referenceMarketCents,listing_count as listingCount,reviewed_count as reviewedCount,accepted_count as acceptedCount,lowest_cents as lowestCents,median_cents as medianCents,lowest_delivered_cents as lowestDeliveredCents,median_delivered_cents as medianDeliveredCents,delivered_q1_cents as deliveredQ1Cents,delivered_q3_cents as deliveredQ3Cents,below_market_count as belowMarketCount,near_market_count as nearMarketCount,free_shipping_count as freeShippingCount,best_offer_count as bestOfferCount,new_listing_count as newListingCount,missing_listing_count as missingListingCount,price_reduction_count as priceReductionCount from ebay_listing_observations where product_id=? and observed_date>=? order by observed_date`).bind(productId,from).all<HistoryRow>()).results??[];
+  const points:EbayAskHistoryPoint[]=rows.map(row=>({observedDate:row.observedDate,observedAt:row.observedAt,referenceMarketPrice:dollars(row.referenceMarketCents),listingCount:row.listingCount,reviewedCount:row.reviewedCount,acceptedCount:row.acceptedCount,lowestAsk:dollars(row.lowestCents),medianAsk:dollars(row.medianCents),lowestDeliveredAsk:dollars(row.lowestDeliveredCents),medianDeliveredAsk:dollars(row.medianDeliveredCents),deliveredQ1:dollars(row.deliveredQ1Cents),deliveredQ3:dollars(row.deliveredQ3Cents),belowMarketCount:row.belowMarketCount,nearMarketCount:row.nearMarketCount,freeShippingCount:row.freeShippingCount,bestOfferCount:row.bestOfferCount,newListingCount:row.newListingCount,missingListingCount:row.missingListingCount,priceReductionCount:row.priceReductionCount}));
+  return {points};
+ }catch(error){if(migrationPending(error))return {points:[]};throw error}
 }
 
 export const ebayListingIsFresh = (snapshot: EbayListingSnapshot | null, now = new Date()) =>
@@ -158,7 +196,7 @@ export async function resolveEbayListing(db: D1DatabaseLike, productId: number, 
     const result: EbayFetchResult = await deps.fetchListings(target);
     if (result.status < 200 || result.status >= 300 || !result.summary) return { status: "upstream-error", snapshot: null, upstreamStatus: result.status };
     const fetchedAt = now.toISOString();
-    await writeEbayListing(db, productId, result.query, result.categoryId, result.summary, fetchedAt, fetchedAt.slice(0, 10));
+    await writeEbayListing(db, productId, result.query, result.categoryId, result.summary, fetchedAt, fetchedAt.slice(0, 10),target.marketCents);
     const snapshot = await readEbayListing(db, productId);
     if (!snapshot) return { status: "upstream-error", snapshot: null, upstreamStatus: 502 };
     return { status: "refreshed", snapshot };

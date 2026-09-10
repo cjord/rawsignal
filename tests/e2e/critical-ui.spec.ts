@@ -149,19 +149,24 @@ test("configures eBay Smart Links with the site campaign and no popover",async({
 });
 
 test("paginates cached eBay results five-up on desktop and three-up on mobile",async({page})=>{
- const samples=Array.from({length:12},(_,index)=>({itemId:`v1|${index+1}|0`,title:`Listing ${index+1}`,price:20+index,shipping:index%2?4.5:0,condition:"Ungraded",imageUrl:null,url:`https://www.ebay.com/itm/${index+1}`}));
- await page.route("**/api/ebay/listings?productId=*",route=>route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({snapshot:{query:"fixture",categoryId:183454,listingCount:42,acceptedCount:12,lowestAsk:20,medianAsk:25.5,samples,fetchedAt:"2026-09-10T12:00:00.000Z",expiresAt:"2026-09-10T18:00:00.000Z",updatedAt:"2026-09-10"}})}));
+ const samples=Array.from({length:12},(_,index)=>({itemId:`v1|${index+1}|0`,title:`Listing ${index+1}`,price:20+index,shipping:index%2?4.5:0,deliveredPrice:20+index+(index%2?4.5:0),condition:"Ungraded",imageUrl:null,url:`https://www.ebay.com/itm/${index+1}`,buyingOptions:index%3?["FIXED_PRICE"]:["FIXED_PRICE","BEST_OFFER"],sellerFeedbackPercentage:99.8,sellerFeedbackScore:1200,topRated:index%2===0,watchCount:index,listedAt:`2026-09-${String(index+1).padStart(2,"0")}T00:00:00Z`,endsAt:null,locationCountry:"US",matchConfidence:index%2?"medium":"high"}));
+ const history={points:[{observedDate:"2026-09-03",observedAt:"2026-09-03T12:00:00.000Z",referenceMarketPrice:25,listingCount:38,reviewedCount:10,acceptedCount:10,lowestAsk:19,medianAsk:24,lowestDeliveredAsk:19,medianDeliveredAsk:24,deliveredQ1:21,deliveredQ3:27,belowMarketCount:6,nearMarketCount:4,freeShippingCount:5,bestOfferCount:3,newListingCount:null,missingListingCount:null,priceReductionCount:null},{observedDate:"2026-09-10",observedAt:"2026-09-10T12:00:00.000Z",referenceMarketPrice:25,listingCount:42,reviewedCount:12,acceptedCount:12,lowestAsk:20,medianAsk:25.5,lowestDeliveredAsk:20,medianDeliveredAsk:27,deliveredQ1:23,deliveredQ3:30,belowMarketCount:5,nearMarketCount:4,freeShippingCount:6,bestOfferCount:4,newListingCount:3,missingListingCount:1,priceReductionCount:2}]};
+ await page.route("**/api/ebay/listings?productId=*",route=>route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({snapshot:{query:"fixture",categoryId:183454,listingCount:42,reviewedCount:12,acceptedCount:12,highConfidenceCount:6,lowestAsk:20,medianAsk:25.5,lowestDeliveredAsk:20,medianDeliveredAsk:27,deliveredQ1:23,deliveredQ3:30,belowMarketCount:5,nearMarketCount:4,freeShippingCount:6,bestOfferCount:4,samples,fetchedAt:"2026-09-10T12:00:00.000Z",expiresAt:"2026-09-10T18:00:00.000Z",updatedAt:"2026-09-10"},history})}));
  await page.goto(singlesUrl);await waitForApp(page);
  const detailHref=await page.locator('a[href^="/cards/"]').first().getAttribute("href");
- expect(detailHref).toBeTruthy();await page.goto(detailHref!);await expect(page.locator(".detail-page")).toBeVisible();
+ expect(detailHref).toBeTruthy();await page.goto(`${detailHref}?e2e=ebay-pagination`);await expect(page.locator(".detail-page")).toBeVisible();
  await page.locator(".detail-ebay").scrollIntoViewIfNeeded();
  await expect(page.locator(".ebay-listing-card")).toHaveCount(5);
- await expect(page.getByText("Showing 1–5 of 12 matched listings")).toBeVisible();
+ await expect(page.getByText("Showing 1–5 of 12 filtered listings")).toBeVisible();
+ await expect(page.getByText("Delivered ask (7D)")).toBeVisible();
+ await page.getByLabel("Filter listings").selectOption("free-shipping");
+ await expect(page.getByText("Showing 1–5 of 6 filtered listings")).toBeVisible();
+ await page.getByLabel("Filter listings").selectOption("all");
  await page.setViewportSize({width:390,height:844});
  await expect(page.locator(".ebay-listing-card")).toHaveCount(3);
- await expect(page.getByText("Showing 1–3 of 12 matched listings")).toBeVisible();
+ await expect(page.getByText("Showing 1–3 of 12 filtered listings")).toBeVisible();
  await page.getByRole("navigation",{name:"eBay listing pages"}).getByRole("button",{name:"Next →"}).click();
  await expect(page.locator(".ebay-listing-card")).toHaveCount(3);
- await expect(page.getByText("Showing 4–6 of 12 matched listings")).toBeVisible();
- await expect(page.locator(".ebay-listing-card").first()).toHaveAttribute("href","https://www.ebay.com/itm/4");
+ await expect(page.getByText("Showing 4–6 of 12 filtered listings")).toBeVisible();
+ await expect(page.locator(".ebay-listing-card").first()).toHaveAttribute("href","https://www.ebay.com/itm/2");
 });

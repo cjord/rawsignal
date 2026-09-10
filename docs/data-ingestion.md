@@ -78,12 +78,22 @@ token is minted with the client-credentials grant and cached per Worker isolate.
   and Japanese promo-number families such as `S-P`/`SV-P`, or the language explicitly named
   by a language-specific promo. The ordinary and sold eBay links carry the matching Language
   facet. Fewer than three accepted listings still records the result count and samples, but
-  aggregate asks remain unavailable. Samples include an HTTPS image, title, condition, price,
-  shipping, and the affiliate item URL. The Browse request carries eBay's EPN campaign and
+  aggregate asks remain unavailable. Local matching also rejects graded, bulk/lot, proxy,
+  cross-game, wrong-language, collector-number, and sealed-product-family conflicts and
+  records high/medium confidence. Samples include an HTTPS image, title, condition, item and
+  delivered price, shipping, buying options, seller feedback, Top Rated status, watcher count,
+  listing/end time, country, and the affiliate item URL when eBay supplies those fields. The Browse request carries eBay's EPN campaign and
   per-product reference header; eBay's `itemAffiliateWebUrl` wins, while a response that only
-  carries `itemWebUrl` is tagged directly before storage. Up to all 50 accepted items from
+  carries `itemWebUrl` is tagged directly before storage. Up to 100 accepted items from
   that same response are retained; the detail page paginates the cached array locally at five
   per desktop page and three per mobile page, with no Browse call on a page change.
+- **History.** Migration 0019 adds `ebay_listing_observations`. Every successful refresh
+  upserts one compact row per product and UTC day, retaining a 92-day read window of active
+  item/delivered-ask distributions, result/sample counts, market-relative counts, shipping/
+  offer counts, and sampled-listing arrivals, disappearances, and price cuts. Same-day
+  refreshes replace the day's row. The current snapshot write remains available during the
+  deploy-before-migrate window; history starts after the migration lands. Missing sampled
+  IDs are never treated as sales.
 - **Configuration.** `EBAY_CLIENT_ID` and `EBAY_CLIENT_SECRET` are Worker secrets, never vars
   or repository files. The eBay Dev ID is not used by the Browse client-credentials flow.
   Optional var `EBAY_EPN_CAMPAIGN_ID` can override the published campaign id; otherwise the

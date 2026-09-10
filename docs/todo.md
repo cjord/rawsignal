@@ -242,17 +242,25 @@ multi-day sweep does not satisfy eBay's six-hour freshness rule.*
 *Implementation begun 2026-09-10 on `EnhancementTrial`: plan option A now uses a lazy
 `/api/ebay/listings` request on card and sealed detail pages, a six-hour D1 snapshot, an
 atomic 4,000-call daily interactive budget, a per-product request lease, and a responsive
-image grid. The same first Browse page retains up to 50 cards and paginates locally at five
+image grid. The same first Browse page reviews and retains up to 100 cards and paginates locally at five
 per desktop page or three per mobile page; changing pages spends no eBay calls. Production
-cron no longer dispatches eBay. Migration 0018 and the Worker secrets
-must be applied with the validated deployment before this becomes live. The hover asks tile
+cron no longer dispatches eBay. Migration 0018 and the Worker secrets are live in production.
+The hover asks tile
 remains a later enhancement; `ebay-listings` does not belong in the page publish signature
 because the no-store client island is independent of the cached page.*
-*Account-deletion compliance implemented on `EnhancementTrial` the same day:
+*Account-deletion compliance implemented and activated the same day:
 `/api/ebay/account-deletion` handles the endpoint challenge and validates signed deletion
-notifications against eBay's one-hour-cached ECC public key. Activation still requires the
-production verification-token secret, an exact-path Cloudflare managed-challenge exception,
-deployment, and eBay's test notification.*
+notifications against eBay's one-hour-cached ECC public key. The production verification-token
+secret, exact-path Cloudflare managed-challenge exception, endpoint registration, and eBay test
+notification were completed successfully.*
+
+*Expanded 2026-09-10 on `EnhancementTrial`: stronger local identity matching rejects
+graded/bulk/proxy/cross-game/wrong-language/collector-number and sealed-type conflicts;
+the cached cards expose delivered totals, Best Offer, seller trust, watcher/listing-age and
+match-confidence metadata with local filters and sorts. Migration 0019 adds one compact
+active-ask history row per product/day and the detail panel shows 7/30-day delivered-ask
+movement, matched-supply movement, and sampled arrivals/disappearances/price cuts. These are
+active-market observations, not completed sales.*
 
 **O4. Remove PokemonPriceTracker.** Do not upgrade the provider tier. Retire its graded and
 raw completed-sale path in rollback-safe phases: remove presentation/reads, stop scheduled
@@ -282,6 +290,21 @@ derive a sell-through rate or days-of-supply figure, claim an accepted Best Offe
 include shipping in sold price unless supplied, blend raw with graded, or estimate sales from
 active asks. This feature must not enter modeled fair value or signals without a separate,
 explicit model decision and backtest.
+
+**O6. eBay active-market next release (recommended).** Let the daily history accumulate and
+measure real payload/storage/quota behavior before widening the surface. Recommended order:
+
+1. Add a compact 30/90-day active-ask chart to detail pages, using only the stored daily
+   aggregates and clearly separating item ask, shown delivered ask, and matched supply.
+2. Add cache-only eBay availability/ask badges to board rows or history popovers through one
+   batch read endpoint. Those surfaces must never trigger Browse refreshes.
+3. Add operator diagnostics for accepted/rejected match reasons, confidence distribution,
+   API-budget consumption, refresh coverage, response size, and history-write failures; use
+   the evidence to tune matching and decide whether 100 should remain the cap.
+4. Add scheduled retention cleanup for observations older than the published history window,
+   and document the measured D1 footprint before increasing retention or sampling.
+5. Consider ending-soon and country filters after measuring how often eBay supplies those
+   fields. Do not infer sell-through, days of supply, or sales from active asks.
 
 ## P. Signal-model evolution (planned 2026-09-01; from docs/buy-sell-estimation-research.md §15)
 

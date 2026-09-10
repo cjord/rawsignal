@@ -195,8 +195,8 @@ CREATE TABLE `ebay_listings` (
   `category_id`  integer,
   `listing_count` integer NOT NULL,          -- eBay's `total` for the filtered search
   `lowest_cents` integer,                    -- lowest fixed-price ask inside the price guard
-  `median_cents` integer,                    -- median of the returned asks (≤ 50)
-  `samples_json` text NOT NULL DEFAULT '[]', -- up to 50 normalized listings from the first Browse page
+  `median_cents` integer,                    -- median of the returned asks (≤ 100)
+  `samples_json` text NOT NULL DEFAULT '[]', -- up to 100 normalized listings from the first Browse page
   `fetched_at`   text NOT NULL,
   `updated_at`   text NOT NULL               -- YYYY-MM-DD, the rotation's staleness key
 );
@@ -213,7 +213,7 @@ eBay's API licence before extending that lifetime.
 - Token: client-credentials mint, cached in module memory per isolate with its expiry;
   at most one mint per tick. Secrets `EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET` via
   `wrangler secret put` (production only; staging keeps none and runs the job by hand).
-- Search: `GET /buy/browse/v1/item_summary/search?q=<query>&category_ids=<id>&filter=buyingOptions:{FIXED_PRICE},conditionIds:{<4000 singles|1000 sealed>},priceCurrency:USD,price:[<0.25×market>..<4×market>]&sort=price&limit=50`
+- Search: `GET /buy/browse/v1/item_summary/search?q=<query>&category_ids=<id>&filter=buyingOptions:{FIXED_PRICE},conditionIds:{<4000 singles|1000 sealed>},priceCurrency:USD,price:[<0.25×market>..<4×market>]&sort=price&limit=100`
   with `X-EBAY-C-MARKETPLACE-ID: EBAY_US` and, once B ships, the affiliate context header.
   The price guard around the TCGplayer market price drops lots, proxies, and mispriced
   listings before they reach the median; the query mirrors A1 so the link and the data agree.
@@ -248,8 +248,9 @@ eBay's API licence before extending that lifetime.
   retry interval when another request owns the lease, `429` at the local daily ceiling, and
   an honest unavailable response on configuration or upstream failure. It never returns an
   expired snapshot.
-- The responsive grid retains up to 50 image cards with title, ask, shipping, condition,
-  and the eBay-provided affiliate URL. It paginates the cached array at five per desktop page
+- The responsive grid retains up to 100 image cards with title, ask, shipping, condition,
+  delivered total, available seller/watch/listing metadata, match confidence, and the
+  eBay-provided affiliate URL. It paginates the cached array at five per desktop page
   and three per mobile page. Aggregate lowest/median asks require at least three accepted
   results. The UI identifies the total result count, accepted sample count, exact UTC fetch
   time, six-hour lifetime, and asks-not-sales limitation.
@@ -261,7 +262,7 @@ eBay's API licence before extending that lifetime.
 | Event | D1 work | eBay calls | Notes |
 |---|---|---|---|
 | Detail grid inside six hours | one snapshot PK read | 0 | page HTML remains independently cacheable |
-| First stale detail grid | snapshot + target + quota/lease checks; one snapshot write | 1 | one call supplies aggregates and up to 50 pageable cards |
+| First stale detail grid | snapshot + target + quota/lease checks; current + daily-history writes | 1 | one call supplies aggregates and up to 100 pageable cards |
 | Listing-grid page change | 0 | 0 | slices the cached first Browse page in the browser |
 | Concurrent stale views of one product | snapshot + failed lease checks | 0 for losing callers | callers retry after the winning refresh |
 | Section feed / page render above the fold | 0 eBay-specific work | 0 | no feed joins and no server-rendered eBay lookup |
@@ -295,7 +296,8 @@ expires, not by page requests or catalog size.
 | B affiliate tagging + disclosure | 16b | shipped: TCGplayer Impact links `2ffe444` (production `7132dd9e`), EPN Smart Links `6e5e6f0` (production `9f30fee8`) | — |
 | C1–C3 original schema, client, rotation, ops job | 17 | shipped `d7de3b9`; migration 0016 applied to production, staging, and local; automatic rotation later superseded | — |
 | C3–C6 on-demand quota/lease, route, lazy image grid | 17b | implemented on `EnhancementTrial`; migration 0018 and production activation pending | validated deploy, migrate, attach Worker secrets, smoke-test one card and one sealed page |
-| C7 account-deletion compliance callback | 17b | implemented on `EnhancementTrial`; registration pending | attach `EBAY_DELETION_VERIFICATION_TOKEN`, exempt the exact path from managed challenges, pass eBay's GET challenge and test POST |
+| C7 account-deletion compliance callback | 17b | production registration and eBay test notification completed successfully | — |
+| C8 100-result snapshot, improved matching, enriched fields, active-ask history | 18 | implemented on `EnhancementTrial` | apply migration 0019 and smoke-test one card and one sealed page with the next deployment |
 | D PPT tier | — | open | purchase decision (user, todo O4) |
 
 Activation order: pass the full release gate, commit and push the exact source, deploy the

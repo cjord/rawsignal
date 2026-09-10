@@ -339,9 +339,19 @@ export type EbayListingSample = {
   title: string;
   price: number;
   shipping: number | null;
+  deliveredPrice: number | null;
   condition: string | null;
   imageUrl: string | null;
   url: string;
+  buyingOptions: string[];
+  sellerFeedbackPercentage: number | null;
+  sellerFeedbackScore: number | null;
+  topRated: boolean;
+  watchCount: number | null;
+  listedAt: string | null;
+  endsAt: string | null;
+  locationCountry: string | null;
+  matchConfidence: "high" | "medium";
 };
 
 export type EbayListingSnapshot = {
@@ -350,11 +360,45 @@ export type EbayListingSnapshot = {
   // eBay's total result count precedes the local parser and price guard. acceptedCount is
   // the number of records in the returned search page that survived both.
   listingCount: number;
+  reviewedCount: number;
   acceptedCount: number;
+  highConfidenceCount: number;
   lowestAsk: number | null;
   medianAsk: number | null;
+  lowestDeliveredAsk: number | null;
+  medianDeliveredAsk: number | null;
+  deliveredQ1: number | null;
+  deliveredQ3: number | null;
+  belowMarketCount: number;
+  nearMarketCount: number;
+  freeShippingCount: number;
+  bestOfferCount: number;
   samples: EbayListingSample[];
   fetchedAt: string;
   expiresAt: string;
   updatedAt: string;
 };
+
+export type EbayAskHistoryPoint = {
+  observedDate: string;
+  observedAt: string;
+  referenceMarketPrice: number | null;
+  listingCount: number;
+  reviewedCount: number;
+  acceptedCount: number;
+  lowestAsk: number | null;
+  medianAsk: number | null;
+  lowestDeliveredAsk: number | null;
+  medianDeliveredAsk: number | null;
+  deliveredQ1: number | null;
+  deliveredQ3: number | null;
+  belowMarketCount: number;
+  nearMarketCount: number;
+  freeShippingCount: number;
+  bestOfferCount: number;
+  newListingCount: number | null;
+  missingListingCount: number | null;
+  priceReductionCount: number | null;
+};
+
+export type EbayAskHistory = { points: EbayAskHistoryPoint[] };

@@ -277,7 +277,7 @@ export const setRarityStats = sqliteTable("set_rarity_stats", {
 
 // eBay active-listing snapshots (todo O2, migration 0016): one row per product the Browse
 // rotation has reached — the filtered listing count, the lowest and median asks in cents, and
-// up to five sample listings for the detail panel. `updated_at` is the day of the fetch
+// up to 100 normalized sample listings for the detail panel. `updated_at` is the day of the fetch
 // (the rotation's staleness key); asks are listing prices, never sales.
 export const ebayListings = sqliteTable("ebay_listings", {
   productId: integer("product_id").primaryKey().references(() => catalogProducts.productId, { onDelete: "cascade" }),
@@ -310,6 +310,35 @@ export const ebayFetchLeases = sqliteTable("ebay_fetch_leases", {
   expiresAt: text("expires_at").notNull(),
 }, (table) => [
   index("idx_ebay_fetch_leases_expires").on(table.expiresAt),
+]);
+
+// One compact aggregate per product and UTC day. A later six-hour refresh updates that
+// day's row instead of adding four near-identical rows; current item cards stay in
+// ebay_listings while this table carries only ask/supply history (never inferred sales).
+export const ebayListingObservations = sqliteTable("ebay_listing_observations", {
+  productId: integer("product_id").notNull().references(() => catalogProducts.productId, { onDelete: "cascade" }),
+  observedDate: text("observed_date").notNull(),
+  observedAt: text("observed_at").notNull(),
+  referenceMarketCents: integer("reference_market_cents"),
+  listingCount: integer("listing_count").notNull(),
+  reviewedCount: integer("reviewed_count").notNull(),
+  acceptedCount: integer("accepted_count").notNull(),
+  lowestCents: integer("lowest_cents"),
+  medianCents: integer("median_cents"),
+  lowestDeliveredCents: integer("lowest_delivered_cents"),
+  medianDeliveredCents: integer("median_delivered_cents"),
+  deliveredQ1Cents: integer("delivered_q1_cents"),
+  deliveredQ3Cents: integer("delivered_q3_cents"),
+  belowMarketCount: integer("below_market_count").notNull().default(0),
+  nearMarketCount: integer("near_market_count").notNull().default(0),
+  freeShippingCount: integer("free_shipping_count").notNull().default(0),
+  bestOfferCount: integer("best_offer_count").notNull().default(0),
+  newListingCount: integer("new_listing_count"),
+  missingListingCount: integer("missing_listing_count"),
+  priceReductionCount: integer("price_reduction_count"),
+}, (table) => [
+  primaryKey({ columns: [table.productId, table.observedDate] }),
+  index("idx_ebay_listing_observations_product_date").on(table.productId, table.observedDate),
 ]);
 
 // Collectr-import fuzzy-match audit (2026-08-31): every match reached by a fallback tier

@@ -19,10 +19,11 @@ import {MARQUEE_CHASE_RARITIES,MARQUEE_BAND,releaseGuidance} from "../core/domai
 import {RegimeChip,SignalBadge} from "./SignalControls";
 import {detailPercentile} from "../core/domain/detail";
 import {ebaySearchUrl,tcgplayerAffiliateUrl} from "../core/domain/marketplace-links";
+import {summarizeEbayAskHistory} from "../core/ebay-history";
 import {cardImageFallback} from "./data/card-images";
 import {demandTrend,drawdownFromPeak,historyDepth,MIN_PEER_OBSERVATIONS,modeledFairValue,momentum,peerAnchorValue,rangePosition,salesWindow,trendSlope,volatilityRange} from "../core/domain/detail-metrics";
 import {formatGameName,formatPercent,formatUsd,formatUtcDate} from "../core/domain/formatters";
-import type {CatalogDetail,DetailPeerContext,DetailPeerQuartiles,DetailPriceVariant,EbayListingSnapshot,GradedCardData,PeerAnchorStats,PriceHistory,SealedDetail,SignalStrictness} from "../core/domain/types";
+import type {CatalogDetail,DetailPeerContext,DetailPeerQuartiles,DetailPriceVariant,EbayAskHistory,EbayListingSample,EbayListingSnapshot,GradedCardData,PeerAnchorStats,PriceHistory,SealedDetail,SignalStrictness} from "../core/domain/types";
 
 const emptyHistory:PriceHistory={points:[],coverage:"none",change7:null,change30:null,change90:null,low30:null,high30:null,historyLow:null,historyHigh:null};
 const pct=(value:number|null)=>value==null?"N/A":formatPercent(value);
@@ -130,10 +131,91 @@ function useEbayPageSize(){
  return pageSize;
 }
 
+type EbayResultFilter="all"|"free-shipping"|"best-offer"|"top-rated"|"high-confidence"|"under-market";
+type EbayResultSort="delivered"|"price"|"watchers"|"newest";
+const ebayDelivered=(sample:EbayListingSample)=>sample.deliveredPrice??(sample.shipping==null?null:Math.round((sample.price+sample.shipping)*100)/100);
+const ebayShare=(count:number,total:number)=>total?`${Math.round(count/total*100)}%`:"N/A";
+const signedCount=(value:number|null)=>value==null?"N/A":`${value>0?"+":""}${value.toLocaleString()}`;
+const listingAge=(sample:EbayListingSample,fetchedAt:string)=>{
+ const listed=Date.parse(sample.listedAt??""),fetched=Date.parse(fetchedAt);
+ if(!Number.isFinite(listed)||!Number.isFinite(fetched)||listed>fetched)return null;
+ const days=Math.floor((fetched-listed)/86_400_000);
+ return days===0?"Listed today":`${days.toLocaleString()}d active`;
+};
+
+function filterEbaySamples(samples:EbayListingSample[],filter:EbayResultFilter,market:number|null){
+ return samples.filter(sample=>{
+  if(filter==="free-shipping")return sample.shipping===0;
+  if(filter==="best-offer")return (sample.buyingOptions??[]).includes("BEST_OFFER");
+  if(filter==="top-rated")return sample.topRated===true;
+  if(filter==="high-confidence")return sample.matchConfidence==="high";
+  if(filter==="under-market"){const delivered=ebayDelivered(sample);return market!=null&&delivered!=null&&delivered<market}
+  return true;
+ });
+}
+
+function sortEbaySamples(samples:EbayListingSample[],sort:EbayResultSort){
+ return [...samples].sort((a,b)=>{
+  if(sort==="price")return a.price-b.price;
+  if(sort==="watchers")return (b.watchCount??-1)-(a.watchCount??-1);
+  if(sort==="newest")return (Date.parse(b.listedAt??"")||0)-(Date.parse(a.listedAt??"")||0);
+  return (ebayDelivered(a)??Number.MAX_SAFE_INTEGER)-(ebayDelivered(b)??Number.MAX_SAFE_INTEGER)||a.price-b.price;
+ });
+}
+
+function EbaySnapshotMetrics({ebay,market,kind}:{ebay:EbayListingSnapshot;market:number|null;kind:CatalogDetail["kind"]}){
+ const medianGap=ebay.medianDeliveredAsk!=null&&market!=null&&market>0?(ebay.medianDeliveredAsk-market)/market*100:null;
+ return <div className="detail-history-grid detail-ev-grid">
+  <Metric label="Lowest delivered ask" value={formatUsd(ebay.lowestDeliveredAsk,"N/A")} hint={ebay.lowestDeliveredAsk==null?"Shipping unavailable or too few matches":"Item plus shown shipping"}/>
+  <Metric label="Median delivered ask" value={formatUsd(ebay.medianDeliveredAsk,"N/A")} hint={`${ebay.acceptedCount.toLocaleString()} of ${ebay.reviewedCount.toLocaleString()} returned items matched`}/>
+  <Metric label="Ask vs TCGplayer" value={pct(medianGap)} tone={medianGap==null?undefined:medianGap<0?"down":"up"} hint="Median shown total versus current TCGplayer market"/>
+  <Metric label="eBay result estimate" value={ebay.listingCount.toLocaleString()} hint={kind==="single"?"Ungraded, fixed-price query":"New, fixed-price query"}/>
+  <Metric label="Delivered spread" value={ebay.deliveredQ1!=null&&ebay.deliveredQ3!=null?`${formatUsd(ebay.deliveredQ1)}–${formatUsd(ebay.deliveredQ3)}`:"N/A"} hint="Middle 50% of matched shown totals"/>
+  <Metric label="Near TCGplayer" value={ebay.nearMarketCount.toLocaleString()} hint={`Within ±10% · ${ebay.belowMarketCount.toLocaleString()} below market`}/>
+  <Metric label="Free shipping" value={ebayShare(ebay.freeShippingCount,ebay.acceptedCount)} hint={`${ebay.freeShippingCount.toLocaleString()} matched listings`}/>
+  <Metric label="Best Offer" value={ebayShare(ebay.bestOfferCount,ebay.acceptedCount)} hint={`${ebay.highConfidenceCount.toLocaleString()} high-confidence matches`}/>
+ </div>;
+}
+
+function EbayHistoryMetrics({history}:{history:EbayAskHistory}){
+ const summary=summarizeEbayAskHistory(history.points);
+ if(!history.points.length)return null;
+ return <><h3 className="detail-subhead">Active ask history</h3><div className="detail-history-grid ebay-history-grid">
+  <Metric label="Delivered ask (7D)" value={pct(summary.change7)} tone={summary.change7==null?undefined:summary.change7<0?"down":"up"}/>
+  <Metric label="Delivered ask (30D)" value={pct(summary.change30)} tone={summary.change30==null?undefined:summary.change30<0?"down":"up"}/>
+  <Metric label="Matched supply (7D)" value={signedCount(summary.supplyChange7)} tone={summary.supplyChange7==null?undefined:summary.supplyChange7<0?"down":"up"}/>
+  <Metric label="Since prior refresh" value={summary.newListings==null?"N/A":`+${summary.newListings} / −${summary.missingListings??0}`} hint={summary.priceReductions==null?undefined:`${summary.priceReductions} observed price cuts`}/>
+ </div></>;
+}
+
+function EbayListingCard({sample,fetchedAt}:{sample:EbayListingSample;fetchedAt:string}){
+ const delivered=ebayDelivered(sample),age=listingAge(sample,fetchedAt);
+ const details=[sample.condition??"Condition unavailable",sample.sellerFeedbackPercentage!=null?`${sample.sellerFeedbackPercentage.toFixed(1)}% seller`:null,sample.watchCount!=null?`${sample.watchCount} watching`:null,age].filter(Boolean).join(" · ");
+ return <a className="ebay-listing-card" href={sample.url} target="_blank" rel="noopener noreferrer sponsored">
+  <DeferredImage src={sample.imageUrl} alt="" className="ebay-listing-image"/><span className="ebay-listing-copy"><b>{sample.title}</b><span><strong>{formatUsd(delivered??sample.price)}</strong><small>{delivered==null?`${formatUsd(sample.price)} item · shipping on eBay`:`${formatUsd(sample.price)} item · ${sample.shipping===0?"free shipping":`${formatUsd(sample.shipping)} shipping`}`}</small></span><span className="ebay-listing-badges">{(sample.buyingOptions??[]).includes("BEST_OFFER")&&<i>Best Offer</i>}{sample.topRated&&<i>Top Rated Plus</i>}<i>{sample.matchConfidence==="high"?"High":"Medium"} match</i></span><small>{details}</small></span>
+ </a>;
+}
+
+function EbayListingResults({ebay,market}:{ebay:EbayListingSnapshot;market:number|null}){
+ const grid=useRef<HTMLDivElement>(null),[pagination,setPagination]=useState({key:"",page:1});
+ const [controls,setControls]=useState<{key:string;filter:EbayResultFilter;sort:EbayResultSort}>({key:"",filter:"all",sort:"delivered"});
+ const pageSize=useEbayPageSize(),snapshotKey=ebay.fetchedAt;
+ const active=controls.key===snapshotKey?controls:{key:snapshotKey,filter:"all" as const,sort:"delivered" as const};
+ const samples=sortEbaySamples(filterEbaySamples(ebay.samples,active.filter,market),active.sort);
+ const pageKey=`${snapshotKey}:${pageSize}:${active.filter}:${active.sort}`,requestedPage=pagination.key===pageKey?pagination.page:1;
+ const pages=Math.max(1,Math.ceil(samples.length/pageSize)),page=Math.min(requestedPage,pages),start=(page-1)*pageSize;
+ const pageSamples=samples.slice(start,start+pageSize);
+ const changePage=(next:number)=>{setPagination({key:pageKey,page:next});requestAnimationFrame(()=>grid.current?.scrollIntoView({block:"start",behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"}))};
+ if(!ebay.samples.length)return null;
+ return <div className="ebay-results"><div className="ebay-controls">
+  <label><span>Filter listings</span><select value={active.filter} onChange={event=>setControls({key:snapshotKey,filter:event.target.value as EbayResultFilter,sort:active.sort})}><option value="all">All matches</option><option value="free-shipping">Free shipping</option><option value="best-offer">Best Offer</option><option value="top-rated">Top Rated Plus</option><option value="high-confidence">High confidence</option>{market!=null&&<option value="under-market">Below TCGplayer</option>}</select></label>
+  <label><span>Sort listings</span><select value={active.sort} onChange={event=>setControls({key:snapshotKey,filter:active.filter,sort:event.target.value as EbayResultSort})}><option value="delivered">Lowest shown total</option><option value="price">Lowest item price</option><option value="watchers">Most watched</option><option value="newest">Newest listing</option></select></label>
+ </div>{samples.length?<><div ref={grid} className="ebay-grid">{pageSamples.map(sample=><EbayListingCard key={sample.itemId} sample={sample} fetchedAt={ebay.fetchedAt}/>)}</div>{pages>1&&<div className="ebay-results-pagination"><p aria-live="polite">Showing {start+1}–{Math.min(start+pageSize,samples.length)} of {samples.length} filtered listings</p><NumberedPagination page={page} pages={pages} onChange={changePage} label="eBay listing pages"/></div>}</>:<p className="detail-unavailable ebay-filter-empty">No cached listings match this filter.</p>}</div>;
+}
+
 function EbayMarketPanel({detail}:{detail:CatalogDetail}){
- const host=useRef<HTMLElement>(null),grid=useRef<HTMLDivElement>(null),[reload,setReload]=useState(0),[pagination,setPagination]=useState({key:"",page:1});
- const pageSize=useEbayPageSize();
- const [state,setState]=useState<{phase:"idle"|"loading"|"ready"|"error";snapshot:EbayListingSnapshot|null;message:string}>({phase:"idle",snapshot:null,message:""});
+ const host=useRef<HTMLElement>(null),[reload,setReload]=useState(0);
+ const [state,setState]=useState<{phase:"idle"|"loading"|"ready"|"error";snapshot:EbayListingSnapshot|null;history:EbayAskHistory;message:string}>({phase:"idle",snapshot:null,history:{points:[]},message:""});
  const item={kind:detail.kind,name:detail.name,set:detail.set,number:detail.kind==="single"?detail.number:null,game:detail.game,section:detail.kind==="single"?detail.section:null};
  const searchHref=ebaySearchUrl(item),soldHref=ebaySearchUrl(item,{sold:true});
  useEffect(()=>{
@@ -142,32 +224,24 @@ function EbayMarketPanel({detail}:{detail:CatalogDetail}){
   const load=async(attempt=0)=>{if(!active)return;setState(previous=>({...previous,phase:"loading",message:""}));try{
    const response=await fetch(`/api/ebay/listings?productId=${detail.productId}`,{signal:controller.signal,headers:{Accept:"application/json"}});
    if(response.status===202&&attempt<3){timer=setTimeout(()=>void load(attempt+1),1000);return}
-   if(!response.ok){setState({phase:"error",snapshot:null,message:response.status===429?"The daily eBay refresh budget has been reached.":"Live listings are temporarily unavailable."});return}
-   const value=await response.json() as {snapshot?:EbayListingSnapshot};
-   setState(value.snapshot?{phase:"ready",snapshot:value.snapshot,message:""}:{phase:"error",snapshot:null,message:"No current listings were returned."});
-  }catch(error){if(!(error instanceof DOMException&&error.name==="AbortError"))setState({phase:"error",snapshot:null,message:"Live listings are temporarily unavailable."})}};
+   if(!response.ok){setState({phase:"error",snapshot:null,history:{points:[]},message:response.status===429?"The daily eBay refresh budget has been reached.":"Live listings are temporarily unavailable."});return}
+   const value=await response.json() as {snapshot?:EbayListingSnapshot;history?:EbayAskHistory};
+   setState(value.snapshot?{phase:"ready",snapshot:value.snapshot,history:value.history??{points:[]},message:""}:{phase:"error",snapshot:null,history:{points:[]},message:"No current listings were returned."});
+  }catch(error){if(!(error instanceof DOMException&&error.name==="AbortError"))setState({phase:"error",snapshot:null,history:{points:[]},message:"Live listings are temporarily unavailable."})}};
   const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)){observer.disconnect();void load()}},{rootMargin:"320px"});
   observer.observe(node);return()=>{active=false;controller.abort();observer.disconnect();if(timer)clearTimeout(timer)};
  },[detail.productId,reload]);
  const ebay=state.snapshot;
- const pageKey=`${detail.productId}:${ebay?.fetchedAt??""}:${pageSize}`,requestedPage=pagination.key===pageKey?pagination.page:1;
- const samples=ebay?.samples??[],pages=Math.max(1,Math.ceil(samples.length/pageSize)),safePage=Math.min(requestedPage,pages),start=(safePage-1)*pageSize,pageSamples=samples.slice(start,start+pageSize);
- const changePage=(next:number)=>{setPagination({key:pageKey,page:next});requestAnimationFrame(()=>grid.current?.scrollIntoView({block:"start",behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"}))};
  const links=<div className="detail-actions ebay-actions"><a className="tcgplayer-button ebay-button" href={searchHref} target="_blank" rel="noopener noreferrer sponsored">Browse eBay listings ↗</a><a className="tcgplayer-button ebay-button" href={soldHref} target="_blank" rel="noopener noreferrer sponsored">eBay sold listings ↗</a></div>;
  const fetched=ebay?new Date(ebay.fetchedAt).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZone:"UTC",timeZoneName:"short"}):"";
  return <section ref={host} className="detail-section detail-ebay" aria-busy={state.phase==="loading"||undefined}><header><span>Marketplace</span><h2>eBay Listings</h2></header>
   {state.phase==="loading"&&<div className="ebay-loading" aria-live="polite"><span className="detail-skeleton"/><span>Loading current eBay listings…</span></div>}
-  {ebay&&<div className="detail-history-grid detail-ev-grid">
-   <div className="detail-metric"><small>Lowest ask</small><b>{formatUsd(ebay.lowestAsk,"N/A")}</b><span>{ebay.lowestAsk==null?"Too few matching asks to price":"Fixed-price ask"}</span></div>
-   <div className="detail-metric"><small>Median sampled ask</small><b>{formatUsd(ebay.medianAsk,"N/A")}</b><span>{ebay.acceptedCount.toLocaleString()} of the first 50 results matched</span></div>
-   <div className="detail-metric"><small>Search results</small><b>{ebay.listingCount.toLocaleString()}</b><span>{detail.kind==="single"?"Ungraded, fixed-price":"New, fixed-price"}</span></div>
-  </div>}
-  {samples.length>0&&<div className="ebay-results"><div ref={grid} className="ebay-grid">{pageSamples.map(sample=><a className="ebay-listing-card" href={sample.url} target="_blank" rel="noopener noreferrer sponsored" key={sample.itemId}>
-   <DeferredImage src={sample.imageUrl} alt="" className="ebay-listing-image"/><span className="ebay-listing-copy"><b>{sample.title}</b><span><strong>{formatUsd(sample.price)}</strong><small>{sample.shipping==null?"Shipping on eBay":sample.shipping===0?"Free shipping":`+ ${formatUsd(sample.shipping)} shipping`}</small></span><small>{sample.condition??"Condition unavailable"}</small></span>
-  </a>)}</div>{pages>1&&<div className="ebay-results-pagination"><p aria-live="polite">Showing {start+1}–{Math.min(start+pageSize,samples.length)} of {samples.length} matched listings</p><NumberedPagination page={safePage} pages={pages} onChange={changePage} label="eBay listing pages"/></div>}</div>}
+  {ebay&&<EbaySnapshotMetrics ebay={ebay} market={detail.marketPrice} kind={detail.kind}/>}
+  {ebay&&<EbayHistoryMetrics history={state.history}/>}
+  {ebay&&<EbayListingResults ebay={ebay} market={detail.marketPrice}/>}
   {state.phase==="error"&&<p className="detail-unavailable ebay-status" aria-live="polite">{state.message} <button type="button" onClick={()=>setReload(value=>value+1)}>Try again</button></p>}
   {links}
-  <p className="detail-note">{ebay?<>eBay active listings via the Browse API · fetched {fetched} · refreshed at least every six hours while displayed.</>:<>Listings load only when this section is viewed.</>} Prices are asks, not sales; shipping may vary by destination. Sold listings may require eBay sign-in. Marketplace data — not a valuation guarantee.</p>
+  <p className="detail-note">{ebay?<>eBay active listings via the Browse API · fetched {fetched} · up to 100 results reviewed · daily history is retained when refreshed.</>:<>Listings load only when this section is viewed.</>} Prices are asks, not sales; result totals are estimates, shipping may vary by destination, and a listing no longer observed is not treated as sold. Sold listings may require eBay sign-in. Marketplace data — not a valuation guarantee.</p>
  </section>;
 }
 

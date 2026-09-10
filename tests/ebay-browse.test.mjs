@@ -12,7 +12,7 @@ function fakeEbay(options={}){
   if(String(url)===EBAY_TOKEN_URL){tokens++;if(options.tokenStatus&&options.tokenStatus!==200)return new Response("{}",{status:options.tokenStatus});return Response.json({access_token:`tok${tokens}`,expires_in:7200,token_type:"Application Access Token"})}
   const status=options.searchStatus?.(requests.length)??200;
   if(status!==200)return new Response("{}",{status});
-  return Response.json({total:12,itemSummaries:[{itemId:"v1|1|0",title:"Card",price:{value:"20.00",currency:"USD"},itemWebUrl:"https://www.ebay.com/itm/1"}]});
+  return Response.json({total:12,itemSummaries:options.itemSummaries??[{itemId:"v1|1|0",title:"Card",price:{value:"20.00",currency:"USD"},itemWebUrl:"https://www.ebay.com/itm/1"}]});
  };
  return {fetcher,requests,tokens:()=>tokens};
 }
@@ -55,12 +55,13 @@ test("the client mints one application token, reuses it, and sends the marketpla
 });
 
 test("the listings adapter resolves a Japanese promo and sends the Japanese language aspect",async()=>{
- const ebay=fakeEbay();
+ const ebay=fakeEbay({itemSummaries:[{itemId:"v1|1|0",title:"Pokemon Pikachu Japanese 227/S-P Sword Shield Promo",price:{value:"20.00",currency:"USD"},itemWebUrl:"https://www.ebay.com/itm/1"}]});
  const deps=createEbayListingsDeps({clientId:"id",clientSecret:"secret"},ebay.fetcher);
  const result=await deps.fetchListings({productId:257103,kind:"single",game:"pokemon",name:"Pikachu - 227/S-P",set:"Sword & Shield Promo Cards",number:"227/S-P",section:"japanese-promos",marketCents:5000});
  assert.equal(result.status,200);
  const search=ebay.requests.find(request=>request.url.startsWith(EBAY_SEARCH_URL));
  assert.equal(new URL(search.url).searchParams.get("aspect_filter"),"categoryId:183454,Language:{Japanese}");
+ assert.equal(new URL(search.url).searchParams.get("limit"),"100");
  assert.equal(search.init.headers["X-EBAY-C-ENDUSERCTX"],"affiliateCampaignId=5339205908,affiliateReferenceId=rawsignal-257103");
  assert.equal(new URL(result.summary.samples[0].url).searchParams.get("campid"),"5339205908");
  assert.equal(new URL(result.summary.samples[0].url).searchParams.get("customid"),"rawsignal-257103");

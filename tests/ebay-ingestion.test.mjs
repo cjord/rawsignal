@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {readFile,readdir} from "node:fs/promises";
 import {DatabaseSync} from "node:sqlite";
 import test from "node:test";
-import {EBAY_LISTINGS_KEY,readEbayListing,resolveEbayListing,runEbayListingsBatch} from "../db/ebay-ingestion.ts";
+import {EBAY_LISTINGS_KEY,readEbayListing,readEbayListingHistory,resolveEbayListing,runEbayListingsBatch,writeEbayListing} from "../db/ebay-ingestion.ts";
 import {publishedIngestion,readRefreshCursor,startIngestion,upsertCard,upsertSealedProduct} from "../db/repository.ts";
 
 class LocalStatement{
@@ -52,7 +52,7 @@ test("a tick walks never-fetched products by market price, checkpoints its call 
   assert.deepEqual({calls:tick.calls,updated:tick.updated,targets:tick.targets,done:tick.done,stopped:tick.stopped,runId:tick.runId},{calls:2,updated:2,targets:2,done:false,stopped:null,runId:"ebay-listings:2026-08-28"});
   // The snapshot round-trips, in dollars, with its samples and the day it was fetched.
   const stored=await readEbayListing(db,1);
-  assert.deepEqual({...stored,fetchedAt:null,expiresAt:null},{query:"q 1",categoryId:183454,listingCount:12,acceptedCount:8,lowestAsk:20,medianAsk:25.5,samples:[sample],fetchedAt:null,expiresAt:null,updatedAt:"2026-08-28"});
+  assert.deepEqual({query:stored.query,categoryId:stored.categoryId,listingCount:stored.listingCount,reviewedCount:stored.reviewedCount,acceptedCount:stored.acceptedCount,lowestAsk:stored.lowestAsk,medianAsk:stored.medianAsk,samples:stored.samples,fetchedAt:null,expiresAt:null,updatedAt:stored.updatedAt},{query:"q 1",categoryId:183454,listingCount:12,reviewedCount:8,acceptedCount:8,lowestAsk:20,medianAsk:25.5,samples:[sample],fetchedAt:null,expiresAt:null,updatedAt:"2026-08-28"});
   assert.equal(await readEbayListing(db,3),null);
   assert.equal(await publishedIngestion(db,EBAY_LISTINGS_KEY),null);
   assert.equal((await readRefreshCursor(db,EBAY_LISTINGS_KEY)).cursor,"2");
@@ -78,7 +78,7 @@ test("stale snapshots refresh after never-fetched products, and a thin result st
   assert.deepEqual(thin.fetched,[2,10,1]);
   assert.equal(tick.updated,3);
   const stored=await readEbayListing(db,2);
-  assert.deepEqual(stored,{query:"q 2",categoryId:183454,listingCount:2,acceptedCount:2,lowestAsk:null,medianAsk:null,samples:[],fetchedAt:stored.fetchedAt,expiresAt:stored.expiresAt,updatedAt:"2026-08-28"});
+  assert.deepEqual({query:stored.query,categoryId:stored.categoryId,listingCount:stored.listingCount,reviewedCount:stored.reviewedCount,acceptedCount:stored.acceptedCount,lowestAsk:stored.lowestAsk,medianAsk:stored.medianAsk,samples:stored.samples,updatedAt:stored.updatedAt},{query:"q 2",categoryId:183454,listingCount:2,reviewedCount:2,acceptedCount:2,lowestAsk:null,medianAsk:null,samples:[],updatedAt:"2026-08-28"});
   assert.equal((await readEbayListing(db,1)).lowestAsk,20);
 });
 
@@ -121,6 +121,19 @@ test("an expired or missing snapshot refreshes once and records the shared daily
   assert.equal(result.status,"refreshed");assert.equal(result.snapshot.expiresAt,"2026-08-28T18:00:00.000Z");assert.deepEqual(fetch.fetched,[1]);
   assert.deepEqual({...await db.prepare("select calls,on_demand_calls as onDemandCalls from ebay_api_usage where usage_date='2026-08-28'").first()},{calls:1,onDemandCalls:1});
   assert.equal(await db.prepare("select holder from ebay_fetch_leases where product_id=1").first(),null);
+  const history=await readEbayListingHistory(db,1,now);
+  assert.equal(history.points.length,1);assert.equal(history.points[0].referenceMarketPrice,500);assert.equal(history.points[0].acceptedCount,8);
+});
+
+test("daily ask history updates in place and records listing turnover without calling it sales",async()=>{
+  const db=await seededDb(),rich={...sample,shipping:0,deliveredPrice:20,buyingOptions:["FIXED_PRICE"],sellerFeedbackPercentage:99.8,sellerFeedbackScore:100,topRated:true,watchCount:3,listedAt:"2026-08-20T00:00:00Z",endsAt:null,locationCountry:"US",matchConfidence:"high"};
+  const first={...okSummary,reviewedCount:1,acceptedCount:1,highConfidenceCount:1,lowestDeliveredAsk:20,medianDeliveredAsk:20,deliveredQ1:20,deliveredQ3:20,belowMarketCount:1,nearMarketCount:0,freeShippingCount:1,bestOfferCount:0,samples:[rich]};
+  await writeEbayListing(db,1,"q",183454,first,"2026-08-28T08:00:00Z","2026-08-28",50000);
+  const replacement={...rich,itemId:"v1|2|0",price:19,deliveredPrice:19};
+  await writeEbayListing(db,1,"q",183454,{...first,lowestAsk:19,medianAsk:19,lowestDeliveredAsk:19,medianDeliveredAsk:19,deliveredQ1:19,deliveredQ3:19,samples:[replacement]},"2026-08-28T14:00:00Z","2026-08-28",50000);
+  const history=await readEbayListingHistory(db,1,new Date("2026-08-28T14:00:00Z"));
+  assert.equal(history.points.length,1);
+  assert.deepEqual({observedAt:history.points[0].observedAt,newListingCount:history.points[0].newListingCount,missingListingCount:history.points[0].missingListingCount,priceReductionCount:history.points[0].priceReductionCount},{observedAt:"2026-08-28T14:00:00Z",newListingCount:1,missingListingCount:1,priceReductionCount:0});
 });
 
 test("on-demand lookup preserves headroom and never serves an expired snapshot",async()=>{
