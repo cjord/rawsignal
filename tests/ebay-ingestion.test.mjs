@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {readFile,readdir} from "node:fs/promises";
 import {DatabaseSync} from "node:sqlite";
 import test from "node:test";
-import {EBAY_LISTINGS_KEY,readEbayListing,runEbayListingsBatch} from "../db/ebay-ingestion.ts";
+import {EBAY_LISTINGS_KEY,readEbayListing,resolveEbayListing,runEbayListingsBatch} from "../db/ebay-ingestion.ts";
 import {publishedIngestion,readRefreshCursor,startIngestion,upsertCard,upsertSealedProduct} from "../db/repository.ts";
 
 class LocalStatement{
@@ -29,8 +29,8 @@ async function migratedDatabase(){
 const card=(productId,marketPrice)=>({game:"pokemon",section:"illustration-rares",productId,name:`Card ${productId} - ${productId}/100`,set:"Fixture Set",year:2026,rarity:"Illustration Rare",number:`${productId}/100`,image:"",url:"https://example.com",marketPrice,lowPrice:null,midPrice:null,highPrice:null,printing:"Holofoil",priceChange:null});
 const box=(productId,marketPrice)=>({game:"pokemon",productId,name:`Box ${productId}`,set:"Fixture Set",category:"Booster Boxes",image:null,url:"https://example.com",msrp:150,marketPrice,midPrice:null,profit:null,profitPct:null,msrpSource:null});
 const NOW=new Date("2026-08-28T12:00:00Z");
-const sample={itemId:"v1|1|0",title:"Card 1 NM",price:20,shipping:null,condition:"Ungraded",url:"https://www.ebay.com/itm/1"};
-const okSummary={listingCount:12,lowestAsk:20,medianAsk:25.5,samples:[sample]};
+const sample={itemId:"v1|1|0",title:"Card 1 NM",price:20,shipping:null,condition:"Ungraded",imageUrl:"https://i.ebayimg.com/1.jpg",url:"https://www.ebay.com/itm/1"};
+const okSummary={listingCount:12,acceptedCount:8,lowestAsk:20,medianAsk:25.5,samples:[sample]};
 
 async function seededDb(){
   const db=new LocalD1(await migratedDatabase());
@@ -52,7 +52,7 @@ test("a tick walks never-fetched products by market price, checkpoints its call 
   assert.deepEqual({calls:tick.calls,updated:tick.updated,targets:tick.targets,done:tick.done,stopped:tick.stopped,runId:tick.runId},{calls:2,updated:2,targets:2,done:false,stopped:null,runId:"ebay-listings:2026-08-28"});
   // The snapshot round-trips, in dollars, with its samples and the day it was fetched.
   const stored=await readEbayListing(db,1);
-  assert.deepEqual({...stored,fetchedAt:null},{query:"q 1",categoryId:183454,listingCount:12,lowestAsk:20,medianAsk:25.5,samples:[sample],fetchedAt:null,updatedAt:"2026-08-28"});
+  assert.deepEqual({...stored,fetchedAt:null,expiresAt:null},{query:"q 1",categoryId:183454,listingCount:12,acceptedCount:8,lowestAsk:20,medianAsk:25.5,samples:[sample],fetchedAt:null,expiresAt:null,updatedAt:"2026-08-28"});
   assert.equal(await readEbayListing(db,3),null);
   assert.equal(await publishedIngestion(db,EBAY_LISTINGS_KEY),null);
   assert.equal((await readRefreshCursor(db,EBAY_LISTINGS_KEY)).cursor,"2");
@@ -73,11 +73,12 @@ test("a tick walks never-fetched products by market price, checkpoints its call 
 test("stale snapshots refresh after never-fetched products, and a thin result still records the count",async()=>{
   const db=await seededDb();
   await db.prepare("insert into ebay_listings (product_id,query,category_id,listing_count,lowest_cents,median_cents,samples_json,fetched_at,updated_at) values (1,'old',183454,3,1000,1200,'[]','2026-08-20T00:00:00Z','2026-08-20')").bind().run();
-  const thin=deps(target=>target.productId===2?{status:200,query:"q 2",categoryId:183454,summary:{listingCount:2,lowestAsk:null,medianAsk:null,samples:[]}}:ok(target));
+  const thin=deps(target=>target.productId===2?{status:200,query:"q 2",categoryId:183454,summary:{listingCount:2,acceptedCount:2,lowestAsk:null,medianAsk:null,samples:[]}}:ok(target));
   const tick=await runEbayListingsBatch(db,thin,{calls:3,now:NOW});
   assert.deepEqual(thin.fetched,[2,10,1]);
   assert.equal(tick.updated,3);
-  assert.deepEqual(await readEbayListing(db,2),{query:"q 2",categoryId:183454,listingCount:2,lowestAsk:null,medianAsk:null,samples:[],fetchedAt:(await readEbayListing(db,2)).fetchedAt,updatedAt:"2026-08-28"});
+  const stored=await readEbayListing(db,2);
+  assert.deepEqual(stored,{query:"q 2",categoryId:183454,listingCount:2,acceptedCount:2,lowestAsk:null,medianAsk:null,samples:[],fetchedAt:stored.fetchedAt,expiresAt:stored.expiresAt,updatedAt:"2026-08-28"});
   assert.equal((await readEbayListing(db,1)).lowestAsk,20);
 });
 
@@ -104,4 +105,34 @@ test("the daily budget caps a tick and completes the run once spent",async()=>{
   assert.deepEqual(budgeted.fetched,[1]);
   assert.deepEqual({calls:tick.calls,done:tick.done},{calls:1,done:true});
   assert.deepEqual(JSON.parse((await publishedIngestion(db,EBAY_LISTINGS_KEY)).statsJson),{calls:1,updated:1,dailyBudget:1,stopped:null});
+});
+
+test("on-demand lookup shares a fresh six-hour snapshot without spending another call",async()=>{
+  const db=await seededDb(),now=new Date("2026-08-28T12:00:00Z");
+  await db.prepare("insert into ebay_listings (product_id,query,category_id,listing_count,accepted_count,lowest_cents,median_cents,samples_json,fetched_at,expires_at,updated_at) values (1,'cached',183454,12,8,2000,2550,?,'2026-08-28T10:00:00.000Z','2026-08-28T16:00:00.000Z','2026-08-28')").bind(JSON.stringify([sample])).run();
+  const fetch=deps(ok),result=await resolveEbayListing(db,1,fetch,{now,leaseId:()=>"lease-a"});
+  assert.equal(result.status,"fresh");assert.equal(result.snapshot.query,"cached");assert.deepEqual(fetch.fetched,[]);
+  assert.equal(await db.prepare("select calls from ebay_api_usage where usage_date='2026-08-28'").first(),null);
+});
+
+test("an expired or missing snapshot refreshes once and records the shared daily quota",async()=>{
+  const db=await seededDb(),fetch=deps(ok),now=new Date("2026-08-28T12:00:00Z");
+  const result=await resolveEbayListing(db,1,fetch,{now,leaseId:()=>"lease-b"});
+  assert.equal(result.status,"refreshed");assert.equal(result.snapshot.expiresAt,"2026-08-28T18:00:00.000Z");assert.deepEqual(fetch.fetched,[1]);
+  assert.deepEqual({...await db.prepare("select calls,on_demand_calls as onDemandCalls from ebay_api_usage where usage_date='2026-08-28'").first()},{calls:1,onDemandCalls:1});
+  assert.equal(await db.prepare("select holder from ebay_fetch_leases where product_id=1").first(),null);
+});
+
+test("on-demand lookup preserves headroom and never serves an expired snapshot",async()=>{
+  const db=await seededDb(),now=new Date("2026-08-28T12:00:00Z");
+  await db.prepare("insert into ebay_api_usage (usage_date,calls,on_demand_calls,background_calls,updated_at) values ('2026-08-28',4,4,0,'2026-08-28T11:00:00Z')").run();
+  const fetch=deps(ok),result=await resolveEbayListing(db,1,fetch,{now,dailyLimit:5,onDemandBudget:4,leaseId:()=>"lease-c"});
+  assert.deepEqual(result,{status:"quota",snapshot:null});assert.deepEqual(fetch.fetched,[]);
+});
+
+test("an active per-product lease coalesces concurrent on-demand misses",async()=>{
+  const db=await seededDb(),now=new Date("2026-08-28T12:00:00Z");
+  await db.prepare("insert into ebay_fetch_leases (product_id,holder,expires_at) values (1,'other','2026-08-28T12:00:30.000Z')").run();
+  const fetch=deps(ok),result=await resolveEbayListing(db,1,fetch,{now,leaseId:()=>"lease-d"});
+  assert.deepEqual(result,{status:"busy",snapshot:null});assert.deepEqual(fetch.fetched,[]);
 });

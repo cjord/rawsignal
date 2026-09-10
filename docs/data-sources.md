@@ -34,7 +34,7 @@ The graded rotation (`db/graded-ingestion.ts`) reads PokemonPriceTracker's smart
 
 ## eBay active listings (Browse API)
 
-The eBay listings rotation (`db/ebay-ingestion.ts`, client `core/clients/ebay-browse.ts`, summary `core/ebay-summary.ts`, table `ebay_listings`) stores one active buy-it-now listing snapshot per product priced at $20 or more: listing count, lowest and median ask, and up to five sample listings. Asks are listing prices, never sales; they are labelled as asks everywhere they render and never enter modeled fair value or signals. The rotation runs only where the Browse keyset is configured (production, once the secrets exist); without it the detail page shows eBay search links only.
+The eBay on-demand resolver (`db/ebay-ingestion.ts`, clients under `core/clients/`, summary `core/ebay-summary.ts`, table `ebay_listings`) stores one six-hour active buy-it-now snapshot for a detail page after its listing grid nears the viewport: total and accepted counts, lowest and median ask when at least three results survive validation, and up to five sample listings with images. Asks are listing prices, never sales; they are labelled as asks everywhere they render and never enter modeled fair value or signals. D1 holds the shared daily call budget and per-product request leases. The former rotation remains a staging-only operator tool; without the two Browse secrets the detail page keeps its eBay search links and reports listings unavailable.
 
 ## Sealed MSRP
 

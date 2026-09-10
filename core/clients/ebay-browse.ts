@@ -6,7 +6,7 @@
 // configured — confirm its syntax against the Browse reference when the EPN account exists.
 
 export type EbayCredentials={clientId:string;clientSecret:string;campaignId?:string|null};
-export type EbaySearchRequest={query:string;categoryId:number|null;conditionIds:number[];priceRange:{min:number;max:number}|null;limit?:number};
+export type EbaySearchRequest={query:string;categoryId:number|null;conditionIds:number[];priceRange:{min:number;max:number}|null;limit?:number;affiliateReferenceId?:string};
 export type EbaySearchResult={status:number;total:number|null;items:unknown[]};
 export type EbayBrowseDeps={fetch?:typeof fetch;now?:()=>number};
 
@@ -44,7 +44,10 @@ export function createEbayBrowseClient(credentials:EbayCredentials,deps:EbayBrow
  return {
   async search(request:EbaySearchRequest,retried=false):Promise<EbaySearchResult>{
    const headers:Record<string,string>={Authorization:`Bearer ${await bearer()}`,Accept:"application/json","X-EBAY-C-MARKETPLACE-ID":EBAY_MARKETPLACE};
-   if(credentials.campaignId)headers["X-EBAY-C-ENDUSERCTX"]=`affiliateCampaignId=${credentials.campaignId}`;
+   if(credentials.campaignId){
+    const reference=request.affiliateReferenceId?`,affiliateReferenceId=${encodeURIComponent(request.affiliateReferenceId)}`:"";
+    headers["X-EBAY-C-ENDUSERCTX"]=`affiliateCampaignId=${credentials.campaignId}${reference}`;
+   }
    const response=await fetcher(`${EBAY_SEARCH_URL}?${ebaySearchParams(request)}`,{headers});
    // An expired or revoked token answers 401 once; re-mint and retry a single time.
    if(response.status===401&&!retried){token=null;return this.search(request,true)}

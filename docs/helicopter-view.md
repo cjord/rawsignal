@@ -34,7 +34,7 @@ flowchart TB
   subgraph backend["Worker + DB"]
     worker["worker/: index (fetch) · scheduled-ingestion (cron) · staging-jobs (ops) · live-feeds"]
     db["db/: schema · repository · readiness · ingestion modules · backfill"]
-    drizzle["drizzle/: migrations 0000-0017 (hand-written since 0005)"]
+    drizzle["drizzle/: migrations 0000-0018 (hand-written since 0005)"]
   end
   subgraph pipeline["Feed pipeline (node)"]
     sync["sync-tcgcsv.mjs · sync-sealed.mjs (roots)"]
@@ -66,7 +66,7 @@ flowchart TB
 | `/sets`, `/sets/[game]/[slug]` | `app/sets/page.tsx` → `SetsView`; `app/sets/[game]/[slug]/page.tsx` → `SetDetailView` | Sets directory with cover art; set detail with chase cards, related sealed, pack EV |
 | `/import` | `app/import/page.tsx` → `CollectrImportView` | Collectr portfolio import (fetch via the `COLLECTR_FETCH` service binding) |
 | `/sitemap.xml` | `app/sitemap.xml/route.ts` | Boards, sets directory, metrics, every set page (wave 15) |
-| `/api/*` | `app/api/**/route.ts` | catalog, catalog/detail, history, history/batch (≤40 stored series, read-only), metrics, set-ev, signals, collectr — read D1 first, bundled feeds as fallback; deliberately no `/api/ebay/*` yet |
+| `/api/*` | `app/api/**/route.ts` | catalog, catalog/detail, history, history/batch (≤40 stored series, read-only), metrics, set-ev, signals, collectr, and the lazy `/api/ebay/listings` active-ask cache |
 
 ## Layering
 
@@ -110,7 +110,7 @@ flowchart LR
   norm["core/normalize (pure)"]
   val["scripts/validate + last-good publish"]
   pub["public/data feeds (bundled into deploys)"]
-  cron["production cron */1 — guard: claim the 170 s cron-lease or exit idle; one checkpointed batch of the first due job (live → details → graded → metrics → history → ebay); rollup + daily history keyed to the live run's date"]
+  cron["production cron */1 — guard: claim the 170 s cron-lease or exit idle; one checkpointed batch of the first due job (live → details → graded → metrics → history); rollup + daily history keyed to the live run's date"]
   d1[("D1: catalog · observations · signals · graded · metrics")]
   repos["repositories: D1 first, feed fallback"]
   engine["catalog-query engine (one impl for browser + server)"]
@@ -135,7 +135,7 @@ presentation.
 | D1 | placeholder binding | `d2e550f5…` — **stale by design** | `af781f30…` — daily ingestion |
 | Cron | none | none (kept cheap) | `*/1` guarded |
 | Ops adapter | n/a | enabled (`ENVIRONMENT=staging`) | refuses |
-| Secrets | none | job token | job token + graded API key; optional `ALPHAVANTAGE_API_KEY` (S&P benchmark, skips when absent); `EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET` + var `EBAY_EPN_CAMPAIGN_ID` read by the eBay rotation — keyset pending from the user, so the action never fires yet |
+| Secrets | none | job token | job token + graded API key; optional `ALPHAVANTAGE_API_KEY` (S&P benchmark, skips when absent); `EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET` serve the on-demand Browse route and `EBAY_EPN_CAMPAIGN_ID` tags affiliate URLs; none are committed |
 
 Deploy = full gate → `scripts/cloudflare/prepare-deployment.mjs` (writes
 `dist/server/wrangler.<env>.json`) → `npx wrangler deploy --config …`. The gate's

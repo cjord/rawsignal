@@ -1,6 +1,6 @@
 import { ingestionRunId, runIdDate } from "../db/run-id.ts";
 
-export type ScheduledAction = "live" | "details" | "graded" | "metrics" | "history" | "ebay" | "idle";
+export type ScheduledAction = "live" | "details" | "graded" | "metrics" | "history" | "idle";
 
 export type ScheduledInput = {
   probeUpdatedAt: string | null;
@@ -16,9 +16,6 @@ export type ScheduledInput = {
   metricsPublishedRunId: string | null;
   historyCheckpointRunId: string | null;
   historyPublishedRunId: string | null;
-  ebayKeyConfigured: boolean;
-  ebayPublishedRunId: string | null;
-  ebayTodayRunId: string;
 };
 
 // What the tick should run, with the values that job needs. The plan carries them so
@@ -29,8 +26,7 @@ export type ScheduledPlan =
   | { action: "details"; sourceUpdatedAt: string }
   | { action: "graded" }
   | { action: "metrics"; asOfDate: string }
-  | { action: "history"; sourceUpdatedAt: string; all: boolean }
-  | { action: "ebay" };
+  | { action: "history"; sourceUpdatedAt: string; all: boolean };
 
 // The data day the published live run represents: live runs are keyed by the TCGCSV
 // publish date (`live-daily:<date>`) and finish after midnight UTC, so everything that
@@ -68,9 +64,9 @@ export const detailsRunIdFor = (deploySnapshotUpdatedAt: string) => ingestionRun
 //   also STARTS a tier-scheduled refresh (todo M4, `history-daily:<liveDate>`) over the due
 //   slice of the live catalog (todo M5) — a completed run of either kind dated that live
 //   day satisfies it.
-// - eBay listings (todo O2): once a day when the Browse credentials are configured, on ticks
-//   nothing above claims — so the Browse call budget never contends with the daily chain.
-//   The runner checkpoints its call count between ticks and completes the day's run itself.
+// - eBay listings: the catalog-wide rotation is intentionally not scheduled. Listing grids
+//   refresh on demand through a shared D1 quota; an operator may still exercise the batch job
+//   in staging, but production credentials alone must not start a five-day stale-data sweep.
 export function decideScheduledAction(input: ScheduledInput): ScheduledAction {
   const liveTodayCompleted = input.livePublishedRunId === input.liveTodayRunId;
   if (!liveTodayCompleted && input.probeUpdatedAt != null && input.probeUpdatedAt !== input.livePublishedUpdatedAt) return "live";
@@ -86,7 +82,6 @@ export function decideScheduledAction(input: ScheduledInput): ScheduledAction {
   // history run dated that live day — tiered or a full operator backfill — counts.
   const historyDoneForLive = liveDate != null && (input.historyPublishedRunId?.endsWith(`:${liveDate}`) ?? false);
   if (liveDate != null && metricsForLiveCompleted && !historyDoneForLive) return "history";
-  if (input.ebayKeyConfigured && input.ebayPublishedRunId !== input.ebayTodayRunId) return "ebay";
   return "idle";
 }
 

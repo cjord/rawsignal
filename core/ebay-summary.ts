@@ -5,7 +5,7 @@ import type {EbayListingSample} from "./domain/types.ts";
 // for the detail panel. Asks are listing prices — the AGENTS rule applies: never described
 // as sales, never blended into fair value or signals.
 
-export type EbayListingSummary={listingCount:number;lowestAsk:number|null;medianAsk:number|null;samples:EbayListingSample[]};
+export type EbayListingSummary={listingCount:number;acceptedCount:number;lowestAsk:number|null;medianAsk:number|null;samples:EbayListingSample[]};
 
 // Listings priced outside [¼×, 4×] the market price are lots, proxies, or mispriced and would
 // otherwise set the low ask; below three survivors the asks are not a market and read N/A.
@@ -34,7 +34,9 @@ export function parseEbayListing(item:unknown):EbayListingSample|null{
  if(!url)return null;
  const shippingOptions=Array.isArray(item.shippingOptions)?item.shippingOptions:[];
  const shipping=shippingOptions.length?money(record(shippingOptions[0])?shippingOptions[0].shippingCost:null):null;
- return {itemId,title,price,shipping,condition:typeof item.condition==="string"?item.condition:null,url};
+ const image=record(item.image)&&typeof item.image.imageUrl==="string"?item.image.imageUrl:null;
+ const imageUrl=image&&/^https:\/\//.test(image)?image:null;
+ return {itemId,title,price,shipping,condition:typeof item.condition==="string"?item.condition:null,imageUrl,url};
 }
 
 export function priceGuard(market:number|null|undefined):{min:number;max:number}|null{
@@ -46,7 +48,7 @@ export function summarizeEbayListings(items:unknown[],total:number|null,options:
  const guard=priceGuard(options.market),sampleCount=options.sampleCount??EBAY_SAMPLE_COUNT,minListings=options.minListings??EBAY_MIN_LISTINGS;
  const kept=items.map(parseEbayListing).filter((item):item is EbayListingSample=>item!==null).filter(item=>!guard||(item.price>=guard.min&&item.price<=guard.max)).sort((a,b)=>a.price-b.price);
  const listingCount=total!=null&&Number.isFinite(total)&&total>=kept.length?Math.floor(total):kept.length;
- if(kept.length<minListings)return {listingCount,lowestAsk:null,medianAsk:null,samples:[]};
+ if(kept.length<minListings)return {listingCount,acceptedCount:kept.length,lowestAsk:null,medianAsk:null,samples:kept.slice(0,sampleCount)};
  const mid=Math.floor(kept.length/2),medianAsk=kept.length%2?kept[mid].price:(kept[mid-1].price+kept[mid].price)/2;
- return {listingCount,lowestAsk:kept[0].price,medianAsk:Math.round(medianAsk*100)/100,samples:kept.slice(0,sampleCount)};
+ return {listingCount,acceptedCount:kept.length,lowestAsk:kept[0].price,medianAsk:Math.round(medianAsk*100)/100,samples:kept.slice(0,sampleCount)};
 }

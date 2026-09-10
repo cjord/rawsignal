@@ -1,7 +1,6 @@
 import {env} from "cloudflare:workers";
 import {createD1CatalogRepository} from "../../db/catalog-repository";
 import {readEarlyValue} from "../../db/early-value";
-import {readEbayListing} from "../../db/ebay-ingestion";
 import {publishedIngestion,type D1DatabaseLike} from "../../db/repository";
 import type {CatalogDetail,CatalogKind,PullRateConfig} from "../../core/domain/types";
 import {createFeedCatalogRepository} from "./feed-catalog-repository";
@@ -59,9 +58,8 @@ export async function loadCatalogDetail(kind:CatalogKind,productId:number,market
   // 2026-09-03); the reader applies its own serving rules and returns null for
   // mature products.
   detail.earlyValue=await readEarlyValue(db,productId,detail.source.isPresale===true).catch(()=>null);
-  // eBay active-listing snapshot (todo O2): one primary-key read; null until the rotation
-  // reaches the product, and null (never a failure) while the table is unmigrated.
-  detail.ebay=await readEbayListing(db,productId).catch(()=>null);
+  // eBay listings load through /api/ebay/listings after the panel enters the viewport. Keeping
+  // them out of this page payload prevents the 36-hour page cache from retaining expired asks.
   recordTiming(detail,"d1",repositoryMs,performance.now()-queryStarted,false);return detail}}}catch(error){
   // Retain the generated detail snapshot while D1 is incomplete — but say why it fell back.
   // An unmigrated local database (dev) is the expected fallback, not an anomaly worth logging.

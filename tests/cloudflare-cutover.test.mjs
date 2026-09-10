@@ -41,7 +41,7 @@ test("scheduled ticks advance due work and never start history backfills",()=>{
  const detailsDone={detailsPublishedUpdatedAt:deploySnapshotUpdatedAt,detailsPublishedRunId:detailsRunId};
  const gradedTodayRunId="graded-rotation:2026-08-28",gradedDone={gradedPublishedRunId:gradedTodayRunId};
  const metricsDone={metricsPublishedRunId:"metrics-rollup:2026-08-28"};
- const decide=overrides=>decideScheduledAction({probeUpdatedAt,livePublishedUpdatedAt:null,livePublishedRunId:null,liveTodayRunId,deploySnapshotUpdatedAt,detailsPublishedUpdatedAt:null,detailsPublishedRunId:null,gradedKeyConfigured:true,gradedPublishedRunId:null,gradedTodayRunId,metricsPublishedRunId:null,ebayKeyConfigured:false,ebayPublishedRunId:null,ebayTodayRunId:"ebay-listings:2026-08-28",historyCheckpointRunId:null,historyPublishedRunId:null,...overrides});
+ const decide=overrides=>decideScheduledAction({probeUpdatedAt,livePublishedUpdatedAt:null,livePublishedRunId:null,liveTodayRunId,deploySnapshotUpdatedAt,detailsPublishedUpdatedAt:null,detailsPublishedRunId:null,gradedKeyConfigured:true,gradedPublishedRunId:null,gradedTodayRunId,metricsPublishedRunId:null,historyCheckpointRunId:null,historyPublishedRunId:null,...overrides});
  // A TCGCSV publish not yet ingested is due, whether the mismatch is absence or staleness.
  assert.equal(decide({...detailsDone}),"live");
  assert.equal(decide({livePublishedUpdatedAt:"2026-08-27T20:04:00Z",livePublishedRunId:"live-daily:2026-08-27",historyCheckpointRunId:"history-backfill:2026-08-27"}),"live");
@@ -88,15 +88,9 @@ test("scheduled ticks advance due work and never start history backfills",()=>{
  assert.equal(decide({...liveDone,...detailsDone,...gradedDone,...metricsDone,historyPublishedRunId:"history-daily:2026-08-28"}),"idle");
  assert.equal(decide({...liveDone,...detailsDone,...gradedDone,...metricsDone,historyPublishedRunId:"history-backfill:2026-08-28"}),"idle");
  assert.equal(decide({...liveDone,...detailsDone,...gradedDone}),"metrics");
- // eBay listings (O2): once a day, only with Browse credentials, and only on ticks the
- // daily chain leaves idle — never ahead of history.
+ // eBay listings (O2) are demand-loaded by their API route, never by the ingestion cron.
  const chainDone={...liveDone,...detailsDone,...gradedDone,...metricsDone,historyPublishedRunId:"history-daily:2026-08-28"};
  assert.equal(decide({...chainDone}),"idle");
- assert.equal(decide({...chainDone,ebayKeyConfigured:true}),"ebay");
- assert.equal(decide({...chainDone,ebayKeyConfigured:true,ebayPublishedRunId:"ebay-listings:2026-08-27"}),"ebay");
- assert.equal(decide({...chainDone,ebayKeyConfigured:true,ebayPublishedRunId:"ebay-listings:2026-08-28"}),"idle");
- assert.equal(decide({...liveDone,...detailsDone,...gradedDone,...metricsDone,ebayKeyConfigured:true}),"history");
- assert.equal(decide({...liveDone,...detailsDone,ebayKeyConfigured:true}),"graded");
 });
 
 const response=(source,items)=>new Response(JSON.stringify({source,items,total:items.length,page:1,pages:1,perPage:50,facets:{sets:["Set A"],productTypes:[]}}),{headers:{"Content-Type":"application/json"}});

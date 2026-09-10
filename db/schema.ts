@@ -284,13 +284,32 @@ export const ebayListings = sqliteTable("ebay_listings", {
   query: text("query").notNull(),
   categoryId: integer("category_id"),
   listingCount: integer("listing_count").notNull(),
+  acceptedCount: integer("accepted_count").notNull().default(0),
   lowestCents: integer("lowest_cents"),
   medianCents: integer("median_cents"),
   samplesJson: text("samples_json").notNull().default("[]"),
   fetchedAt: text("fetched_at").notNull(),
+  expiresAt: text("expires_at"),
   updatedAt: text("updated_at").notNull(),
 }, (table) => [
   index("idx_ebay_listings_updated").on(table.updatedAt),
+  index("idx_ebay_listings_expires").on(table.expiresAt),
+]);
+
+export const ebayApiUsage = sqliteTable("ebay_api_usage", {
+  usageDate: text("usage_date").primaryKey(),
+  calls: integer("calls").notNull().default(0),
+  onDemandCalls: integer("on_demand_calls").notNull().default(0),
+  backgroundCalls: integer("background_calls").notNull().default(0),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const ebayFetchLeases = sqliteTable("ebay_fetch_leases", {
+  productId: integer("product_id").primaryKey().references(() => catalogProducts.productId, { onDelete: "cascade" }),
+  holder: text("holder").notNull(),
+  expiresAt: text("expires_at").notNull(),
+}, (table) => [
+  index("idx_ebay_fetch_leases_expires").on(table.expiresAt),
 ]);
 
 // Collectr-import fuzzy-match audit (2026-08-31): every match reached by a fallback tier

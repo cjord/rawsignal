@@ -186,6 +186,21 @@ test("the eBay panel carries no EPN Smart Placement (pulled 2026-09-09: ad block
   assert.doesNotMatch(await read("app/detail.css"), /\.pricecharting-button\{border-color/);
 });
 
+test("eBay listing data stays lazy, no-store, and outside cached detail payloads", async () => {
+  const [page, route, loader, scheduler] = await Promise.all([
+    read("app/ProductDetailPage.tsx"),
+    read("app/api/ebay/listings/route.ts"),
+    read("app/data/load-detail.ts"),
+    read("worker/scheduled-decision.ts"),
+  ]);
+  assert.match(page, /new IntersectionObserver/);
+  assert.match(page, /\/api\/ebay\/listings\?productId=/);
+  assert.match(route, /"Cache-Control":"private, no-store"/);
+  assert.match(route, /resolveEbayListing/);
+  assert.doesNotMatch(loader, /readEbayListing|ebay:/);
+  assert.doesNotMatch(scheduler, /action: "ebay"|return "ebay"/);
+});
+
 test("the detail hero keeps the favorite star in the eyebrow and the marketplace buttons under the set line", async () => {
   const page = await read("app/ProductDetailPage.tsx");
   const hero = page.slice(page.indexOf('<section className="detail-hero">'), page.indexOf('<div className="detail-primary-price">'));

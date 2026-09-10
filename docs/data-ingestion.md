@@ -2,7 +2,7 @@
 
 ## Current operating model
 
-The production Worker `raw-signal` owns the `DB` binding to the production D1 database and runs a `*/1 * * * *` guard cron (`worker/scheduled-ingestion.ts`, policy in `worker/scheduled-decision.ts`). Every tick first claims the single-flight `cron-lease` row in `refresh_state` for 170 seconds (`db/tick-lease.ts`) or exits idle, then advances at most one checkpointed batch of the first due job in policy order: live catalog walk → product details → graded rotation → metrics rollup → history backfill → eBay listings. Staging carries no schedule; its jobs run only through the operator adapter. Do not expose an unauthenticated ingestion route as a scheduling substitute.
+The production Worker `raw-signal` owns the `DB` binding to the production D1 database and runs a `*/1 * * * *` guard cron (`worker/scheduled-ingestion.ts`, policy in `worker/scheduled-decision.ts`). Every tick first claims the single-flight `cron-lease` row in `refresh_state` for 170 seconds (`db/tick-lease.ts`) or exits idle, then advances at most one checkpointed batch of the first due job in policy order: live catalog walk → product details → graded rotation → metrics rollup → history backfill. Staging carries no schedule; its jobs run only through the operator adapter. Do not expose an unauthenticated ingestion route as a scheduling substitute.
 
 `sync-tcgcsv.mjs` and `sync-sealed.mjs` separate four concerns:
 
@@ -56,37 +56,37 @@ The move to a directly managed Worker is done (see [Cloudflare cutover](cloudfla
 
 Daily TCGCSV observations are sufficient for ongoing history after backfill. Detailed TCGplayer history remains the bootstrap and cache-miss source rather than a daily full-catalog fan-out.
 
-## eBay listings rotation (2026-09-04)
+## eBay on-demand listing cache (2026-09-10)
 
-`db/ebay-ingestion.ts` keeps `ebay_listings` (migration 0016): one row per product with the
-filtered active-listing count, the lowest and median buy-it-now asks, and up to five sample
-listings, fetched from the eBay Browse API (`core/clients/ebay-browse.ts`, application token
-from the client-credentials grant, cached per isolate). Asks are listing prices and are
-labelled as such everywhere they render.
+`db/ebay-ingestion.ts` keeps one active-ask snapshot per product in `ebay_listings`.
+Migration 0018 adds the accepted sample count and an explicit expiry, plus the shared
+`ebay_api_usage` budget and `ebay_fetch_leases` concurrency guard. The Browse application
+token is minted with the client-credentials grant and cached per Worker isolate.
 
-- **Pool and order.** Every product with a current market price of $20 or more, never-fetched
-  first, then the stalest snapshot, the higher price breaking ties; rows refreshed today are
-  out of the pool.
-- **Budget.** A day's run `ebay-listings:<date>` spends at most 1,500 Browse calls (the default
-  keyset allows 5,000) in ticks of 40 with 250 ms between calls. The cron dispatches the
-  `ebay` action only on ticks nothing else claims, so the rotation never delays the daily
-  chain. The run checkpoints its call count under the `ebay-listings` refresh key and
-  completes when the budget is spent, the pool is exhausted, or eBay pushes back (429 →
-  `rate-limited`; 401/403 or a token failure → `auth`; five consecutive server errors →
-  `http-<status>`). `ingestion_runs.stats_json` carries `calls`, `updated`, `dailyBudget`,
-  and `stopped`.
-- **Query.** The same text the site's eBay search links use (`ebaySearchQuery`), the
-  individual-cards category for singles, ungraded (singles) or new (sealed) condition, and a
-  price window of ¼× to 4× the TCGplayer market price; fewer than three survivors records
-  the count with the asks unavailable.
-- **Configuration.** Secrets `EBAY_CLIENT_ID` and `EBAY_CLIENT_SECRET` (production only —
-  staging keeps none and runs the job by hand); optional var `EBAY_EPN_CAMPAIGN_ID` for
-  affiliate item URLs. Without the secrets the action never fires and the detail panel shows
-  the search links only. Production also reads the optional `ALPHAVANTAGE_API_KEY` on each
-  metrics tick for the S&P benchmark (`db/benchmark-ingestion.ts`); when it is absent the
-  benchmark step skips silently.
-- **Operator run.** `POST /__ops/staging-jobs` with `{"job":"ebay","batchSize":40}` on
-  staging, once the secrets are set there for the trial.
+- **Demand path.** `ProductDetailPage` starts `GET /api/ebay/listings?productId=` only when
+  its listing section approaches the viewport. A snapshot whose `expires_at` is still in the
+  future returns from D1 without an eBay call. A stale or absent snapshot spends one Browse
+  search, writes a new six-hour snapshot, and returns it; expired data is never displayed.
+- **Quota and concurrency.** An atomic D1 counter admits no more than 4,000 interactive calls
+  per UTC day inside eBay's default 5,000-call allowance, leaving 1,000 calls of headroom.
+  A 30-second atomic lease per product coalesces simultaneous misses; losing callers receive
+  a short retry response instead of duplicating the upstream request.
+- **Query.** The request uses the same text as the site's eBay search link, the individual
+  cards category for singles, ungraded (singles) or new (sealed) condition, fixed-price USD
+  listings, and a price window of ¼× to 4× the TCGplayer market price. Fewer than three
+  accepted listings still records the result count and samples, but aggregate asks remain
+  unavailable. Samples include an HTTPS image, title, condition, price, shipping, and the
+  affiliate item URL when eBay supplies one.
+- **Configuration.** `EBAY_CLIENT_ID` and `EBAY_CLIENT_SECRET` are Worker secrets, never vars
+  or repository files. The eBay Dev ID is not used by the Browse client-credentials flow.
+  Optional var `EBAY_EPN_CAMPAIGN_ID` enables affiliate item URLs and a per-product reference
+  ID. Without both secrets the API returns unavailable and the ordinary search links remain.
+- **Background job.** The former ≥$20 catalog rotation is not in production cron: a multi-day
+  sweep cannot meet the six-hour display rule efficiently. `POST /__ops/staging-jobs` with
+  `{"job":"ebay","batchSize":40}` remains only for an explicit staging trial.
+
+Production also reads optional `ALPHAVANTAGE_API_KEY` on each metrics tick for the S&P
+benchmark (`db/benchmark-ingestion.ts`); when absent, that step skips silently.
 
 ## Image sources (2026-09-04)
 

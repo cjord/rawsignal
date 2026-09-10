@@ -32,7 +32,7 @@ test("search parameters carry the query, category, condition and price filters, 
 test("the client mints one application token, reuses it, and sends the marketplace and affiliate headers",async()=>{
  const ebay=fakeEbay();let now=1_000_000;
  const client=createEbayBrowseClient({clientId:"id",clientSecret:"secret",campaignId:"5338000000"},{fetch:ebay.fetcher,now:()=>now});
- const first=await client.search({query:"Pikachu",categoryId:183454,conditionIds:[4000],priceRange:null});
+ const first=await client.search({query:"Pikachu",categoryId:183454,conditionIds:[4000],priceRange:null,affiliateReferenceId:"rawsignal-25"});
  assert.deepEqual({status:first.status,total:first.total,items:first.items.length},{status:200,total:12,items:1});
  const [mint,search]=ebay.requests;
  assert.equal(mint.init.method,"POST");
@@ -42,7 +42,7 @@ test("the client mints one application token, reuses it, and sends the marketpla
  assert.ok(search.url.startsWith(`${EBAY_SEARCH_URL}?`));
  assert.equal(search.init.headers.Authorization,"Bearer tok1");
  assert.equal(search.init.headers["X-EBAY-C-MARKETPLACE-ID"],"EBAY_US");
- assert.equal(search.init.headers["X-EBAY-C-ENDUSERCTX"],"affiliateCampaignId=5338000000");
+ assert.equal(search.init.headers["X-EBAY-C-ENDUSERCTX"],"affiliateCampaignId=5338000000,affiliateReferenceId=rawsignal-25");
  // Within the token's lifetime the second search reuses it; past it a new one is minted.
  now+=3_600_000;await client.search({query:"Pikachu",categoryId:null,conditionIds:[],priceRange:null});
  assert.equal(ebay.tokens(),1);

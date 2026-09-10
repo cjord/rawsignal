@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {EBAY_MIN_LISTINGS,parseEbayListing,priceGuard,summarizeEbayListings} from "../core/ebay-summary.ts";
 
-const listing=(itemId,price,overrides={})=>({itemId,title:`Listing ${itemId}`,price:{value:String(price),currency:"USD"},condition:"Ungraded",itemWebUrl:`https://www.ebay.com/itm/${itemId}`,buyingOptions:["FIXED_PRICE"],shippingOptions:[{shippingCost:{value:"4.50",currency:"USD"}}],...overrides});
+const listing=(itemId,price,overrides={})=>({itemId,title:`Listing ${itemId}`,price:{value:String(price),currency:"USD"},condition:"Ungraded",itemWebUrl:`https://www.ebay.com/itm/${itemId}`,image:{imageUrl:`https://i.ebayimg.com/images/g/${itemId}/s-l500.jpg`},buyingOptions:["FIXED_PRICE"],shippingOptions:[{shippingCost:{value:"4.50",currency:"USD"}}],...overrides});
 
 test("a listing parses to a sample with its price, shipping, condition, and the affiliate URL when present",()=>{
- assert.deepEqual(parseEbayListing(listing("v1|1|0",27.99)),{itemId:"v1|1|0",title:"Listing v1|1|0",price:27.99,shipping:4.5,condition:"Ungraded",url:"https://www.ebay.com/itm/v1|1|0"});
+ assert.deepEqual(parseEbayListing(listing("v1|1|0",27.99)),{itemId:"v1|1|0",title:"Listing v1|1|0",price:27.99,shipping:4.5,condition:"Ungraded",imageUrl:"https://i.ebayimg.com/images/g/v1|1|0/s-l500.jpg",url:"https://www.ebay.com/itm/v1|1|0"});
  assert.equal(parseEbayListing(listing("a",10,{itemAffiliateWebUrl:"https://www.ebay.com/itm/a?campid=1"})).url,"https://www.ebay.com/itm/a?campid=1");
  assert.equal(parseEbayListing(listing("b",10,{shippingOptions:[]})).shipping,null);
  // Auctions, foreign currency, and malformed items are dropped.
@@ -26,6 +26,7 @@ test("the summary keeps guarded asks sorted, reports the lowest and median, and 
  const items=[listing("lot",2,{title:"10x lot"}),listing("a",31),listing("b",25),listing("c",40),listing("d",900,{title:"PSA 10 proxy"}),listing("e",28)];
  const summary=summarizeEbayListings(items,42,{market:30,sampleCount:3});
  assert.equal(summary.listingCount,42);
+ assert.equal(summary.acceptedCount,4);
  assert.equal(summary.lowestAsk,25);
  // Survivors 25, 28, 31, 40 → median 29.5.
  assert.equal(summary.medianAsk,29.5);
@@ -38,6 +39,6 @@ test("the summary keeps guarded asks sorted, reports the lowest and median, and 
 test("fewer than three surviving listings is not a market: count only, asks unavailable",()=>{
  assert.equal(EBAY_MIN_LISTINGS,3);
  const thin=summarizeEbayListings([listing("a",31),listing("b",25)],2,{market:30});
- assert.deepEqual(thin,{listingCount:2,lowestAsk:null,medianAsk:null,samples:[]});
- assert.deepEqual(summarizeEbayListings([],0,{market:30}),{listingCount:0,lowestAsk:null,medianAsk:null,samples:[]});
+ assert.deepEqual(thin,{listingCount:2,acceptedCount:2,lowestAsk:null,medianAsk:null,samples:[parseEbayListing(listing("b",25)),parseEbayListing(listing("a",31))]});
+ assert.deepEqual(summarizeEbayListings([],0,{market:30}),{listingCount:0,acceptedCount:0,lowestAsk:null,medianAsk:null,samples:[]});
 });

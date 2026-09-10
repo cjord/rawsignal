@@ -1,28 +1,23 @@
 import type { EbayListingSample, EbayListingSnapshot } from "../core/domain/types.ts";
 import type { EbayListingSummary } from "../core/ebay-summary.ts";
+import type { EbayFetchResult, EbayListingTarget, EbayListingsDeps } from "../core/clients/ebay-listings.ts";
 import { clampBatchSize, markIngestionFailed, parseStatsJson, resumeCheckpoint } from "./ingestion-batch.ts";
 import { checkpointIngestion, completeIngestion, startIngestion, type D1DatabaseLike } from "./repository.ts";
 import { ingestionRunId } from "./run-id.ts";
 
-// eBay active-listing rotation (todo O2, plan docs/ebay-integration-plan-2026-09.md §C):
-// one Browse search per product, stalest first, over every product priced at $20 or more.
-// A day's run (`ebay-listings:<date>`) spends at most `dailyBudget` calls (1,500 of the
-// keyset's 5,000) in ticks of `calls` (40 ≈ 20 s of wall time), checkpointing the call count
-// between ticks and completing when the budget is spent, the pool is exhausted, or eBay
-// pushes back (429, or an auth failure — which ends the day rather than retrying every
-// minute). Asks are listing prices: stored as such, never described as sales.
+// The public path below resolves one six-hour active-listing snapshot on demand, guarded by
+// a shared daily quota and a per-product lease. The older catalog rotation remains only for
+// explicit staging ops trials; production cron no longer dispatches it. Asks are listing
+// prices: stored as such, never described as sales.
 
 export const EBAY_LISTINGS_KEY = "ebay-listings";
 export const EBAY_MIN_MARKET_CENTS = 2000;
 export const EBAY_DAILY_BUDGET = 1500;
 export const EBAY_TICK_CALLS = 40;
-
-export type EbayListingTarget = { productId: number; kind: "single" | "sealed"; game: string; name: string; set: string; number: string | null; marketCents: number | null };
-export type EbayFetchResult = { status: number; query: string; categoryId: number | null; summary: EbayListingSummary | null };
-export type EbayListingsDeps = {
-  fetchListings(target: EbayListingTarget): Promise<EbayFetchResult>;
-  wait?(ms: number): Promise<void>;
-};
+export const EBAY_LISTING_TTL_MS = 6 * 60 * 60 * 1000;
+export const EBAY_DAILY_CALL_LIMIT = 5000;
+export const EBAY_ON_DEMAND_BUDGET = 4000;
+export const EBAY_FETCH_LEASE_MS = 30_000;
 type EbayRunStats = { calls: number; updated: number; dailyBudget: number; stopped: string | null };
 type PoolRow = { productId: number; kind: "single" | "sealed"; game: string; name: string; setName: string; number: string | null; marketCents: number | null };
 
@@ -79,24 +74,95 @@ export async function runEbayListingsBatch(db: D1DatabaseLike, deps: EbayListing
 }
 
 export async function writeEbayListing(db: D1DatabaseLike, productId: number, query: string, categoryId: number | null, summary: EbayListingSummary, fetchedAt: string, updatedAt: string) {
-  await db.prepare(`insert into ebay_listings (product_id,query,category_id,listing_count,lowest_cents,median_cents,samples_json,fetched_at,updated_at)
-    values (?,?,?,?,?,?,?,?,?)
-    on conflict(product_id) do update set query=excluded.query,category_id=excluded.category_id,listing_count=excluded.listing_count,
-    lowest_cents=excluded.lowest_cents,median_cents=excluded.median_cents,samples_json=excluded.samples_json,fetched_at=excluded.fetched_at,updated_at=excluded.updated_at`)
-    .bind(productId, query, categoryId, summary.listingCount, toCents(summary.lowestAsk), toCents(summary.medianAsk), JSON.stringify(summary.samples), fetchedAt, updatedAt).run();
+  const expiresAt = new Date(new Date(fetchedAt).getTime() + EBAY_LISTING_TTL_MS).toISOString();
+  await db.prepare(`insert into ebay_listings (product_id,query,category_id,listing_count,accepted_count,lowest_cents,median_cents,samples_json,fetched_at,expires_at,updated_at)
+    values (?,?,?,?,?,?,?,?,?,?,?)
+    on conflict(product_id) do update set query=excluded.query,category_id=excluded.category_id,listing_count=excluded.listing_count,accepted_count=excluded.accepted_count,
+    lowest_cents=excluded.lowest_cents,median_cents=excluded.median_cents,samples_json=excluded.samples_json,fetched_at=excluded.fetched_at,expires_at=excluded.expires_at,updated_at=excluded.updated_at`)
+    .bind(productId, query, categoryId, summary.listingCount, summary.acceptedCount, toCents(summary.lowestAsk), toCents(summary.medianAsk), JSON.stringify(summary.samples), fetchedAt, expiresAt, updatedAt).run();
 }
 
-type ListingRow = { query: string; categoryId: number | null; listingCount: number; lowestCents: number | null; medianCents: number | null; samplesJson: string; fetchedAt: string; updatedAt: string };
+type ListingRow = { query: string; categoryId: number | null; listingCount: number; acceptedCount: number; lowestCents: number | null; medianCents: number | null; samplesJson: string; fetchedAt: string; expiresAt: string | null; updatedAt: string };
 
 export async function readEbayListing(db: D1DatabaseLike, productId: number): Promise<EbayListingSnapshot | null> {
-  const row = await db.prepare(`select query, category_id as categoryId, listing_count as listingCount, lowest_cents as lowestCents, median_cents as medianCents,
-    samples_json as samplesJson, fetched_at as fetchedAt, updated_at as updatedAt from ebay_listings where product_id = ?`).bind(productId).first<ListingRow>();
+  const row = await db.prepare(`select query, category_id as categoryId, listing_count as listingCount, accepted_count as acceptedCount, lowest_cents as lowestCents, median_cents as medianCents,
+    samples_json as samplesJson, fetched_at as fetchedAt, expires_at as expiresAt, updated_at as updatedAt from ebay_listings where product_id = ?`).bind(productId).first<ListingRow>();
   if (!row) return null;
   let samples: EbayListingSample[] = [];
   try { const parsed = JSON.parse(row.samplesJson) as unknown; if (Array.isArray(parsed)) samples = parsed as EbayListingSample[]; } catch { /* a malformed sample list renders as no samples */ }
   return {
-    query: row.query, categoryId: row.categoryId, listingCount: row.listingCount,
+    query: row.query, categoryId: row.categoryId, listingCount: row.listingCount, acceptedCount: row.acceptedCount,
     lowestAsk: row.lowestCents == null ? null : row.lowestCents / 100, medianAsk: row.medianCents == null ? null : row.medianCents / 100,
-    samples, fetchedAt: row.fetchedAt, updatedAt: row.updatedAt,
+    samples, fetchedAt: row.fetchedAt, expiresAt: row.expiresAt ?? row.fetchedAt, updatedAt: row.updatedAt,
   };
+}
+
+export const ebayListingIsFresh = (snapshot: EbayListingSnapshot | null, now = new Date()) =>
+  snapshot != null && Number.isFinite(Date.parse(snapshot.expiresAt)) && Date.parse(snapshot.expiresAt) > now.getTime();
+
+type UsageRow = { calls: number; onDemandCalls: number };
+
+export async function reserveEbayOnDemandCall(db: D1DatabaseLike, now = new Date(), options: { dailyLimit?: number; onDemandBudget?: number } = {}): Promise<UsageRow | null> {
+  const dailyLimit = options.dailyLimit ?? EBAY_DAILY_CALL_LIMIT;
+  const onDemandBudget = options.onDemandBudget ?? EBAY_ON_DEMAND_BUDGET;
+  if (dailyLimit < 1 || onDemandBudget < 1) return null;
+  const at = now.toISOString(), day = at.slice(0, 10);
+  return db.prepare(`insert into ebay_api_usage (usage_date,calls,on_demand_calls,background_calls,updated_at)
+    values (?,1,1,0,?)
+    on conflict(usage_date) do update set calls=ebay_api_usage.calls+1,on_demand_calls=ebay_api_usage.on_demand_calls+1,updated_at=excluded.updated_at
+    where ebay_api_usage.calls < ? and ebay_api_usage.on_demand_calls < ?
+    returning calls,on_demand_calls as onDemandCalls`)
+    .bind(day, at, dailyLimit, onDemandBudget).first<UsageRow>();
+}
+
+async function claimEbayFetchLease(db: D1DatabaseLike, productId: number, holder: string, now: Date, leaseMs: number): Promise<boolean> {
+  const expiresAt = new Date(now.getTime() + leaseMs).toISOString();
+  const row = await db.prepare(`insert into ebay_fetch_leases (product_id,holder,expires_at) values (?,?,?)
+    on conflict(product_id) do update set holder=excluded.holder,expires_at=excluded.expires_at
+    where ebay_fetch_leases.expires_at <= ? returning holder`)
+    .bind(productId, holder, expiresAt, now.toISOString()).first<{ holder: string }>();
+  return row?.holder === holder;
+}
+
+async function releaseEbayFetchLease(db: D1DatabaseLike, productId: number, holder: string) {
+  await db.prepare("delete from ebay_fetch_leases where product_id = ? and holder = ?").bind(productId, holder).run();
+}
+
+async function readEbayListingTarget(db: D1DatabaseLike, productId: number): Promise<EbayListingTarget | null> {
+  const row = await db.prepare(`select p.product_id as productId,p.kind,p.game,p.name,p.set_name as setName,p.card_number as number,cp.market_cents as marketCents
+    from catalog_products p left join current_prices cp on cp.product_id=p.product_id where p.product_id=?`)
+    .bind(productId).first<PoolRow>();
+  return row ? { productId: row.productId, kind: row.kind, game: row.game, name: row.name, set: row.setName, number: row.number, marketCents: row.marketCents } : null;
+}
+
+export type EbayListingResolution =
+  | { status: "fresh" | "refreshed"; snapshot: EbayListingSnapshot }
+  | { status: "not-found" | "quota" | "busy"; snapshot: null }
+  | { status: "upstream-error"; snapshot: null; upstreamStatus: number };
+
+export async function resolveEbayListing(db: D1DatabaseLike, productId: number, deps: EbayListingsDeps, options: { now?: Date; dailyLimit?: number; onDemandBudget?: number; leaseMs?: number; leaseId?: () => string } = {}): Promise<EbayListingResolution> {
+  const now = options.now ?? new Date();
+  const cached = await readEbayListing(db, productId);
+  if (ebayListingIsFresh(cached, now)) return { status: "fresh", snapshot: cached! };
+  const target = await readEbayListingTarget(db, productId);
+  if (!target) return { status: "not-found", snapshot: null };
+  const holder = (options.leaseId ?? (() => crypto.randomUUID()))();
+  if (!await claimEbayFetchLease(db, productId, holder, now, options.leaseMs ?? EBAY_FETCH_LEASE_MS)) return { status: "busy", snapshot: null };
+  try {
+    // Close the race between the first read and the lease claim: a previous owner may have
+    // committed its replacement immediately before releasing the lease.
+    const latest = await readEbayListing(db, productId);
+    if (ebayListingIsFresh(latest, now)) return { status: "fresh", snapshot: latest! };
+    const reserved = await reserveEbayOnDemandCall(db, now, { dailyLimit: options.dailyLimit, onDemandBudget: options.onDemandBudget });
+    if (!reserved) return { status: "quota", snapshot: null };
+    const result: EbayFetchResult = await deps.fetchListings(target);
+    if (result.status < 200 || result.status >= 300 || !result.summary) return { status: "upstream-error", snapshot: null, upstreamStatus: result.status };
+    const fetchedAt = now.toISOString();
+    await writeEbayListing(db, productId, result.query, result.categoryId, result.summary, fetchedAt, fetchedAt.slice(0, 10));
+    const snapshot = await readEbayListing(db, productId);
+    if (!snapshot) return { status: "upstream-error", snapshot: null, upstreamStatus: 502 };
+    return { status: "refreshed", snapshot };
+  } finally {
+    await releaseEbayFetchLease(db, productId, holder).catch(() => { /* the short lease expires on its own */ });
+  }
 }

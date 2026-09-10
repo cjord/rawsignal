@@ -1,24 +1,20 @@
 # eBay integration and marketplace links — implementation plan (2026-09-04)
 
-**Status 2026-09-10.** Tiers A and B shipped (commits `d7de3b9`, `2ffe444`, `6e5e6f0`;
-production `9f30fee8`): TCGplayer and eBay tiles under the artwork of every popover, the
-Impact affiliate wrapper on every TCGplayer link, EPN Smart Links loaded from the root
-layout, `rel="sponsored"` on the anchors, and the disclosure in both footers. Tier C is
-partly shipped: the `ebay_listings` table (migration 0016), Browse client, rotation job,
-cron action, ops job, and the detail-page eBay panel exist, and the panel shows the
-PokemonPriceTracker raw eBay sale as the sold data point (tier D's display half). Still
-open in C: the hover route `/api/ebay/listings` (C4) and adding `ebay-listings` to
-`PUBLISH_KEYS` (C3). Blocked on the user: the eBay developer keyset (`EBAY_CLIENT_ID`,
-`EBAY_CLIENT_SECRET`) so the rotation fills the table; tier D's PokemonPriceTracker tier
-upgrade (todo O4).
+**Status 2026-09-10.** Tiers A and B are live. Tier C's first rotation-based version shipped
+on 2026-09-05, but the production strategy is now superseded by the cost-efficient option A
+implementation on `EnhancementTrial`: a lazy `/api/ebay/listings` detail-page request, hard
+six-hour D1 snapshots, an atomic 4,000-call daily interactive budget, per-product leases,
+and an image listing grid. Production cron no longer dispatches the catalog-wide rotation.
+Migration 0018 and the Worker secrets still require the validated deployment; credentials
+are never stored in this repository. Tier D's PokemonPriceTracker upgrade remains open.
 
 **Live listings on every page — decided 2026-09-09: option B rejected, option A is the
 target.** Option B, an EPN Smart Placement in the eBay panel (eBay-rendered cards under
 eBay's "Ad" label, keyed by our search query), was tried on staging and pulled the same
 day because ad blockers hide it. Option A — a Browse-API grid with images, Listings/Graded
-tabs with counts, and an on-demand fetch cached a day under a daily call budget so every
-card and sealed page shows listings for real visitors — waits on the keyset. The search
-and sold links stay either way.
+tabs with counts, and an on-demand fetch cached for six hours under a daily call budget so
+card and sealed pages show listings for real visitors. The search and sold links stay either
+way.
 
 Scope: todo §O1 (affiliate tagging), §O2 (eBay links and data), and the new §O3 (a
 TCGplayer link inside every hover chart). Written after the wave 14–15 D1 audit
@@ -61,7 +57,7 @@ Facts this plan rests on (verified 2026-09-04; re-check the flagged ones at impl
 |---|---|---|---|
 | A. Links (O3 + O2 link half) | TCGplayer link in every hover chart and full-view card; eBay active-listings search link on the detail page and in the hover charts | none (EPN campaign id optional) | **0 additional rows read** |
 | B. Affiliate tagging (O1) | One link builder tags TCGplayer (Impact template) and eBay (EPN parameters); disclosure line | program approvals: EPN, TCGplayer/Impact (user) | 0 |
-| C. eBay active-listing snapshot (O2 API half) | Daily cron rotation over the ≥ $20 pool via the Browse API → `ebay_listings`; detail-page panel; hover tile; `/api/ebay/listings` | eBay developer keyset (user); secrets `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET` | +1 row per detail view, +1 row per first hover reveal; ≤ 1,500 row writes a day |
+| C. eBay active-listing snapshot (O2 API half) | On-demand Browse request after the detail grid nears the viewport; six-hour `ebay_listings` cache; image grid; shared D1 call budget and lease | Worker secrets `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET` | fresh view: 1 PK read; stale view: bounded target/budget/lease reads plus one snapshot write; ≤ 4,000 Browse calls/day |
 | D. Sold comps | Widen the PokemonPriceTracker rotation; surface "Raw (eBay)" in the hover for covered cards | PPT tier upgrade (user, todo O4) | 0 new reads (the detail page already reads `graded_prices`); +1 PK row per hover reveal if surfaced there |
 
 Order: A → B → C. D is a purchase decision, not code. Sold comps through eBay's own APIs are
@@ -217,68 +213,57 @@ they forbid it, store aggregates only).
   prices are never described as sales applies; the panel says "asks", the tile says "eBay low
   ask", the note names the fetch date.
 
-### C3. Rotation job — `db/ebay-ingestion.ts`, modelled on `runGradedRotationBatch`
+### C3. On-demand resolver — `db/ebay-ingestion.ts`
 
-- Pool: `catalog_products ⋈ current_prices` where `market_cents ≥ 2000`, left-joined to
-  `ebay_listings`, stalest first (never-fetched sorts ahead), ≈ 7,600 products.
-- Budget: `EBAY_DAILY_BUDGET = 1,500` (30 % of the 5,000 default, leaving room for retries and
-  the token mints) split into ticks of `EBAY_TICK_CALLS = 40` with 250 ms spacing (≈ 20–25 s
-  wall per tick, far inside the 1,000-subrequest limit; fetch wall time is not CPU time).
-  1,500 a day refreshes the pool every ≈ 5 days; a ≥ $50 pool (≈ 4,500) every 3. Stop on 429
-  or on the rate-limit headers; five consecutive HTTP failures end the run as `http-<status>`.
-- Run identity `ebay-listings:<today>`, checkpointed by cursor in `refresh_state` like the
-  history run, so the day's calls spread across ticks; completion writes `last_success_at`.
-- Cron policy (`worker/scheduled-decision.ts`): new action `"ebay"` **after** the history
-  gate — as built, `ebayKeyConfigured && ebayPublishedRunId !== ebayTodayRunId`, relying on
-  statement order rather than an explicit `historyDoneForLive` conjunct: the live, details,
-  graded, metrics, and history gates all return first when due, so eBay takes only idle
-  ticks (≈ 40 a day) once the daily chain has landed. One consequence: with no published
-  live run at all, the metrics/history gates are skipped and eBay can claim the tick.
-  Tests: policy table rows for "not configured", "history still running", "run due",
-  "run complete".
-- Ops: `__ops/staging-jobs` gains `job: "ebay"` for staging trials (staging stays cheap: no
-  cron, secrets set only for the trial and removed after).
-- Publish signature: add `ebay-listings` to `PUBLISH_KEYS` so detail pages re-render after a
-  run completes (one signature change a day; without it the 36 h page cache would serve
-  yesterday's asks). **Not yet done** — `worker/page-signature.ts` still lists five keys;
-  do it when the keyset lands and the rotation starts writing.
-- `docs/data-ingestion.md`: a section on the rotation, its budget, and how to read
-  `ingestion_runs` stats (`targets`, `updated`, `calls`, `stopped`).
+- A fresh D1 snapshot returns without an eBay call. A stale or missing product resolves its
+  current catalog identity and market price, then performs one Browse search.
+- `ebay_api_usage` admits at most 4,000 on-demand calls per UTC day with one atomic
+  `INSERT ... ON CONFLICT ... WHERE ... RETURNING` statement. This preserves 1,000 calls of
+  headroom inside the default 5,000-call allowance.
+- `ebay_fetch_leases` gives one caller a 30-second product lease. Concurrent misses return a
+  short retry signal instead of duplicating the search. The resolver rechecks the cache after
+  winning the lease to close the race.
+- Migration 0018 adds `accepted_count`, `expires_at`, the quota table, and the lease table.
+  Existing snapshots expire immediately because their original fetches predate this policy.
+- The former rotation helper and `{"job":"ebay"}` staging adapter remain for deliberate
+  operator trials. The scheduled action and production cron dispatch are removed.
 
-### C4. Read paths
+### C4. Read path and interface
 
-- Detail page: `getDetail` adds `readEbayListings(db, productId)` to its `Promise.all`
-  (one PK row) and renders an "eBay asks" panel beside the graded section: lowest ask,
-  median ask, listing count, five sample listings (affiliate-tagged by Smart Links), fetch
-  date, and the search link from A. Cards outside the pool render the link only. *(Shipped.)*
-- Hover charts: `GET /api/ebay/listings?productId=` (PK lookup, `CACHE_TIERS.hour`, route
-  edge cache) fetched by `usePriceHistoryBatch().ensure`'s sibling on first reveal; the panel
-  appends one tile, "eBay low ask", when data exists. Keeping it out of `/api/history` leaves
-  the `PriceHistory` contract untouched.
-- Boards (optional, later): a `/api/ebay/batch?ids=` 40-id route mirroring the history batch
-  if an "eBay low" column is wanted; not in this plan's cost table.
+- The cached server-rendered detail payload no longer embeds eBay data. `EbayMarketPanel`
+  uses an `IntersectionObserver` to request `/api/ebay/listings?productId=` only as the panel
+  nears the viewport.
+- The route is `private, no-store`. It returns a fresh/refreshed snapshot, `202` plus a short
+  retry interval when another request owns the lease, `429` at the local daily ceiling, and
+  an honest unavailable response on configuration or upstream failure. It never returns an
+  expired snapshot.
+- The responsive grid renders up to five image cards with title, ask, shipping, condition,
+  and the eBay-provided affiliate URL. Aggregate lowest/median asks require at least three
+  accepted results. The UI identifies the total result count, accepted sample count, exact
+  UTC fetch time, six-hour lifetime, and asks-not-sales limitation.
+- Hover and board eBay figures remain deferred. A batch endpoint is unnecessary until such a
+  surface is approved.
 
-### C5. D1 cost
+### C5. Cost and quota model
 
-| Event | Rows read today | Added | Notes |
+| Event | D1 work | eBay calls | Notes |
 |---|---|---|---|
-| Detail view | ~5,000 set-scoped + memoized whole-game | +1 | PK lookup in `Promise.all`; ~2,700 views/day → +2.7 k rows/day |
-| First hover reveal of a product (per colo per hour) | ≈ 85 (`/api/history`) | +1 | separate route; bounded above by today's `/api/history` request count |
-| Uncached section feed | 18–24 k | 0 | the snapshot is deliberately **not** joined into feeds: a left join would add ≈ 1 row per product row (+9–12 k per feed load, every 5 min per colo per section) |
-| Cron tick (ebay) | — | ≈ 40 pool rows + 40 PK upserts | the pool query is `Pg`-scoped (~7.6 k rows) once per run, then cursor-sliced |
-| Rows written | — | ≤ 1,500/day | inside the 50 M/month allowance by four orders of magnitude |
+| Detail grid inside six hours | one snapshot PK read | 0 | page HTML remains independently cacheable |
+| First stale detail grid | snapshot + target + quota/lease checks; one snapshot write | 1 | one call supplies aggregates and five cards |
+| Concurrent stale views of one product | snapshot + failed lease checks | 0 for losing callers | callers retry after the winning refresh |
+| Section feed / page render above the fold | 0 eBay-specific work | 0 | no feed joins and no server-rendered eBay lookup |
 
-Net: well under 0.1 % of the site's daily reads (todo Q9 carries the current figure). The
-external constraint is the eBay call budget, not D1.
+The hard ceiling is 4,000 on-demand Browse calls per UTC day. Actual spend is bounded by
+distinct products whose eBay panel reaches the viewport after their six-hour snapshot
+expires, not by page requests or catalog size.
 
 ### C6. Failure behaviour
 
-- No key → the action never fires and every panel renders the search link only.
-- Token mint failure → the tick logs `ebay_token_failed` and retries next tick; nothing is
-  marked failed until five consecutive search failures.
-- Ambiguous matches (query returns another card): the price guard removes most; the panel
-  shows the query string and the samples so a reader can judge, and the "eBay asks" number is
-  never blended into modeled fair value or signals (roadmap idea only, behind the harness).
+- Missing credentials → `503`; the panel keeps its ordinary search and sold-search links.
+- Token/auth failure → `503`; eBay rate limiting or the local daily ceiling → `429`; other
+  upstream failures → `502`. The UI exposes a retry control without substituting stale data.
+- Ambiguous matches remain inspectable through the query and samples. The price guard removes
+  obvious lots/proxies, and active asks never enter modeled fair value or signals.
 
 ## Tier D — sold comps without eBay's closed APIs
 
@@ -296,9 +281,11 @@ external constraint is the eBay call budget, not D1.
 |---|---|---|---|
 | A1–A5 links in hover charts + eBay search link | 16 | shipped `d7de3b9` (2026-09-05, production `ea6fdbaf`); tiles moved under the artwork with an eBay tile in `6e5e6f0` | — |
 | B affiliate tagging + disclosure | 16b | shipped: TCGplayer Impact links `2ffe444` (production `7132dd9e`), EPN Smart Links `6e5e6f0` (production `9f30fee8`) | — |
-| C1–C3 schema, client, rotation, cron policy, ops job | 17 | shipped `d7de3b9`; migration 0016 applied to production, staging, and local | eBay developer keyset (user) before the rotation writes; `PUBLISH_KEYS` entry then |
-| C4–C6 detail panel, hover tile, route | 17b | detail panel shipped `d7de3b9`; hover tile and `/api/ebay/listings` open | keyset, one full rotation observed |
+| C1–C3 original schema, client, rotation, ops job | 17 | shipped `d7de3b9`; migration 0016 applied to production, staging, and local; automatic rotation later superseded | — |
+| C3–C6 on-demand quota/lease, route, lazy image grid | 17b | implemented on `EnhancementTrial`; migration 0018 and production activation pending | validated deploy, migrate, attach Worker secrets, smoke-test one card and one sealed page |
 | D PPT tier | — | open | purchase decision (user, todo O4) |
 
-When the keyset lands: set the two secrets on production, watch the first
-`ebay-listings:<date>` run in `wrangler tail`, then add `ebay-listings` to `PUBLISH_KEYS`.
+Activation order: pass the full release gate, commit and push the exact source, deploy the
+Worker, apply migration 0018, attach the two production Worker secrets without echoing them,
+then smoke-test one card and one sealed product. Do not add `ebay-listings` to `PUBLISH_KEYS`:
+the no-store client island is intentionally independent of cached page HTML.

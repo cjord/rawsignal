@@ -270,8 +270,8 @@ export type CatalogDetailBase = {
   marketRankTotal: number | null;
   peerContext: DetailPeerContext | null;
   graded: GradedCardData | null;
-  // eBay active-listing snapshot (todo O2), attached by the D1 detail loader; absent on the
-  // bundled fallback and null for products the rotation has not reached.
+  // Legacy server-rendered eBay snapshot. New detail pages load this through the dedicated
+  // on-demand endpoint so page caching can never hold listing content past its hard TTL.
   ebay?: EbayListingSnapshot | null;
 };
 
@@ -340,16 +340,21 @@ export type EbayListingSample = {
   price: number;
   shipping: number | null;
   condition: string | null;
+  imageUrl: string | null;
   url: string;
 };
 
 export type EbayListingSnapshot = {
   query: string;
   categoryId: number | null;
+  // eBay's total result count precedes the local parser and price guard. acceptedCount is
+  // the number of records in the returned search page that survived both.
   listingCount: number;
+  acceptedCount: number;
   lowestAsk: number | null;
   medianAsk: number | null;
   samples: EbayListingSample[];
   fetchedAt: string;
+  expiresAt: string;
   updatedAt: string;
 };

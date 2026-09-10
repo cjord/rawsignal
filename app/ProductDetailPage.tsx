@@ -1,6 +1,6 @@
 "use client";
 /* eslint-disable @next/next/no-html-link-for-pages -- detail navigation preserves exact leaderboard URLs */
-import {useEffect,useState} from "react";
+import {useEffect,useRef,useState} from "react";
 import DeferredImage from "./DeferredImage";
 import {useArtTilt} from "./hooks/useArtTilt";
 import FavoriteStar from "./FavoriteStar";
@@ -21,7 +21,7 @@ import {ebaySearchUrl,tcgplayerAffiliateUrl} from "../core/domain/marketplace-li
 import {cardImageFallback} from "./data/card-images";
 import {demandTrend,drawdownFromPeak,historyDepth,MIN_PEER_OBSERVATIONS,modeledFairValue,momentum,peerAnchorValue,rangePosition,salesWindow,trendSlope,volatilityRange} from "../core/domain/detail-metrics";
 import {formatGameName,formatPercent,formatUsd,formatUtcDate} from "../core/domain/formatters";
-import type {CatalogDetail,DetailPeerContext,DetailPeerQuartiles,DetailPriceVariant,GradedCardData,PeerAnchorStats,PriceHistory,SealedDetail,SignalStrictness} from "../core/domain/types";
+import type {CatalogDetail,DetailPeerContext,DetailPeerQuartiles,DetailPriceVariant,EbayListingSnapshot,GradedCardData,PeerAnchorStats,PriceHistory,SealedDetail,SignalStrictness} from "../core/domain/types";
 
 const emptyHistory:PriceHistory={points:[],coverage:"none",change7:null,change30:null,change90:null,low30:null,high30:null,historyLow:null,historyHigh:null};
 const pct=(value:number|null)=>value==null?"N/A":formatPercent(value);
@@ -112,37 +112,44 @@ function FairValuePanel({history,loading,current,midPrice,kind,peerAnchor}:{hist
  </section>;
 }
 
-// eBay marketplace panel (todo O2), directly under the fair-value model: the product's
-// active asks from the daily Browse rotation (`ebay_listings`), the raw-card eBay sale price
-// the PokemonPriceTracker feed already carries as the sold data point, and the search links.
-// Asks are listing prices — labelled as such and never blended into fair value or signals.
-// Without a snapshot the panel is the two links and a note, so the product is still one
-// click from eBay. Affiliate tagging (O1) lives in core/domain/marketplace-links.ts and the
-// EPN Smart Links script the layout loads, not here.
-function EbayMarketPanel({detail,current}:{detail:CatalogDetail;current:number|null}){
+// eBay is deliberately a client-loaded island: the surrounding detail page may remain in the
+// edge cache for 36 hours, while listing content has a six-hour hard TTL. The request starts
+// only when this section approaches the viewport, so a page view that never reaches it costs
+// neither a D1 read nor an eBay call.
+function EbayMarketPanel({detail}:{detail:CatalogDetail}){
+ const host=useRef<HTMLElement>(null),[reload,setReload]=useState(0);
+ const [state,setState]=useState<{phase:"idle"|"loading"|"ready"|"error";snapshot:EbayListingSnapshot|null;message:string}>({phase:"idle",snapshot:null,message:""});
  const item={kind:detail.kind,name:detail.name,set:detail.set,number:detail.kind==="single"?detail.number:null,game:detail.game};
  const searchHref=ebaySearchUrl(item),soldHref=ebaySearchUrl(item,{sold:true});
- const ebay=detail.ebay??null;
- const rawSale=detail.kind==="single"&&detail.graded?detail.graded.grades["ungraded"]??null:null;
- const rawSalePrice=rawSale?(rawSale.smartPrice??rawSale.median):null;
- const versus=(value:number|null)=>value!=null&&current!=null&&current>0?<span>{formatPercent(((value-current)/current)*100)} vs TCGplayer market</span>:<span>TCGplayer market unavailable</span>;
+ useEffect(()=>{
+  const node=host.current;if(!node)return;
+  const controller=new AbortController();let timer:ReturnType<typeof setTimeout>|undefined,active=true;
+  const load=async(attempt=0)=>{if(!active)return;setState(previous=>({...previous,phase:"loading",message:""}));try{
+   const response=await fetch(`/api/ebay/listings?productId=${detail.productId}`,{signal:controller.signal,headers:{Accept:"application/json"}});
+   if(response.status===202&&attempt<3){timer=setTimeout(()=>void load(attempt+1),1000);return}
+   if(!response.ok){setState({phase:"error",snapshot:null,message:response.status===429?"The daily eBay refresh budget has been reached.":"Live listings are temporarily unavailable."});return}
+   const value=await response.json() as {snapshot?:EbayListingSnapshot};
+   setState(value.snapshot?{phase:"ready",snapshot:value.snapshot,message:""}:{phase:"error",snapshot:null,message:"No current listings were returned."});
+  }catch(error){if(!(error instanceof DOMException&&error.name==="AbortError"))setState({phase:"error",snapshot:null,message:"Live listings are temporarily unavailable."})}};
+  const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)){observer.disconnect();void load()}},{rootMargin:"320px"});
+  observer.observe(node);return()=>{active=false;controller.abort();observer.disconnect();if(timer)clearTimeout(timer)};
+ },[detail.productId,reload]);
+ const ebay=state.snapshot;
  const links=<div className="detail-actions ebay-actions"><a className="tcgplayer-button ebay-button" href={searchHref} target="_blank" rel="noopener noreferrer sponsored">Browse eBay listings ↗</a><a className="tcgplayer-button ebay-button" href={soldHref} target="_blank" rel="noopener noreferrer sponsored">eBay sold listings ↗</a></div>;
- const hasData=ebay!=null||rawSalePrice!=null;
- // Live listings: EPN's Smart Placement widget (option B) shipped here on 2026-09-09 and was
- // pulled the same day — ad blockers hide it, so most visitors saw nothing. The Browse-API
- // grid (option A, docs/ebay-integration-plan-2026-09.md) arrives with the developer keyset.
- return <section className="detail-section detail-ebay"><header><span>Marketplace</span><h2>eBay Listings</h2></header>
-  {hasData&&<div className="detail-history-grid detail-ev-grid">
-   <div className="detail-metric"><small>Lowest ask</small><b>{formatUsd(ebay?.lowestAsk??null,"N/A")}</b>{ebay?.lowestAsk!=null?versus(ebay.lowestAsk):<span>{ebay?`${ebay.listingCount} listing${ebay.listingCount===1?"":"s"} — too few to price`:"No snapshot yet"}</span>}</div>
-   <div className="detail-metric"><small>Median ask</small><b>{formatUsd(ebay?.medianAsk??null,"N/A")}</b>{ebay?.medianAsk!=null?versus(ebay.medianAsk):<span>Buy-it-now asks only</span>}</div>
-   <div className="detail-metric"><small>Active listings</small><b>{ebay?ebay.listingCount.toLocaleString():"N/A"}</b><span>{detail.kind==="single"?"Ungraded, buy-it-now":"New, buy-it-now"}{ebay?` · ${ebay.updatedAt}`:""}</span></div>
-   {rawSalePrice!=null&&rawSale&&<div className="detail-metric"><small>Recent sale (raw)</small><b>{formatUsd(rawSalePrice)}</b><span>{rawSale.count.toLocaleString()} eBay sale{rawSale.count===1?"":"s"} · PokemonPriceTracker{rawSale.lastSaleDate?` · ${rawSale.lastSaleDate.slice(0,10)}`:""}</span></div>}
+ const fetched=ebay?new Date(ebay.fetchedAt).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZone:"UTC",timeZoneName:"short"}):"";
+ return <section ref={host} className="detail-section detail-ebay" aria-busy={state.phase==="loading"||undefined}><header><span>Marketplace</span><h2>eBay Listings</h2></header>
+  {state.phase==="loading"&&<div className="ebay-loading" aria-live="polite"><span className="detail-skeleton"/><span>Loading current eBay listings…</span></div>}
+  {ebay&&<div className="detail-history-grid detail-ev-grid">
+   <div className="detail-metric"><small>Lowest ask</small><b>{formatUsd(ebay.lowestAsk,"N/A")}</b><span>{ebay.lowestAsk==null?"Too few matching asks to price":"Fixed-price ask"}</span></div>
+   <div className="detail-metric"><small>Median sampled ask</small><b>{formatUsd(ebay.medianAsk,"N/A")}</b><span>{ebay.acceptedCount.toLocaleString()} of the first 50 results matched</span></div>
+   <div className="detail-metric"><small>Search results</small><b>{ebay.listingCount.toLocaleString()}</b><span>{detail.kind==="single"?"Ungraded, fixed-price":"New, fixed-price"}</span></div>
   </div>}
-  {ebay!=null&&ebay.samples.length>0&&<div className="detail-table-scroll"><table className="detail-variants-table ebay-listings"><thead><tr><th scope="col">Listing</th><th scope="col">Ask</th><th scope="col">Shipping</th><th scope="col">Condition</th></tr></thead><tbody>
-   {ebay.samples.map(sample=><tr key={sample.itemId}><th scope="row"><a href={sample.url} target="_blank" rel="noopener noreferrer sponsored">{sample.title}</a></th><td>{formatUsd(sample.price)}</td><td>{sample.shipping==null?"—":sample.shipping===0?"Free":formatUsd(sample.shipping)}</td><td>{sample.condition??"—"}</td></tr>)}
-  </tbody></table></div>}
+  {ebay&&ebay.samples.length>0&&<div className="ebay-grid">{ebay.samples.map(sample=><a className="ebay-listing-card" href={sample.url} target="_blank" rel="noopener noreferrer sponsored" key={sample.itemId}>
+   <DeferredImage src={sample.imageUrl} alt="" className="ebay-listing-image"/><span className="ebay-listing-copy"><b>{sample.title}</b><span><strong>{formatUsd(sample.price)}</strong><small>{sample.shipping==null?"Shipping on eBay":sample.shipping===0?"Free shipping":`+ ${formatUsd(sample.shipping)} shipping`}</small></span><small>{sample.condition??"Condition unavailable"}</small></span>
+  </a>)}</div>}
+  {state.phase==="error"&&<p className="detail-unavailable ebay-status" aria-live="polite">{state.message} <button type="button" onClick={()=>setReload(value=>value+1)}>Try again</button></p>}
   {links}
-  <p className="detail-note">{ebay?<>eBay active listings via the Browse API · fetched {ebay.updatedAt} · asks are listing prices, not sales.</>:<>No eBay listing snapshot for this product yet.</>}{rawSalePrice!=null&&<> Raw sale price is eBay completed sales via PokemonPriceTracker.</>} Sold listings on eBay may ask you to sign in. Marketplace data — not a valuation guarantee.</p>
+  <p className="detail-note">{ebay?<>eBay active listings via the Browse API · fetched {fetched} · refreshed at least every six hours while displayed.</>:<>Listings load only when this section is viewed.</>} Prices are asks, not sales; shipping may vary by destination. Sold listings may require eBay sign-in. Marketplace data — not a valuation guarantee.</p>
  </section>;
 }
 
@@ -251,7 +258,7 @@ export default function ProductDetailPage({detail,market,serverTiming}:{detail:C
  const [artRef,artHandlers]=useArtTilt();
  return <><main className="detail-page" data-server-timing={serverTiming??undefined}><TopBar className="detail-topbar" active="cards" strictness={strictness} onStrictness={changeStrictness} actions={<button type="button" className="detail-back" onClick={backToResults}>← Back to results</button>}/><article className="detail-content"><nav className="detail-breadcrumb" aria-label="Breadcrumb"><a href="/">Market Rankings</a><span aria-hidden="true">/</span><a href={gameHref}>{formatGameName(marketKey)}</a><span aria-hidden="true">/</span><a href={setHref}>{detail.set}</a></nav><section className="detail-hero"><div ref={artRef} className="detail-art" {...artHandlers}><DeferredImage src={detail.image} fallback={detail.kind==="single"?cardImageFallback({game:detail.game,set:detail.set,number:detail.number}):null} alt={`${detail.name} ${detail.kind==="single"?"card":"product"}`}/></div><div className="detail-overview"><div className="detail-eyebrow"><span className="kicker">{detail.kind==="single"?`${detail.rarity} · ${detail.printing}`:`${detail.category} · Sealed product`}</span><FavoriteStar entry={{key:favoriteKey(detail.kind,detail.productId),kind:detail.kind,game:detail.game,productId:detail.productId,name:detail.name,set:detail.set,number:detail.kind==="single"?detail.number:null,section:detail.kind==="single"?detail.section:null,image:detail.image,price:current??null,addedAt:new Date().toISOString()}}/></div><h1>{detail.name}</h1><p>{detail.set}{detail.kind==="single"?` · ${detail.number}`:""}</p><div className="detail-actions"><a className="tcgplayer-button" href={tcgplayerAffiliateUrl(detail.url)} target="_blank" rel="noopener noreferrer sponsored">{detail.exactTcgplayerUrl?"View":"Search"} on TCGplayer ↗</a><a className="tcgplayer-button pricecharting-button" href={`https://www.pricecharting.com/search-products?type=prices&q=${encodeURIComponent(`${detail.name} ${detail.set}`)}`} target="_blank" rel="noopener noreferrer">PriceCharting ↗</a><a className="tcgplayer-button ebay-button" href={ebaySearchUrl({kind:detail.kind,name:detail.name,set:detail.set,number:detail.kind==="single"?detail.number:null,game:detail.game})} target="_blank" rel="noopener noreferrer sponsored">eBay ↗</a></div><div className="detail-primary-price"><small>TCGplayer market</small><strong>{formatUsd(current,"N/A")}</strong>{(()=>{const sold30=h.sales?.buckets?.length?salesWindow(h.sales.buckets,30).quantity:null;return sold30==null?null:<span className={sold30<5?"detail-liquidity thin":"detail-liquidity"} title="Completed TCGplayer sales in the trailing 30 days for this printing and condition">{sold30<5?`Thin market · ${sold30} sold/30D`:`${sold30.toLocaleString()} sold/30D`}</span>})()}</div><div className="detail-overview-grid"><Metric label="Listing low" value={formatUsd(variant?.lowPrice,"N/A")}/><Metric label="Median" value={formatUsd(variant?.midPrice,"N/A")}/>{detail.kind==="sealed"&&<Metric label="MSRP" value={formatUsd(detail.msrp,"N/A")} hint={detail.msrpSource??"Unavailable"}/>}{detail.kind==="sealed"&&detail.caseUnit&&<Metric label="Case vs unit" value={`${detail.caseUnit.multiple.toFixed(1)}×`} hint={`${detail.caseUnit.name} at ${formatUsd(detail.caseUnit.marketPrice)}`} info="The case's market price as a multiple of its unit product. Case sizes vary by product, so compare this multiple against the count on the case listing."/>}<Metric label="Market rank" value={detail.marketRank?`#${detail.marketRank} of ${detail.marketRankTotal}`:"N/A"} hint={rankPct?`Top ${100-rankPct+1}% of peers`:undefined}/>{detail.kind==="single"&&detail.pullRate&&<Metric label="Pull rate" value={`1 in ~${Math.round(detail.pullRate.packsPerCard).toLocaleString()} packs`} hint={detail.pullRate.costPerCard!=null?`≈${formatUsd(detail.pullRate.costPerCard)} in packs · community estimate`:"Community estimate"}/>}</div><PeerContextNote detail={detail} cardChange30={h.change30}/></div></section>
  <FairValuePanel history={historyData} loading={!historyData&&!historyError} current={current} midPrice={variant?.midPrice??null} kind={detail.kind} peerAnchor={detail.kind==="single"?detail.peerAnchor:null}/>
- <EbayMarketPanel detail={detail} current={current}/>
+ <EbayMarketPanel detail={detail}/>
  <PriceHistorySection detail={detail} variant={variant} onVariant={setVariant} historyData={historyData} historyError={historyError} h={h} current={current} printing={printing} depth={depth} position={position}/>
  <EarlyValuePanel detail={detail} current={current}/>
  <SignalsPanel history={historyData} loading={!historyData&&!historyError} current={current} strictness={strictness}/>

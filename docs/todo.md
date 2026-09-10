@@ -28,7 +28,7 @@ falls into three tiers:
    audit; §M11 the per-run work-list cache (free tidy-up).
 3. **Larger phases, in recommended order:** §L2 One Piece curated chase singles (the one
    catalog expansion that fits the cron budget and unlocks OP import matching); §O2's
-   Browse-API listings grid (blocked on the eBay developer keyset — user action);
+   Browse-API listings grid (implemented on `EnhancementTrial`; validated activation pending);
    §I.1 large-grid phone treatment; §J1 sets sort control (after usage data); §M7/§M8
    category registry + game-check widening (do together with the next new game).
 
@@ -233,16 +233,19 @@ reads), tier B affiliate tags, tier C Browse-API active-listing rotation (`ebay_
 ≤ 1,500 calls/day, +1 row per detail view and per first hover reveal), tier D sold comps via
 the PokemonPriceTracker tier. eBay sold data itself is closed to us (Marketplace Insights is
 a limited release; the public sold search went behind a login in late August 2026).*
-*Implemented 2026-09-05 (`d7de3b9`, production `ea6fdbaf`): tiers A and C. Product pages carry an "eBay
-Listings" panel under Modeled Fair Value (`EbayMarketPanel`): lowest/median ask and the
-active-listing count from `ebay_listings` (migration 0016, `db/ebay-ingestion.ts` rotation,
-cron action `ebay` on idle ticks, ops job `ebay`), the raw eBay sale price PokemonPriceTracker
-already supplies as the sold data point, up to five sample listings, and the search/sold
-links; the hero gains an eBay button. Needs the user's eBay developer keyset as the
-`EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET` secrets before the rotation fills the table; until
-then the panel is the links and a note. Tier B (affiliate tagging) shipped 2026-09-09 under O1
-(completed doc). Still open here: the Browse-API listings grid (plan option A) and the hover
-asks tile once the keyset lands, and adding `ebay-listings` to the publish signature then.*
+*Implemented 2026-09-05 (`d7de3b9`, production `ea6fdbaf`): the initial `ebay_listings`
+snapshot table, Browse client, detail panel, manual ops rotation, hero/search/sold links,
+and the separate PokemonPriceTracker raw-sale display. Tier B affiliate tagging shipped
+2026-09-09 under O1 (completed doc). The original daily catalog rotation is superseded: a
+multi-day sweep does not satisfy eBay's six-hour freshness rule.*
+
+*Implementation begun 2026-09-10 on `EnhancementTrial`: plan option A now uses a lazy
+`/api/ebay/listings` request on card and sealed detail pages, a six-hour D1 snapshot, an
+atomic 4,000-call daily interactive budget, a per-product request lease, and a responsive
+image grid. Production cron no longer dispatches eBay. Migration 0018 and the Worker secrets
+must be applied with the validated deployment before this becomes live. The hover asks tile
+remains a later enhancement; `ebay-listings` does not belong in the page publish signature
+because the no-store client island is independent of the cached page.*
 
 **O4. PokemonPriceTracker paid tier (sold comps, eBay plan tier D).** The ~$9.99/mo tier
 lifts the free tier's 100-credit ceiling so the graded/raw-sale rotation covers the pool
