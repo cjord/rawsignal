@@ -196,17 +196,17 @@ CREATE TABLE `ebay_listings` (
   `listing_count` integer NOT NULL,          -- eBay's `total` for the filtered search
   `lowest_cents` integer,                    -- lowest fixed-price ask inside the price guard
   `median_cents` integer,                    -- median of the returned asks (≤ 50)
-  `samples_json` text NOT NULL DEFAULT '[]', -- up to 5 {itemId,title,cents,url,shipping,condition} for the panel (shipped as EBAY_SAMPLE_COUNT = 5)
+  `samples_json` text NOT NULL DEFAULT '[]', -- up to 50 normalized listings from the first Browse page
   `fetched_at`   text NOT NULL,
   `updated_at`   text NOT NULL               -- YYYY-MM-DD, the rotation's staleness key
 );
 CREATE INDEX `idx_ebay_listings_updated` ON `ebay_listings` (`updated_at`);
 ```
 
-Aggregates plus three sample items, not full listing payloads: keeps the row ≈ 1 KB (7,600
-rows ≈ 8 MB) and stays well inside eBay's API licence on caching listing content (*flag:*
-confirm the retention terms in the licence before storing samples for more than a day; if
-they forbid it, store aggregates only).
+Aggregates plus the normalized first Browse page, not full listing payloads. The larger JSON
+row is the storage/response-size tradeoff that makes pagination free of additional eBay
+calls. Snapshots expire after six hours; confirm any future retention-policy change against
+eBay's API licence before extending that lifetime.
 
 ### C2. Client — `core/clients/ebay-browse.ts` (fetch) + `core/ebay-summary.ts` (pure)
 
@@ -248,10 +248,11 @@ they forbid it, store aggregates only).
   retry interval when another request owns the lease, `429` at the local daily ceiling, and
   an honest unavailable response on configuration or upstream failure. It never returns an
   expired snapshot.
-- The responsive grid renders up to five image cards with title, ask, shipping, condition,
-  and the eBay-provided affiliate URL. Aggregate lowest/median asks require at least three
-  accepted results. The UI identifies the total result count, accepted sample count, exact
-  UTC fetch time, six-hour lifetime, and asks-not-sales limitation.
+- The responsive grid retains up to 50 image cards with title, ask, shipping, condition,
+  and the eBay-provided affiliate URL. It paginates the cached array at five per desktop page
+  and three per mobile page. Aggregate lowest/median asks require at least three accepted
+  results. The UI identifies the total result count, accepted sample count, exact UTC fetch
+  time, six-hour lifetime, and asks-not-sales limitation.
 - Hover and board eBay figures remain deferred. A batch endpoint is unnecessary until such a
   surface is approved.
 
@@ -260,7 +261,8 @@ they forbid it, store aggregates only).
 | Event | D1 work | eBay calls | Notes |
 |---|---|---|---|
 | Detail grid inside six hours | one snapshot PK read | 0 | page HTML remains independently cacheable |
-| First stale detail grid | snapshot + target + quota/lease checks; one snapshot write | 1 | one call supplies aggregates and five cards |
+| First stale detail grid | snapshot + target + quota/lease checks; one snapshot write | 1 | one call supplies aggregates and up to 50 pageable cards |
+| Listing-grid page change | 0 | 0 | slices the cached first Browse page in the browser |
 | Concurrent stale views of one product | snapshot + failed lease checks | 0 for losing callers | callers retry after the winning refresh |
 | Section feed / page render above the fold | 0 eBay-specific work | 0 | no feed joins and no server-rendered eBay lookup |
 
@@ -276,13 +278,12 @@ expires, not by page requests or catalog size.
 - Ambiguous matches remain inspectable through the query and samples. The price guard removes
   obvious lots/proxies, and active asks never enter modeled fair value or signals.
 
-## Tier D — sold comps without eBay's closed APIs
+## Tier D — sold comps without eBay's closed APIs (superseded)
 
-- Upgrade PokemonPriceTracker (todo O4) and widen `runGradedRotationBatch`'s pool from 600
-  toward the ≥ $20 singles pool; the detail page already renders the raw eBay sale price from
-  `graded_prices.grades_json.ungraded`.
-- Optionally surface that "Raw (eBay) sold" value as a hover tile for covered cards: +1 PK row
-  per first reveal, same route pattern as C4 (or the same route, returning both blocks).
+- Do not upgrade PokemonPriceTracker. Its partial graded/raw completed-sale path is scheduled
+  for rollback-safe removal under `pokemonpricetracker-removal-plan-2026-09.md`.
+- Keep eBay Browse data strictly as active asks. Do not relabel it as sold comps or feed it
+  into modeled fair value and signals.
 - Do not build: sold-page scraping, logged-in session automation, third-party "sold API"
   resellers (they are one of the three things the login-wall report describes).
 

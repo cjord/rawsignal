@@ -124,6 +124,9 @@ test("opens a row's hover chart with TCGplayer and eBay link tiles under the art
 });
 
 test("swaps a Pokémon card image to its TCGdex scan when the TCGplayer image fails",async({page})=>{
+ const svgImage=(width:number,height:number)=>`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"></svg>`;
+ await page.route("https://tcgplayer-cdn.tcgplayer.com/**",route=>route.fulfill({status:200,contentType:"image/svg+xml",body:svgImage(route.request().url().includes("/product/0_")?400:2,route.request().url().includes("/product/0_")?570:3)}));
+ await page.route("https://assets.tcgdex.net/**",route=>route.fulfill({status:200,contentType:"image/svg+xml",body:svgImage(2,3)}));
  await page.goto(singlesUrl);
  await waitForApp(page);
  const image=page.locator(".leader-row .identity img").first();
@@ -136,10 +139,29 @@ test("swaps a Pokémon card image to its TCGdex scan when the TCGplayer image fa
 });
 
 test("configures eBay Smart Links with the site campaign and no popover",async({page})=>{
+ await page.route("https://epnt.ebay.com/static/epn-smart-tools.js",route=>route.fulfill({status:200,contentType:"application/javascript",body:"window._epn=window._epn||{};window._epn.toolId=10001;"}));
  await page.goto(singlesUrl);
  await waitForApp(page);
  // The loaded EPN script adds its own fields (toolId) to the config object, which proves it ran.
  await expect.poll(()=>page.evaluate(()=>(window as unknown as {_epn?:{campaign?:number;smartPopover?:boolean}})._epn)).toMatchObject({campaign:5339205908,smartPopover:false});
  await expect.poll(()=>page.evaluate(()=>(window as unknown as {_epn?:{toolId?:number}})._epn?.toolId)).toBeTruthy();
  await expect(page.locator('script[src="https://epnt.ebay.com/static/epn-smart-tools.js"]')).toHaveCount(1);
+});
+
+test("paginates cached eBay results five-up on desktop and three-up on mobile",async({page})=>{
+ const samples=Array.from({length:12},(_,index)=>({itemId:`v1|${index+1}|0`,title:`Listing ${index+1}`,price:20+index,shipping:index%2?4.5:0,condition:"Ungraded",imageUrl:null,url:`https://www.ebay.com/itm/${index+1}`}));
+ await page.route("**/api/ebay/listings?productId=*",route=>route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({snapshot:{query:"fixture",categoryId:183454,listingCount:42,acceptedCount:12,lowestAsk:20,medianAsk:25.5,samples,fetchedAt:"2026-09-10T12:00:00.000Z",expiresAt:"2026-09-10T18:00:00.000Z",updatedAt:"2026-09-10"}})}));
+ await page.goto(singlesUrl);await waitForApp(page);
+ const detailHref=await page.locator('a[href^="/cards/"]').first().getAttribute("href");
+ expect(detailHref).toBeTruthy();await page.goto(detailHref!);await expect(page.locator(".detail-page")).toBeVisible();
+ await page.locator(".detail-ebay").scrollIntoViewIfNeeded();
+ await expect(page.locator(".ebay-listing-card")).toHaveCount(5);
+ await expect(page.getByText("Showing 1–5 of 12 matched listings")).toBeVisible();
+ await page.setViewportSize({width:390,height:844});
+ await expect(page.locator(".ebay-listing-card")).toHaveCount(3);
+ await expect(page.getByText("Showing 1–3 of 12 matched listings")).toBeVisible();
+ await page.getByRole("navigation",{name:"eBay listing pages"}).getByRole("button",{name:"Next →"}).click();
+ await expect(page.locator(".ebay-listing-card")).toHaveCount(3);
+ await expect(page.getByText("Showing 4–6 of 12 matched listings")).toBeVisible();
+ await expect(page.locator(".ebay-listing-card").first()).toHaveAttribute("href","https://www.ebay.com/itm/4");
 });

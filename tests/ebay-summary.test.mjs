@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {EBAY_MIN_LISTINGS,parseEbayListing,priceGuard,summarizeEbayListings} from "../core/ebay-summary.ts";
+import {EBAY_MIN_LISTINGS,EBAY_SAMPLE_COUNT,parseEbayListing,priceGuard,summarizeEbayListings} from "../core/ebay-summary.ts";
 import {ebayAffiliateUrl} from "../core/domain/marketplace-links.ts";
 
 const listing=(itemId,price,overrides={})=>({itemId,title:`Listing ${itemId}`,price:{value:String(price),currency:"USD"},condition:"Ungraded",itemWebUrl:`https://www.ebay.com/itm/${itemId}`,image:{imageUrl:`https://i.ebayimg.com/images/g/${itemId}/s-l500.jpg`},buyingOptions:["FIXED_PRICE"],shippingOptions:[{shippingCost:{value:"4.50",currency:"USD"}}],...overrides});
@@ -38,6 +38,15 @@ test("the summary keeps guarded asks sorted, reports the lowest and median, and 
  // An odd survivor count takes the middle ask; the total never reads below the survivors.
  assert.equal(summarizeEbayListings([listing("a",31),listing("b",25),listing("c",40)],null,{market:30}).medianAsk,31);
  assert.equal(summarizeEbayListings([listing("a",31),listing("b",25),listing("c",40)],1,{market:30}).listingCount,3);
+});
+
+test("the default sample keeps the full first Browse page for zero-call client pagination",()=>{
+ const items=Array.from({length:55},(_,index)=>listing(String(index+1),25+index/10));
+ const summary=summarizeEbayListings(items,55,{market:30});
+ assert.equal(EBAY_SAMPLE_COUNT,50);
+ assert.equal(summary.acceptedCount,55);
+ assert.equal(summary.samples.length,50);
+ assert.deepEqual(summary.samples.slice(-2).map(sample=>sample.itemId),["49","50"]);
 });
 
 test("fewer than three surviving listings is not a market: count only, asks unavailable",()=>{

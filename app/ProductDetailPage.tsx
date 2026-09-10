@@ -11,6 +11,7 @@ import {parseStrictness,STRICTNESS_KEY,usePreference} from "./state/usePreferenc
 import PriceChart from "./PriceChart";
 import TopBar from "./TopBar";
 import SiteFooter from "./SiteFooter";
+import {NumberedPagination} from "./MarketUI";
 import {ChaseCardsSection,RelatedSealedSection} from "./detail-tables";
 import {evaluateMarketSignal} from "../core/signal-utils";
 import {classifyRegime} from "../core/domain/regime";
@@ -116,8 +117,22 @@ function FairValuePanel({history,loading,current,midPrice,kind,peerAnchor}:{hist
 // edge cache for 36 hours, while listing content has a six-hour hard TTL. The request starts
 // only when this section approaches the viewport, so a page view that never reaches it costs
 // neither a D1 read nor an eBay call.
+const EBAY_DESKTOP_PAGE_SIZE=5;
+const EBAY_MOBILE_PAGE_SIZE=3;
+const EBAY_MOBILE_QUERY="(max-width: 759px)";
+
+function useEbayPageSize(){
+ const [pageSize,setPageSize]=useState(EBAY_DESKTOP_PAGE_SIZE);
+ useEffect(()=>{
+  const query=window.matchMedia(EBAY_MOBILE_QUERY),sync=()=>setPageSize(query.matches?EBAY_MOBILE_PAGE_SIZE:EBAY_DESKTOP_PAGE_SIZE);
+  sync();query.addEventListener("change",sync);return()=>query.removeEventListener("change",sync);
+ },[]);
+ return pageSize;
+}
+
 function EbayMarketPanel({detail}:{detail:CatalogDetail}){
- const host=useRef<HTMLElement>(null),[reload,setReload]=useState(0);
+ const host=useRef<HTMLElement>(null),grid=useRef<HTMLDivElement>(null),[reload,setReload]=useState(0),[pagination,setPagination]=useState({key:"",page:1});
+ const pageSize=useEbayPageSize();
  const [state,setState]=useState<{phase:"idle"|"loading"|"ready"|"error";snapshot:EbayListingSnapshot|null;message:string}>({phase:"idle",snapshot:null,message:""});
  const item={kind:detail.kind,name:detail.name,set:detail.set,number:detail.kind==="single"?detail.number:null,game:detail.game,section:detail.kind==="single"?detail.section:null};
  const searchHref=ebaySearchUrl(item),soldHref=ebaySearchUrl(item,{sold:true});
@@ -135,6 +150,9 @@ function EbayMarketPanel({detail}:{detail:CatalogDetail}){
   observer.observe(node);return()=>{active=false;controller.abort();observer.disconnect();if(timer)clearTimeout(timer)};
  },[detail.productId,reload]);
  const ebay=state.snapshot;
+ const pageKey=`${detail.productId}:${ebay?.fetchedAt??""}:${pageSize}`,requestedPage=pagination.key===pageKey?pagination.page:1;
+ const samples=ebay?.samples??[],pages=Math.max(1,Math.ceil(samples.length/pageSize)),safePage=Math.min(requestedPage,pages),start=(safePage-1)*pageSize,pageSamples=samples.slice(start,start+pageSize);
+ const changePage=(next:number)=>{setPagination({key:pageKey,page:next});requestAnimationFrame(()=>grid.current?.scrollIntoView({block:"start",behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"}))};
  const links=<div className="detail-actions ebay-actions"><a className="tcgplayer-button ebay-button" href={searchHref} target="_blank" rel="noopener noreferrer sponsored">Browse eBay listings ↗</a><a className="tcgplayer-button ebay-button" href={soldHref} target="_blank" rel="noopener noreferrer sponsored">eBay sold listings ↗</a></div>;
  const fetched=ebay?new Date(ebay.fetchedAt).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZone:"UTC",timeZoneName:"short"}):"";
  return <section ref={host} className="detail-section detail-ebay" aria-busy={state.phase==="loading"||undefined}><header><span>Marketplace</span><h2>eBay Listings</h2></header>
@@ -144,9 +162,9 @@ function EbayMarketPanel({detail}:{detail:CatalogDetail}){
    <div className="detail-metric"><small>Median sampled ask</small><b>{formatUsd(ebay.medianAsk,"N/A")}</b><span>{ebay.acceptedCount.toLocaleString()} of the first 50 results matched</span></div>
    <div className="detail-metric"><small>Search results</small><b>{ebay.listingCount.toLocaleString()}</b><span>{detail.kind==="single"?"Ungraded, fixed-price":"New, fixed-price"}</span></div>
   </div>}
-  {ebay&&ebay.samples.length>0&&<div className="ebay-grid">{ebay.samples.map(sample=><a className="ebay-listing-card" href={sample.url} target="_blank" rel="noopener noreferrer sponsored" key={sample.itemId}>
+  {samples.length>0&&<div className="ebay-results"><div ref={grid} className="ebay-grid">{pageSamples.map(sample=><a className="ebay-listing-card" href={sample.url} target="_blank" rel="noopener noreferrer sponsored" key={sample.itemId}>
    <DeferredImage src={sample.imageUrl} alt="" className="ebay-listing-image"/><span className="ebay-listing-copy"><b>{sample.title}</b><span><strong>{formatUsd(sample.price)}</strong><small>{sample.shipping==null?"Shipping on eBay":sample.shipping===0?"Free shipping":`+ ${formatUsd(sample.shipping)} shipping`}</small></span><small>{sample.condition??"Condition unavailable"}</small></span>
-  </a>)}</div>}
+  </a>)}</div>{pages>1&&<div className="ebay-results-pagination"><p aria-live="polite">Showing {start+1}–{Math.min(start+pageSize,samples.length)} of {samples.length} matched listings</p><NumberedPagination page={safePage} pages={pages} onChange={changePage} label="eBay listing pages"/></div>}</div>}
   {state.phase==="error"&&<p className="detail-unavailable ebay-status" aria-live="polite">{state.message} <button type="button" onClick={()=>setReload(value=>value+1)}>Try again</button></p>}
   {links}
   <p className="detail-note">{ebay?<>eBay active listings via the Browse API · fetched {fetched} · refreshed at least every six hours while displayed.</>:<>Listings load only when this section is viewed.</>} Prices are asks, not sales; shipping may vary by destination. Sold listings may require eBay sign-in. Marketplace data — not a valuation guarantee.</p>

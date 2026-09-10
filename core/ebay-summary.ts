@@ -12,7 +12,9 @@ export type EbayListingSummary={listingCount:number;acceptedCount:number;lowestA
 // otherwise set the low ask; below three survivors the asks are not a market and read N/A.
 export const EBAY_PRICE_GUARD={min:0.25,max:4} as const;
 export const EBAY_MIN_LISTINGS=3;
-export const EBAY_SAMPLE_COUNT=5;
+// The Browse request already returns at most 50 item summaries. Retaining that same page lets
+// the detail UI paginate locally without spending another eBay call.
+export const EBAY_SAMPLE_COUNT=50;
 
 const record=(value:unknown):value is Record<string,unknown>=>typeof value==="object"&&value!==null;
 const money=(value:unknown):number|null=>{

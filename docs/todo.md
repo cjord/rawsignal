@@ -242,7 +242,9 @@ multi-day sweep does not satisfy eBay's six-hour freshness rule.*
 *Implementation begun 2026-09-10 on `EnhancementTrial`: plan option A now uses a lazy
 `/api/ebay/listings` request on card and sealed detail pages, a six-hour D1 snapshot, an
 atomic 4,000-call daily interactive budget, a per-product request lease, and a responsive
-image grid. Production cron no longer dispatches eBay. Migration 0018 and the Worker secrets
+image grid. The same first Browse page retains up to 50 cards and paginates locally at five
+per desktop page or three per mobile page; changing pages spends no eBay calls. Production
+cron no longer dispatches eBay. Migration 0018 and the Worker secrets
 must be applied with the validated deployment before this becomes live. The hover asks tile
 remains a later enhancement; `ebay-listings` does not belong in the page publish signature
 because the no-store client island is independent of the cached page.*
@@ -252,11 +254,11 @@ notifications against eBay's one-hour-cached ECC public key. Activation still re
 production verification-token secret, an exact-path Cloudflare managed-challenge exception,
 deployment, and eBay's test notification.*
 
-**O4. PokemonPriceTracker paid tier (sold comps, eBay plan tier D).** The ~$9.99/mo tier
-lifts the free tier's 100-credit ceiling so the graded/raw-sale rotation covers the pool
-daily instead of every ~9 days, and "Raw (eBay)" could surface in the hover for covered
-cards. Purchase decision (user); config only once bought. Previously cited as "todo R3" in
-`docs/ebay-integration-plan-2026-09.md`; R3 is the sealed-series fix (completed doc).
+**O4. Remove PokemonPriceTracker.** Do not upgrade the provider tier. Retire its graded and
+raw completed-sale path in rollback-safe phases: remove presentation/reads, stop scheduled
+collection and its secret, then remove the bundled fallback and finally drop the D1 table
+after a production soak. Active eBay Browse asks are not a replacement for completed sales.
+Plan and acceptance gate: `docs/pokemonpricetracker-removal-plan-2026-09.md`.
 
 ## P. Signal-model evolution (planned 2026-09-01; from docs/buy-sell-estimation-research.md §15)
 

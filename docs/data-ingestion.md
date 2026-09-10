@@ -81,7 +81,9 @@ token is minted with the client-credentials grant and cached per Worker isolate.
   aggregate asks remain unavailable. Samples include an HTTPS image, title, condition, price,
   shipping, and the affiliate item URL. The Browse request carries eBay's EPN campaign and
   per-product reference header; eBay's `itemAffiliateWebUrl` wins, while a response that only
-  carries `itemWebUrl` is tagged directly before storage.
+  carries `itemWebUrl` is tagged directly before storage. Up to all 50 accepted items from
+  that same response are retained; the detail page paginates the cached array locally at five
+  per desktop page and three per mobile page, with no Browse call on a page change.
 - **Configuration.** `EBAY_CLIENT_ID` and `EBAY_CLIENT_SECRET` are Worker secrets, never vars
   or repository files. The eBay Dev ID is not used by the Browse client-credentials flow.
   Optional var `EBAY_EPN_CAMPAIGN_ID` can override the published campaign id; otherwise the

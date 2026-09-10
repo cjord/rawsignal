@@ -78,6 +78,11 @@ Defined in `app/styles/tokens.css` (dimensions/motion/stacking) and `app/globals
   static under reduced motion; wrappers are `aria-hidden` with `aria-busy` on the section.
   Route-level `loading.tsx` stays banned (vinext) — skeletons are always in-page. (The ban
   is convention since `rendered-html.test.mjs` retired; no test pins it today.)
+- **eBay listing grid** (`.ebay-grid`): cards keep contained listing art above compact title,
+  ask, shipping, and condition copy. Retain the first Browse response and paginate it with
+  the shared numbered control: five cards per desktop page, three per mobile page. The
+  visible range and total stay exposed as live text; page changes scroll back to the grid
+  and respect reduced motion.
 - **Settings menu** (`.settings-menu`): 230–260px panel, section titles via
   `.settings-section-title`, controls full-width. Device preferences (theme, font size,
   signal strictness, scalper mode) live here — persisted in `localStorage` with
