@@ -134,7 +134,6 @@ function useEbayPageSize(){
 type EbayResultFilter="all"|"free-shipping"|"best-offer"|"top-rated"|"high-confidence"|"under-market";
 type EbayResultSort="delivered"|"price"|"watchers"|"newest";
 const ebayDelivered=(sample:EbayListingSample)=>sample.deliveredPrice??(sample.shipping==null?null:Math.round((sample.price+sample.shipping)*100)/100);
-const ebayShare=(count:number,total:number)=>total?`${Math.round(count/total*100)}%`:"N/A";
 const signedCount=(value:number|null)=>value==null?"N/A":`${value>0?"+":""}${value.toLocaleString()}`;
 const listingAge=(sample:EbayListingSample,fetchedAt:string)=>{
  const listed=Date.parse(sample.listedAt??""),fetched=Date.parse(fetchedAt);
@@ -172,8 +171,6 @@ function EbaySnapshotMetrics({ebay,market,kind}:{ebay:EbayListingSnapshot;market
   <Metric label="eBay result estimate" value={ebay.listingCount.toLocaleString()} hint={kind==="single"?"Ungraded, fixed-price query":"New, fixed-price query"}/>
   <Metric label="Delivered spread" value={ebay.deliveredQ1!=null&&ebay.deliveredQ3!=null?`${formatUsd(ebay.deliveredQ1)}–${formatUsd(ebay.deliveredQ3)}`:"N/A"} hint="Middle 50% of matched shown totals"/>
   <Metric label="Near TCGplayer" value={ebay.nearMarketCount.toLocaleString()} hint={`Within ±10% · ${ebay.belowMarketCount.toLocaleString()} below market`}/>
-  <Metric label="Free shipping" value={ebayShare(ebay.freeShippingCount,ebay.acceptedCount)} hint={`${ebay.freeShippingCount.toLocaleString()} matched listings`}/>
-  <Metric label="Best Offer" value={ebayShare(ebay.bestOfferCount,ebay.acceptedCount)} hint={`${ebay.highConfidenceCount.toLocaleString()} high-confidence matches`}/>
  </div>;
 }
 

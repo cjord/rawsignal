@@ -157,6 +157,9 @@ test("paginates cached eBay results five-up on desktop and three-up on mobile",a
  expect(detailHref).toBeTruthy();await page.goto(`${detailHref}?e2e=ebay-pagination`);await expect(page.locator(".detail-page")).toBeVisible();
  await page.locator(".detail-ebay").scrollIntoViewIfNeeded();
  await expect(page.locator(".ebay-listing-card")).toHaveCount(5);
+ await expect(page.locator(".detail-ebay > .detail-ev-grid .detail-metric")).toHaveCount(6);
+ await expect(page.locator(".detail-ebay > .detail-ev-grid .detail-metric",{hasText:"Free shipping"})).toHaveCount(0);
+ await expect(page.locator(".detail-ebay > .detail-ev-grid .detail-metric",{hasText:"Best Offer"})).toHaveCount(0);
  await expect(page.getByText("Showing 1–5 of 12 filtered listings")).toBeVisible();
  await expect(page.getByText("Delivered ask (7D)")).toBeVisible();
  await page.getByLabel("Filter listings").selectOption("free-shipping");
