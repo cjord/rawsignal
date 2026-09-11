@@ -49,7 +49,8 @@ Defined in `app/styles/tokens.css` (dimensions/motion/stacking) and `app/globals
   (~25px, tight tracking) + optional right-aligned control (`margin-left:auto`).
 - **Metric tile** (`.detail-metric`, `.history-stats > span`, `.full-prices > span`):
   `--control`/`--soft` fill, 1px border, 8–11px radius, uppercase micro-label + mono value
-  (+ optional muted hint). Tone classes `.up`/`.down` color the value only.
+  (+ optional muted hint). Tone classes `.up`/`.down` color the value and lightly tint the
+  tile border/fill; mobile in-flow popups preserve the same treatment for every market.
 - **Chip/pill**: 999px radius, 1px border, `--control` fill; active/positive states tint via
   `color-mix` with the accent at 10–15% — tint the fill, don't swap to solid color blocks.
 - **Regime chip** (`.regime-chip`): the chip anatomy carrying a market-regime label —

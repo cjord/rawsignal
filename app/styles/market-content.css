@@ -199,6 +199,28 @@
     background: var(--soft);
   }
 
+  .market-row-shell[open] .history-stats > span:has(b.up) {
+    border-color: color-mix(in srgb, var(--tone-up) 30%, var(--line));
+    background: color-mix(in srgb, var(--tone-up) 6%, var(--control));
+  }
+
+  .market-row-shell[open] .history-stats > span:has(b.down) {
+    border-color: color-mix(in srgb, var(--tone-down) 30%, var(--line));
+    background: color-mix(in srgb, var(--tone-down) 6%, var(--control));
+  }
+
+  .market-row-shell[open] .history-stats small {
+    color: var(--gray);
+    font-size: var(--text-2xs);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  .market-row-shell[open] .history-stats b {
+    margin-top: 3px;
+    font: 750 1.0625rem var(--font-mono);
+  }
+
   .view-large .market-row-shell[open] .hover-card .history-panel {
     display: flex !important;
     flex-direction: column !important;

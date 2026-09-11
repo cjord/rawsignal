@@ -123,6 +123,38 @@ test("opens a row's hover chart with TCGplayer and eBay link tiles under the art
  await expect(ebay).toHaveAttribute("rel",/sponsored/);
 });
 
+test("matches card and sealed metric typography and tone tiles in mobile popups",async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.goto(singlesUrl);await waitForApp(page);
+ const openPopup=async(requireDown=false)=>{
+  let rows=page.locator(".market-row-shell").filter({has:page.locator(".history-stats b.up")});
+  if(requireDown)rows=rows.filter({has:page.locator(".history-stats b.down")});
+  const row=rows.first();
+  await row.evaluate(element=>{(element as HTMLDetailsElement).open=true});await expect(row).toHaveAttribute("open","");
+  const label=row.locator(".history-stats small").first(),value=row.locator(".history-stats b").first();
+  const upTile=row.locator(".history-stats > span").filter({has:page.locator("b.up")}).first();
+  const neutralTile=row.locator(".history-stats > span").filter({has:page.locator("b:not(.up):not(.down)")}).first();
+  await expect(label).toHaveCSS("text-transform","uppercase");
+  const styles=await page.evaluate(([labelElement,valueElement,upElement,neutralElement])=>{
+   const labelStyle=getComputedStyle(labelElement),valueStyle=getComputedStyle(valueElement),upStyle=getComputedStyle(upElement),neutralStyle=getComputedStyle(neutralElement);
+   return {labelFont:labelStyle.font,labelSpacing:labelStyle.letterSpacing,valueFont:valueStyle.font,upBackground:upStyle.backgroundColor,upBorder:upStyle.borderColor,neutralBackground:neutralStyle.backgroundColor,neutralBorder:neutralStyle.borderColor};
+  },[await label.elementHandle(),await value.elementHandle(),await upTile.elementHandle(),await neutralTile.elementHandle()]);
+  expect(styles.upBackground).not.toBe(styles.neutralBackground);expect(styles.upBorder).not.toBe(styles.neutralBorder);
+  if(requireDown){
+   const downTile=row.locator(".history-stats > span").filter({has:page.locator("b.down")}).first();
+   const downStyles=await downTile.evaluate(element=>({background:getComputedStyle(element).backgroundColor,border:getComputedStyle(element).borderColor}));
+   expect(downStyles.background).not.toBe(styles.neutralBackground);expect(downStyles.border).not.toBe(styles.neutralBorder);
+  }
+  return styles;
+ };
+ const cardStyles=await openPopup(true);
+ await page.getByRole("button",{name:"Sealed",exact:true}).click();await expect(page).toHaveURL(/mode=sealed/);
+ const sealedStyles=await openPopup();
+ expect(cardStyles.labelFont).toBe(sealedStyles.labelFont);expect(cardStyles.labelSpacing).toBe(sealedStyles.labelSpacing);expect(cardStyles.valueFont).toBe(sealedStyles.valueFont);
+ await page.getByRole("button",{name:/Switch to light mode/}).click();await expect(page.locator("html")).toHaveAttribute("data-theme","light");
+ await openPopup();
+});
+
 test("swaps a Pokémon card image to its TCGdex scan when the TCGplayer image fails",async({page})=>{
  const svgImage=(width:number,height:number)=>`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"></svg>`;
  await page.route("https://tcgplayer-cdn.tcgplayer.com/**",route=>route.fulfill({status:200,contentType:"image/svg+xml",body:svgImage(route.request().url().includes("/product/0_")?400:2,route.request().url().includes("/product/0_")?570:3)}));
