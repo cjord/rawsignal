@@ -112,6 +112,19 @@ test("related sealed lists the same set sorted by market and excludes the produc
   assert.deepEqual(detail.relatedSealed.map(item => item.productId), [2, 3]);
 });
 
+test("Riftbound related sealed excludes cases and display multiples", async () => {
+  const products = [
+    sealed(1, { game: "riftbound", name: "Jinx Champion Deck", category: "Starter / Theme Decks", marketPrice: 25 }),
+    sealed(2, { game: "riftbound", name: "Origins Booster Display Case", category: "Cases", marketPrice: 2200 }),
+    sealed(3, { game: "riftbound", name: "Origins Booster Display", category: "Booster Boxes", marketPrice: 120 }),
+    sealed(4, { game: "riftbound", name: "Origins Booster Pack", category: "Booster Packs", marketPrice: 6 }),
+  ];
+  const sealedDetail = await repository([], products).getDetail("sealed", 1, "riftbound");
+  assert.deepEqual(sealedDetail.relatedSealed.map(item => item.productId), [4]);
+  const cardDetail = await repository([card(9, { game: "riftbound" })], products).getDetail("single", 9);
+  assert.deepEqual(cardDetail.relatedSealed.map(item => item.productId), [1, 4]);
+});
+
 const repository = (cards, products) => createMemoryCatalogRepository(cards, products);
 
 test("peer context reports no average when every peer price is unavailable", async () => {

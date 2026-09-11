@@ -40,7 +40,7 @@ export default function SetDetailView({payload}:{payload:SetDetailPayload}){
   <article className="detail-content">
    <p className="kicker set-breadcrumb"><a href={`/sets?market=${payload.game}`}>Sets</a> / {payload.set}</p>
    <header className="set-detail-head">
-    {logo?<span className="set-detail-logo"><DeferredImage src={logo.logo} alt={`${payload.set} logo`} className="set-logo-image"/></span>
+    {logo?<span className="set-detail-logo"><DeferredImage src={logo.logo} alt={`${payload.set} logo`} className={`set-logo-image${payload.game==="riftbound"?" riftbound-set-art":""}`}/></span>
      :payload.cover?<span className="set-detail-logo set-tile-cover"><DeferredImage src={payload.cover} alt={`${payload.set} cover art`} className="set-cover-image"/></span>
      :<span className={`set-tile-mark mark-${payload.game}`} aria-hidden="true">{payload.set}</span>}
     <div className="set-detail-title">

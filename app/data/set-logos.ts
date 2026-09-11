@@ -1,13 +1,15 @@
 // Bundled module data (not a public asset: Vite would otherwise ship the file twice — once
 // as a static URL, once inlined here — and warn about importing from public/).
 import setLogos from "./set-logos.json";
+import {curatedSetArtFor} from "./curated-set-art";
 
-// Pokémon set logo lookup (sets view 2026-08-29). Keys in set-logos.json are
+// Set-art lookup (sets view 2026-08-29). Pokémon keys in set-logos.json are
 // pokemontcg.io names normalized by the SAME rules as `normalize` below (the sync
 // script mirrors it). TCGCSV names drift from pokemontcg.io's in three known ways,
 // each handled by one retry tier: leading set codes ("SV08: Surging Sparks"),
 // dropped "and" joiners ("HeartGold SoulSilver" vs "HeartGold & SoulSilver"), and a
-// short manual alias list for outright renames. Other markets have no source yet.
+// short manual alias list for outright renames. Curated Riftbound wordmarks and
+// official promo art are self-hosted so those tiles do not depend on a top card.
 export type SetLogo = { logo: string; symbol: string | null };
 const table = (setLogos as { sets: Record<string, SetLogo> }).sets;
 
@@ -28,6 +30,8 @@ const byDropAnd = new Map<string, SetLogo>();
 for (const [key, value] of Object.entries(table)) { const folded = dropAnd(key); if (!byDropAnd.has(folded)) byDropAnd.set(folded, value); }
 
 export function setLogoFor(game: string, set: string): SetLogo | null {
+  const curated = curatedSetArtFor(game, set);
+  if (curated) return curated;
   if (game !== "pokemon") return null;
   const key = normalize(set);
   const stripped = key.replace(/^(?:sv|swsh|sm|xy|bw|hs|ex|dp|me|pop|hgss)\s*\d*(?:\s*pt\s*\d+)?\s+/, "");

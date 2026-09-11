@@ -62,6 +62,13 @@ export function normalizeRiftboundProductType(name = "") {
   return RIFTBOUND_TYPE_RULES.find(([, pattern]) => pattern.test(name))?.[0] ?? "Other";
 }
 
+// "More Sealed" is a consumer-product discovery surface. Riftbound cases and
+// display multiples repeat the same underlying product at wholesale quantities,
+// so keep them in the catalog and set metrics while excluding them from that view.
+export function isRelatedSealedProduct(product: { game: string; name: string; category: string }) {
+  return product.game !== "riftbound" || (product.category !== "Cases" && !/\bdisplay\b/i.test(product.name));
+}
+
 // Shared gate for the single-category sealed walks (Riftbound 89, Japanese Pokémon 85,
 // One Piece 68): the category must match when the source states one, accessory and bulk
 // names are out, and anything carrying a Number/Rarity field is a single, not a product.

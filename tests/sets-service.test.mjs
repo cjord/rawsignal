@@ -113,6 +113,18 @@ test("the sets directory aggregates counts, momentum, releases, and signals per 
   database.close();
 });
 
+test("set cover art excludes sealed cases and display multiples", async () => {
+  const { database, db } = await seeded();
+  const observed = "2026-08-29T12:00:00.000Z";
+  await upsertSealedProduct(db, sealedProduct(40, { name: "Surging Sparks Booster Display", category: "Booster Boxes", image: "https://example.com/display.jpg", marketPrice: 900 }), observed, "sets-run");
+  await upsertSealedProduct(db, sealedProduct(41, { name: "Surging Sparks Booster Display Case", category: "Cases", image: "https://example.com/case.jpg", marketPrice: 5000 }), observed, "sets-run");
+  const directory = await loadSetsDirectory(db);
+  assert.equal(directory.sets.find(row => row.game === "pokemon" && row.set === "Surging Sparks").cover, "https://example.com/3.jpg");
+  const detail = await loadSetDetail(db, "pokemon", "surging-sparks");
+  assert.equal(detail.cover, "https://example.com/3.jpg");
+  database.close();
+});
+
 test("set detail resolves slugs, applies the chase cutoff and the index coverage floor", async () => {
   const { database, db } = await seeded();
   // Daily observations: two full days, one sparse day (1 of 3 members) that must drop.

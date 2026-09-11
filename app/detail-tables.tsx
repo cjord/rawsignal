@@ -10,6 +10,7 @@ import FavoriteStar from "./FavoriteStar";
 import {usePriceHistoryBatch,type HistoryTarget} from "./data/usePriceHistoryBatch";
 import {historyFromMetrics} from "./leaderboard/mode-adapter";
 import {formatPercent,formatRarity,formatUsd} from "../core/domain/formatters";
+import {isRelatedSealedProduct} from "../core/sealed-product-utils";
 import {cardFavorite,sealedFavorite} from "./state/favorites";
 import type {Card,PriceHistory,SealedProduct} from "../core/domain/types";
 
@@ -78,10 +79,11 @@ export function ChaseCardsSection({cards,packPrice,setName}:{cards:Card[];packPr
 
 export function RelatedSealedSection({products,setName,market}:{products:SealedProduct[];setName:string;market?:string}){
  const [view,setView]=useState<TableView>("medium"),[page,setPage]=useState(1),perPage=useRelatedSealedPageSize();
- const missing=useMemo(()=>products.filter(product=>!product.metrics&&priced(product)).map(product=>({productId:product.productId,printing:"Sealed",sealed:true})),[products]);
+ const relatedProducts=useMemo(()=>products.filter(isRelatedSealedProduct),[products]);
+ const missing=useMemo(()=>relatedProducts.filter(product=>!product.metrics&&priced(product)).map(product=>({productId:product.productId,printing:"Sealed",sealed:true})),[relatedProducts]);
  const {history,ensure}=useTableHistory(missing);
- if(!products.length)return null;
- const pages=Math.max(1,Math.ceil(products.length/perPage)),safePage=Math.min(page,pages),start=(safePage-1)*perPage,visible=products.slice(start,start+perPage);
+ if(!relatedProducts.length)return null;
+ const pages=Math.max(1,Math.ceil(relatedProducts.length/perPage)),safePage=Math.min(page,pages),start=(safePage-1)*perPage,visible=relatedProducts.slice(start,start+perPage);
  return <section className="detail-section detail-market-table">
   <header><span>From this set</span><h2>More Sealed from {setName}</h2><SegmentedView className="detail-table-views" value={view} onChange={setView} options={tableViews} label="Related sealed view"/></header>
   <TableHead view={view} itemLabel="Product"/>
@@ -95,6 +97,6 @@ export function RelatedSealedSection({products,setName,market}:{products:SealedP
     <span className="row-star"><FavoriteStar entry={sealedFavorite(product)}/></span>
    </MarketRow>;
   })}</div>
-  {pages>1&&(perPage===RELATED_SEALED_HYDRATION_PAGE_SIZE?<NumberedPagination page={safePage} pages={pages} onChange={setPage} label={`${setName} sealed pages`}/>:<div className="detail-results-pagination related-sealed-pagination"><p aria-live="polite">Showing {start+1}–{Math.min(start+perPage,products.length)} of {products.length} sealed products</p><NumberedPagination page={safePage} pages={pages} onChange={setPage} label={`${setName} sealed pages`} compact/></div>)}
+  {pages>1&&(perPage===RELATED_SEALED_HYDRATION_PAGE_SIZE?<NumberedPagination page={safePage} pages={pages} onChange={setPage} label={`${setName} sealed pages`}/>:<div className="detail-results-pagination related-sealed-pagination"><p aria-live="polite">Showing {start+1}–{Math.min(start+perPage,relatedProducts.length)} of {relatedProducts.length} sealed products</p><NumberedPagination page={safePage} pages={pages} onChange={setPage} label={`${setName} sealed pages`} compact/></div>)}
  </section>;
 }

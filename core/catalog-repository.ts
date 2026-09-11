@@ -1,6 +1,7 @@
 import type { Card, CatalogDetail, CatalogDetailEnrichment, CatalogKind, GradedCardData, PeerAnchorStats, PullRateConfig, PullRateTables, RarityPullRate, SealedProduct } from "./domain/types.ts";
 import {exactTcgplayerUrl,marketRank,similarCards,similarSealed} from "./domain/detail.ts";
 import { querySealedCatalog, querySinglesCatalog, type CatalogDerived, type CatalogPage, type SealedCatalogQuery, type SinglesCatalogQuery } from "./catalog-query.ts";
+import {isRelatedSealedProduct} from "./sealed-product-utils.ts";
 
 export interface CatalogRepository {
   querySingles(options: SinglesCatalogQuery, derived?: Record<number, CatalogDerived | undefined>): Promise<CatalogPage<Card>>;
@@ -71,8 +72,8 @@ export function createMemoryCatalogRepository(cards: Card[], sealedProducts: Sea
         const peers=uniqueCards.filter(item=>item.game===card.game&&item.set===card.set&&(item.rarity===card.rarity||item.section===card.section)),rank=marketRank(card.marketPrice,peers.map(item=>item.marketPrice));
         const rarityPeers=uniqueCards.filter(item=>item.game===card.game&&item.rarity===card.rarity&&item.productId!==card.productId);
         const setRarityPeers=rarityPeers.filter(item=>item.set===card.set);
-        // Pokémon cases are wholesale-priced outliers that crowd out every consumer product in a market-sorted top 12.
-        const cardRelatedSealed=uniqueSealed.filter(item=>item.game===card.game&&item.set===card.set&&!(item.game==="pokemon"&&item.category==="Cases")).sort((a,b)=>((b.marketPrice??-1)-(a.marketPrice??-1))||a.productId-b.productId).slice(0,12);
+        // Wholesale multiples crowd out consumer products in a market-sorted top 12.
+        const cardRelatedSealed=uniqueSealed.filter(item=>item.game===card.game&&item.set===card.set&&!(item.game==="pokemon"&&item.category==="Cases")&&isRelatedSealedProduct(item)).sort((a,b)=>((b.marketPrice??-1)-(a.marketPrice??-1))||a.productId-b.productId).slice(0,12);
         const resolvedRate=pullRateFor(pullRateConfig,card.game,card.set,card);
         const tierCount=resolvedRate?uniqueCards.filter(item=>item.game===card.game&&item.set===card.set&&(resolvedRate.bySection?item.section===card.section:item.rarity===card.rarity)).length:0;
         const cardPackPrice=resolvedRate!=null?packPriceForSet(card.game,card.set):null;
@@ -86,7 +87,7 @@ export function createMemoryCatalogRepository(cards: Card[], sealedProducts: Sea
       const packPrice=packPriceForSet(product.game,product.set);
       const setCards=uniqueCards.filter(item=>item.game===product.game&&item.set===product.set&&item.marketPrice>0).sort((a,b)=>(b.marketPrice-a.marketPrice)||a.productId-b.productId);
       const chaseCards=(packPrice!=null?setCards.filter(item=>item.marketPrice>packPrice):setCards).slice(0,12);
-      const relatedSealed=candidates.filter(item=>item.set===product.set&&item.productId!==product.productId).sort((a,b)=>((b.marketPrice??-1)-(a.marketPrice??-1))||a.productId-b.productId).slice(0,48);
+      const relatedSealed=candidates.filter(item=>item.set===product.set&&item.productId!==product.productId&&isRelatedSealedProduct(item)).sort((a,b)=>((b.marketPrice??-1)-(a.marketPrice??-1))||a.productId-b.productId).slice(0,48);
       const tierGroups=new Map<string,{label:string;packsPerHit:number;cards:Card[]}>();
       for(const item of setCards){const resolved=pullRateFor(pullRateConfig,product.game,product.set,item);if(resolved==null)continue;const group=tierGroups.get(resolved.key)??{label:tierLabel(resolved.key,resolved.bySection),packsPerHit:resolved.packsPerHit,cards:[]};group.cards.push(item);tierGroups.set(resolved.key,group)}
       const pullRates:RarityPullRate[]=[...tierGroups.values()].map(group=>({rarity:group.label,cardCount:group.cards.length,packsPerHit:group.packsPerHit,costPerHit:packPrice!=null?group.packsPerHit*packPrice:null,averageMarket:group.cards.length?group.cards.reduce((sum,item)=>sum+item.marketPrice,0)/group.cards.length:null})).sort((a,b)=>(b.averageMarket??0)-(a.averageMarket??0));

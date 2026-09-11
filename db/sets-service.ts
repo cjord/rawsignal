@@ -54,12 +54,13 @@ export async function loadSetsDirectory(db: D1DatabaseLike | undefined): Promise
     where p.kind='single' and ms.strictness='balanced'
     group by p.game, p.set_name, ms.side`).bind().all<{ game: string; setName: string; side: "buy" | "sell"; n: number }>();
 
-  // Cover art per set (2026-09-04): the image of the set's highest-market product — SQLite
-  // returns the bare column from the max() row — so a tile without an official logo still
-  // shows art we already serve. One catalog scan, cached with the page.
+  // Cover art per set (2026-09-04): the image of the set's highest-market eligible
+  // product — cases and display multiples are wholesale packaging rather than useful
+  // set identity. SQLite returns the bare column from the max() row.
   const coversQuery = db.prepare(`select p.game, p.set_name setName, p.image_url image, max(coalesce(cp.market_cents, 0)) cents
     from catalog_products p left join current_prices cp on cp.product_id=p.product_id
     where p.image_url is not null and p.image_url<>''
+      and (p.kind<>'sealed' or (coalesce(p.product_type,'')<>'Cases' and lower(p.name) not like '%display%'))
     group by p.game, p.set_name`).bind().all<{ game: string; setName: string; image: string }>();
 
   const [singlesResult, sealedResult, momentum7Result, momentum30Result, releasesResult, signalsResult, coversResult] = await Promise.all([
@@ -192,8 +193,8 @@ export async function loadSetDetail(db: D1DatabaseLike | undefined, game: string
   const evKey = `${game}|${setName}`;
   const packEv = evBySet.get(evKey) ?? null;
   const evPack = packPriceBySet.get(evKey) ?? packPrice;
-  // Cover art: the set's highest-market product image (the directory's rule), from the rows already loaded.
-  const cover = [...cards.map(card => ({ image: card.image, price: card.marketPrice })), ...sealed.map(product => ({ image: product.image, price: product.marketPrice ?? 0 }))]
+  // Cover art follows the directory rule: cases and display multiples cannot represent a set.
+  const cover = [...cards.map(card => ({ image: card.image, price: card.marketPrice })), ...sealed.filter(product => product.category !== "Cases" && !/\bdisplay\b/i.test(product.name)).map(product => ({ image: product.image, price: product.marketPrice ?? 0 }))]
     .filter(item => item.image).sort((a, b) => b.price - a.price)[0]?.image ?? null;
   return {
     generatedAt: new Date().toISOString(),
