@@ -162,15 +162,13 @@ function sortEbaySamples(samples:EbayListingSample[],sort:EbayResultSort){
  });
 }
 
-function EbaySnapshotMetrics({ebay,market,kind}:{ebay:EbayListingSnapshot;market:number|null;kind:CatalogDetail["kind"]}){
+function EbaySnapshotMetrics({ebay,market}:{ebay:EbayListingSnapshot;market:number|null}){
  const medianGap=ebay.medianDeliveredAsk!=null&&market!=null&&market>0?(ebay.medianDeliveredAsk-market)/market*100:null;
  return <div className="detail-history-grid detail-ev-grid">
-  <Metric label="Lowest delivered ask" value={formatUsd(ebay.lowestDeliveredAsk,"N/A")} hint={ebay.lowestDeliveredAsk==null?"Shipping unavailable or too few matches":"Item plus shown shipping"}/>
-  <Metric label="Median delivered ask" value={formatUsd(ebay.medianDeliveredAsk,"N/A")} hint={`${ebay.acceptedCount.toLocaleString()} of ${ebay.reviewedCount.toLocaleString()} returned items matched`}/>
-  <Metric label="Ask vs TCGplayer" value={pct(medianGap)} tone={medianGap==null?undefined:medianGap<0?"down":"up"} hint="Median shown total versus current TCGplayer market"/>
-  <Metric label="eBay result estimate" value={ebay.listingCount.toLocaleString()} hint={kind==="single"?"Ungraded, fixed-price query":"New, fixed-price query"}/>
-  <Metric label="Delivered spread" value={ebay.deliveredQ1!=null&&ebay.deliveredQ3!=null?`${formatUsd(ebay.deliveredQ1)}–${formatUsd(ebay.deliveredQ3)}`:"N/A"} hint="Middle 50% of matched shown totals"/>
-  <Metric label="Near TCGplayer" value={ebay.nearMarketCount.toLocaleString()} hint={`Within ±10% · ${ebay.belowMarketCount.toLocaleString()} below market`}/>
+  <Metric label="Lowest delivered" value={formatUsd(ebay.lowestDeliveredAsk,"N/A")} info="Cheapest matched active listing using item price plus the shipping eBay displayed. Taxes are excluded, and shipping can vary by destination."/>
+  <Metric label="Median delivered" value={formatUsd(ebay.medianDeliveredAsk,"N/A")} hint={`${ebay.acceptedCount.toLocaleString()}/${ebay.reviewedCount.toLocaleString()} matched`} info="The middle item-plus-shipping ask among matched active listings. It is less affected by one unusually cheap listing than the lowest ask."/>
+  <Metric label="Vs TCGplayer" value={pct(medianGap)} tone={medianGap==null?undefined:medianGap<0?"down":"up"} info="Percent difference between the median eBay delivered ask and the current TCGplayer market price. It compares an active ask with a separate market benchmark, not two completed sales."/>
+  <Metric label="Delivered spread" value={ebay.deliveredQ1!=null&&ebay.deliveredQ3!=null?`${formatUsd(ebay.deliveredQ1)}–${formatUsd(ebay.deliveredQ3)}`:"N/A"} info="The middle 50% of matched item-plus-shipping asks (25th–75th percentile). It is not a sold-price range."/>
  </div>;
 }
 
@@ -178,10 +176,10 @@ function EbayHistoryMetrics({history}:{history:EbayAskHistory}){
  const summary=summarizeEbayAskHistory(history.points);
  if(!history.points.length)return null;
  return <><h3 className="detail-subhead">Active ask history</h3><div className="detail-history-grid ebay-history-grid">
-  <Metric label="Delivered ask (7D)" value={pct(summary.change7)} tone={summary.change7==null?undefined:summary.change7<0?"down":"up"}/>
-  <Metric label="Delivered ask (30D)" value={pct(summary.change30)} tone={summary.change30==null?undefined:summary.change30<0?"down":"up"}/>
-  <Metric label="Matched supply (7D)" value={signedCount(summary.supplyChange7)} tone={summary.supplyChange7==null?undefined:summary.supplyChange7<0?"down":"up"}/>
-  <Metric label="Since prior refresh" value={summary.newListings==null?"N/A":`+${summary.newListings} / −${summary.missingListings??0}`} hint={summary.priceReductions==null?undefined:`${summary.priceReductions} observed price cuts`}/>
+  <Metric label="Delivered ask (7D)" value={pct(summary.change7)} tone={summary.change7==null?undefined:summary.change7<0?"down":"up"} info="Change in the median matched item-plus-shipping ask versus the nearest snapshot at least seven days earlier."/>
+  <Metric label="Delivered ask (30D)" value={pct(summary.change30)} tone={summary.change30==null?undefined:summary.change30<0?"down":"up"} info="Change in the median matched item-plus-shipping ask versus the nearest snapshot at least 30 days earlier."/>
+  <Metric label="Matched supply (7D)" value={signedCount(summary.supplyChange7)} tone={summary.supplyChange7==null?undefined:summary.supplyChange7<0?"down":"up"} info="Change in the number of listings that passed Raw Signal's product-matching checks over seven days."/>
+  <Metric label="Since prior refresh" value={summary.newListings==null?"N/A":`+${summary.newListings} / −${summary.missingListings??0}`} hint={summary.priceReductions==null?undefined:`${summary.priceReductions} price cuts`} info="Plus is newly observed listings; minus is listings no longer observed. A missing listing is not assumed sold."/>
  </div></>;
 }
 
@@ -207,7 +205,7 @@ function EbayListingResults({ebay,market}:{ebay:EbayListingSnapshot;market:numbe
  return <div className="ebay-results"><div className="ebay-controls">
   <label><span>Filter listings</span><select value={active.filter} onChange={event=>setControls({key:snapshotKey,filter:event.target.value as EbayResultFilter,sort:active.sort})}><option value="all">All matches</option><option value="free-shipping">Free shipping</option><option value="best-offer">Best Offer</option><option value="top-rated">Top Rated Plus</option><option value="high-confidence">High confidence</option>{market!=null&&<option value="under-market">Below TCGplayer</option>}</select></label>
   <label><span>Sort listings</span><select value={active.sort} onChange={event=>setControls({key:snapshotKey,filter:active.filter,sort:event.target.value as EbayResultSort})}><option value="delivered">Lowest shown total</option><option value="price">Lowest item price</option><option value="watchers">Most watched</option><option value="newest">Newest listing</option></select></label>
- </div>{samples.length?<><div ref={grid} className="ebay-grid">{pageSamples.map(sample=><EbayListingCard key={sample.itemId} sample={sample} fetchedAt={ebay.fetchedAt}/>)}</div>{pages>1&&<div className="ebay-results-pagination"><p aria-live="polite">Showing {start+1}–{Math.min(start+pageSize,samples.length)} of {samples.length} filtered listings</p><NumberedPagination page={page} pages={pages} onChange={changePage} label="eBay listing pages"/></div>}</>:<p className="detail-unavailable ebay-filter-empty">No cached listings match this filter.</p>}</div>;
+ </div>{samples.length?<><div ref={grid} className="ebay-grid">{pageSamples.map(sample=><EbayListingCard key={sample.itemId} sample={sample} fetchedAt={ebay.fetchedAt}/>)}</div>{pages>1&&<div className="ebay-results-pagination"><p aria-live="polite">Showing {start+1}–{Math.min(start+pageSize,samples.length)} of {samples.length} filtered listings</p><NumberedPagination page={page} pages={pages} onChange={changePage} label="eBay listing pages" compact={pageSize===EBAY_MOBILE_PAGE_SIZE}/></div>}</>:<p className="detail-unavailable ebay-filter-empty">No cached listings match this filter.</p>}</div>;
 }
 
 function EbayMarketPanel({detail}:{detail:CatalogDetail}){
@@ -229,16 +227,16 @@ function EbayMarketPanel({detail}:{detail:CatalogDetail}){
   observer.observe(node);return()=>{active=false;controller.abort();observer.disconnect();if(timer)clearTimeout(timer)};
  },[detail.productId,reload]);
  const ebay=state.snapshot;
- const links=<div className="detail-actions ebay-actions"><a className="tcgplayer-button ebay-button" href={searchHref} target="_blank" rel="noopener noreferrer sponsored">Browse eBay listings ↗</a><a className="tcgplayer-button ebay-button" href={soldHref} target="_blank" rel="noopener noreferrer sponsored">eBay sold listings ↗</a></div>;
+ const links=<div className="detail-actions ebay-actions"><a className="tcgplayer-button ebay-button" href={searchHref} target="_blank" rel="noopener noreferrer sponsored">Browse eBay ↗</a><a className="tcgplayer-button ebay-button" href={soldHref} target="_blank" rel="noopener noreferrer sponsored">Sold listings ↗</a></div>;
  const fetched=ebay?new Date(ebay.fetchedAt).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZone:"UTC",timeZoneName:"short"}):"";
  return <section ref={host} className="detail-section detail-ebay" aria-busy={state.phase==="loading"||undefined}><header><span>Marketplace</span><h2>eBay Listings</h2></header>
   {state.phase==="loading"&&<div className="ebay-loading" aria-live="polite"><span className="detail-skeleton"/><span>Loading current eBay listings…</span></div>}
-  {ebay&&<EbaySnapshotMetrics ebay={ebay} market={detail.marketPrice} kind={detail.kind}/>}
+  {ebay&&<EbaySnapshotMetrics ebay={ebay} market={detail.marketPrice}/>}
   {ebay&&<EbayHistoryMetrics history={state.history}/>}
   {ebay&&<EbayListingResults ebay={ebay} market={detail.marketPrice}/>}
   {state.phase==="error"&&<p className="detail-unavailable ebay-status" aria-live="polite">{state.message} <button type="button" onClick={()=>setReload(value=>value+1)}>Try again</button></p>}
   {links}
-  <p className="detail-note">{ebay?<>eBay active listings via the Browse API · fetched {fetched} · up to 100 results reviewed · daily history is retained when refreshed.</>:<>Listings load only when this section is viewed.</>} Prices are asks, not sales; result totals are estimates, shipping may vary by destination, and a listing no longer observed is not treated as sold. Sold listings may require eBay sign-in. Marketplace data — not a valuation guarantee.</p>
+  <p className="detail-note">{ebay?<>Active eBay asks · fetched {fetched} · up to 100 reviewed.</>:<>Listings load when viewed.</>} Item prices and shown shipping can change. Missing listings are not counted as sales.<InfoHint label="About eBay listing data">The Browse API returns active asking prices, not completed-sale prices. Raw Signal matches likely listings and keeps daily aggregate snapshots when refreshed; result totals are estimates, shipping can vary by destination, and eBay may require sign-in to view sold listings. Marketplace data is not a valuation guarantee.</InfoHint></p>
  </section>;
 }
 

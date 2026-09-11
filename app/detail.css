@@ -58,7 +58,7 @@
 /* Secondary outbound action (audit walkthrough): a muted sibling of the TCGplayer button —
    PriceCharting search covers graded prices while graded coverage here stays small. */
 /* The PriceCharting button shares the blue marketplace-button look with TCGplayer and eBay (2026-09-09). */
-@media(max-width:620px){.detail-actions{flex-wrap:wrap}.pricecharting-button,.detail-actions .tcgplayer-button{min-height:40px;padding:0 13px;font-size:var(--text-sm)}}
+@media(max-width:620px){.detail-actions{flex-wrap:wrap}.pricecharting-button,.detail-actions .tcgplayer-button{min-height:40px;padding:0 13px;font-size:var(--text-sm)}.ebay-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}.ebay-actions .tcgplayer-button{min-width:0;justify-content:center;padding-inline:8px;text-align:center;white-space:nowrap}.ebay-results-pagination .pagination-compact{grid-template-columns:auto minmax(0,1fr) auto;gap:5px}.ebay-results-pagination .pagination-compact .page-numbers{grid-column:auto;grid-row:auto;gap:2px}.ebay-results-pagination .pagination-compact>button{grid-column:auto;padding-inline:7px;font-size:0}.ebay-results-pagination .pagination-compact>button:first-child::after{content:"← Prev";font-size:var(--text-xs)}.ebay-results-pagination .pagination-compact>button:last-child::after{content:"Next →";font-size:var(--text-xs)}.ebay-results-pagination .pagination-compact .page-numbers button{width:30px;height:32px}.ebay-results-pagination .pagination-compact .page-numbers>span{padding:0;font-size:var(--text-xs)}}
 .detail-ev-grid{margin-bottom:14px}
 /* Flat hover feedback on detail surfaces (visual pass 2026-08-28): border/background
    tint only, matching the rest of the site — no lifts. */
