@@ -186,6 +186,13 @@ test("the eBay panel carries no EPN Smart Placement (pulled 2026-09-09: ad block
   assert.doesNotMatch(await read("app/detail.css"), /\.pricecharting-button\{border-color/);
 });
 
+test("the PSA 10 grading edge uses the user-set $80 minimum cost", async () => {
+  const page = await read("app/ProductDetailPage.tsx");
+  assert.match(page, /const PSA_GRADING_COST_MINIMUM=80/);
+  assert.match(page, /psa10Anchor-current-PSA_GRADING_COST_MINIMUM/);
+  assert.match(page, /\{formatUsd\(PSA_GRADING_COST_MINIMUM\)\} minimum cost/);
+});
+
 test("eBay listing data stays lazy, no-store, and outside cached detail payloads", async () => {
   const [page, route, loader, scheduler] = await Promise.all([
     read("app/ProductDetailPage.tsx"),

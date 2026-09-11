@@ -175,6 +175,12 @@ test("paginates cached eBay results five-up on desktop and three-up on mobile",a
  await expect(ebayPages.locator(".page-numbers button")).toHaveCount(4);
  await expect(ebayPages).toHaveCSS("grid-template-columns",/\S+ \S+ \S+/);
  await expect(page.locator(".ebay-actions")).toHaveCSS("grid-template-columns",/\S+ \S+/);
+ const firstListing=page.locator(".ebay-listing-card").first();
+ await expect(firstListing).toHaveCSS("grid-template-columns",/96px \S+/);
+ await expect(firstListing.locator(".best-offer")).toHaveCSS("color","rgb(41, 184, 120)");
+ const infoButton=page.getByRole("button",{name:"About Lowest delivered"});
+ await infoButton.click();await expect(infoButton).toHaveAttribute("aria-expanded","true");
+ await page.getByRole("heading",{name:"eBay Listings"}).click();await expect(infoButton).toHaveAttribute("aria-expanded","false");
  await ebayPages.getByRole("button",{name:"Next →"}).click();
  await expect(page.locator(".ebay-listing-card")).toHaveCount(3);
  await expect(page.getByText("Showing 4–6 of 40 filtered listings")).toBeVisible();
@@ -189,4 +195,21 @@ test("paginates cached eBay results five-up on desktop and three-up on mobile",a
  await expect(page.locator(".ebay-actions")).toHaveCSS("grid-template-columns",/\S+ \S+/);
  await page.setViewportSize({width:1280,height:900});
  await expect(page.locator(".ebay-listing-card")).toHaveCount(5);
+});
+
+test("paginates More Sealed six-up with the shared mobile control row",async({page})=>{
+ await page.goto(singlesUrl);await waitForApp(page);
+ const detailHref=await page.locator('a[href^="/cards/"]').first().getAttribute("href");
+ expect(detailHref).toBeTruthy();await page.goto(`${detailHref}?e2e=related-sealed-mobile`);await expect(page.locator(".detail-page")).toBeVisible();
+ const related=page.locator("section.detail-market-table").filter({has:page.getByRole("heading",{name:/More Sealed from/})});
+ await related.scrollIntoViewIfNeeded();await expect(related.locator(".leader-row")).toHaveCount(6);
+ await expect(related.getByText("Showing 1–6 of 12 sealed products")).toBeVisible();
+ await page.setViewportSize({width:390,height:844});
+ const pagination=related.getByRole("navigation",{name:/sealed pages/});
+ await expect(pagination.locator(".page-numbers button")).toHaveCount(2);
+ await expect(pagination).toHaveCSS("grid-template-columns",/\S+ \S+ \S+/);
+ await pagination.getByRole("button",{name:"Next →"}).click();
+ await expect(related.locator(".leader-row")).toHaveCount(6);
+ await expect(related.locator(".position").first()).toHaveText("07");
+ await expect(related.getByText("Showing 7–12 of 12 sealed products")).toBeVisible();
 });

@@ -187,7 +187,7 @@ function EbayListingCard({sample,fetchedAt}:{sample:EbayListingSample;fetchedAt:
  const delivered=ebayDelivered(sample),age=listingAge(sample,fetchedAt);
  const details=[sample.condition??"Condition unavailable",sample.sellerFeedbackPercentage!=null?`${sample.sellerFeedbackPercentage.toFixed(1)}% seller`:null,sample.watchCount!=null?`${sample.watchCount} watching`:null,age].filter(Boolean).join(" · ");
  return <a className="ebay-listing-card" href={sample.url} target="_blank" rel="noopener noreferrer sponsored">
-  <DeferredImage src={sample.imageUrl} alt="" className="ebay-listing-image"/><span className="ebay-listing-copy"><b>{sample.title}</b><span><strong>{formatUsd(delivered??sample.price)}</strong><small>{delivered==null?`${formatUsd(sample.price)} item · shipping on eBay`:`${formatUsd(sample.price)} item · ${sample.shipping===0?"free shipping":`${formatUsd(sample.shipping)} shipping`}`}</small></span><span className="ebay-listing-badges">{(sample.buyingOptions??[]).includes("BEST_OFFER")&&<i>Best Offer</i>}{sample.topRated&&<i>Top Rated Plus</i>}<i>{sample.matchConfidence==="high"?"High":"Medium"} match</i></span><small>{details}</small></span>
+  <DeferredImage src={sample.imageUrl} alt="" className="ebay-listing-image"/><span className="ebay-listing-copy"><b>{sample.title}</b><span><strong>{formatUsd(delivered??sample.price)}</strong><small>{delivered==null?`${formatUsd(sample.price)} item · shipping on eBay`:`${formatUsd(sample.price)} item · ${sample.shipping===0?"free shipping":`${formatUsd(sample.shipping)} shipping`}`}</small></span><span className="ebay-listing-badges">{(sample.buyingOptions??[]).includes("BEST_OFFER")&&<i className="best-offer">Best Offer</i>}{sample.topRated&&<i>Top Rated Plus</i>}<i>{sample.matchConfidence==="high"?"High":"Medium"} match</i></span><small>{details}</small></span>
  </a>;
 }
 
@@ -205,7 +205,7 @@ function EbayListingResults({ebay,market}:{ebay:EbayListingSnapshot;market:numbe
  return <div className="ebay-results"><div className="ebay-controls">
   <label><span>Filter listings</span><select value={active.filter} onChange={event=>setControls({key:snapshotKey,filter:event.target.value as EbayResultFilter,sort:active.sort})}><option value="all">All matches</option><option value="free-shipping">Free shipping</option><option value="best-offer">Best Offer</option><option value="top-rated">Top Rated Plus</option><option value="high-confidence">High confidence</option>{market!=null&&<option value="under-market">Below TCGplayer</option>}</select></label>
   <label><span>Sort listings</span><select value={active.sort} onChange={event=>setControls({key:snapshotKey,filter:active.filter,sort:event.target.value as EbayResultSort})}><option value="delivered">Lowest shown total</option><option value="price">Lowest item price</option><option value="watchers">Most watched</option><option value="newest">Newest listing</option></select></label>
- </div>{samples.length?<><div ref={grid} className="ebay-grid">{pageSamples.map(sample=><EbayListingCard key={sample.itemId} sample={sample} fetchedAt={ebay.fetchedAt}/>)}</div>{pages>1&&<div className="ebay-results-pagination"><p aria-live="polite">Showing {start+1}–{Math.min(start+pageSize,samples.length)} of {samples.length} filtered listings</p><NumberedPagination page={page} pages={pages} onChange={changePage} label="eBay listing pages" compact={pageSize===EBAY_MOBILE_PAGE_SIZE}/></div>}</>:<p className="detail-unavailable ebay-filter-empty">No cached listings match this filter.</p>}</div>;
+ </div>{samples.length?<><div ref={grid} className="ebay-grid">{pageSamples.map(sample=><EbayListingCard key={sample.itemId} sample={sample} fetchedAt={ebay.fetchedAt}/>)}</div>{pages>1&&<div className="detail-results-pagination ebay-results-pagination"><p aria-live="polite">Showing {start+1}–{Math.min(start+pageSize,samples.length)} of {samples.length} filtered listings</p><NumberedPagination page={page} pages={pages} onChange={changePage} label="eBay listing pages" compact={pageSize===EBAY_MOBILE_PAGE_SIZE}/></div>}</>:<p className="detail-unavailable ebay-filter-empty">No cached listings match this filter.</p>}</div>;
 }
 
 function EbayMarketPanel({detail}:{detail:CatalogDetail}){
@@ -242,8 +242,8 @@ function EbayMarketPanel({detail}:{detail:CatalogDetail}){
 
 const gradeLabel=(key:string)=>{if(key==="ungraded")return "Raw (eBay)";const match=key.match(/^([a-z]+)([\d_]+)$/);return match?`${match[1].toUpperCase()} ${match[2].replace("_",".")}`:key.toUpperCase()};
 
-// PSA bulk-tier submissions run ~$25/card in 2026 — a stated estimate, not a quote.
-const GRADING_FEE_ESTIMATE=25;
+// User-set conservative floor for grading, shipping, and handling — not a PSA quote.
+const PSA_GRADING_COST_MINIMUM=80;
 
 function GradedMarketSection({graded,current}:{graded:GradedCardData|null;current:number|null}){
  if(!graded)return null;
@@ -253,11 +253,11 @@ function GradedMarketSection({graded,current}:{graded:GradedCardData|null;curren
  // grading decision actually turns on, shown only when both sides are real.
  const psa10=graded.grades["psa10"]??graded.grades["PSA 10"];
  const psa10Anchor=psa10?(psa10.smartPrice??psa10.median):null;
- const edge=psa10Anchor!=null&&current!=null&&psa10.count>=2?psa10Anchor-current-GRADING_FEE_ESTIMATE:null;
+ const edge=psa10Anchor!=null&&current!=null&&psa10.count>=2?psa10Anchor-current-PSA_GRADING_COST_MINIMUM:null;
  return <section className="detail-section"><header><span>Graded market</span><h2>Graded Sales</h2></header>
   {edge!=null&&<div className="detail-history-grid detail-ev-grid">
-   <div className="detail-metric"><small>Grading edge (PSA 10)</small><b className={edge>0?"up":"down"}>{edge>0?"+":""}{formatUsd(edge)}</b><span>{formatUsd(psa10Anchor)} PSA 10 − {formatUsd(current)} raw − ~{formatUsd(GRADING_FEE_ESTIMATE)} fee</span></div>
-   <div className="detail-metric"><small>Verdict</small><b>{edge>50?"Worth grading":edge>0?"Marginal":"Not worth the fee"}</b><span>Gem-rate risk not priced in — a 9 usually is not</span></div>
+   <div className="detail-metric"><small>Grading edge (PSA 10)</small><b className={edge>0?"up":"down"}>{edge>0?"+":""}{formatUsd(edge)}</b><span>{formatUsd(psa10Anchor)} PSA 10 − {formatUsd(current)} raw − {formatUsd(PSA_GRADING_COST_MINIMUM)} minimum cost</span></div>
+   <div className="detail-metric"><small>Verdict</small><b>{edge>50?"Worth grading":edge>0?"Marginal":"Not worth the cost"}</b><span>Gem-rate risk not priced in — a 9 usually is not</span></div>
   </div>}
   <div className="detail-table-scroll"><table className="detail-variants-table"><thead><tr><th scope="col">Grade</th><th scope="col">Sales</th><th scope="col">Median</th><th scope="col">Smart market</th><th scope="col">Trend</th><th scope="col">Vs raw</th></tr></thead><tbody>
   {rows.map(([key,stat])=>{const anchor=stat.smartPrice??stat.median,multiple=anchor!=null&&current?anchor/current:null;return <tr key={key}><th scope="row">{gradeLabel(key)}</th><td>{stat.count.toLocaleString()}</td><td>{formatUsd(stat.median,"N/A")}</td><td>{formatUsd(stat.smartPrice,"N/A")}{stat.confidence&&<small className="grade-confidence">{stat.confidence}</small>}</td><td className={stat.trend??""}>{stat.trend==="up"?"▲ up":stat.trend==="down"?"▼ down":"—"}</td><td>{multiple!=null?`${multiple.toFixed(1)}×`:"N/A"}</td></tr>})}

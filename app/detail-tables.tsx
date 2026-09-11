@@ -18,6 +18,8 @@ const tableViews:[{key:TableView;label:string;icon:string},{key:TableView;label:
 const usd=(value:number|null)=>formatUsd(value);
 const pct=(value:number|null)=>formatPercent(value);
 const historyMetrics=standardHistoryMetrics;
+const RELATED_SEALED_PAGE_SIZE=6;
+const RELATED_SEALED_HYDRATION_PAGE_SIZE=10;
 // A row with no current price has no metrics row and nothing worth a request: its columns read
 // as unavailable at once (the sealed leaderboard applies the same priced-only rule).
 const noHistory:PriceHistory={points:[],coverage:"none",change7:null,change30:null,change90:null,low30:null,high30:null,historyLow:null,historyHigh:null};
@@ -30,6 +32,17 @@ function useTableHistory(missing:HistoryTarget[]){
  const {history,ensure}=usePriceHistoryBatch();
  useEffect(()=>{if(missing.length)void ensure(missing)},[missing,ensure]);
  return {history,ensure};
+}
+
+// vinext's server and browser passes must begin with identical markup. Settle on the
+// six-up product layout immediately after hydration at every viewport.
+function useRelatedSealedPageSize(){
+ const [pageSize,setPageSize]=useState(RELATED_SEALED_HYDRATION_PAGE_SIZE);
+ useEffect(()=>{
+  const frame=window.requestAnimationFrame(()=>setPageSize(RELATED_SEALED_PAGE_SIZE));
+  return()=>window.cancelAnimationFrame(frame);
+ },[]);
+ return pageSize;
 }
 
 function TableHead({view,itemLabel}:{view:TableView;itemLabel:string}){
@@ -64,11 +77,11 @@ export function ChaseCardsSection({cards,packPrice,setName}:{cards:Card[];packPr
 }
 
 export function RelatedSealedSection({products,setName,market}:{products:SealedProduct[];setName:string;market?:string}){
- const [view,setView]=useState<TableView>("medium"),[page,setPage]=useState(1),perPage=10;
+ const [view,setView]=useState<TableView>("medium"),[page,setPage]=useState(1),perPage=useRelatedSealedPageSize();
  const missing=useMemo(()=>products.filter(product=>!product.metrics&&priced(product)).map(product=>({productId:product.productId,printing:"Sealed",sealed:true})),[products]);
  const {history,ensure}=useTableHistory(missing);
  if(!products.length)return null;
- const pages=Math.max(1,Math.ceil(products.length/perPage)),visible=products.slice((page-1)*perPage,page*perPage);
+ const pages=Math.max(1,Math.ceil(products.length/perPage)),safePage=Math.min(page,pages),start=(safePage-1)*perPage,visible=products.slice(start,start+perPage);
  return <section className="detail-section detail-market-table">
   <header><span>From this set</span><h2>More Sealed from {setName}</h2><SegmentedView className="detail-table-views" value={view} onChange={setView} options={tableViews} label="Related sealed view"/></header>
   <TableHead view={view} itemLabel="Product"/>
@@ -76,12 +89,12 @@ export function RelatedSealedSection({products,setName,market}:{products:SealedP
    const loaded=history[product.productId],productHistory=loaded??historyFromMetrics(product)??(priced(product)?undefined:noHistory);
    return <MarketRow className="leader-row" key={product.productId} href={`/sealed/${product.productId}${market?`?market=${market}`:""}`} label={`View ${product.name} details`} onReveal={()=>void ensure([{productId:product.productId,printing:"Sealed",sealed:true}])}
     popover={<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={product.image} alt={`${product.name} product`} links={marketplaceLinkMetrics(product.productId,product.url,{kind:"sealed",game:product.game,name:product.name,set:product.set})} label={`${product.name} price history`}><HistoryPanel title="Sealed Market History" subtitle="Unopened" points={loaded?.points??[]} metrics={historyMetrics(product.marketPrice,product.midPrice,productHistory)} loading={!loaded}/></HistoryPopover>}>
-    <span className="position">{String((page-1)*perPage+index+1).padStart(2,"0")}</span>
+    <span className="position">{String(start+index+1).padStart(2,"0")}</span>
     <ProductIdentity className="identity" image={product.image} alt="" title={product.name} meta={product.category}/>
     <RowCells set={product.set} setNote={product.msrp!=null?`MSRP ${usd(product.msrp)}`:null} market={product.marketPrice} history={productHistory}/>
     <span className="row-star"><FavoriteStar entry={sealedFavorite(product)}/></span>
    </MarketRow>;
   })}</div>
-  {pages>1&&<NumberedPagination page={page} pages={pages} onChange={setPage} label={`${setName} sealed pages`}/>}
+  {pages>1&&(perPage===RELATED_SEALED_HYDRATION_PAGE_SIZE?<NumberedPagination page={safePage} pages={pages} onChange={setPage} label={`${setName} sealed pages`}/>:<div className="detail-results-pagination related-sealed-pagination"><p aria-live="polite">Showing {start+1}–{Math.min(start+perPage,products.length)} of {products.length} sealed products</p><NumberedPagination page={safePage} pages={pages} onChange={setPage} label={`${setName} sealed pages`} compact/></div>)}
  </section>;
 }

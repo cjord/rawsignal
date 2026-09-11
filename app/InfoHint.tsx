@@ -1,5 +1,5 @@
 "use client";
-import {useId,useRef,useState,type ReactNode} from "react";
+import {useEffect,useId,useRef,useState,type ReactNode} from "react";
 import {infoHintAlignment,type InfoHintAlign} from "./hooks/info-hint";
 
 // Explanatory copy sits behind an ⓘ toggletip (todo D3): hover/keyboard-focus reveal via CSS,
@@ -10,6 +10,12 @@ export default function InfoHint({label,children}:{label:string;children:ReactNo
  const rootRef=useRef<HTMLSpanElement>(null);
  const [open,setOpen]=useState(false),[align,setAlign]=useState<InfoHintAlign>("center");
  const measure=()=>{const rect=rootRef.current?.getBoundingClientRect();if(rect)setAlign(infoHintAlignment(rect.left+rect.width/2,window.innerWidth))};
+ useEffect(()=>{
+  if(!open)return;
+  const closeOutside=(event:PointerEvent)=>{const target=event.target;if(target instanceof Node&&!rootRef.current?.contains(target))setOpen(false)};
+  document.addEventListener("pointerdown",closeOutside,true);
+  return()=>document.removeEventListener("pointerdown",closeOutside,true);
+ },[open]);
  return <span ref={rootRef} className="info-hint" data-align={align} data-open={open||undefined} onPointerEnter={measure}>
   <button type="button" aria-label={label} aria-describedby={tipId} aria-expanded={open} onFocus={measure} onClick={()=>{measure();setOpen(value=>!value)}} onBlur={()=>setOpen(false)} onKeyDown={event=>{if(event.key==="Escape")setOpen(false)}}>i</button>
   <span role="tooltip" id={tipId}>{children}</span>
