@@ -9,6 +9,7 @@ const expected = new Map([
   ["Spiritforged", "spiritforged.webp"],
   ["Unleashed", "unleashed.webp"],
   ["Vendetta", "vendetta.webp"],
+  ["Radiance", "radiance.webp"],
   ["Lunar Revel 2026", "lunar-revel-2026.webp"],
   ["Secret Garden", "secret-garden.webp"],
   ["T1 2025 Worlds Champion Collection", "t1-2025-worlds.webp"],

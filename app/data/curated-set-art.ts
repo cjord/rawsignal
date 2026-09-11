@@ -11,6 +11,7 @@ const RIFTBOUND_ART: Record<string, CuratedSetArt> = {
   "spiritforged": { logo: "/images/set-art/riftbound/spiritforged.webp", symbol: null },
   "unleashed": { logo: "/images/set-art/riftbound/unleashed.webp", symbol: null },
   "vendetta": { logo: "/images/set-art/riftbound/vendetta.webp", symbol: null },
+  "radiance": { logo: "/images/set-art/riftbound/radiance.webp", symbol: null },
   "lunar revel 2026": { logo: "/images/set-art/riftbound/lunar-revel-2026.webp", symbol: null },
   "secret garden": { logo: "/images/set-art/riftbound/secret-garden.webp", symbol: null },
   "t1 2025 worlds champion collection": { logo: "/images/set-art/riftbound/t1-2025-worlds.webp", symbol: null },
