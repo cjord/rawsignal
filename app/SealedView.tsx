@@ -703,19 +703,6 @@ export default function SealedView({
               setSelectedRegimes(value);
               setPage(1);
             }}
-            onReset={() => {
-              setSelectedSets([]);
-              setSelectedRegimes([]);
-              setMarketMin("");
-              setMarketMax("");
-              setMsrpMin("");
-              setMsrpMax("");
-              setProfitMin("");
-              setProfitMax("");
-              setProfitPctMin("");
-              setProfitPctMax("");
-              setPage(1);
-            }}
           />
           <SegmentedView
             value={view}

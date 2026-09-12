@@ -907,19 +907,6 @@ export default function Home() {
                   setSelectedRegimes(value);
                   setPage(1);
                 }}
-                onReset={() => {
-                  setMinPrice("");
-                  setMaxPrice("");
-                  setSelectedSets([]);
-                  setSelectedRegimes([]);
-                  setMovement({
-                    up7: false,
-                    down7: false,
-                    up30: false,
-                    down30: false,
-                  });
-                  setPage(1);
-                }}
               />
               <SegmentedView
                 value={view}

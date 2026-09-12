@@ -49,6 +49,56 @@ test("keeps core leaderboard controls operable at phone width",async({page})=>{
  await expect(page.locator(".card-filters")).not.toHaveAttribute("open","");
 });
 
+test("applies Singles filters only on confirmation and discards canceled edits",async({page})=>{
+ await page.goto(singlesUrl);
+ await waitForApp(page);
+ const filters=page.locator(".card-filters");
+ const initialUrl=page.url();
+ const initialCount=await page.locator(".leader-row").count();
+ await filters.locator("summary").click();
+ await filters.getByRole("spinbutton",{name:"Minimum market price"}).fill("100");
+ expect(page.url()).toBe(initialUrl);
+ await expect(page.locator(".leader-row")).toHaveCount(initialCount);
+ await filters.getByRole("button",{name:"Cancel"}).click();
+ await expect(filters).not.toHaveAttribute("open","");
+ await filters.locator("summary").click();
+ await expect(filters.getByRole("spinbutton",{name:"Minimum market price"})).toHaveValue("");
+ await filters.getByRole("spinbutton",{name:"Minimum market price"}).fill("100");
+ await filters.getByRole("button",{name:"Apply filters"}).click();
+ await expect(page).toHaveURL(/(?:\?|&)minPrice=100(?:&|$)/);
+ await expect(filters).not.toHaveAttribute("open","");
+ await filters.locator("summary").click();
+ await filters.getByRole("button",{name:"Clear all"}).click();
+ await expect(filters.getByRole("spinbutton",{name:"Minimum market price"})).toHaveValue("");
+ await expect(page).toHaveURL(/(?:\?|&)minPrice=100(?:&|$)/);
+ await filters.getByRole("button",{name:"Apply filters"}).click();
+ await expect(page).not.toHaveURL(/minPrice=/);
+});
+
+test("keeps mobile Sealed filter close and apply controls reachable",async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.goto("/?mode=sealed&market=pokemon&view=medium&sort=market&direction=desc&page=1&perPage=20");
+ await waitForApp(page);
+ const filters=page.locator(".card-filters");
+ const initialUrl=page.url();
+ await filters.locator("summary").click();
+ const close=filters.getByRole("button",{name:"Close filters"});
+ const apply=filters.getByRole("button",{name:"Apply filters"});
+ await expect(close).toBeInViewport();
+ await expect(apply).toBeInViewport();
+ await filters.getByRole("spinbutton",{name:"Minimum market value"}).fill("80");
+ expect(page.url()).toBe(initialUrl);
+ await close.click();
+ await expect(filters).not.toHaveAttribute("open","");
+ await filters.locator("summary").click();
+ await expect(filters.getByRole("spinbutton",{name:"Minimum market value"})).toHaveValue("");
+ await filters.getByRole("spinbutton",{name:"Minimum market value"}).fill("80");
+ await apply.click();
+ await expect(page).toHaveURL(/(?:\?|&)marketMin=80(?:&|$)/);
+ await expect(filters).not.toHaveAttribute("open","");
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1)).toBe(true);
+});
+
 test("persists display preferences without changing market state",async({page})=>{
  await page.goto(singlesUrl);
  await waitForApp(page);
