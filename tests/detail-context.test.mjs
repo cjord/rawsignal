@@ -157,6 +157,25 @@ test("section-keyed pull rates distinguish tiers that share a rarity string", as
   assert.equal(rows.Overnumbered.cardCount, 1);
 });
 
+test("eligible Riftbound pair metrics attach only to matching card details", async () => {
+  const cards = [
+    card(1, { game: "riftbound", section: "signatures", name: "Ahri (Signature)", set: "Origins", number: "303*/298", marketPrice: 450 }),
+    card(2, { game: "riftbound", section: "overnumbered", name: "Ahri (Overnumbered)", set: "Origins", number: "303/298", marketPrice: 50 }),
+    card(3, { game: "riftbound", section: "signatures", name: "Jinx (Signature)", set: "Origins", number: "301*/298", marketPrice: 400 }),
+    card(4, { game: "riftbound", section: "overnumbered", name: "Jinx (Overnumbered)", set: "Origins", number: "301/298", marketPrice: 100 }),
+    card(5, { game: "riftbound", section: "signatures", name: "Unmatched (Signature)", number: "999*/298", marketPrice: 200 }),
+    card(6),
+  ];
+  const repo = createMemoryCatalogRepository(cards, []);
+  const detail = await repo.getDetail("single", 1);
+  assert.equal(detail.riftboundPair.multiplier, 9);
+  assert.equal(detail.riftboundPair.averageMultiplier, 6.5);
+  assert.equal(detail.riftboundPair.setAverageMultiplier, 6.5);
+  assert.equal(detail.riftboundPair.differenceFromAverage, 2.5);
+  assert.equal((await repo.getDetail("single", 5)).riftboundPair, null);
+  assert.equal((await repo.getDetail("single", 6)).riftboundPair, null);
+});
+
 test("graded snapshots attach to card details and absent cards stay null", async () => {
   const { parseGradedPriceFeed } = await import("../core/domain/contracts.ts");
   const graded = parseGradedPriceFeed({ entries: {

@@ -253,6 +253,20 @@ export type PeerAnchorStats = {
   observations: number;
 };
 
+export type RiftboundPairMetrics = {
+  counterpartProductId: number;
+  counterpartMarketPrice: number;
+  signatureMarketPrice: number;
+  overnumberedMarketPrice: number;
+  multiplier: number;
+  averageMultiplier: number;
+  setAverageMultiplier: number;
+  differenceFromAverage: number;
+  differenceFromSetAverage: number;
+  pairCount: number;
+  setPairCount: number;
+};
+
 export type CatalogDetailBase = {
   kind: CatalogKind;
   productId: number;
@@ -303,6 +317,7 @@ export type CardDetail = CatalogDetailBase & {
   setPeerContext: DetailPeerContext | null;
   pullRate: CardPullRate | null;
   peerAnchor: PeerAnchorStats | null;
+  riftboundPair: RiftboundPairMetrics | null;
   relatedSealed: SealedProduct[];
   earlyValue?: EarlyValueEstimate | null;
 };

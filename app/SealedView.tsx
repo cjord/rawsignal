@@ -56,6 +56,7 @@ import MarketRow from "./leaderboard/MarketRow";
 import ProductIdentity from "./leaderboard/ProductIdentity";
 import HistoryPopover from "./leaderboard/HistoryPopover";
 import FullMarketCard from "./leaderboard/FullMarketCard";
+import MarketMedianContext from "./MarketMedianContext";
 import {
   buildCatalogDerived,
   historyFromMetrics,
@@ -423,13 +424,14 @@ export default function SealedView({
     const movement = (label: string, value: number | null | undefined) =>
       movementMetric(label, value, "N/A");
     return (
-      <HistoryPanel
-        title={h?.condition ?? "Sealed Market History"}
-        subtitle={h?.variant ?? product.category}
-        points={h?.points ?? []}
-        loading={loading}
-        label="sealed market"
-        metrics={[
+      <>
+        <HistoryPanel
+          title={h?.condition ?? "Sealed Market History"}
+          subtitle={h?.variant ?? product.category}
+          points={h?.points ?? []}
+          loading={loading}
+          label="sealed market"
+          metrics={[
           { label: "MSRP", value: usd(product.msrp) },
           { label: basis === "market" ? "Market" : "Median", value: usd(result.value) },
           { label: "30D Low", value: usd(h?.low30 ?? null) },
@@ -454,9 +456,11 @@ export default function SealedView({
           movement("30 Day", h?.change30),
           movement("90 Day", h?.change90),
           ...(withLinks ? productLinks(product) : []),
-        ]}
-        large={large}
-      />
+          ]}
+          large={large}
+        />
+        <MarketMedianContext item={product} />
+      </>
     );
   };
   const activeSorts = signalAwareSorts(

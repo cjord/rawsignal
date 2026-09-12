@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildRiftboundPairMetrics, riftboundPriceWarning } from "../core/domain/riftbound-pairs.ts";
+import { buildRiftboundPairMetrics } from "../core/domain/riftbound-pairs.ts";
 
 const card = (productId, section, name, set, number, marketPrice, prices = {}) => ({
   game: "riftbound",
@@ -57,17 +57,4 @@ test("ambiguous duplicate pair groups fail closed", () => {
     card(3, "overnumbered", "Ahri", "Origins", "301/298", 20),
   ];
   assert.equal(buildRiftboundPairMetrics(cards).size, 0);
-});
-
-test("price warnings report material Median disagreement without changing the price basis", () => {
-  const wide = card(1, "signatures", "Ahri", "Origins", "301*/298", 100, { lowPrice: 80, midPrice: 150 });
-  assert.deepEqual(riftboundPriceWarning(wide), {
-    medianPrice: 150,
-    market: { price: 100, differencePct: 50 },
-    listingLow: { price: 80, differencePct: 87.5 },
-  });
-
-  const close = card(2, "overnumbered", "Ahri", "Origins", "301/298", 100, { lowPrice: 95, midPrice: 110 });
-  assert.equal(riftboundPriceWarning(close), null);
-  assert.equal(riftboundPriceWarning({ ...wide, game: "pokemon" }), null);
 });

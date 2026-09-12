@@ -155,18 +155,36 @@ test("matches card and sealed metric typography and tone tiles in mobile popups"
  await openPopup();
 });
 
-test("shows Riftbound pair multiples and material price context in Full view",async({page})=>{
- await page.setViewportSize({width:390,height:844});
- await page.goto("/?market=riftbound&view=full&mode=singles&signal=leaderboard&rarity=signatures");
+test("keeps Riftbound pair multiples on eligible detail pages and out of leaderboard popups",async({page})=>{
+ await page.setViewportSize({width:1200,height:850});
+ await page.goto("/?market=riftbound&view=medium&mode=singles&signal=leaderboard&rarity=signatures");
  await waitForApp(page);
- const card=page.locator(".full-card.has-pair-comparison").first();
- await expect(card).toBeVisible();
- const tiles=card.locator(".full-prices");
- await expect(tiles.getByText("Pair market multiple",{exact:true})).toBeVisible();
- await expect(tiles.getByText("All-pair average",{exact:true})).toBeVisible();
- await expect(tiles.getByText("Set average",{exact:true})).toBeVisible();
- await expect(tiles.locator("em").filter({hasText:/Pair [+−]\d+\.\d{2}× \([+−]\d+%\)/}).first()).toBeVisible();
- await expect(card.locator(".riftbound-price-context")).toContainText("Trends use Market.");
+ const desktopRow=page.locator(".market-row-shell").first();
+ await desktopRow.evaluate(element=>{(element as HTMLDetailsElement).open=true});
+ await expect(desktopRow.locator(".market-row-popover").getByText("Individual multiplier",{exact:true})).toHaveCount(0);
+ await page.setViewportSize({width:390,height:844});
+ await page.goto("/?market=riftbound&view=medium&mode=singles&signal=leaderboard&rarity=signatures");
+ await waitForApp(page);
+ const mobileRow=page.locator(".market-row-shell").first();
+ await mobileRow.evaluate(element=>{(element as HTMLDetailsElement).open=true});
+ await expect(mobileRow.getByText("Individual multiplier",{exact:true})).toHaveCount(0);
+ await page.goto("/cards/653102");
+ const panel=page.locator(".detail-riftbound-pair");
+ await expect(panel).toBeVisible();
+ await expect(panel.getByText("Individual multiplier",{exact:true})).toBeVisible();
+ await expect(panel.getByText("All-pair average",{exact:true})).toBeVisible();
+ await expect(panel.getByText("Set average",{exact:true})).toBeVisible();
+ await expect(panel.locator(".detail-metric>span").filter({hasText:/[+−]\d+\.\d{2}× \([+−]\d+%\) vs/}).first()).toBeVisible();
+ await expect(page.locator(".market-median-context")).toContainText("Trends use Market.");
+});
+
+test("shows material Market versus Listed Median context for sealed products",async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.goto("/?mode=sealed&market=riftbound&view=full&q=Arcane%20Box%20Set");
+ await waitForApp(page);
+ await expect(page.locator(".sealed-full-card .market-median-context")).toContainText("Listed Median");
+ await page.goto("/sealed/655495?market=riftbound");
+ await expect(page.locator(".detail-overview .market-median-context")).toContainText("Trends use Market.");
 });
 
 test("swaps a Pokémon card image to its TCGdex scan when the TCGplayer image fails",async({page})=>{

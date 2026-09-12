@@ -268,8 +268,7 @@
   }
 }
 
-/* Riftbound pair comparisons keep the benchmark difference visible without turning it
-   into a buy/sell tone. Supporting figures are data, so they stay in-flow on touch. */
+/* Supporting metric figures are data, so they stay in-flow on touch. */
 .history-stats em,
 .full-prices em {
   display: block;
@@ -282,7 +281,7 @@
   overflow-wrap: anywhere;
 }
 
-.riftbound-price-context {
+.market-median-context {
   display: block;
   margin-top: 10px;
   padding: 9px 11px;
@@ -293,14 +292,10 @@
   font: 600 var(--text-xs)/1.45 var(--font-sans);
 }
 
-.riftbound-price-context > b {
+.market-median-context > b {
   color: var(--text);
 }
 
-@media (max-width: 759px) {
-  /* The legacy compact Full view hides late metrics. Paired Riftbound cards deliberately
-     show the complete comparison set requested for this specialized view. */
-  .full-card.has-pair-comparison .full-prices > span:nth-child(n+5) {
-    display: flex;
-  }
+.detail-overview > .market-median-context {
+  margin-bottom: 18px;
 }

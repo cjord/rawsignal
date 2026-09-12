@@ -1,31 +1,6 @@
-import type { Card } from "./types.ts";
+import type { Card, RiftboundPairMetrics } from "./types.ts";
 
 const PAIR_SECTIONS = new Set(["signatures", "overnumbered"]);
-
-export type RiftboundPairMetrics = {
-  counterpartProductId: number;
-  counterpartMarketPrice: number;
-  signatureMarketPrice: number;
-  overnumberedMarketPrice: number;
-  multiplier: number;
-  averageMultiplier: number;
-  setAverageMultiplier: number;
-  differenceFromAverage: number;
-  differenceFromSetAverage: number;
-  pairCount: number;
-  setPairCount: number;
-};
-
-export type PriceReferenceDifference = {
-  price: number;
-  differencePct: number;
-};
-
-export type RiftboundPriceWarning = {
-  medianPrice: number;
-  market: PriceReferenceDifference | null;
-  listingLow: PriceReferenceDifference | null;
-};
 
 const positive = (value: number | null | undefined): value is number =>
   value != null && Number.isFinite(value) && value > 0;
@@ -109,20 +84,4 @@ export function buildRiftboundPairMetrics(cards: readonly Card[]): Map<number, R
     });
   }
   return metrics;
-}
-
-/**
- * Report only material price-reference disagreement. Market remains the trend basis;
- * this warning gives the current asking-price references equal visibility without
- * silently blending them into a synthetic valuation.
- */
-export function riftboundPriceWarning(card: Pick<Card, "game" | "section" | "marketPrice" | "lowPrice" | "midPrice">, threshold = 0.2): RiftboundPriceWarning | null {
-  if (card.game !== "riftbound" || !PAIR_SECTIONS.has(card.section) || !positive(card.midPrice)) return null;
-  const compare = (price: number | null): PriceReferenceDifference | null => {
-    if (!positive(price)) return null;
-    const differencePct = (card.midPrice! / price - 1) * 100;
-    return Math.abs(differencePct) >= threshold * 100 ? { price, differencePct } : null;
-  };
-  const market = compare(card.marketPrice), listingLow = compare(card.lowPrice);
-  return market || listingLow ? { medianPrice: card.midPrice, market, listingLow } : null;
 }
