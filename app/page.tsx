@@ -26,8 +26,14 @@ import MultiSelectField from "./MultiSelectField";
 import PerPageSelect from "./PerPageSelect";
 import { parseCards } from "../core/domain/contracts";
 import { formatFullDate, formatGameName, formatPercent, formatRarity, formatUsd } from "../core/domain/formatters";
+import {
+  buildRiftboundPairMetrics,
+  riftboundPriceWarning,
+  type RiftboundPairMetrics,
+} from "../core/domain/riftbound-pairs";
 import type {
   Card,
+  HistoryMetric,
   PriceHistory,
   SealedMarket,
   SinglesMarket,
@@ -107,6 +113,48 @@ const cardMeta = (card: Card) => {
     : `${card.number} · ${displayLabel(card.rarity)} · ${card.printing}`;
 };
 const cardKey = (card: Card) => card.productId;
+const multiplier = (value: number) => `${value.toFixed(2)}×`;
+const signedMultiplier = (value: number) => `${value >= 0 ? "+" : "−"}${Math.abs(value).toFixed(2)}×`;
+const signedPercent = (value: number) => `${value >= 0 ? "+" : "−"}${Math.abs(value).toFixed(0)}%`;
+
+const pairComparisonMetrics = (pair?: RiftboundPairMetrics, setName?: string): HistoryMetric[] => {
+  if (!pair) return [];
+  const averagePct = pair.averageMultiplier ? pair.differenceFromAverage / pair.averageMultiplier * 100 : 0;
+  const setPct = pair.setAverageMultiplier ? pair.differenceFromSetAverage / pair.setAverageMultiplier * 100 : 0;
+  return [
+    {
+      label: "Pair market multiple",
+      value: multiplier(pair.multiplier),
+      hint: `Signature ${usd(pair.signatureMarketPrice)} ÷ Overnumbered ${usd(pair.overnumberedMarketPrice)}`,
+    },
+    {
+      label: "All-pair average",
+      value: multiplier(pair.averageMultiplier),
+      hint: `Pair ${signedMultiplier(pair.differenceFromAverage)} (${signedPercent(averagePct)}) · ${pair.pairCount} pairs`,
+    },
+    {
+      label: "Set average",
+      value: multiplier(pair.setAverageMultiplier),
+      hint: `${setName ? `${setName} · ` : ""}Pair ${signedMultiplier(pair.differenceFromSetAverage)} (${signedPercent(setPct)}) · ${pair.setPairCount} pairs`,
+    },
+  ];
+};
+
+function PriceContextNote({ card }: { card: Card }) {
+  const warning = riftboundPriceWarning(card);
+  if (!warning) return null;
+  const describe = (label: string, comparison: NonNullable<typeof warning.market>) =>
+    `${Math.abs(comparison.differencePct).toFixed(0)}% ${comparison.differencePct >= 0 ? "above" : "below"} ${label} ${usd(comparison.price)}`;
+  const references = [
+    warning.market && describe("Market", warning.market),
+    warning.listingLow && describe("the listing low", warning.listingLow),
+  ].filter((value): value is string => Boolean(value));
+  return (
+    <span className="riftbound-price-context" role="note">
+      <b>Price context:</b> Listed Median {usd(warning.medianPrice)} is {references.join(" and ")}. Market reflects recent completed sales; Listed Median and listing low reflect current asks. Sparse activity can make either reference less representative. Trends use Market.
+    </span>
+  );
+}
 
 const singlesModel: LeaderboardModeModel<View, SortKey> = {
   views: [
@@ -152,21 +200,26 @@ const sealedMarkets = [
 const scalpingMarket = { key: "scalping", label: "Obey Products" } as const;
 const signalSort = { label: "Signal", key: "signal" as SortKey };
 const ascendingSinglesSorts = new Set<SortKey>(["name", "set"]);
-const cardHistoryMetrics = (card: Card, history?: History) =>
-  standardHistoryMetrics(card.marketPrice, card.midPrice, history);
+const cardHistoryMetrics = (card: Card, history?: History, pair?: RiftboundPairMetrics) => {
+  const standard = standardHistoryMetrics(card.marketPrice, card.midPrice, history);
+  return pair ? [standard[0], ...pairComparisonMetrics(pair, card.set), ...standard.slice(1)] : standard;
+};
 const cardLinks = (card: Card) =>
   marketplaceLinkMetrics(card.productId, card.url, { kind: "single", game: card.game, name: card.name, set: card.set, number: card.number, section: card.section });
 function FullCard({
   card,
   history,
   rank,
+  pair,
 }: {
   card: Card;
   history?: History;
   rank: number;
+  pair?: RiftboundPairMetrics;
 }) {
-  const values = [
+  const values: HistoryMetric[] = [
     { label: "Market", value: usd(card.marketPrice) },
+    ...pairComparisonMetrics(pair, card.set),
     { label: "30D Low", value: usd(history?.low30 ?? null) },
     { label: "30D High", value: usd(history?.high30 ?? null) },
     { label: "Hist Low", value: usd(history?.historyLow ?? null) },
@@ -190,7 +243,7 @@ function FullCard({
   ];
   return (
     <FullMarketCard
-      className="leader-row full-card"
+      className={`leader-row full-card${pair ? " has-pair-comparison" : ""}`}
       artClassName="full-art"
       dataClassName="full-data"
       titleClassName="full-title"
@@ -210,18 +263,22 @@ function FullCard({
             <span key={item.label}>
               <small>{item.label}</small>
               <b className={item.tone}>{item.value}</b>
+              {item.hint && <em>{item.hint}</em>}
             </span>
           ))}
         </span>
       }
       history={
-        <HistoryPanel
-          title="Near Mint Market History"
-          subtitle={history?.variant ?? card.printing}
-          points={history?.points ?? []}
-          metrics={[]}
-          large
-        />
+        <>
+          <PriceContextNote card={card} />
+          <HistoryPanel
+            title="Near Mint Market History"
+            subtitle={history?.variant ?? card.printing}
+            points={history?.points ?? []}
+            metrics={[]}
+            large
+          />
+        </>
       }
       historyClassName="full-history"
     />
@@ -232,11 +289,13 @@ function HoverCard({
   history,
   signal,
   loading = false,
+  pair,
 }: {
   card: Card;
   history?: History;
   signal?: ReturnType<typeof marketSignal>;
   loading?: boolean;
+  pair?: RiftboundPairMetrics;
 }) {
   return (
     <HistoryPopover
@@ -249,13 +308,16 @@ function HoverCard({
       links={cardLinks(card)}
       label={`${card.name} price history`}
     >
-      <HistoryPanel
-        title="Near Mint Market History"
-        subtitle={history?.variant ?? card.printing}
-        points={history?.points ?? []}
-        metrics={cardHistoryMetrics(card, history)}
-        loading={loading}
-      />
+      <>
+        <HistoryPanel
+          title="Near Mint Market History"
+          subtitle={history?.variant ?? card.printing}
+          points={history?.points ?? []}
+          metrics={cardHistoryMetrics(card, history, pair)}
+          loading={loading}
+        />
+        <PriceContextNote card={card} />
+      </>
     </HistoryPopover>
   );
 }
@@ -363,12 +425,14 @@ export default function Home() {
       : selectedRarityNames.length <= 2
         ? selectedRarityNames.join(" & ")
         : `${selectedRarityNames.slice(0, 2).join(", ")} & ${selectedRarityNames.length - 2} More`;
-  const catalogSources = urlReady
-    ? (selectedRarities.length
-        ? selectedRarities
-        : rarityOptions.map((option) => option.key)
-      ).map((key) => `/data/${key}.json`)
-    : [];
+  const requestedCatalogKeys = selectedRarities.length
+      ? selectedRarities
+      : rarityOptions.map((option) => option.key),
+    pairCatalogRequested = (game === "riftbound" || game === "all") && requestedCatalogKeys.some(key => key === "signatures" || key === "overnumbered"),
+    catalogKeys = pairCatalogRequested
+      ? [...new Set([...requestedCatalogKeys, "signatures", "overnumbered"])]
+      : requestedCatalogKeys,
+    catalogSources = urlReady ? catalogKeys.map((key) => `/data/${key}.json`) : [];
   const {
     items: cards,
     status: catalogStatus,
@@ -379,6 +443,7 @@ export default function Home() {
     parse: parseCards,
     keyOf: cardKey,
   });
+  const riftboundPairs = useMemo(() => buildRiftboundPairMetrics(cards), [cards]);
   const {
     history,
     status: historyStatus,
@@ -979,7 +1044,7 @@ export default function Home() {
                   href={`/cards/${c.productId}`}
                   label={`View ${c.name} details`}
                 >
-                  <FullCard card={c} history={h} rank={rank} />
+                  <FullCard card={c} history={h} rank={rank} pair={riftboundPairs.get(c.productId)} />
                 </FullViewCardWrap>
               );
             return (
@@ -995,6 +1060,7 @@ export default function Home() {
                     history={h}
                     signal={signal ?? undefined}
                     loading={!history[c.productId]}
+                    pair={riftboundPairs.get(c.productId)}
                   />
                 }
               >

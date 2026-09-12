@@ -328,6 +328,9 @@ export type HistoryMetric = {
   label: string;
   value: string;
   tone?: "up" | "down" | "neutral";
+  // Visible supporting context for comparisons; unlike an info hint, this is data that
+  // should remain scannable on touch surfaces without opening another control.
+  hint?: string;
   // A tile that is an outbound link (the marketplace tile, todo O3) renders as an anchor.
   href?: string;
 };

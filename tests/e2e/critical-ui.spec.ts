@@ -155,6 +155,20 @@ test("matches card and sealed metric typography and tone tiles in mobile popups"
  await openPopup();
 });
 
+test("shows Riftbound pair multiples and material price context in Full view",async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.goto("/?market=riftbound&view=full&mode=singles&signal=leaderboard&rarity=signatures");
+ await waitForApp(page);
+ const card=page.locator(".full-card.has-pair-comparison").first();
+ await expect(card).toBeVisible();
+ const tiles=card.locator(".full-prices");
+ await expect(tiles.getByText("Pair market multiple",{exact:true})).toBeVisible();
+ await expect(tiles.getByText("All-pair average",{exact:true})).toBeVisible();
+ await expect(tiles.getByText("Set average",{exact:true})).toBeVisible();
+ await expect(tiles.locator("em").filter({hasText:/Pair [+−]\d+\.\d{2}× \([+−]\d+%\)/}).first()).toBeVisible();
+ await expect(card.locator(".riftbound-price-context")).toContainText("Trends use Market.");
+});
+
 test("swaps a Pokémon card image to its TCGdex scan when the TCGplayer image fails",async({page})=>{
  const svgImage=(width:number,height:number)=>`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"></svg>`;
  await page.route("https://tcgplayer-cdn.tcgplayer.com/**",route=>route.fulfill({status:200,contentType:"image/svg+xml",body:svgImage(route.request().url().includes("/product/0_")?400:2,route.request().url().includes("/product/0_")?570:3)}));
