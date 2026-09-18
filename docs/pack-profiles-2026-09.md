@@ -9,6 +9,38 @@ coverage and top price. Bar widths represent shares of the estimated subtotal,
 not hit probability. Missing prices/odds stay unavailable and are not zero-filled.
 The site design tokens cover both themes; rows wrap without horizontal scrolling.
 
+## Calculator controls (2026-09-18)
+
+The current set's breakdown has a Per pack / Per box dropdown, no box-price input
+and no set selector. A box is the standard English booster display, not an ETB,
+half display, bundle, case or collection. `core/domain/pack-value-scenario.ts`
+explicitly maps the 16 reviewed English mainline sets with supported EV overlays
+to 36 packs (SV01–SV10, ME01–ME04, Lost Origin, Silver Tempest), and the four
+Riftbound expansions to 24. Unknown formats, Japanese formats and English special
+sets without standard booster boxes disable Per box rather than invent a size.
+Future formats need an explicit reviewed entry; no game-wide fallback is used.
+
+Reference evidence: the TCGCSV product catalog confirms the named standard boxes
+(reviewed 2026-09-18). Publisher display configurations are documented by
+[Pokémon's Obsidian Flames showcase](https://www.pokemon.com/us/news/pokemon-tcg-scarlet-violet-obsidian-flames-elite-trainer-box-at-pokemon-center),
+[Journey Together](https://www.pokemon.com/uk/pokemon-news/pokemon-tcg-scarlet-violet-journey-together-product-showcase),
+[Phantasmal Flames](https://www.pokemon.com/us/news/pokemon-tcg-mega-evolution-phantasmal-flames-product-showcase),
+[Riftbound Origins](https://playriftbound.com/en-us/news/announcements/how-to-buy-riftbound/),
+[Spiritforged's sell sheet](https://uvsgames.com/wp-content/uploads/2025/09/Riftbound_Spiritforged_Sell_Sheets__Aug_8_.pdf),
+[Unleashed's sell sheet](https://uvsgames.com/wp-content/uploads/2026/03/Riftbound-Unleashed-Sell-Sheets.pdf),
+and [Vendetta's product FAQ](https://playriftbound.com/en-us/news/announcements/product-drawing-faq/).
+
+Rarity exclusions are client-side scenario controls: Signatures for Riftbound;
+SIRs plus the highest supported higher tier for Pokémon (e.g. Hyper Rare).
+Older sets use the highest recognized tier present, not the highest-priced card.
+Excluded rows remain visible, labeled Excluded; totals and share bars recompute.
+The original slot probabilities are never recalculated or reassigned. Thus this
+is a subtotal without those contributions, not conditional EV given a missed hit.
+An entirely unvalued remaining selection is N/A, not zero. Box EV and card yields
+scale the unrounded per-pack expectation; neither implies guaranteed box contents.
+Switches require no network calls, database writes or paid API credits. State
+resets on set/profile changes and starts per-pack with all rarities included.
+
 ## Coverage and maintenance
 
 `scripts/packs/research.mjs` holds the reviewed set assignments, measured rates,

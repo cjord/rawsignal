@@ -69,7 +69,7 @@ export default function SetDetailView({payload}:{payload:SetDetailPayload}){
      <p className="detail-note">Each line sums the day&apos;s observed member prices, rebased to 1,000 at its first tracked day. Days observing under 60% of the set are excluded rather than estimated.</p>
     </>:<p className="detail-unavailable">The set index accumulates from daily observations — not enough tracked days yet.</p>}
    </section>
-   <PackProfilePanel profile={payload.packProfile} evidence={payload.pullRateEvidence} breakdown={payload.valueBreakdown}/>
+   <PackProfilePanel profile={payload.packProfile} evidence={payload.pullRateEvidence} breakdown={payload.valueBreakdown} setName={payload.set}/>
    <RelatedSealedSection products={payload.sealed} setName={payload.set} market={payload.game}/>
    <ChaseCardsSection cards={chaseCards} packPrice={payload.packPrice} setName={payload.set}/>
   </article></main>;
