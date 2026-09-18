@@ -1,7 +1,33 @@
 import {expect,test} from "@playwright/test";
+import {renderPackValueFixture} from "../helpers/render-pack-value.mjs";
 
 const singlesUrl="/?market=pokemon&view=medium&sort=market&direction=desc&page=1&perPage=20&mode=singles&signal=leaderboard&strictness=balanced&rarity=illustration-rares%7Cspecial-illustration-rares";
 const waitForApp=async(page:import("@playwright/test").Page)=>expect(page.locator("html")).toHaveAttribute("data-app-ready","true");
+
+test("pack EV bars keep values and missing-data labels readable across themes and widths",async({page},testInfo)=>{
+ await page.route("**/api/ebay/listings**",route=>route.fulfill({status:503,contentType:"application/json",body:'{"available":false}'}));
+ await page.goto("/sealed/476451?market=pokemon&evBars=1");
+ const panel=page.getByRole("region",{name:"Pack composition and estimated value"});
+ await expect(panel).toBeVisible();
+ await expect(panel.locator(".pack-composition-table")).toHaveCSS("min-width","0px");
+ // Fixed prices exercise the presentation even when local D1 has no pack-v2 rows.
+ const styles=await page.evaluate(()=>Array.from(document.styleSheets).map(sheet=>Array.from(sheet.cssRules).map(rule=>rule.cssText).join("\n")).join("\n"));
+ const baseUrl=new URL(page.url()).origin;
+ await page.goto("about:blank");
+ await page.setContent(`<html data-theme="dark"><head><base href="${baseUrl}/"><style>${styles}</style></head><body><main class="detail-page"><article class="detail-content"><section class="detail-section pack-profile-panel">${renderPackValueFixture()}</section></article></main></body></html>`);
+ const bars=page.locator(".pack-value-breakdown");
+ await expect(bars.getByRole("listitem")).toHaveCount(5);
+ await expect(bars).toContainText("Incomplete pricing");
+ await expect(bars.locator(".pack-value-track").first()).toHaveCSS("height","8px");
+ for(const width of [390,1440])for(const theme of ["dark","light"]){
+  await page.setViewportSize({width,height:1000});
+  await page.evaluate(theme=>document.documentElement.setAttribute("data-theme",theme),theme);
+  await bars.scrollIntoViewIfNeeded();
+  await bars.screenshot({path:testInfo.outputPath(`pack-ev-${width}-${theme}.png`)});
+  expect(await bars.evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1)).toBe(true);
+ }
+});
 
 test("Lunar Irelia keeps unavailable prices and Chinese affiliate access on mobile and desktop",async({page},testInfo)=>{
  await page.route("**/api/ebay/listings**",route=>route.fulfill({status:503,contentType:"application/json",body:'{"available":false}'}));

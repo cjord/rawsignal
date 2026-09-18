@@ -92,3 +92,23 @@
 .detail-art,.detail-art img{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .pack-profile-panel .pack-composition-table{min-width:0;table-layout:fixed;width:100%}
 .pack-profile-panel .pack-composition-table th:first-child{width:78%;text-align:left;white-space:normal}
+.pack-value-breakdown{margin-top:24px;padding-top:20px;border-top:1px solid var(--line)}
+.pack-value-heading,.pack-value-total,.pack-value-tier-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.pack-value-heading{flex-wrap:wrap}
+.pack-value-heading h3{margin:0;font-size:var(--text-lg);color:var(--black)}
+.pack-value-heading p{margin:0;color:var(--gray);font-size:var(--text-xs)}
+.pack-value-heading strong,.pack-value-total strong,.pack-value-tier-heading>strong,.pack-value-facts{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.pack-value-total{margin:18px 0 22px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--control)}
+.pack-value-total>span{font-size:var(--text-xs);color:var(--gray)}
+.pack-value-total>strong{font-size:var(--text-lg);white-space:nowrap;color:var(--black)}
+.pack-value-tiers{list-style:none;margin:0;padding:0;display:grid;gap:18px}
+.pack-value-tier{min-width:0}
+.pack-value-tier-heading{font-size:var(--text-sm);font-weight:700;color:var(--black)}
+.pack-value-tier-heading>span{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0}
+.pack-value-tier-heading>strong{white-space:nowrap}
+.pack-chase-badge{padding:2px 6px;border:1px solid color-mix(in srgb,var(--tone-up) 35%,var(--line));border-radius:99px;background:color-mix(in srgb,var(--tone-up) 10%,var(--surface));color:var(--black);font-size:var(--text-2xs);letter-spacing:.05em;text-transform:uppercase}
+.pack-value-track{height:8px;margin:7px 0;border-radius:99px;background:var(--control);overflow:hidden}
+.pack-value-track>span{display:block;height:100%;border-radius:inherit;background:var(--gray)}
+.pack-value-tier.is-chase .pack-value-track>span{background:var(--tone-up)}
+.pack-value-facts{display:flex;flex-wrap:wrap;gap:4px 12px;margin:0;font-size:var(--text-2xs);line-height:1.6;color:var(--gray)}
+.pack-value-unavailable{margin:4px 0 0;color:var(--gray);font-size:var(--text-2xs);line-height:1.6}

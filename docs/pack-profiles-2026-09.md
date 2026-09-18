@@ -1,7 +1,13 @@
 # Set-specific pack profiles — 2026-09-17
 
-Implemented locally; not deployed. Supersedes the era-wide pull-rate and additive
+Initial profiles deployed to staging on 2026-09-18; not production. Supersedes the era-wide pull-rate and additive
 rare-slot assumptions in `set-value-breakdown-plan-2026-09.md`.
+
+The EV presentation now uses shared per-rarity contribution bars on set and sealed
+pages: partial per-pack subtotal, chase share, tier average, pull frequency, price
+coverage and top price. Bar widths represent shares of the estimated subtotal,
+not hit probability. Missing prices/odds stay unavailable and are not zero-filled.
+The site design tokens cover both themes; rows wrap without horizontal scrolling.
 
 ## Coverage and maintenance
 
