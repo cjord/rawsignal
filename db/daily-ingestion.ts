@@ -68,7 +68,7 @@ async function storedHistory(db: D1DatabaseLike, productId: number, variant: str
   return rows.map(row => ({ date: row.observedDate, price: row.marketCents / 100 }));
 }
 
-export async function persistDerivedHistory(db: D1DatabaseLike, productId: number, variant: string, condition: string, currentPrice: number, points: PricePoint[], coverage: PriceHistory["coverage"], updatedAt: string, sales?: PriceHistory["sales"]) {
+export async function persistDerivedHistory(db: D1DatabaseLike, productId: number, variant: string, condition: string, currentPrice: number | null, points: PricePoint[], coverage: PriceHistory["coverage"], updatedAt: string, sales?: PriceHistory["sales"]) {
   const asOfDate = points.at(-1)?.date ?? updatedAt.slice(0, 10);
   const metrics = deriveHistoryMetrics(points);
   const history: PriceHistory = { points, variant, condition, coverage, ...metrics };
@@ -100,7 +100,7 @@ type DerivedWrite = ReturnType<typeof marketSignalStatement>;
 
 // The champion (v1) rows: one upsert or delete per side × strictness, so a product that
 // no longer qualifies loses its stale row in the same batch that writes its metrics.
-export function signalStatements(db: D1DatabaseLike, productId: number, points: PricePoint[], currentPrice: number, asOfDate: string, coverage: PriceHistory["coverage"], context: SignalContext): { writes: DerivedWrite[]; signalsWritten: number } {
+export function signalStatements(db: D1DatabaseLike, productId: number, points: PricePoint[], currentPrice: number | null, asOfDate: string, coverage: PriceHistory["coverage"], context: SignalContext): { writes: DerivedWrite[]; signalsWritten: number } {
   const writes: DerivedWrite[] = [];
   let signalsWritten = 0;
   const observationDate = points.at(-1)?.date ?? asOfDate;
@@ -117,7 +117,7 @@ export function signalStatements(db: D1DatabaseLike, productId: number, points: 
 // Champion/challenger shadow (todo P1b): evaluate the v2 challenger at balanced on the
 // same data in the same pass — pure CPU. v1 keeps serving; these rows only feed the
 // daily shadow snapshot so promotion can rest on a same-cards, same-days comparison.
-export function shadowSignalStatements(db: D1DatabaseLike, productId: number, points: PricePoint[], currentPrice: number, asOfDate: string, updatedAt: string, context: SignalContext): DerivedWrite[] {
+export function shadowSignalStatements(db: D1DatabaseLike, productId: number, points: PricePoint[], currentPrice: number | null, asOfDate: string, updatedAt: string, context: SignalContext): DerivedWrite[] {
   return (["buy", "sell"] as const).map(side => {
     const shadow = marketSignal(points, side, "balanced", currentPrice, { ...context, model: "v2" });
     return shadow ? shadowSignalStatement(db, productId, shadow, asOfDate, updatedAt) : deleteShadowSignalStatement(db, productId, side);
@@ -133,6 +133,14 @@ export async function persistRecord(db: D1DatabaseLike, record: Card | SealedPro
   // The catalog row, price row, (MSRP row,) and today's observation land in one batch; the
   // derived pass then reads the stored history back and writes metrics + signals as one more.
   if ("printing" in record) {
+    // Keep catalog-only promos visible without inventing observations or retaining stale signals.
+    if (record.marketPrice == null) {
+      await db.batch([...cardStatements(db, record, observedAt, runId),
+        db.prepare("delete from market_metrics where product_id=?").bind(record.productId),
+        db.prepare("delete from market_signals where product_id=?").bind(record.productId),
+        db.prepare("delete from shadow_signals where product_id=?").bind(record.productId)]);
+      return { observationsWritten: 0, signalsWritten: 0, eligible: false };
+    }
     await db.batch([...cardStatements(db, record, observedAt, runId), ...historyStatements(db, record.productId, record.printing, "Near Mint", [{ date: asOfDate, price: record.marketPrice }], observedAt, "tcgcsv-daily")]);
     const derived = await persistDerived(db, record.productId, record.printing, "Near Mint", record.marketPrice, observedAt);
     return { observationsWritten: 1, ...derived };

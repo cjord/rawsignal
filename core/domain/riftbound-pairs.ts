@@ -1,9 +1,7 @@
 import type { Card, RiftboundPairMetrics } from "./types.ts";
+import { hasMarketPrice } from "./prices.ts";
 
 const PAIR_SECTIONS = new Set(["signatures", "overnumbered"]);
-
-const positive = (value: number | null | undefined): value is number =>
-  value != null && Number.isFinite(value) && value > 0;
 
 const normalizedName = (name: string) =>
   name
@@ -20,7 +18,8 @@ const normalizedSet = (set: string) => set.replace(/\s+/g, " ").trim().toLowerCa
 const pairKey = (card: Card) =>
   `${normalizedSet(card.set)}\u0000${normalizedName(card.name)}\u0000${normalizedNumber(card.number)}`;
 
-type EligiblePair = { signature: Card; overnumbered: Card; multiplier: number };
+type PricedCard = Card & { marketPrice: number };
+type EligiblePair = { signature: PricedCard; overnumbered: PricedCard; multiplier: number };
 
 /**
  * Pair Riftbound Signature and Overnumbered printings conservatively. A title alone is
@@ -28,9 +27,9 @@ type EligiblePair = { signature: Card; overnumbered: Card; multiplier: number };
  * match, and ambiguous duplicate groups fail closed.
  */
 export function buildRiftboundPairMetrics(cards: readonly Card[]): Map<number, RiftboundPairMetrics> {
-  const groups = new Map<string, Card[]>();
+  const groups = new Map<string, PricedCard[]>();
   for (const card of cards) {
-    if (card.game !== "riftbound" || !PAIR_SECTIONS.has(card.section) || !positive(card.marketPrice)) continue;
+    if (card.game !== "riftbound" || !PAIR_SECTIONS.has(card.section) || !hasMarketPrice(card)) continue;
     const key = pairKey(card), group = groups.get(key) ?? [];
     group.push(card);
     groups.set(key, group);

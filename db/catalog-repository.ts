@@ -3,6 +3,8 @@ import { createMemoryCatalogRepository, type CatalogRepository } from "../core/c
 import { canonicalSealedType, sealedProductTypes, type CatalogDerived, type CatalogPage, type SealedCatalogQuery, type SinglesCatalogQuery } from "../core/catalog-query.ts";
 import { readGradedCard } from "./graded-ingestion.ts";
 import { readPeerAnchor } from "./peer-anchors.ts";
+import { readSetRarityStats } from "./rarity-stats.ts";
+import { buildValueBreakdown } from "../core/domain/value-breakdown.ts";
 import type { D1DatabaseLike } from "./repository.ts";
 
 type ProductRow = {
@@ -50,7 +52,7 @@ const dollars = (value: number | null) => value == null ? null : value / 100;
 const percent = (value: number | null) => value == null ? null : value / 100;
 
 function toCard(row: ProductRow): Card | null {
-  if (row.kind !== "single" || row.game === "onepiece" || row.marketCents == null) return null;
+  if (row.kind !== "single" || row.game === "onepiece") return null;
   return {
     game: row.game,
     section: row.section ?? "all",
@@ -62,7 +64,7 @@ function toCard(row: ProductRow): Card | null {
     number: row.cardNumber ?? "",
     image: row.imageUrl ?? "",
     url: row.sourceUrl ?? "",
-    marketPrice: row.marketCents / 100,
+    marketPrice: dollars(row.marketCents),
     lowPrice: dollars(row.listingLowCents),
     midPrice: dollars(row.medianCents),
     highPrice: dollars(row.listingHighCents),
@@ -172,7 +174,7 @@ export async function readSetRowMetrics(db: D1DatabaseLike, game: string, setNam
 }
 
 export async function readSectionFeed(db: D1DatabaseLike, sections: string[]): Promise<Card[]> {
-  const rows = (await db.prepare(withFeedSelect(`${feedSqlBase} where p.kind='single' and p.section in (${sections.map(() => "?").join(",")}) and cp.market_cents is not null
+  const rows = (await db.prepare(withFeedSelect(`${feedSqlBase} where p.kind='single' and p.section in (${sections.map(() => "?").join(",")})
     order by cp.market_cents desc, p.name asc`)).bind(...sections).all<FeedRow>()).results ?? [];
   return rows.map(row => withMetrics(row, toCard(row))).filter((card): card is Card => card !== null);
 }
@@ -334,15 +336,15 @@ export function createD1CatalogRepository(db: D1DatabaseLike, ingestionRunId?: s
   };
   const singlesFacets = async (options: SinglesCatalogQuery): Promise<CatalogPage<Card>["facets"]> => {
     const params: unknown[] = [options.market, ...runParams];
-    let where = `p.kind='single' and p.game=?${runClause} and cp.market_cents is not null`;
+    let where = `p.kind='single' and p.game=?${runClause}`;
     if (options.sections.length) { where += ` and coalesce(p.section,'all') in (${placeholders(options.sections)})`; params.push(...options.sections); }
     const rows = (await db.prepare(`select distinct p.set_name as setName, coalesce(p.section,'all') as section
-      from catalog_products p join current_prices cp on cp.product_id=p.product_id where ${where}`).bind(...params).all<{ setName: string; section: string }>()).results ?? [];
+      from catalog_products p left join current_prices cp on cp.product_id=p.product_id where ${where}`).bind(...params).all<{ setName: string; section: string }>()).results ?? [];
     return { sets: [...new Set(rows.map(row => row.setName))].sort(), sections: [...new Set(rows.map(row => row.section))].sort(), productTypes: [] };
   };
   const singlesCandidates = async (options: SinglesCatalogQuery) => {
     const params: unknown[] = [options.market, ...runParams];
-    let where = ` and cp.market_cents is not null`;
+    let where = ``;
     if (options.sections.length) { where += ` and coalesce(p.section,'all') in (${placeholders(options.sections)})`; params.push(...options.sections); }
     if (options.sets.length) { where += ` and p.set_name in (${placeholders(options.sets)})`; params.push(...options.sets); }
     const min = centsFloor(options.minPrice), max = centsCeil(options.maxPrice);
@@ -426,6 +428,10 @@ export function createD1CatalogRepository(db: D1DatabaseLike, ingestionRunId?: s
       const anchorKey=`${row.game}|${row.setName}|${row.rarity}`;
       const detail=await createMemoryCatalogRepository(cards,sealed,enrichments,pullRateConfig,graded?{[String(productId)]:graded}:undefined,peerAnchor?{[anchorKey]:peerAnchor}:undefined).getDetail(kind,productId,market);
       if(!detail)return null;
+      if(detail.kind==="sealed"&&detail.packProfile?.language==="en") {
+        const stats=await readSetRarityStats(db,detail.game,detail.set).catch(()=>[]);
+        detail.valueBreakdown=buildValueBreakdown(pullRateConfig,detail.game,detail.set,stats);
+      }
       // The set-scoped tables carry each row's latest metrics so the page renders their
       // change/range columns at once; a row's chart loads only on its first popover reveal.
       const attach=<T extends Card|SealedProduct>(item:T):T=>{const metrics=setMetrics.get(item.productId);return metrics?{...item,metrics}:item};

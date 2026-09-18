@@ -5,6 +5,8 @@ import DeferredImage from "./DeferredImage";
 import {useArtTilt} from "./hooks/useArtTilt";
 import FavoriteStar from "./FavoriteStar";
 import InfoHint from "./InfoHint";
+import PackProfilePanel from "./PackProfilePanel";
+import {supplementalSingle} from "../core/domain/supplemental-singles.ts";
 import {evRatio,packChaseEv} from "../core/domain/pack-ev";
 import {favoriteKey} from "./state/favorites";
 import {parseStrictness,STRICTNESS_KEY,usePreference} from "./state/usePreference";
@@ -289,12 +291,12 @@ function PullRatesSection({detail}:{detail:SealedDetail}){
   {ev!=null&&<div className="detail-history-grid detail-ev-grid">
    <div className="detail-metric"><small>Chase EV per pack</small><b>{formatUsd(ev)}</b><span>Tracked chase slots only — bulk excluded</span></div>
    {detail.packPrice!=null&&<div className="detail-metric"><small>Pack price</small><b>{formatUsd(detail.packPrice)}</b><span>Cheapest live single pack</span></div>}
-   {ratio!=null&&<div className="detail-metric"><small>EV ratio</small><b className={ratio>=1?"up":"down"}>{ratio.toFixed(2)}×</b><span>{ratio>=1?"Ripping beats buying the singles at these prices":"Buying singles beats ripping at these prices"}</span></div>}
+   {ratio!=null&&<div className="detail-metric"><small>Partial EV / pack price</small><b>{ratio.toFixed(2)}×</b><span>Estimated tracked value before costs</span></div>}
   </div>}
-  <div className="detail-table-scroll"><table className="detail-variants-table"><thead><tr><th scope="col">Rarity</th><th scope="col">Cards in set</th><th scope="col">Any hit</th><th scope="col">Specific card</th><th scope="col">Cost per hit</th><th scope="col">Avg market</th></tr></thead><tbody>
-  {detail.pullRates.map(row=><tr key={row.rarity}><th scope="row">{row.rarity}</th><td>{row.cardCount}</td><td>1 in {row.packsPerHit}</td><td>1 in ~{Math.round(row.packsPerHit*row.cardCount).toLocaleString()}</td><td>{formatUsd(row.costPerHit,"N/A")}</td><td>{formatUsd(row.averageMarket,"N/A")}</td></tr>)}
+  <div className="detail-table-scroll"><table className="detail-variants-table"><thead><tr><th scope="col">Rarity</th><th scope="col">Tracked cards</th><th scope="col">Average yield</th><th scope="col">Specific card estimate</th><th scope="col">Pack spend per card</th><th scope="col">Avg market</th></tr></thead><tbody>
+  {detail.pullRates.map(row=><tr key={row.rarity}><th scope="row">{row.rarity}</th><td>{row.cardCount}</td><td>~1 per {row.packsPerHit.toLocaleString(undefined,{maximumFractionDigits:1})} packs</td><td>~1 per {Math.round(row.packsPerHit*row.cardCount).toLocaleString()} packs</td><td>{formatUsd(row.costPerHit,"N/A")}</td><td>{formatUsd(row.averageMarket,"N/A")}</td></tr>)}
   </tbody></table></div>
-  <p className="detail-note">Community-measured pull-rate estimates{detail.packPrice!=null?` · costs use the ${formatUsd(detail.packPrice)} single-pack market price`:""}.<InfoHint label="About pull-rate accuracy">Odds vary by product and print run; treat community-measured rates as approximations, not guarantees. Chase EV multiplies each tier&apos;s average tracked price by its hit odds — it excludes bulk commons, so it is a floor on pack value, not the whole story.</InfoHint></p>
+  <p className="detail-note">Set-specific pull-rate estimates{detail.packPrice!=null?` · costs use the ${formatUsd(detail.packPrice)} single-pack market price`:""}.<InfoHint label="About pull-rate accuracy">Rates estimate average yield, not guaranteed hits or profit. Multi-hit packs can differ from hit probability. Specific-card figures assume equal frequency within each rarity. This partial EV excludes unpriced tiers, bulk and unmodeled printings.</InfoHint></p>
  </section>;
 }
 
@@ -349,7 +351,7 @@ export default function ProductDetailPage({detail,market,serverTiming}:{detail:C
  const fallback=detail.kind==="single"?`/?mode=singles&market=${detail.game}`:`/?mode=sealed&market=${market??detail.game}`,current=variant?.marketPrice??detail.marketPrice,printing=variant?.printing??(detail.kind==="single"?detail.printing:"Sealed"),historyKey=`${detail.kind}:${detail.productId}:${printing}`;
  useEffect(()=>{const controller=new AbortController(),params=new URLSearchParams({productId:String(detail.productId),printing});if(detail.kind==="sealed")params.set("sealed","1");fetch(`/api/history?${params}`,{signal:controller.signal}).then(response=>{if(!response.ok)throw new Error();return response.json()}).then(value=>setHistoryResult({key:historyKey,value:value as PriceHistory,error:false})).catch(error=>{if(error.name!=="AbortError")setHistoryResult({key:historyKey,value:null,error:true})});return()=>controller.abort()},[detail.kind,detail.productId,printing,historyKey]);
  const historyData=historyResult.key===historyKey?historyResult.value:null,historyError=historyResult.key===historyKey&&historyResult.error,h=historyData??emptyHistory,depth=historyDepth(historyData),rankPct=detailPercentile(detail),position=rangePosition(current,h.historyLow,h.historyHigh);
- const sourceLabel=detail.source.sourceUpdatedAt?`Source updated ${detail.source.sourceUpdatedAt.slice(0,10)}`:"Current TCGCSV / TCGplayer snapshot";
+ const sourceLabel=supplementalSingle(detail.productId)?"Curated identity verified against Riot Games; Simplified Chinese exclusive. TCGplayer pricing and history unavailable":detail.source.sourceUpdatedAt?`Source updated ${detail.source.sourceUpdatedAt.slice(0,10)}`:"Current TCGCSV / TCGplayer snapshot";
  const marketKey=detail.kind==="single"?detail.game:(market??detail.game);
  const gameHref=detail.kind==="single"?`/?mode=singles&market=${detail.game}&rarity=all`:`/?mode=sealed&market=${marketKey}`;
  const setHref=`${gameHref}&sets=${encodeURIComponent(detail.set)}`;
@@ -366,7 +368,7 @@ export default function ProductDetailPage({detail,market,serverTiming}:{detail:C
  <SignalsPanel history={historyData} loading={!historyData&&!historyError} current={current} strictness={strictness}/>
  {detail.kind==="single"&&<GradedMarketSection graded={detail.graded} current={current}/>}
  {detail.kind==="single"&&<RelatedSealedSection products={detail.relatedSealed} setName={detail.set} market={detail.game}/>}
- {detail.kind==="sealed"&&<PullRatesSection detail={detail}/>}
+ {detail.kind==="sealed"&&<><PackProfilePanel profile={detail.packProfile} evidence={detail.pullRateEvidence} breakdown={detail.valueBreakdown}/><PullRatesSection detail={detail}/></>}
  {detail.kind==="sealed"&&<ChaseCardsSection cards={detail.chaseCards} packPrice={detail.packPrice} setName={detail.set}/>}
  {detail.kind==="sealed"&&<RelatedSealedSection products={detail.relatedSealed} setName={detail.set} market={market}/>}
  <details className="detail-section detail-collapsible"><summary><span>Product overview</span><h2>{detail.kind==="single"?"Card Details":"Product Details"}</h2><i className="detail-collapse-mark" aria-hidden="true">▸</i></summary><div className="detail-info-layout"><SourceFacts detail={detail}/>{detail.metadata.length?<dl className="detail-metadata">{detail.metadata.map(field=><div key={`${field.name}:${field.value}`}><dt>{field.label}</dt><dd>{field.value}</dd></div>)}</dl>:<p className="detail-unavailable">No additional category-specific fields were supplied for this product.</p>}</div>{detail.source.presaleNote&&<p className="detail-note">Presale note: {detail.source.presaleNote}</p>}<p className="detail-note">{sourceLabel}. Market prices and history are informational and are not guarantees of future value.</p></details><SimilarItems detail={detail}/></article></main><SiteFooter/></>;

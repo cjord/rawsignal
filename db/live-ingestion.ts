@@ -1,4 +1,5 @@
 import type { Card, SealedProduct } from "../core/domain/types.ts";
+import { supplementalSingles } from "../core/domain/supplemental-singles.ts";
 import { normalizeSinglesGroup, type SinglesPriceRow, type SinglesSourceProduct } from "../core/normalize/singles.ts";
 import { normalizeJapaneseSealedProduct, normalizeOnePieceSealedProduct, normalizePokemonSealedProduct, normalizeRiftboundSealedProduct, preferredSealedPrice, sealedIdentity, type SealedPriceRow } from "../core/normalize/sealed.ts";
 import { JAPANESE_SEALED_SINCE, type SealedSourceProduct } from "../core/sealed-product-utils.ts";
@@ -29,7 +30,8 @@ export type LiveSyncDeps = {
 type WorkEntry =
   | { type: "tcgcsv"; categoryId: number; game: "pokemon" | "riftbound"; group: TcgcsvGroup; fixedSection?: [string, string] }
   | { type: "tcgcsv-sealed"; categoryId: number; game: "onepiece" | "pokemon"; group: TcgcsvGroup }
-  | { type: "bundled"; market: "riftbound" | "onepiece" };
+  | { type: "bundled"; market: "riftbound" | "onepiece" }
+  | { type: "supplemental-singles" };
 type LiveStats = { recordsWritten?: number; duplicateDecisions?: number; rejected?: Record<string, number> };
 
 const categories = [{ id: 3, game: "pokemon" as const }, { id: 89, game: "riftbound" as const }];
@@ -79,12 +81,18 @@ async function buildWorkList(client: TcgcsvClient, now: Date): Promise<WorkEntry
     for (const group of groups) entries.push({ type: "tcgcsv-sealed", categoryId: category.id, game: category.game, group });
   }
   entries.push({ type: "bundled", market: "riftbound" }, { type: "bundled", market: "onepiece" });
+  entries.push({ type: "supplemental-singles" });
   return entries;
 }
 
 type EntryLoad = { records: (Card | SealedProduct)[]; rarityStats: GroupRarityStat[] };
 
 async function loadEntryRecords(entry: WorkEntry, deps: LiveSyncDeps, msrp: () => Promise<Map<number, unknown>>, curatedRiftbound: () => Promise<Map<number, SealedProduct>>, rejected: Record<string, number>): Promise<EntryLoad> {
+  if (entry.type === "supplemental-singles") return { records: [...supplementalSingles], rarityStats: [] };
+  return loadSourceEntryRecords(entry,deps,msrp,curatedRiftbound,rejected);
+}
+
+async function loadSourceEntryRecords(entry: Exclude<WorkEntry,{type:"supplemental-singles"}>, deps: LiveSyncDeps, msrp: () => Promise<Map<number, unknown>>, curatedRiftbound: () => Promise<Map<number, SealedProduct>>, rejected: Record<string, number>): Promise<EntryLoad> {
   if (entry.type === "bundled") return { records: await deps.loadBundledSealed(entry.market), rarityStats: [] };
   const [products, prices] = await Promise.all([deps.client.products(entry.categoryId, entry.group.groupId), deps.client.prices(entry.categoryId, entry.group.groupId)]);
   // Per-tier aggregate over EVERY card in a singles group (todo J2): the bulk tiers the
@@ -192,7 +200,7 @@ export async function runLiveDailyIngestionBatch(db: D1DatabaseLike, deps: LiveS
         const current = existing.get(record.productId);
         const isCard = "printing" in record;
         if (current) {
-          const keepExisting = !isCard || current.marketCents == null || (record as Card).marketPrice * 100 <= current.marketCents;
+          const keepExisting = !isCard || record.marketPrice == null || (current.marketCents != null && record.marketPrice * 100 <= current.marketCents);
           duplicateDecisions++;
           if (keepExisting) continue;
         }

@@ -3,6 +3,16 @@ import test from "node:test";
 import {EBAY_SCOPE,EBAY_SEARCH_URL,EBAY_TOKEN_URL,createEbayBrowseClient,ebaySearchParams} from "../core/clients/ebay-browse.ts";
 import {createEbayListingsDeps} from "../core/clients/ebay-listings.ts";
 
+test("unpriced Metal promos still search Browse without a price bracket and preserve affiliate links",async()=>{
+ const name="Kai'Sa, Daughter of the Void (Metal) (Best Of)";
+ const ebay=fakeEbay({itemSummaries:[{itemId:"1",title:`Riftbound ${name} 247/298 English`,price:{value:"900",currency:"USD"},itemWebUrl:"https://www.ebay.com/itm/1"}]});
+ const result=await createEbayListingsDeps({clientId:"fixture",clientSecret:"fixture"},ebay.fetcher).fetchListings({productId:669250,kind:"single",game:"riftbound",name,set:"Riftbound Organized Play Promotional Cards",number:"247/298",section:"metal-promos",marketCents:null});
+ const url=new URL(ebay.requests.at(-1).url);
+ assert.match(url.searchParams.get("q"),/Metal Best Of/);assert.doesNotMatch(url.searchParams.get("filter"),/price:/);
+ assert.equal(result.summary.samples.length,1);assert.match(result.summary.samples[0].url,/campid=/);
+ assert.equal(result.summary.medianAsk,null); // One listing is not enough for an aggregate.
+});
+
 // A fake eBay: the token endpoint and the search endpoint, recording every request so the
 // client's auth, headers, caching, and retry are checked without a network.
 function fakeEbay(options={}){

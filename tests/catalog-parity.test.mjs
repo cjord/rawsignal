@@ -134,8 +134,7 @@ async function seededDatabase() {
   await upsertSealedProduct(db, parseSealedProduct(sealedFixture(902, { name: "Stale Sealed", set: "Stale Vault", category: "Troves" })), OBSERVED, STALE_RUN_ID);
   await completeIngestion(db, STALE_RUN_ID, "daily-market", OBSERVED, 2, 2);
   // Priceless singles under the MAIN run: one with no current_prices row, one with a NULL
-  // market_cents. toCard drops both, so the engine's facets never see "Priceless Set" —
-  // the facet queries' price-presence guards must exclude them the same way.
+  // market_cents. Catalog-only singles remain visible, including their set facet.
   await upsertCard(db, parseCard(cardFixture(120, { name: "Priceless Alpha", set: "Priceless Set", marketPrice: 1 })), OBSERVED, RUN_ID);
   await upsertCard(db, parseCard(cardFixture(121, { name: "Priceless Beta", set: "Priceless Set", marketPrice: 1 })), OBSERVED, RUN_ID);
   database.prepare("delete from current_prices where product_id=120").run();
@@ -178,7 +177,10 @@ function referenceDerived(kindIds, options) {
 
 // The engine references, fed rows in productId order to match the D1 path's
 // deterministic ORDER BY (stable-sort tie order must agree on both sides).
-const referenceCards = [...cards].sort((a, b) => a.productId - b.productId);
+const referenceCards = [...cards,
+  cardFixture(120, { name: "Priceless Alpha", set: "Priceless Set", marketPrice: null, lowPrice: null, midPrice: null, highPrice: null }),
+  cardFixture(121, { name: "Priceless Beta", set: "Priceless Set", marketPrice: null }),
+].sort((a, b) => a.productId - b.productId);
 const referenceSealed = [...sealed].sort((a, b) => a.productId - b.productId)
   .map(product => CATEGORY_REWRITES[product.productId] ? { ...product, category: CATEGORY_REWRITES[product.productId] } : product);
 const cardIds = new Set(cards.map(card => card.productId));

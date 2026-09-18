@@ -140,7 +140,10 @@ test("keeps the generated feeds inside their contracts", async () => {
   // regeneration that adds it to the index silently flips that guard — this deepEqual
   // makes the flip loud instead. Update BOTH sides together (docs/codebase-audit §couplings).
   assert.deepEqual(index.rarities.pokemon.map(x => x.key), ["illustration-rares", "special-illustration-rares", "promos", "ultra-rares", "double-rares", "secret-hyper-rares", "shiny-radiant-rares", "vintage", "all"]);
-  assert.deepEqual(index.rarities.riftbound.map(x => x.key), ["rares", "epics", "alt-arts", "overnumbered", "signatures", "all"]);
+  assert.deepEqual(index.rarities.riftbound.map(x => x.key), ["rares", "epics", "alt-arts", "overnumbered", "signatures", "metal-promos", "riftbound-commons", "riftbound-uncommons", "riftbound-promos", "riftbound-showcases", "riftbound-foreign-promos", "all"]);
+  const metal = JSON.parse(await read("public/data/metal-promos.json"));
+  assert.ok(metal.some(card => card.marketPrice === null));
+  assert.ok(metal.every(card => card.game === "riftbound" && card.section === "metal-promos"));
   for (const key of ["promos", "ultra-rares", "double-rares", "secret-hyper-rares", "shiny-radiant-rares"])
     assert.ok(JSON.parse(await read(`public/data/${key}.json`)).length >= 50);
   // Regional sealed records keep explicit nulls — never estimated prices or profit.

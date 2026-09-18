@@ -1,7 +1,9 @@
 "use client";
+import {hasMarketPrice} from "../core/domain/prices";
 import DeferredImage from "./DeferredImage";
 import PriceChart from "./PriceChart";
 import TopBar from "./TopBar";
+import PackProfilePanel from "./PackProfilePanel";
 import {ChaseCardsSection,RelatedSealedSection} from "./detail-tables";
 import {parseStrictness,STRICTNESS_KEY,usePreference} from "./state/usePreference";
 import {setGroupLabel} from "../core/domain/eras";
@@ -34,7 +36,7 @@ export default function SetDetailView({payload}:{payload:SetDetailPayload}){
  const mainLine=singles.length>1?singles:sealedLine,overlayLine=singles.length>1&&sealedLine.length>1?sealedLine:null;
  const mainLabel=singles.length>1?"Singles value":"Sealed value";
  const dataThrough=(payload.singlesIndex.at(-1)?.date??payload.sealedIndex.at(-1)?.date)??null;
- const chaseCards=[...payload.cards].filter(card=>payload.packPrice==null||card.marketPrice>payload.packPrice).sort((a,b)=>b.marketPrice-a.marketPrice).slice(0,12);
+ const chaseCards=payload.cards.filter(hasMarketPrice).filter(card=>payload.packPrice==null||card.marketPrice>payload.packPrice).sort((a,b)=>b.marketPrice-a.marketPrice).slice(0,12);
  const cardListHref=`/?mode=singles&market=${payload.game}&rarity=all&sets=${encodeURIComponent(payload.set)}`;
  return <main className="detail-page sets-page set-detail-page"><TopBar active="sets" strictness={strictness} onStrictness={setStrictness}/>
   <article className="detail-content">
@@ -67,6 +69,7 @@ export default function SetDetailView({payload}:{payload:SetDetailPayload}){
      <p className="detail-note">Each line sums the day&apos;s observed member prices, rebased to 1,000 at its first tracked day. Days observing under 60% of the set are excluded rather than estimated.</p>
     </>:<p className="detail-unavailable">The set index accumulates from daily observations — not enough tracked days yet.</p>}
    </section>
+   <PackProfilePanel profile={payload.packProfile} evidence={payload.pullRateEvidence} breakdown={payload.valueBreakdown}/>
    <RelatedSealedSection products={payload.sealed} setName={payload.set} market={payload.game}/>
    <ChaseCardsSection cards={chaseCards} packPrice={payload.packPrice} setName={payload.set}/>
   </article></main>;

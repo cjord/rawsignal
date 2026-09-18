@@ -1,4 +1,5 @@
 import type { Card, CatalogDetailEnrichment, DetailMetadataField, DetailPriceVariant, DetailSource, GradedCardData, PeerAnchorStats, PriceHistory, PricePoint, PullRateConfig, PullRateTables, SealedProduct } from "./types.ts";
+import {parsePackMetadata,parseReplacements} from "./pack-profile-contract.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -64,7 +65,7 @@ export function parseCard(value: unknown): Card {
   if (!record(value)) throw new TypeError("Invalid card record");
   const requiredStrings = ["section", "name", "set", "rarity", "number", "image", "url", "printing"] as const;
   if (value.game !== "pokemon" && value.game !== "riftbound") throw new TypeError("Invalid card market");
-  if (!Number.isInteger(value.productId) || !finite(value.year) || !finite(value.marketPrice)) throw new TypeError("Invalid card identity or price");
+  if (!Number.isInteger(value.productId) || !finite(value.year) || !nullableFinite(value.marketPrice)) throw new TypeError("Invalid card identity or price");
   for (const key of requiredStrings) if (!string(value[key])) throw new TypeError(`Invalid card field: ${key}`);
   for (const key of ["lowPrice", "midPrice", "highPrice", "priceChange"] as const) {
     if (!nullableFinite(value[key])) throw new TypeError(`Invalid card price: ${key}`);
@@ -125,9 +126,10 @@ export function parsePullRateConfig(value:unknown):PullRateConfig{
   const parsed:PullRateConfig["games"][string]=tables(entry,"pull-rate");
   // Cards per pack for guaranteed slots (todo J2): same shape, same positive-number rule.
   if(entry.perPack!=null){if(!record(entry.perPack))throw new TypeError("Invalid pull-rate perPack");parsed.perPack=tables(entry.perPack,"perPack")}
+  if(entry.replacements!=null)parsed.replacements=parseReplacements(entry.replacements);
   games[game]=parsed;
  }
- return {games};
+ return {games,...parsePackMetadata(value)};
 }
 
 // Tolerant like the graded feed: malformed cohorts are skipped rather than failing the load.

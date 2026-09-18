@@ -3,6 +3,72 @@ import {expect,test} from "@playwright/test";
 const singlesUrl="/?market=pokemon&view=medium&sort=market&direction=desc&page=1&perPage=20&mode=singles&signal=leaderboard&strictness=balanced&rarity=illustration-rares%7Cspecial-illustration-rares";
 const waitForApp=async(page:import("@playwright/test").Page)=>expect(page.locator("html")).toHaveAttribute("data-app-ready","true");
 
+test("Lunar Irelia keeps unavailable prices and Chinese affiliate access on mobile and desktop",async({page},testInfo)=>{
+ await page.route("**/api/ebay/listings**",route=>route.fulfill({status:503,contentType:"application/json",body:'{"available":false}'}));
+ for(const width of [390,1440]){
+  await page.setViewportSize({width,height:1000});
+  await page.goto("/cards/900000001?coverage=20260918");
+  await expect(page.locator("h1")).toContainText("Lunar Revel 2026");
+  await expect(page.locator(".detail-primary-price strong")).toHaveText("N/A");
+  const ebay=new URL((await page.getByRole("link",{name:"eBay ↗",exact:true}).getAttribute("href"))!);
+  expect(ebay.searchParams.get("Language")).toBe("Chinese");expect(ebay.searchParams.get("campid")).toBe("5339205908");
+  await expect(page.locator(".detail-actions").getByRole("link",{name:"Search on TCGplayer ↗"})).toHaveAttribute("href",/search/);
+  await page.locator(".detail-hero").screenshot({path:testInfo.outputPath(`lunar-${width}.png`)});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1)).toBe(true);
+ }
+});
+
+test("unpriced Metal promos keep their eBay grid and affiliate links at phone and desktop widths",async({page},testInfo)=>{
+ await page.route("**/api/history?**",route=>route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({points:[],coverage:"none",change7:null,change30:null,change90:null,low30:null,high30:null,historyLow:null,historyHigh:null})}));
+ const sample={itemId:"metal-fixture",title:"Riftbound Kai'Sa Daughter of the Void Metal Best Of 247/298 English",price:900,shipping:0,deliveredPrice:900,condition:"Ungraded",imageUrl:null,url:"https://www.ebay.com/itm/123?campid=5339205908",buyingOptions:["FIXED_PRICE"],matchConfidence:"high"};
+ await page.route("**/api/ebay/listings?productId=669250",route=>route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({snapshot:{query:"fixture",categoryId:183454,listingCount:1,reviewedCount:1,acceptedCount:1,highConfidenceCount:1,lowestAsk:null,medianAsk:null,lowestDeliveredAsk:null,medianDeliveredAsk:null,deliveredQ1:null,deliveredQ3:null,belowMarketCount:0,nearMarketCount:0,freeShippingCount:1,bestOfferCount:0,samples:[sample],fetchedAt:"2026-09-18T12:00:00Z",expiresAt:"2026-09-18T18:00:00Z",updatedAt:"2026-09-18"},history:{points:[]}})}));
+ for(const width of [390,1440]){
+  await page.setViewportSize({width,height:1000});
+  await page.goto("/cards/669250?e2e=unpriced-metal-v1");
+  await expect(page.locator("h1")).toContainText("Metal");
+  await expect(page.locator(".detail-primary-price strong")).toHaveText("N/A");
+  await page.locator(".detail-ebay").scrollIntoViewIfNeeded();
+  await expect(page.locator(".ebay-listing-card")).toHaveCount(1);
+  await expect(page.locator(".ebay-listing-card")).toContainText("$900");
+  const link=page.getByRole("link",{name:"Browse eBay ↗"});
+  const url=new URL((await link.getAttribute("href"))!);
+  expect(url.searchParams.get("_nkw")).toContain("Metal Best Of");expect(url.searchParams.get("campid")).toBe("5339205908");
+  for(const theme of ["dark","light"]){
+   await page.evaluate(theme=>document.documentElement.setAttribute("data-theme",theme),theme);
+   await page.locator(".detail-ebay").screenshot({path:testInfo.outputPath(`metal-${width}-${theme}.png`)});
+   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1)).toBe(true);
+  }
+ }
+});
+
+test("pack profiles distinguish English odds and Japanese deluxe packs at phone and desktop sizes",async({page},testInfo)=>{
+ await page.route("**/api/ebay/listings**",route=>route.fulfill({status:503,contentType:"application/json",body:'{"available":false}'}));
+ for(const width of [390,1440]){
+  await page.setViewportSize({width,height:1000});
+  // A fresh URL avoids persisted local Worker HTML from a previous source revision.
+  await page.goto("/sealed/476451?market=pokemon&packProfileVersion=2");
+  const panel=page.getByRole("region",{name:"Pack composition and estimated value"});
+  await expect(panel).toContainText("English booster · 10 cards");
+  await expect(panel).toContainText("8,000");
+  // vinext attaches the component stylesheet during hydration on a cold detail load.
+  await expect(panel.locator(".pack-composition-table")).toHaveCSS("min-width","0px");
+  const countBox=await panel.getByRole("cell",{name:"4",exact:true}).boundingBox();
+  expect(countBox).not.toBeNull();
+  expect(countBox!.x+countBox!.width).toBeLessThanOrEqual(width);
+  await expect(panel.getByRole("link",{name:"Source 2"})).toHaveAttribute("href",/tcgplayer/);
+  for(const theme of ["dark","light"]){
+   await page.evaluate(theme=>document.documentElement.setAttribute("data-theme",theme),theme);
+   await panel.scrollIntoViewIfNeeded();
+   await panel.screenshot({path:testInfo.outputPath(`pack-${width}-${theme}.png`)});
+   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1)).toBe(true);
+  }
+  await page.goto("/sealed/636739?market=pokemon&packProfileVersion=2");
+  await expect(panel).toContainText("Japanese booster · 35 cards");
+  await expect(panel).toContainText("Set-specific pull rates unavailable");
+  await expect(page.getByRole("heading",{name:"Pull Rates",exact:true})).toHaveCount(0);
+ }
+});
+
 test("preserves mode and view changes in browser history",async({page})=>{
  await page.goto(singlesUrl);
  await waitForApp(page);

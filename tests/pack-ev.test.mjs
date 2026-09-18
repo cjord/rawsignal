@@ -21,7 +21,7 @@ test("the EV ratio compares EV against a live pack price without inventing one",
 test("the pack value breakdown prices slot tiers per pack and chase tiers per hit, and leaves unrated tiers out",()=>{
  const tier=(key,extra)=>({key,label:key,perPack:null,packsPerHit:null,cardCount:10,pricedCount:10,sumMarket:10,topMarket:5,topProductId:1,...extra});
  const breakdown=packValueBreakdown([
-  tier("Common",{perPack:7,cardCount:100,pricedCount:80,sumMarket:19}),   // avg 0.19 over every card → 1.33 per pack
+  tier("Common",{perPack:7,cardCount:100,pricedCount:100,sumMarket:19}),   // fully priced tier → 1.33 per pack
   tier("Epic",{packsPerHit:4,cardCount:40,pricedCount:40,sumMarket:466.8}), // avg 11.67 → 2.9175
   tier("Promo",{}),                                                        // no odds → unrated
  ]);

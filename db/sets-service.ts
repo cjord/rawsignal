@@ -1,8 +1,10 @@
 import { setGroupKey } from "../core/domain/eras.ts";
+import { hasMarketPrice } from "../core/domain/prices.ts";
 import { setSlug } from "../core/domain/formatters.ts";
 import type { SetDetailPayload, SetDirectoryRow, SetsDirectoryPayload } from "../core/domain/sets.ts";
 import type { PricePoint, PullRateConfig } from "../core/domain/types.ts";
 import { buildValueBreakdown } from "../core/domain/value-breakdown.ts";
+import { packProfileFor, evidenceFor } from "../core/domain/pack-profile.ts";
 import { readGameSetProducts } from "./catalog-repository.ts";
 import { loadSetEvData } from "./metrics-service.ts";
 import { readSetRarityStats } from "./rarity-stats.ts";
@@ -181,7 +183,7 @@ export async function loadSetDetail(db: D1DatabaseLike | undefined, game: string
 
   const packs = sealed.filter(product => product.category === "Booster Packs" && product.marketPrice != null && product.marketPrice > 0);
   const packPrice = packs.length ? Math.min(...packs.map(product => product.marketPrice as number)) : null;
-  const chase = packPrice != null ? cards.filter(card => card.marketPrice > packPrice) : cards;
+  const chase = cards.filter(hasMarketPrice).filter(card => packPrice == null || card.marketPrice > packPrice);
   const seriesFor = (kind: "single" | "sealed"): PricePoint[] => {
     const rows = observations.filter(row => row.kind === kind);
     const maxMembers = Math.max(0, ...rows.map(row => row.members));
@@ -195,7 +197,7 @@ export async function loadSetDetail(db: D1DatabaseLike | undefined, game: string
   const evPack = packPriceBySet.get(evKey) ?? packPrice;
   // Cover art follows the directory rule: cases and display multiples cannot represent a set.
   const cover = [...cards.map(card => ({ image: card.image, price: card.marketPrice })), ...sealed.filter(product => product.category !== "Cases" && !/\bdisplay\b/i.test(product.name)).map(product => ({ image: product.image, price: product.marketPrice ?? 0 }))]
-    .filter(item => item.image).sort((a, b) => b.price - a.price)[0]?.image ?? null;
+    .filter(item => item.image).sort((a, b) => (b.price ?? -1) - (a.price ?? -1))[0]?.image ?? null;
   return {
     generatedAt: new Date().toISOString(),
     game, set: setName, slug, group: setGroupKey(game, setName, releaseYear),
@@ -215,6 +217,8 @@ export async function loadSetDetail(db: D1DatabaseLike | undefined, game: string
     sealedIndex: seriesFor("sealed"),
     cover,
     valueBreakdown: buildValueBreakdown(pullRates, game, setName, rarityStats, setGroupKey(game, setName, releaseYear)),
+    packProfile: packProfileFor(pullRates, game, setName),
+    pullRateEvidence: evidenceFor(pullRates, game, setName),
     cards, sealed,
   };
 }

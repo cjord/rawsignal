@@ -50,7 +50,7 @@ test("eBay queries lead with the game, drop set codes and punctuation, skip a se
  assert.equal(ebaySearchQuery({kind:"single",game:"pokemon",name:"Charizard ex - 199/165",set:"SV: Scarlet & Violet 151",number:"199/165"}),"Pokemon Charizard ex Scarlet Violet 151 199");
  assert.equal(ebaySearchQuery({kind:"single",game:"pokemon",name:"Pikachu",set:"Base Set",number:null}),"Pokemon Pikachu Base Set");
  assert.equal(ebaySearchQuery({kind:"single",game:"riftbound",name:"Ahri, Nine-Tailed Fox",set:"Origins",number:"1/298"}),"Riftbound Ahri Nine-Tailed Fox Origins");
- assert.equal(ebaySearchQuery({kind:"single",game:"riftbound",name:"Jinx, Loose Cannon (Alternate Art)",set:"Origins",number:"300/298"}),"Riftbound Jinx Loose Cannon Origins");
+ assert.equal(ebaySearchQuery({kind:"single",game:"riftbound",name:"Jinx, Loose Cannon (Alternate Art)",set:"Origins",number:"300/298"}),"Riftbound Jinx Loose Cannon Alternate Art Origins");
  assert.equal(ebaySearchQuery({kind:"sealed",game:"pokemon",name:"Destined Rivals Booster Box",set:"SV10: Destined Rivals"}),"Pokemon Destined Rivals Booster Box");
  assert.equal(ebaySearchQuery({kind:"sealed",game:"pokemon",name:"Elite Trainer Box",set:"SV10: Destined Rivals"}),"Pokemon Elite Trainer Box Destined Rivals");
  assert.equal(ebaySearchQuery({kind:"sealed",game:"riftbound",name:"Lunar Revel Bundle 2026 (Simplified Chinese)",set:"Lunar Revel 2026"}),"Riftbound Lunar Revel Bundle 2026");

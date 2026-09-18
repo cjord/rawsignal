@@ -1,6 +1,7 @@
 import { perPackFor, pullRateFor } from "../catalog-repository.ts";
 import { packValueBreakdown } from "./pack-ev.ts";
 import type { PullRateConfig, SetRarityStat, ValueBreakdown } from "./types.ts";
+import { packProfileFor } from "./pack-profile.ts";
 
 // Assembles a set's "Where the value sits" breakdown (todo J2) from its `set_rarity_stats`
 // rows and the curated pack odds: each tier resolves cards-per-pack (`perPack`) or packs-per-hit
@@ -45,5 +46,8 @@ export function buildValueBreakdown(config: PullRateConfig | undefined, game: st
     };
   }));
   if (!breakdown) return null;
-  return { ...breakdown, updatedAt: stats.reduce<string | null>((latest, stat) => latest == null || stat.updatedAt > latest ? stat.updatedAt : latest, null) };
+  const profile = packProfileFor(config, game, set);
+  const expected = new Set([...Object.keys(config?.games[game]?.sets[set] ?? {}), ...Object.keys(config?.games[game]?.perPack?.sets[set] ?? {})]);
+  for (const stat of stats) { expected.delete(stat.tier); expected.delete(stat.rarity); }
+  return { ...breakdown, partial: true, cardsPerPack: profile?.cardsPerPack ?? null, missingTiers: [...expected], updatedAt: stats.reduce<string | null>((latest, stat) => latest == null || stat.updatedAt > latest ? stat.updatedAt : latest, null) };
 }

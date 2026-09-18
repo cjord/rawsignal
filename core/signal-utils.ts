@@ -88,7 +88,7 @@ function scoreSignal(args:{robust:boolean;side:"buy"|"sell";change7:number|null;
 export function evaluateMarketSignal(points:PricePoint[],side:"buy"|"sell",strictness:SignalStrictness,currentOverride?:number|null,context?:SignalContext|null):SignalEvaluation{
  const liquidity=context?.liquidity,robust=context?.model==="v2";
  const sorted=[...points].filter(p=>p.price>0).sort((a,b)=>a.date.localeCompare(b.date));
- const current=currentOverride??sorted.at(-1)?.price;if(!current||!Number.isFinite(current))return{eligible:false,signal:null,code:"missing-current-price",detail:"No positive current market price is available."};
+ const current=currentOverride===undefined?sorted.at(-1)?.price:currentOverride;if(!current||!Number.isFinite(current))return{eligible:false,signal:null,code:"missing-current-price",detail:"No positive current market price is available."};
  const illiquid=liquidityExclusion(liquidity);if(illiquid)return illiquid;
  const p30=windowPrices(sorted,30),p90=windowPrices(sorted,90),all=sorted.map(p=>p.price);
  const enough90=p90.length>=12,enough30=p30.length>=5;

@@ -118,7 +118,7 @@ export function portfolioTotals(cards: readonly CollectrImportCard[], sellIds: R
   return {
     matched,
     unmatched: cards.filter(card => !card.matched),
-    marketTotal: matched.reduce((sum, card) => sum + card.matched!.marketPrice * card.quantity, 0),
+    marketTotal: matched.reduce((sum, card) => sum + (card.matched!.marketPrice ?? 0) * card.quantity, 0),
     collectrTotal: cards.reduce((sum, card) => sum + (card.collectrPrice ?? 0) * card.quantity, 0),
     sellValue: cards.filter(card => sellIds.has(card.productId)).reduce((sum, card) => sum + effectivePrice(card) * card.quantity, 0),
   };

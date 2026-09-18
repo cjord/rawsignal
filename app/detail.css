@@ -90,3 +90,5 @@
 /* Touch tilt (2026-09-01): the hero art's hold/drag tilt long-presses by design, so the
    platform image callout and text selection must not fire on it. */
 .detail-art,.detail-art img{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.pack-profile-panel .pack-composition-table{min-width:0;table-layout:fixed;width:100%}
+.pack-profile-panel .pack-composition-table th:first-child{width:78%;text-align:left;white-space:normal}

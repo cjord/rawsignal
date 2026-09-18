@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     const variant=sealed?"Sealed":result.variant!,condition=sealed?"Unopened":result.condition!;
     await upsertHistory(db,Number(productId),variant,condition,result.points,fetchedAt);
     const price=await db.prepare("select market_cents as marketCents from current_prices where product_id=?").bind(Number(productId)).first<{marketCents:number|null}>();
-    const currentPrice=price?.marketCents==null?result.points.at(-1)!.price:price.marketCents/100;
+    const currentPrice=price?.marketCents==null?null:price.marketCents/100;
     await persistDerivedHistory(db,Number(productId),variant,condition,currentPrice,result.points,result.coverage,fetchedAt);
   }catch{/* History remains available to the caller even if cache persistence fails. */}
   return NextResponse.json(result, {

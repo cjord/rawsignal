@@ -119,7 +119,7 @@ export async function loadStagingSnapshot(request: Request, assets: AssetsBindin
 
 export function historyTargets(snapshot: DailyCatalogSnapshot): HistoryBackfillTarget[] {
   return [
-    ...snapshot.cards.map(card => ({ productId: card.productId, printing: card.printing, currentPrice: card.marketPrice })),
+    ...snapshot.cards.flatMap(card => card.marketPrice == null ? [] : [{ productId: card.productId, printing: card.printing, currentPrice: card.marketPrice }]),
     ...snapshot.sealed.filter(product => product.marketPrice != null).map(product => ({ productId: product.productId, printing: "Sealed", sealed: true, currentPrice: product.marketPrice! })),
   ];
 }

@@ -93,6 +93,10 @@ inside them, so "which Scarlet & Violet set is moving" is answerable without sca
 Excluded from the initial build; revisit after the browse page has real usage.
 
 **J2. "Where the value sits" — per-rarity pack value breakdown (phase 1 shipped 2026-09-05, `d7de3b9`; phase 2 open).**
+2026-09-17 local implementation: source-backed profiles for 198 catalog sets, 24 set-specific
+odds overlays, corrected replacement/Signature math, ordinary-printing aggregate versioning,
+and the shared set/sealed breakdown panel. See `docs/pack-profiles-2026-09.md` for activation
+and research gaps. Deployment, the MSRP slider and custom rates remain outstanding.
 Replace the single Pack EV number with a per-rarity breakdown for every market: per-pack
 value and share bar per rarity, CHASE badges, "chase prints are X% of EV", a purchase-price
 slider from MSRP to market, and the bulk tiers valued from a new `set_rarity_stats`
@@ -119,6 +123,16 @@ Needs a definition of "very close together" (score delta and/or distance-to-cuto
 threshold) before implementation.
 
 ## L. Catalog coverage gaps (surfaced by the Collectr import, 2026-08-31)
+
+2026-09-18 local implementation: Riftbound `metal-promos` includes priced and unpriced
+Metal / Best Of / Prize Wall printings. Null prices stay unavailable; eBay access and
+affiliate links remain active with strict promo-treatment matching. Scoped fallback
+refresh: 717 Riftbound cards, including 68 metal promos (47 without market prices).
+No production deployment yet; after release the next live walk adds the D1 records.
+Follow-up local expansion: 1,333 Riftbound cards after the user's explicit exclusions,
+including English commons/uncommons, collectible promos, alt-art runes and Lunar
+Irelia (Simplified Chinese). 169 catalog cards excluded by policy; details and source
+limitations in `docs/riftbound-coverage-2026-09.md`. Still not deployed.
 
 Diagnosed from the @srikaskrr test import: several unmatched items are real products we
 simply don't ingest. Matching is a TCGplayer product-id join, and a **name fallback now

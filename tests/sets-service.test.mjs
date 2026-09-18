@@ -167,6 +167,9 @@ test("set detail carries the per-tier value breakdown once stats exist, and none
   insert.run("riftbound", "Surging Sparks", "epics", "Epic", "epics", 42, 42, 49014, 7084, 20, "2026-08-29T12:00:00.000Z", "sets-run");
   insert.run("riftbound", "Surging Sparks", "signatures", "Showcase", "signatures", 12, 12, 1621716, 347441, 20, "2026-08-29T12:00:00.000Z", "sets-run");
   const config = { games: { riftbound: { default: { Epic: 4, signatures: 720 }, sets: {}, perPack: { default: { Common: 7 }, sets: {} } } } };
+  // Legacy aggregates used highest-priced printings; never expose them as pack prices.
+  assert.equal((await loadSetDetail(db, "riftbound", "surging-sparks", config)).valueBreakdown,null);
+  database.prepare("update set_rarity_stats set tier='pack-v2:' || tier").run();
   const detail = await loadSetDetail(db, "riftbound", "surging-sparks", config);
   assert.deepEqual(detail.valueBreakdown.tiers.map(tier => [tier.label, tier.kind, tier.chase, Math.round(tier.evPerPack * 100) / 100]), [["Common", "slot", false, 1.33], ["Epic", "chase", false, 2.92], ["Signature", "chase", true, 1.88]]);
   assert.equal(detail.valueBreakdown.impliedPackSize.toFixed(4), (7 + 0.25 + 1 / 720).toFixed(4));

@@ -133,7 +133,7 @@ test("live ingestion walks groups with a record cursor and publishes once comple
   // Group A card+promo+sealed, promo reprint (dedup), presale Delta Reign sealed,
   // riftbound card+walked sealed, japanese promo card, walked onepiece sealed, walked
   // japanese sealed, bundled riftbound duplicate (dedup), bundled onepiece.
-  assert.deepEqual({cursor:second.cursor,done:second.done,written:second.recordsWritten,duplicates:second.duplicateDecisions},{cursor:"9:0",done:true,written:10,duplicates:2});
+  assert.deepEqual({cursor:second.cursor,done:second.done,written:second.recordsWritten,duplicates:second.duplicateDecisions},{cursor:"10:0",done:true,written:11,duplicates:2});
   // The presale-horizon group landed its ETB (P7 pre-order coverage) while the
   // far-future group was never fetched (it has no fixture).
   const presale=await db.prepare("select p.kind, p.product_type as productType, cp.market_cents as marketCents from catalog_products p join current_prices cp on cp.product_id=p.product_id where p.product_id=205").bind().first();
@@ -191,7 +191,7 @@ test("sealed-only categories use their own higher group-fetch cap (M3)",async()=
   // 20 sealed groups exceed the singles-calibrated cap (12, pinned explicitly) but
   // finish in ONE batch under the sealed cap — group count no longer taxes sealed walks.
   const result=await runLiveDailyIngestionBatch(db,sealedDeps,{sourceUpdatedAt:"2026-08-31T20:00:00Z",batchSize:100,groupFetchCap:12,minimumRecords:5});
-  assert.deepEqual({done:result.done,written:result.recordsWritten},{done:true,written:20});
+  assert.deepEqual({done:result.done,written:result.recordsWritten},{done:true,written:21});
 });
 
 test("a truncated upstream day never publishes and resets the walk",async()=>{
@@ -209,12 +209,12 @@ test("the live walk writes a per-tier aggregate for every singles group, bulk ti
   const rows=(await db.prepare("select game, set_name setName, tier, rarity, section, card_count cardCount, priced_count pricedCount, sum_cents sumCents, top_cents topCents, top_product_id topProductId, ingestion_run_id runId from set_rarity_stats order by game, set_name, tier").bind().all()).results.map(row=>({...row}));
   assert.deepEqual(rows,[
     // Group A: the illustration rare and the promo are cards; the booster box (no rarity) is not.
-    {game:"pokemon",setName:"Fixture Set",tier:"Illustration Rare",rarity:"Illustration Rare",section:null,cardCount:1,pricedCount:1,sumCents:1200,topCents:1200,topProductId:101,runId:"live-daily:2026-08-28"},
-    {game:"pokemon",setName:"Fixture Set",tier:"Promo",rarity:"Promo",section:null,cardCount:1,pricedCount:1,sumCents:500,topCents:500,topProductId:107,runId:"live-daily:2026-08-28"},
-    {game:"pokemon",setName:"Promo Reprints",tier:"Promo",rarity:"Promo",section:null,cardCount:1,pricedCount:1,sumCents:900,topCents:900,topProductId:107,runId:"live-daily:2026-08-28"},
+    {game:"pokemon",setName:"Fixture Set",tier:"pack-v2:Illustration Rare",rarity:"Illustration Rare",section:null,cardCount:1,pricedCount:1,sumCents:1200,topCents:1200,topProductId:101,runId:"live-daily:2026-08-28"},
+    {game:"pokemon",setName:"Fixture Set",tier:"pack-v2:Promo",rarity:"Promo",section:null,cardCount:1,pricedCount:1,sumCents:500,topCents:500,topProductId:107,runId:"live-daily:2026-08-28"},
+    {game:"pokemon",setName:"Promo Reprints",tier:"pack-v2:Promo",rarity:"Promo",section:null,cardCount:1,pricedCount:1,sumCents:900,topCents:900,topProductId:107,runId:"live-daily:2026-08-28"},
     // Riftbound rares key by section; Japanese promo groups (fixed section) and sealed-only
     // categories write nothing.
-    {game:"riftbound",setName:"Rift Set",tier:"rares",rarity:"Rare",section:"rares",cardCount:1,pricedCount:1,sumCents:300,topCents:300,topProductId:301,runId:"live-daily:2026-08-28"},
+    {game:"riftbound",setName:"Rift Set",tier:"pack-v2:rares",rarity:"Rare",section:"rares",cardCount:1,pricedCount:1,sumCents:300,topCents:300,topProductId:301,runId:"live-daily:2026-08-28"},
   ]);
 });
 
@@ -229,8 +229,8 @@ test("the truncation guard judges the day by the rows the run stamped, so a rese
   const rewalk=await runLiveDailyIngestionBatch(db,deps,{...options,batchSize:100});
   // Every record was already stamped (all duplicates, nothing newly written), yet the day is
   // complete because the database holds the run's rows.
-  assert.deepEqual({done:rewalk.done,duplicates:rewalk.duplicateDecisions>=10,stamped:rewalk.recordsWritten},{done:true,duplicates:true,stamped:10});
+  assert.deepEqual({done:rewalk.done,duplicates:rewalk.duplicateDecisions>=11,stamped:rewalk.recordsWritten},{done:true,duplicates:true,stamped:11});
   assert.equal((await publishedIngestion(db,"daily-market"))?.runId,"live-daily:2026-08-28");
   const run=await db.prepare("select status, records_written written from ingestion_runs where id='live-daily:2026-08-28'").bind().first();
-  assert.deepEqual({...run},{status:"succeeded",written:10});
+  assert.deepEqual({...run},{status:"succeeded",written:11});
 });

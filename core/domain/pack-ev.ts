@@ -11,17 +11,16 @@ export function packChaseEv(tiers: EvTier[]): number | null {
   return parts.reduce((sum, tier) => sum + (tier.averageMarket as number) / tier.packsPerHit, 0);
 }
 
-// Ratio above 1 means ripping beats buying the singles at current prices (before bulk).
+// A ratio compares a partial estimated subtotal with price; it is not profit or advice.
 export function evRatio(ev: number | null, packPrice: number | null): number | null {
   return ev != null && packPrice != null && packPrice > 0 ? ev / packPrice : null;
 }
 
 // "Where the value sits" (todo J2): per-tier pack value with bulk included. A guaranteed slot
 // tier is worth its average × cards per pack; a chase tier its average ÷ packs per hit. The
-// average divides the priced sum by EVERY card in the tier (unpriced counts as zero — honest
-// for bulk, and it understates rather than overstates). Tiers with neither kind of odds are
+// average is available only when every card in the tier has a price. Tiers with no odds are
 // listed as unrated and sit outside the total; the implied pack size (Σ slots + Σ 1/odds) is
-// the check that a curated composition matches the printed pack.
+// valued expected-card count, not the physical pack size (unknown slots are excluded).
 export type BreakdownInput = {
   key: string; label: string; perPack: number | null; packsPerHit: number | null;
   cardCount: number; pricedCount: number; sumMarket: number; topMarket: number | null; topProductId: number | null;
@@ -33,7 +32,8 @@ export type Breakdown = { tiers: BreakdownTier[]; totalEv: number; chaseEv: numb
 export function packValueBreakdown(inputs: BreakdownInput[]): Breakdown | null {
   const tiers: BreakdownTier[] = inputs.map(input => {
     const kind: BreakdownTier["kind"] = input.perPack != null && input.perPack > 0 ? "slot" : input.packsPerHit != null && input.packsPerHit > 0 ? "chase" : "unrated";
-    const average = input.cardCount > 0 ? input.sumMarket / input.cardCount : null;
+    // Missing prices are not zero-value cards. Withhold an incomplete tier average.
+    const average = input.cardCount > 0 && input.pricedCount === input.cardCount ? input.sumMarket / input.cardCount : null;
     const evPerPack = average == null || kind === "unrated" ? null : kind === "slot" ? average * (input.perPack as number) : average / (input.packsPerHit as number);
     return { ...input, kind, average, evPerPack, share: null, chase: input.chase ?? kind === "chase" };
   });

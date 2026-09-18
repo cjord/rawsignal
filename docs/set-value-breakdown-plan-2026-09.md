@@ -1,5 +1,10 @@
 # "Where the value sits" — per-rarity pack value breakdown (plan, 2026-09-04)
 
+**2026-09-17 correction:** the implementation in [pack profiles](pack-profiles-2026-09.md)
+supersedes the additive rare slots, game/era odds defaults and highest-printing averages
+below. Set and sealed pages now render a shared partial breakdown; the historical phase-1
+figures below are retained as the record of the earlier model, not current methodology.
+
 **Status: Phase 1 shipped 2026-09-05 (commit `d7de3b9`, production `ea6fdbaf`).** Migration 0017 `set_rarity_stats`;
 the live walk aggregates every singles group tier by tier (`core/normalize/rarity-stats.ts`,
 `db/rarity-stats.ts`, written once per group per run); `packValueBreakdown` and

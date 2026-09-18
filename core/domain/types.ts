@@ -80,7 +80,7 @@ export type Card = {
   number: string;
   image: string;
   url: string;
-  marketPrice: number;
+  marketPrice: number | null;
   lowPrice: number | null;
   midPrice: number | null;
   highPrice: number | null;
@@ -185,7 +185,12 @@ export type GradedCardData = {
 // by era — `core/domain/eras.ts` keys), then the game default.
 export type PullRateTables = { default: Record<string, number>; sets: Record<string, Record<string, number>>; eras?: Record<string, Record<string, number>> };
 export type PullRateConfig = {
-  games: Record<string, PullRateTables & { perPack?: PullRateTables }>;
+  games: Record<string, PullRateTables & { perPack?: PullRateTables; replacements?: Record<string, import("./pack-profile.ts").ReplacementGroup[]> }>;
+  version?: number;
+  profiles?: Record<string, import("./pack-profile.ts").PackProfile>;
+  setProfiles?: Record<string, Record<string, string>>;
+  productProfiles?: Record<string, string>;
+  evidence?: Record<string, import("./pack-profile.ts").PullRateEvidence>;
 };
 
 // One set × tier aggregate from `set_rarity_stats` (every card in the TCGCSV group, tracked
@@ -228,6 +233,9 @@ export type ValueBreakdown = {
   impliedPackSize: number;
   unratedTiers: string[];
   updatedAt: string | null;
+  partial?: boolean;
+  cardsPerPack?: number | null;
+  missingTiers?: string[];
 };
 
 export type CardPullRate = {
@@ -313,7 +321,7 @@ export type CardDetail = CatalogDetailBase & {
   rarity: string;
   number: string;
   printing: string;
-  marketPrice: number;
+  marketPrice: number | null;
   setPeerContext: DetailPeerContext | null;
   pullRate: CardPullRate | null;
   peerAnchor: PeerAnchorStats | null;
@@ -333,6 +341,9 @@ export type SealedDetail = CatalogDetailBase & {
   chaseCards: Card[];
   relatedSealed: SealedProduct[];
   pullRates: RarityPullRate[];
+  packProfile?: import("./pack-profile.ts").PackProfile | null;
+  pullRateEvidence?: import("./pack-profile.ts").PullRateEvidence | null;
+  valueBreakdown?: ValueBreakdown | null;
   caseUnit: { productId: number; name: string; marketPrice: number; multiple: number } | null;
   earlyValue?: EarlyValueEstimate | null;
 };

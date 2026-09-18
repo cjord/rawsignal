@@ -44,6 +44,15 @@ async function seededDb(){
 const deps=(respond)=>{const fetched=[];return {fetched,async fetchListings(target){fetched.push(target.productId);return respond(target)},wait:async()=>{}}};
 const ok=target=>({status:200,query:`q ${target.productId}`,categoryId:target.kind==="single"?183454:null,summary:okSummary});
 
+test("on-demand eBay access remains available for a catalog-only unpriced single",async()=>{
+ const db=await seededDb();
+ await upsertCard(db,{...card(20,null),game:"riftbound",section:"metal-promos",name:"Kai'Sa, Daughter of the Void (Metal) (Best Of)"},NOW.toISOString(),"live-daily:2026-08-28");
+ const source=deps(target=>{assert.equal(target.marketCents,null);return ok(target)});
+ const result=await resolveEbayListing(db,20,source,{now:NOW});
+ assert.equal(result.status,"refreshed");assert.equal(result.snapshot.samples.length,1);assert.deepEqual(source.fetched,[20]);
+ const cached=await resolveEbayListing(db,20,source,{now:NOW});assert.equal(cached.status,"fresh");assert.deepEqual(source.fetched,[20]);
+});
+
 test("a tick walks never-fetched products by market price, checkpoints its call count, and the day's run completes when the pool is exhausted",async()=>{
   const db=await seededDb();
   const first=deps(ok);

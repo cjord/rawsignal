@@ -169,7 +169,7 @@ export function querySinglesCatalog(cards: Card[], options: SinglesCatalogQuery,
     return movementMatches(metrics?.change7, options.up7, options.down7)
       && movementMatches(metrics?.change30, options.up30, options.down30)
       && (!options.regimes?.length || Boolean(metrics?.regime && options.regimes.includes(metrics.regime)))
-      && (options.signal === "leaderboard" || Boolean(metrics?.signal));
+      && (options.signal === "leaderboard" || (card.marketPrice != null && Boolean(metrics?.signal)));
   });
   // Hot boards list every qualifying signal (top-N curation removed 2026-08-28): the
   // stabilization and liquidity gates already keep weak entries off, and pagination
@@ -194,8 +194,8 @@ export function filterSinglesCandidates(cards: Card[], options: SinglesCandidate
     && (!options.sections.length || options.sections.includes(card.section))
     && fuzzyTextMatch(`${card.name} ${card.set} ${card.number} ${card.rarity} ${card.printing}`, options.query)
     && (!options.sets.length || options.sets.includes(card.set))
-    && (min == null || card.marketPrice >= min)
-    && (max == null || card.marketPrice <= max));
+    && (min == null || (card.marketPrice != null && card.marketPrice >= min))
+    && (max == null || (card.marketPrice != null && card.marketPrice <= max)));
 }
 
 export function querySealedCatalog(products: SealedProduct[], options: SealedCatalogQuery, derived: Record<number, CatalogDerived | undefined> = {}): CatalogPage<SealedProduct> {

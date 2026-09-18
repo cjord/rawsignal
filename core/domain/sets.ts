@@ -44,6 +44,8 @@ export type SetDetailPayload = {
   // "Where the value sits" (todo J2): per-tier pack value from `set_rarity_stats` and the
   // curated pack odds; null until the live walk has written the set's rows.
   valueBreakdown: ValueBreakdown | null;
+  packProfile?: import("./pack-profile.ts").PackProfile | null;
+  pullRateEvidence?: import("./pack-profile.ts").PullRateEvidence | null;
   // Raw daily set values (sum of observed members, coverage-floored); the view rebases.
   singlesIndex: PricePoint[];
   sealedIndex: PricePoint[];

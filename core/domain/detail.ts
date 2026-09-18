@@ -8,7 +8,7 @@ const priceDistance=(a:number|null,b:number|null)=>a==null||b==null?1:Math.abs(M
 
 export function similarCards(card:Card,cards:Card[],limit=8):SimilarCatalogItem[]{
  const targetWords=words(card.name);
- return cards.filter(item=>item.productId!==card.productId&&item.game===card.game).map(item=>({item,score:overlap(targetWords,words(item.name))*8+Number(item.set===card.set)*5+Number(item.rarity===card.rarity)*2-priceDistance(item.marketPrice,card.marketPrice)})).sort((a,b)=>b.score-a.score||b.item.marketPrice-a.item.marketPrice).slice(0,limit).map(({item})=>({kind:"single",productId:item.productId,name:item.name,set:item.set,image:item.image||null,marketPrice:item.marketPrice,href:`/cards/${item.productId}`}));
+ return cards.filter(item=>item.productId!==card.productId&&item.game===card.game).map(item=>({item,score:overlap(targetWords,words(item.name))*8+Number(item.set===card.set)*5+Number(item.rarity===card.rarity)*2-priceDistance(item.marketPrice,card.marketPrice)})).sort((a,b)=>b.score-a.score||(b.item.marketPrice??-1)-(a.item.marketPrice??-1)).slice(0,limit).map(({item})=>({kind:"single",productId:item.productId,name:item.name,set:item.set,image:item.image||null,marketPrice:item.marketPrice,href:`/cards/${item.productId}`}));
 }
 
 export function similarSealed(product:SealedProduct,products:SealedProduct[],limit=8):SimilarCatalogItem[]{

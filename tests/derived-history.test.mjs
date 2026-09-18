@@ -5,7 +5,8 @@ import test from "node:test";
 import { parseCard } from "../core/domain/contracts.ts";
 import { classifyRegime } from "../core/domain/regime.ts";
 import { marketSignal } from "../core/signal-utils.ts";
-import { persistDerivedHistory, shadowSignalStatements, signalStatements } from "../db/daily-ingestion.ts";
+import { persistDerivedHistory, persistRecord, shadowSignalStatements, signalStatements } from "../db/daily-ingestion.ts";
+import {readSectionFeed, createD1CatalogRepository} from "../db/catalog-repository.ts";
 import { startIngestion, upsertCard } from "../db/repository.ts";
 
 // The derived pass — metrics row, six champion signal rows, two shadow rows — against a
@@ -39,6 +40,21 @@ async function migratedDatabase() {
 const { fixtures } = JSON.parse(await readFile(new URL("./fixtures/signal-cases.json", import.meta.url), "utf8"));
 const OBSERVED = "2026-01-31T12:00:00.000Z";
 const PRODUCT = 664881;
+
+test("an unpriced promo persists as a readable D1 card, with no synthetic observation or stale signals",async()=>{
+ const {database,db}=await seeded();
+ await persistDerivedHistory(db,PRODUCT,"Foil","Near Mint",fixtures.breakout.at(-1).price,fixtures.breakout,"exact",OBSERVED);
+ assert.ok(signalRows(database).length>0);
+ const card={game:"riftbound",section:"metal-promos",productId:PRODUCT,name:"Kai'Sa, Daughter of the Void (Metal) (Best Of)",set:"Riftbound Organized Play Promotional Cards",year:2025,rarity:"Promo",number:"247/298",image:"",url:"https://www.tcgplayer.com/product/664881/card",marketPrice:null,lowPrice:null,midPrice:null,highPrice:null,printing:"Foil",priceChange:null};
+ const result=await persistRecord(db,card,OBSERVED,"2026-01-31","derived-run");
+ assert.deepEqual(result,{observationsWritten:0,signalsWritten:0,eligible:false});
+ assert.equal(database.prepare("select count(*) n from price_observations").get().n,0);
+ assert.deepEqual(signalRows(database),[]);assert.deepEqual(shadowRows(database),[]);
+ const feed=await readSectionFeed(db,["metal-promos"]);assert.equal(feed.length,1);assert.equal(feed[0].marketPrice,null);
+ const detail=await createD1CatalogRepository(db).getDetail("single",PRODUCT);assert.equal(detail.marketPrice,null);assert.equal(detail.marketRank,null);
+ await persistDerivedHistory(db,PRODUCT,"Foil","Near Mint",null,fixtures.breakout,"exact",OBSERVED);
+ assert.deepEqual(signalRows(database),[]);assert.deepEqual(shadowRows(database),[]);
+});
 
 async function seeded() {
   const database = await migratedDatabase(), db = new LocalD1(database);

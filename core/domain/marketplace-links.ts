@@ -1,4 +1,5 @@
 import {exactTcgplayerUrl} from "./detail.ts";
+import {supplementalSingle} from "./supplemental-singles.ts";
 import type {HistoryMetric} from "./types.ts";
 
 // Outbound marketplace links (todo O1–O3), built in one place so every surface — hover tiles,
@@ -29,6 +30,7 @@ export const EBAY_SMART_LINKS_SRC="https://epnt.ebay.com/static/epn-smart-tools.
 
 // The raw product page (no tracking) — what the affiliate link deep-links to.
 export function tcgplayerProductPage(productId:number,sourceUrl?:string|null):string{
+ const supplemental=supplementalSingle(productId);if(supplemental)return supplemental.url;
  if(sourceUrl&&exactTcgplayerUrl(sourceUrl))return sourceUrl;
  return `${TCGPLAYER_PRODUCT_BASE}${productId}`;
 }
@@ -98,6 +100,11 @@ const LANGUAGE_MARKERS:[EbayCardLanguage,RegExp][]=[
 ];
 const JAPANESE_PROMO_NUMBER=/(?:^|\/)(?:sv|s|sm|xy|bw|dp|dpt|pcg|adv|vs)?-p\b/i;
 
+export function riftboundPromoQuery(name:string):string {
+ const qualifiers=[...name.matchAll(/\(([^)]+)\)/g)].map(match=>match[1]);
+ return qualifiers.map(value=>value.replace(/\bBundle\b/gi,"")).join(" ");
+}
+
 export function ebayCardLanguage(item:EbaySearchItem):EbayCardLanguage|null{
  if(item.kind!=="single")return null;
  const identity=`${item.name} ${item.set}`;
@@ -107,11 +114,15 @@ export function ebayCardLanguage(item:EbaySearchItem):EbayCardLanguage|null{
 }
 
 export function ebaySearchQuery(item:EbaySearchItem):string{
- const name=cleanName(item.name),set=cleanSet(item.set),nameWords=new Set(words(name));
+ const name=cleanName(item.name),set=cleanSet(item.set);
+ // Metal promos share names/numbers with paper cards; these qualifiers are identity.
+ const promo=item.kind==="single"&&item.game==="riftbound"
+  ? riftboundPromoQuery(item.name):"";
+ const nameWords=new Set(words(`${name} ${promo}`));
  const setPart=set&&!words(set).every(word=>nameWords.has(word))?set:"";
  const game=item.game?GAME_WORDS[item.game]??"":"";
- const number=item.kind==="single"&&item.game!=="riftbound"&&item.number?item.number.split("/")[0]?.trim():"";
- return tidy([game,name,setPart,number].filter(Boolean).join(" "));
+ const number=item.kind==="single"&&(item.game!=="riftbound"||/\bRune(?:\s*\(|$)/i.test(item.name))&&item.number?item.number.split("/")[0]?.trim():"";
+ return tidy([game,name,promo,setPart,number].filter(Boolean).join(" "));
 }
 
 // The marketplace tile every card-shaped hover popover ends with (todo O3): an explicit

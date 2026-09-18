@@ -1,8 +1,10 @@
 import type { Card, CatalogDetail, CatalogDetailEnrichment, CatalogKind, GradedCardData, PeerAnchorStats, PullRateConfig, PullRateTables, RarityPullRate, SealedProduct } from "./domain/types.ts";
 import {exactTcgplayerUrl,marketRank,similarCards,similarSealed} from "./domain/detail.ts";
+import { hasMarketPrice } from "./domain/prices.ts";
 import { querySealedCatalog, querySinglesCatalog, type CatalogDerived, type CatalogPage, type SealedCatalogQuery, type SinglesCatalogQuery } from "./catalog-query.ts";
 import {isRelatedSealedProduct} from "./sealed-product-utils.ts";
 import {buildRiftboundPairMetrics} from "./domain/riftbound-pairs.ts";
+import {packProfileFor,evidenceFor} from "./domain/pack-profile.ts";
 
 export interface CatalogRepository {
   querySingles(options: SinglesCatalogQuery, derived?: Record<number, CatalogDerived | undefined>): Promise<CatalogPage<Card>>;
@@ -39,6 +41,11 @@ const resolveTier=(table:Record<string,number>|undefined,card:{rarity:string;sec
 
 export function pullRateFor(config:PullRateConfig|undefined,game:string,set:string,card:{rarity:string;section?:string},era?:string|null){
  const entry=config?.games[game];if(!entry)return null;
+ if(config?.version===2){
+  if(packProfileFor(config,game,set)?.language!=="en"||!evidenceFor(config,game,set))return null;
+  const hit=resolveTier(entry.sets[set],card);
+  return hit?{key:hit.key,packsPerHit:hit.value,bySection:hit.bySection}:null;
+ }
  for(const table of rateTables(entry,set,era)){const hit=resolveTier(table,card);if(hit)return {key:hit.key,packsPerHit:hit.value,bySection:hit.bySection}}
  return null;
 }
@@ -47,6 +54,18 @@ export function pullRateFor(config:PullRateConfig|undefined,game:string,set:stri
 // the config's `perPack` tables; null when the tier has no curated slot count.
 export function perPackFor(config:PullRateConfig|undefined,game:string,set:string,card:{rarity:string;section?:string},era?:string|null){
  const entry=config?.games[game]?.perPack;if(!entry)return null;
+ if(config?.version===2){
+  if(packProfileFor(config,game,set)?.language!=="en")return null;
+  const replacement=config.games[game].replacements?.[set]?.find(group=>group.base===card.rarity);
+  if(replacement){
+   const rates=replacement.upgrades.map(key=>config.games[game].sets[set]?.[key]);
+   if(rates.some(rate=>!(rate>0)))return null;
+   const remaining=replacement.count-rates.reduce((sum,rate)=>sum+1/rate,0);
+   return remaining>=0?{key:card.rarity,perPack:remaining,bySection:false}:null;
+  }
+  const hit=resolveTier(entry.sets[set],card);
+  return hit?{key:hit.key,perPack:hit.value,bySection:hit.bySection}:null;
+ }
  for(const table of rateTables(entry,set,era)){const hit=resolveTier(table,card);if(hit)return {key:hit.key,perPack:hit.value,bySection:hit.bySection}}
  return null;
 }
@@ -87,19 +106,19 @@ export function createMemoryCatalogRepository(cards: Card[], sealedProducts: Sea
       const categoryPeers=candidates.filter(item=>item.category===product.category&&item.productId!==product.productId);
       // The cheapest plain booster pack anchors the chase-card cutoff; sleeved and bundle packs price higher.
       const packPrice=packPriceForSet(product.game,product.set);
-      const setCards=uniqueCards.filter(item=>item.game===product.game&&item.set===product.set&&item.marketPrice>0).sort((a,b)=>(b.marketPrice-a.marketPrice)||a.productId-b.productId);
+      const setCards=uniqueCards.filter(hasMarketPrice).filter(item=>item.game===product.game&&item.set===product.set).sort((a,b)=>(b.marketPrice-a.marketPrice)||a.productId-b.productId);
       const chaseCards=(packPrice!=null?setCards.filter(item=>item.marketPrice>packPrice):setCards).slice(0,12);
       const relatedSealed=candidates.filter(item=>item.set===product.set&&item.productId!==product.productId&&isRelatedSealedProduct(item)).sort((a,b)=>((b.marketPrice??-1)-(a.marketPrice??-1))||a.productId-b.productId).slice(0,48);
       const tierGroups=new Map<string,{label:string;packsPerHit:number;cards:Card[]}>();
       for(const item of setCards){const resolved=pullRateFor(pullRateConfig,product.game,product.set,item);if(resolved==null)continue;const group=tierGroups.get(resolved.key)??{label:tierLabel(resolved.key,resolved.bySection),packsPerHit:resolved.packsPerHit,cards:[]};group.cards.push(item);tierGroups.set(resolved.key,group)}
-      const pullRates:RarityPullRate[]=[...tierGroups.values()].map(group=>({rarity:group.label,cardCount:group.cards.length,packsPerHit:group.packsPerHit,costPerHit:packPrice!=null?group.packsPerHit*packPrice:null,averageMarket:group.cards.length?group.cards.reduce((sum,item)=>sum+item.marketPrice,0)/group.cards.length:null})).sort((a,b)=>(b.averageMarket??0)-(a.averageMarket??0));
+      const pullRates:RarityPullRate[]=[...tierGroups.values()].map(group=>({rarity:group.label,cardCount:group.cards.length,packsPerHit:group.packsPerHit,costPerHit:packPrice!=null?group.packsPerHit*packPrice:null,averageMarket:group.cards.length&&group.cards.every(hasMarketPrice)?group.cards.reduce((sum,item)=>sum+item.marketPrice,0)/group.cards.length:null})).sort((a,b)=>(b.averageMarket??0)-(a.averageMarket??0));
       // A case is its unit product at a multiplier (audit N5). Case sizes vary by era and
       // product, so the honest number is the observed price multiple against the matching
       // unit (name minus the trailing "Case"), never an assumed per-case count.
       const unitName=product.category==="Cases"?product.name.replace(/\s+Case\b.*$/i,"").trim().toLowerCase():null;
       const unit=unitName?uniqueSealed.find(item=>item.set===product.set&&item.productId!==product.productId&&item.name.trim().toLowerCase()===unitName):null;
       const caseUnit=unit&&unit.marketPrice!=null&&unit.marketPrice>0&&product.marketPrice!=null?{productId:unit.productId,name:unit.name,marketPrice:unit.marketPrice,multiple:product.marketPrice/unit.marketPrice}:null;
-      return {...product,kind:"sealed",exactTcgplayerUrl:exactTcgplayerUrl(product.url),metadata:enrichment?.metadata??[],priceVariants:enrichment?.priceVariants??[{printing:"Sealed",marketPrice:product.marketPrice,lowPrice:null,directLowPrice:null,midPrice:product.midPrice,highPrice:null}],source:enrichment?.source??emptySource,similar:similarSealed(product,uniqueSealed),marketRank:rank.rank,marketRankTotal:rank.total,peerContext:peerAverage(product.category,categoryPeers.map(item=>item.marketPrice),product.marketPrice),packPrice,chaseCards,relatedSealed,pullRates,caseUnit,graded:null};
+      return {...product,kind:"sealed",exactTcgplayerUrl:exactTcgplayerUrl(product.url),metadata:enrichment?.metadata??[],priceVariants:enrichment?.priceVariants??[{printing:"Sealed",marketPrice:product.marketPrice,lowPrice:null,directLowPrice:null,midPrice:product.midPrice,highPrice:null}],source:enrichment?.source??emptySource,similar:similarSealed(product,uniqueSealed),marketRank:rank.rank,marketRankTotal:rank.total,peerContext:peerAverage(product.category,categoryPeers.map(item=>item.marketPrice),product.marketPrice),packPrice,chaseCards,relatedSealed,pullRates,caseUnit,graded:null,packProfile:packProfileFor(pullRateConfig,product.game,product.set,product.productId),pullRateEvidence:evidenceFor(pullRateConfig,product.game,product.set)};
     },
   };
 }

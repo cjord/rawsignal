@@ -76,14 +76,33 @@ function listingExclusion(title:string,target:EbayListingMatchTarget):string|nul
  if(BAD_PRODUCT.test(title))return "excluded non-product listing";
  if(target.kind==="single"&&(GRADED.test(title)||SINGLE_BULK.test(title)))return "excluded graded or multi-card listing";
  if(target.kind==="sealed"&&!sealedTypeMatches(title,target.name))return "sealed product type mismatch";
+ if(target.kind==="single"&&target.game==="riftbound"&&!riftboundPromoMatches(title,target.name))return "promo printing mismatch";
  const isDifferentGame=Object.entries(GAME_MARKERS).some(([game,marker])=>game!==target.game&&marker.test(title));
  return isDifferentGame?"different game":null;
+}
+
+function riftboundPromoMatches(title:string,name:string):boolean{
+ const candidate=normalize(title),target=normalize(name);
+ // Fail closed when the seller omits the distinguishing promo treatment.
+ if (![/\bmetal\b/,/\bbest of\b/,/\bprize wall\b/].every(marker=>marker.test(target)===marker.test(candidate))) return false;
+ const serialized=/\b(?:serial(?:ized|ised)?(?: numbered)?|\d+\s*\/\s*2025)\b/i;
+ if (/\(Serial Numbered\)/i.test(name)!==serialized.test(title)) return false;
+ const markers:[RegExp,RegExp][]=[
+  [/\(Top 8\)/i,/\btop\s*8\b/i],
+  [/\(Champion\)/i,/\bchampion\b/i],
+  [/\(Serial Numbered\)/i,/\b(?:serial(?:ized|ised)?(?: numbered)?|\d+\s*\/\s*2025)\b/i],
+  [/\(T1 Worlds Champion Player Bundle\)/i,/\bt1\b.*\bplayer\b/i],
+  [/\(T1 Worlds Champion Signature Edition Bundle\)/i,/\bt1\b.*\bsignature\b/i],
+  [/\(Lunar Revel 2026\)/i,/\b(?:lunar|mythmaker)\b/i],
+ ];
+ return markers.every(([identity,marker])=>!identity.test(name)||marker.test(title));
 }
 
 function identityEvidence(title:string,target:EbayListingMatchTarget){
  const namedLanguage=explicitLanguage(title),allowedLanguages=targetLanguageWords(target.language);
  const titleWords=new Set(words(title));
- const nameTokens=words(coreName(target.name)).filter(token=>!SET_STOP.has(token));
+ const name=target.game==="riftbound"?target.name.replace(/\([^)]*\)/g," "):target.name;
+ const nameTokens=words(coreName(name)).filter(token=>!SET_STOP.has(token));
  const setTokens=words(target.set.replace(/^[a-z0-9.-]+:\s*/i,"")).filter(token=>!SET_STOP.has(token));
  const targetNumber=collectorNumber(target.number),numbers=titleCollectorNumbers(title);
  const numerator=targetNumber?.split("/")[0]??normalize(target.number??"");
@@ -103,6 +122,7 @@ export function ebayListingMatch(title:string,target?:EbayListingMatchTarget):{a
  if(namedLanguage&&target.language&&!allowedLanguages.includes(namedLanguage))return {accepted:false,confidence:"low",reason:"different language"};
  if(nameCoverage<0.67)return {accepted:false,confidence:"low",reason:"product name mismatch"};
  if(targetNumber&&numbers.length&&!numbers.includes(targetNumber))return {accepted:false,confidence:"low",reason:"collector number mismatch"};
+ if(target.game==="riftbound"&&/\bRune(?:\s*\(|$)/i.test(target.name)&&!numberMatch)return {accepted:false,confidence:"low",reason:"missing rune-printing number"};
  const languageMatch=Boolean(namedLanguage&&allowedLanguages.includes(namedLanguage));
  const identityAnchor=numberMatch||setCoverage>=0.5||target.kind==="sealed";
  if(!identityAnchor)return {accepted:false,confidence:"low",reason:"missing set or collector-number match"};

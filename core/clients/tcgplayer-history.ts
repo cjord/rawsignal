@@ -1,5 +1,6 @@
 import { deriveHistoryMetrics } from "../domain/history-metrics.ts";
 import type { PriceHistory } from "../domain/types.ts";
+import { supplementalSingle } from "../domain/supplemental-singles.ts";
 
 // Shared annual/quarterly TCGplayer history loading for the public /api/history route and
 // the ingestion history backfill. Lives in core/ so worker/ and app/ both depend downward
@@ -54,6 +55,7 @@ async function history(productId: number, range: "quarter" | "annual", fetcher: 
 }
 
 export async function fetchTcgplayerHistory(productId: number, printing: string, sealed: boolean, fetcher: FetchLike = fetch): Promise<PriceHistory> {
+  if (supplementalSingle(productId)) return { points: [], coverage: "none", ...deriveHistoryMetrics([]) };
   const quarterly = await history(productId, "quarter", fetcher);
   const annual = await history(productId, "annual", fetcher).catch(() => [] as Series[]);
   const english = quarterly.filter(row => row.language === "English");

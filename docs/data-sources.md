@@ -15,6 +15,23 @@ Used fields include:
 
 Market price approximates recent selling value. Low, median, and high are listing-derived fields and are not daily sale counts. Listing high can be distorted by price parking and is not used as a valuation target.
 
+Riftbound Metal / Best Of promo printings are retained even when the source has no
+market price. These catalog-only entries keep null price fields, render unavailable,
+and remain eligible for eBay browsing (active asks remain separate from market prices).
+The `metal-promos` section includes both Best Of and Prize Wall metal treatments;
+their eBay query and matching rules preserve those distinctions.
+
+The 2026-09-18 expansion adds English commons/uncommons, other Showcases (including
+T1 variants), alternate-art runes and promos, plus judge and tournament-stamped
+promos. Tokens, basic runes, regular-art promos and ordinary foreign-language
+duplicates are excluded. All eligible Riftbound identities survive missing prices.
+See [Riftbound coverage](riftbound-coverage-2026-09.md) for the measured exclusions.
+Verified foreign-exclusive identities absent from TCGCSV live in
+`core/domain/supplemental-singles.ts`: local IDs are explicitly **not TCGplayer IDs**,
+have no fabricated prices/history, use TCGplayer search links, and retain language-
+specific eBay access. Lunar Irelia is the first entry; artwork and printing remain
+unavailable until verified, rather than borrowing the ordinary card's image.
+
 ## TCGplayer dated market history
 
 The history endpoint retrieves normalized Near Mint market history for Singles and unopened-product history for Sealed. Exact printing/condition matches are preferred; fallback coverage is labeled explicitly. Dated observations support:

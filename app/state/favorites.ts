@@ -25,7 +25,7 @@ export const BUYLIST_KEY = "raw-signal-buylist";
 export const favoriteKey = (kind: "single" | "sealed", productId: number) => `${kind}:${productId}`;
 
 // Entry builders for the hover-popover stars; FavoriteStar re-stamps addedAt on toggle.
-export const cardFavorite = (card: { game: string; productId: number; name: string; set: string; number: string; section: string; image: string | null; marketPrice: number }): FavoriteEntry => ({
+export const cardFavorite = (card: { game: string; productId: number; name: string; set: string; number: string; section: string; image: string | null; marketPrice: number | null }): FavoriteEntry => ({
   key: favoriteKey("single", card.productId), kind: "single", game: card.game, productId: card.productId,
   name: card.name, set: card.set, number: card.number, section: card.section, image: card.image || null,
   price: card.marketPrice, addedAt: "",

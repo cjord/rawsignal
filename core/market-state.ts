@@ -18,5 +18,5 @@ export type MarketQueryState=SinglesQueryState|SealedQueryState;
 // The "all" scope unions both games (visual pass rework 2026-08-28): defaults combine
 // each game's landing rarities, and every section stays valid.
 export const defaultRarities:Record<SinglesMarket,string[]>={pokemon:["illustration-rares","special-illustration-rares"],riftbound:["overnumbered"],all:["illustration-rares","special-illustration-rares","overnumbered"]};
-const pokemonRarities=["illustration-rares","special-illustration-rares","promos","ultra-rares","double-rares","secret-hyper-rares","shiny-radiant-rares","vintage","japanese-promos"],riftboundRarities=["rares","epics","alt-arts","overnumbered","signatures"];
+const pokemonRarities=["illustration-rares","special-illustration-rares","promos","ultra-rares","double-rares","secret-hyper-rares","shiny-radiant-rares","vintage","japanese-promos"],riftboundRarities=["rares","epics","alt-arts","overnumbered","signatures","metal-promos","riftbound-commons","riftbound-uncommons","riftbound-promos","riftbound-showcases","riftbound-foreign-promos"];
 export const allowedRarities:Record<SinglesMarket,string[]>={pokemon:pokemonRarities,riftbound:riftboundRarities,all:[...pokemonRarities,...riftboundRarities]};

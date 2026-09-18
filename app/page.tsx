@@ -350,6 +350,9 @@ export default function Home() {
   // (Japanese promos, audit Phase E) inject here until the next feed regeneration.
   const gameRarityOptions = (target: "pokemon" | "riftbound") => [
       ...index.rarities[target],
+      ...(target === "riftbound" && !index.rarities.riftbound.some((option) => option.key === "metal-promos")
+        ? [{ key: "metal-promos", label: "Metal / Best Of Promos" }]
+        : []),
       ...(target === "pokemon" && !index.rarities.pokemon.some((option) => option.key === "japanese-promos")
         ? [{ key: "japanese-promos", label: "Japanese Promos" }]
         : []),

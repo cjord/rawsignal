@@ -3,6 +3,13 @@ import test from "node:test";
 import {EBAY_MIN_LISTINGS,EBAY_SAMPLE_COUNT,ebayListingMatch,parseEbayListing,priceGuard,summarizeEbayListings} from "../core/ebay-summary.ts";
 import {ebayAffiliateUrl} from "../core/domain/marketplace-links.ts";
 
+test("Riftbound Metal, Best Of, and Prize Wall treatments never match ordinary cards or each other",()=>{
+ const target={kind:"single",game:"riftbound",name:"Kai'Sa, Daughter of the Void (Metal) (Best Of)",set:"Riftbound Organized Play Promotional Cards",number:"247/298",language:"English"};
+ for(const suffix of ["","Metal","Metal Prize Wall"]){assert.equal(ebayListingMatch(`Riftbound Kai'Sa Daughter of the Void ${suffix} 247/298 English`,target).accepted,false);}
+ assert.equal(ebayListingMatch("Riftbound Kai'Sa Daughter of the Void Metal Best Of 247/298 English",target).accepted,true);
+ assert.equal(ebayListingMatch("Riftbound Kai'Sa Daughter of the Void Metal Best Of 247/298 Chinese",target).accepted,false);
+});
+
 const listing=(itemId,price,overrides={})=>({itemId,title:`Listing ${itemId}`,price:{value:String(price),currency:"USD"},condition:"Ungraded",itemWebUrl:`https://www.ebay.com/itm/${itemId}`,image:{imageUrl:`https://i.ebayimg.com/images/g/${itemId}/s-l500.jpg`},buyingOptions:["FIXED_PRICE"],shippingOptions:[{shippingCost:{value:"4.50",currency:"USD"}}],...overrides});
 
 test("a listing parses to a sample with its price, shipping, condition, and the affiliate URL when present",()=>{

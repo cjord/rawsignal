@@ -11,7 +11,7 @@ export function validateCatalogSnapshot({ cards = [], sealed = [], minimumRecord
     const key = String(record.productId);
     if (ids.has(key)) duplicates.push(key); else ids.add(key);
     if (!record.name || !record.set) throw new TypeError(`Catalog record ${key} is missing identity metadata`);
-    if (record.section && !(record.marketPrice > 0)) throw new TypeError(`Catalog record ${key} has invalid marketPrice`);
+    if (record.section && record.marketPrice !== null && !(record.marketPrice > 0)) throw new TypeError(`Catalog record ${key} has invalid marketPrice`);
     for (const field of ["marketPrice", "midPrice", ...(record.section ? ["lowPrice", "highPrice"] : ["msrp"])]) {
       if (!finiteOrNull(record[field])) throw new TypeError(`Catalog record ${key} has invalid ${field}`);
       if (record[field] != null && record[field] < 0) throw new TypeError(`Catalog record ${key} has negative ${field}`);

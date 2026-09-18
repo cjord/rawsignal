@@ -33,7 +33,7 @@ export function buildCatalogDerived<T extends CatalogItem>(items:T[],history:Rec
 // at its current price. Shared by the Singles and Sealed orchestrators, which differ only
 // in how they read an item's current price.
 export function signalResolver<T extends CatalogItem>(side:SignalSide,strictness:SignalStrictness,persisted:{ready:boolean;derived:Record<number,CatalogDerived>},history:Record<number,PriceHistory>,priceOf:(item:T)=>number|null|undefined):SignalResolver<T>{
- return item=>side==="leaderboard"
+ return item=>side==="leaderboard"||priceOf(item)==null
   ?null
   :persisted.ready
    ?(persisted.derived[item.productId]?.signal??null)

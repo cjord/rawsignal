@@ -65,7 +65,7 @@ export function ChaseCardsSection({cards,packPrice,setName}:{cards:Card[];packPr
   <TableHead view={view} itemLabel="Card"/>
   <div className={`rows view-${view}`} role="rowgroup">{cards.map((card,index)=>{
    const loaded=history[card.productId],cardHistory=loaded??historyFromMetrics(card);
-   const multiple=packPrice!=null&&packPrice>0?Math.round(card.marketPrice/packPrice):null;
+   const multiple=packPrice!=null&&packPrice>0&&card.marketPrice!=null?Math.round(card.marketPrice/packPrice):null;
    return <MarketRow className="leader-row" key={card.productId} href={`/cards/${card.productId}`} label={`View ${card.name} details`} onReveal={()=>void ensure([{productId:card.productId,printing:card.printing}])}
     popover={<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={card.image} alt={`${card.name} card`} links={marketplaceLinkMetrics(card.productId,card.url,{kind:"single",game:card.game,name:card.name,set:card.set,number:card.number,section:card.section})} label={`${card.name} price history`}><HistoryPanel title="Near Mint Market History" subtitle={loaded?.variant??card.printing} points={loaded?.points??[]} metrics={historyMetrics(card.marketPrice,card.midPrice,cardHistory)} loading={!loaded}/></HistoryPopover>}>
     <span className="position">{String(index+1).padStart(2,"0")}</span>

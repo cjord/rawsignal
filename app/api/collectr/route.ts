@@ -42,7 +42,7 @@ export type CollectrMatch = {
   game: string;
   section: string;
   rarity: string;
-  marketPrice: number;
+  marketPrice: number | null;
   image: string | null;
   // The matched catalog product's TCGplayer id, for the hover tile's outbound link (todo O3).
   productId: number;
