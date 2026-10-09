@@ -42,8 +42,8 @@ export async function loadSetHeatmap(db: D1DatabaseLike | undefined): Promise<Se
   const rows = (await db.prepare(`select p.product_id productId,p.game,p.set_name setName,p.section,
       ${pointSql()} latest,${pointSql()} baseline7,${pointSql()} baseline30,${pointSql()} baseline90
     from catalog_products p where p.kind='single' and p.game in ('pokemon','riftbound')
-      and p.source_updated_at<=? order by p.game,p.set_name,p.product_id`)
-    .bind(...bounds, published!.sourceUpdatedAt).all<MemberRow>()).results ?? [];
+      order by p.game,p.set_name,p.product_id`)
+    .bind(...bounds).all<MemberRow>()).results ?? [];
   const members: HeatmapMember[] = rows.map(row => ({
     productId: row.productId, game: row.game, set: row.setName, section: row.section ?? "",
     latest: parsePoint(row.latest), baseline7: parsePoint(row.baseline7),

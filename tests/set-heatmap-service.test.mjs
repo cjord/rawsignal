@@ -25,7 +25,9 @@ test("heatmap matches published source dates, exact printings, and archive cutof
   const card = sqlite.prepare("insert into catalog_products values (?,?,?,?,?,?,?)");
   card.run(1, "pokemon", "single", "Shared Set", "illustration-rares", "Normal", "2026-10-08T16:00:00-04:00");
   card.run(2, "pokemon", "single", "Shared Set", "promos", "Normal", "2026-10-08T16:00:00-04:00");
-  card.run(3, "riftbound", "single", "Shared Set", "signatures", "Normal", "2026-10-08T16:00:00-04:00");
+  // Product timestamps can postdate the published run's source timestamp even
+  // when those products belong to the published run.
+  card.run(3, "riftbound", "single", "Shared Set", "signatures", "Normal", "2026-10-09T00:30:00Z");
   const history = sqlite.prepare("insert into price_observations values (?,?,?,?,?,?,?)");
   history.run(1, "Normal", "Near Mint", "2026-10-09", 12000, "tcgcsv-daily", "2026-10-09T00:30:00Z");
   history.run(1, "Normal", "Near Mint", "2026-10-01", 10000, "tcgcsv-archive", "2026-08-28T00:00:00Z");
