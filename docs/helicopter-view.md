@@ -110,7 +110,7 @@ flowchart LR
   norm["core/normalize (pure)"]
   val["scripts/validate + last-good publish"]
   pub["public/data feeds (bundled into deploys)"]
-  cron["production cron */1 — guard: claim the 170 s cron-lease or exit idle; one checkpointed batch of the first due job (live → details → graded → metrics → history); rollup + daily history keyed to the live run's date"]
+  cron["production cron */1 — guard: claim the 170 s cron-lease or exit idle; one checkpointed batch of the first due job (next release: live → details → graded → metrics → heatmap snapshot → history); rollup + daily history keyed to the live run's date"]
   d1[("D1: catalog · observations · signals · graded · metrics")]
   repos["repositories: D1 first, feed fallback"]
   engine["catalog-query engine (one impl for browser + server)"]

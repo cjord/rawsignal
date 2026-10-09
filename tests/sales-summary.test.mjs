@@ -41,7 +41,7 @@ test("source quantities omitted or blank never become zero-volume claims",async(
 test("summary storage isolates printing and condition and leaves freshness untouched on price-only passes",async()=>{
   const sqlite=new DatabaseSync(":memory:");
   sqlite.exec("create table catalog_products(product_id integer primary key); insert into catalog_products values(1); create table market_metrics(product_id integer,variant text,condition text,sales_7 integer,sales_30 integer,sales_30_prior integer);");
-  sqlite.exec(readFileSync(new URL("../drizzle/0020_sales_summaries.sql",import.meta.url),"utf8"));
+  sqlite.exec(readFileSync(new URL("../docs/paused-migrations/sales_summaries.sql",import.meta.url),"utf8"));
   let reads=0,writes=0;
   const db={prepare(sql){
     const statement=sqlite.prepare(sql);

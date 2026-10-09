@@ -15,6 +15,7 @@ import { dueHistoryTargets, readHistoryTargetRowsFor } from "../db/history-targe
 import { runLiveDailyIngestionBatch, type LiveSyncDeps, type TcgcsvClient } from "../db/live-ingestion.ts";
 import { runBenchmarkIngestion } from "../db/benchmark-ingestion.ts";
 import { runMetricsRollup } from "../db/metrics-ingestion.ts";
+import { writeSetHeatmapSnapshot } from "../db/set-heatmap.ts";
 import type { D1DatabaseLike } from "../db/repository.ts";
 
 const probeUserAgent = "RawSignal/7.0 (+validated daily market ingestion)";
@@ -159,6 +160,10 @@ export async function runMetricsJob(env: StagingJobEnv, mode: "daily" | "backfil
   return { ...result, benchmark };
 }
 
+export function runHeatmapJob(env: StagingJobEnv) {
+  return writeSetHeatmapSnapshot(env.DB);
+}
+
 export async function runHistoryJob(env: StagingJobEnv, request: Request, batchSize: number, sourceUpdatedAt: string, options: { all?: boolean } = {}) {
   // Targets come from the live catalog, due-filtered by refresh tier (todo M5+M4);
   // operator backfills pass all:true to refresh everything regardless of cadence. The
@@ -205,6 +210,9 @@ export async function handleStagingJob(request: Request, env: StagingJobEnv): Pr
     if (input.job === "metrics") {
       return json({ job: "metrics", result: await runMetricsJob(env, input.batchSize === 0 ? "daily" : "backfill") });
     }
+    if (input.job === "heatmap") {
+      return json({ job: "heatmap", result: await runHeatmapJob(env) });
+    }
     if (input.job === "details") {
       const requested = typeof input.batchSize === "number" ? input.batchSize : 4;
       return json({ job: "details", result: await runDetailsJob(env, request, requested, sourceUpdatedAt) });
@@ -224,7 +232,7 @@ export async function handleStagingJob(request: Request, env: StagingJobEnv): Pr
       // to the cron's self-started daily runs.
       return json({ job: "history", result: await runHistoryJob(env, request, batchSize, sourceUpdatedAt, { all: true }) });
     }
-    return json({ error: "Job must be live, daily, history, details, graded, or metrics" }, 400);
+    return json({ error: "Job must be live, daily, history, details, graded, metrics, or heatmap" }, 400);
   } catch (error) {
     console.error(JSON.stringify({ event: "staging_job_failed", job: input.job, message: error instanceof Error ? error.message : "Unknown failure" }));
     return json({ error: "Staging job failed" }, 500);

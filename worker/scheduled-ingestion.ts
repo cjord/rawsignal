@@ -1,8 +1,9 @@
 import { publishedIngestion, readRefreshCursor } from "../db/repository.ts";
 import { claimTickLease, releaseTickLease } from "../db/tick-lease.ts";
 import { ingestionRunId } from "../db/run-id.ts";
+import { readSetHeatmapSnapshotStatus } from "../db/set-heatmap.ts";
 import { planScheduledAction, type ScheduledAction, type ScheduledPlan } from "./scheduled-decision.ts";
-import { probeTcgcsvUpdatedAt, runDetailsJob, runGradedJob, runHistoryJob, runLiveJob, runMetricsJob, type StagingJobEnv } from "./staging-jobs.ts";
+import { probeTcgcsvUpdatedAt, runDetailsJob, runGradedJob, runHeatmapJob, runHistoryJob, runLiveJob, runMetricsJob, type StagingJobEnv } from "./staging-jobs.ts";
 
 // The assets binding routes by pathname; the host of this synthetic request is irrelevant.
 const assetsBase = "https://raw-signal.internal/";
@@ -23,6 +24,7 @@ export type ScheduledTickDeps = {
     details: typeof runDetailsJob;
     graded: typeof runGradedJob;
     metrics: typeof runMetricsJob;
+    heatmap: typeof runHeatmapJob;
     history: typeof runHistoryJob;
   };
 };
@@ -30,7 +32,7 @@ export type ScheduledTickDeps = {
 const defaultDeps: ScheduledTickDeps = {
   now: () => new Date(),
   probe: () => probeTcgcsvUpdatedAt(),
-  jobs: { live: runLiveJob, details: runDetailsJob, graded: runGradedJob, metrics: runMetricsJob, history: runHistoryJob },
+  jobs: { live: runLiveJob, details: runDetailsJob, graded: runGradedJob, metrics: runMetricsJob, heatmap: runHeatmapJob, history: runHistoryJob },
 };
 
 export type ScheduledTickResult = { action: ScheduledAction; detail: string };
@@ -50,11 +52,12 @@ export async function runScheduledIngestionTick(env: StagingJobEnv, deps: Schedu
 async function runLeasedTick(env: StagingJobEnv, deps: ScheduledTickDeps, now: Date): Promise<ScheduledTickResult> {
   const deploySnapshotUpdatedAt = env.CF_VERSION_METADATA?.timestamp ?? now.toISOString();
   const today = now.toISOString().slice(0, 10);
-  const [live, details, graded, metrics, historyCheckpoint, historyPublished] = await Promise.all([
+  const [live, details, graded, metrics, heatmap, historyCheckpoint, historyPublished] = await Promise.all([
     publishedIngestion(env.DB, "daily-market"),
     publishedIngestion(env.DB, "product-details"),
     publishedIngestion(env.DB, "graded-rotation"),
     publishedIngestion(env.DB, "metrics-rollup"),
+    readSetHeatmapSnapshotStatus(env.DB),
     readRefreshCursor(env.DB, "history-backfill"),
     publishedIngestion(env.DB, "history-signals"),
   ]);
@@ -77,6 +80,8 @@ async function runLeasedTick(env: StagingJobEnv, deps: ScheduledTickDeps, now: D
     gradedPublishedRunId: graded?.runId ?? null,
     gradedTodayRunId: ingestionRunId("graded-rotation", today),
     metricsPublishedRunId: metrics?.runId ?? null,
+    heatmapStorageReady: heatmap.available,
+    heatmapSnapshotRunId: heatmap.sourceRunId,
     historyCheckpointRunId: historyCheckpoint?.ingestionRunId ?? null,
     historyPublishedRunId: historyPublished?.runId ?? null,
   });
@@ -103,6 +108,10 @@ async function dispatch(env: StagingJobEnv, plan: ScheduledPlan, jobs: Scheduled
     case "metrics": {
       const result = await jobs.metrics(env, "daily", plan.asOfDate);
       return { action, detail: `${result.series} series, ${result.seriesRows} rows${result.benchmark?.done ? `, S&P ${result.benchmark.rows}d` : ""}` };
+    }
+    case "heatmap": {
+      const result = await jobs.heatmap(env);
+      return { action, detail: `${result.sets} sets through ${result.sourceDate}` };
     }
     case "history":
       return { action, detail: progress(await jobs.history(env, syntheticRequest, HISTORY_BATCH_SIZE, plan.sourceUpdatedAt, { all: plan.all })) };

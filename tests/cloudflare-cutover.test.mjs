@@ -41,7 +41,7 @@ test("scheduled ticks advance due work and never start history backfills",()=>{
  const detailsDone={detailsPublishedUpdatedAt:deploySnapshotUpdatedAt,detailsPublishedRunId:detailsRunId};
  const gradedTodayRunId="graded-rotation:2026-08-28",gradedDone={gradedPublishedRunId:gradedTodayRunId};
  const metricsDone={metricsPublishedRunId:"metrics-rollup:2026-08-28"};
- const decide=overrides=>decideScheduledAction({probeUpdatedAt,livePublishedUpdatedAt:null,livePublishedRunId:null,liveTodayRunId,deploySnapshotUpdatedAt,detailsPublishedUpdatedAt:null,detailsPublishedRunId:null,gradedKeyConfigured:true,gradedPublishedRunId:null,gradedTodayRunId,metricsPublishedRunId:null,historyCheckpointRunId:null,historyPublishedRunId:null,...overrides});
+ const decide=overrides=>decideScheduledAction({probeUpdatedAt,livePublishedUpdatedAt:null,livePublishedRunId:null,liveTodayRunId,deploySnapshotUpdatedAt,detailsPublishedUpdatedAt:null,detailsPublishedRunId:null,gradedKeyConfigured:true,gradedPublishedRunId:null,gradedTodayRunId,metricsPublishedRunId:null,heatmapStorageReady:false,heatmapSnapshotRunId:null,historyCheckpointRunId:null,historyPublishedRunId:null,...overrides});
  // A TCGCSV publish not yet ingested is due, whether the mismatch is absence or staleness.
  assert.equal(decide({...detailsDone}),"live");
  assert.equal(decide({livePublishedUpdatedAt:"2026-08-27T20:04:00Z",livePublishedRunId:"live-daily:2026-08-27",historyCheckpointRunId:"history-backfill:2026-08-27"}),"live");

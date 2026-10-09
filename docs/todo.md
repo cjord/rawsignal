@@ -108,23 +108,24 @@ in `pull-rates.json`, curated only. Plan, model, costs, and phases:
 production; no page renders it yet. Phase 2 (panel, MSRP↔market slider, optional custom rates)
 needs a packs-per-product table and per-pack MSRP where the pack product has none.
 
-**J3. Pokémon + Riftbound set × rarity heatmap (requested 2026-09-28; local implementation 2026-10-09).**
+**J3. Pokémon + Riftbound set × rarity heatmap (live 2026-10-09; daily snapshot improvement local).**
 Work branch: `feature/set-rarity-heatmap`. The Sets toggle, URL controls, D1 read,
-aggregate payload, source-date-aware calculations, and browser/unit fixtures are implemented
-locally. Tiles remain default and do not call the heatmap endpoint. User decisions (2026-10-09): Sets-page
+aggregate payload, source-date-aware calculations, and browser/unit fixtures are live in
+production. Tiles remain default and do not call the heatmap endpoint. User decisions (2026-10-09): Sets-page
 toggle with tiles default; median card-price change; show 1–2-card cells with a small-sample
 warning, still requiring 60% usable coverage. The source-date audit chose at most two days
 for a member's latest price and at most three days between the requested cutoff and its
-baseline. Full release validation and remote deployment remain outstanding.
+baseline. The current on-demand endpoint is slow on a cold request; the daily D1 snapshot
+implementation below is not yet deployed or migrated.
 Add a market-movement matrix inspired by the
 [ShizuTCG Riftbound index](https://tcg-price-tracker.shizukaziye.workers.dev/rb-index#set=ALL&tier=ALL&w=rarity&m=index).
 Reference inspection: the public HTML/rendering code exposes a "Set × tier heat map",
 7D/30D/90D controls (30D default), signed percentage cells, empty cells, and cell selection
 that scopes the set/tier view. Its values depend on the selected index/box-value methodology.
-The browser was unavailable during research; rendered desktop/mobile behavior still needs
+The reference browser was unavailable during research; rendered desktop/mobile behavior still needs
 visual comparison. Borrow the matrix and drill-down interaction, not its styling, code,
-pull-rate assumptions, or volume-weighted model. Implementation authorized 2026-10-09;
-remote push and deployment have not been requested for this branch.
+pull-rate assumptions, or volume-weighted model. The first heatmap release is live;
+the daily-snapshot change is local and has not been requested for deployment.
 
 Proposed product scope and UX:
 
@@ -201,16 +202,25 @@ Implementation sequence and cost boundary:
 3. **UI + drill-down:** shared `SetHeatmap` composed into `app/SetsView.tsx`, URL state in
    `app/state/sets-query.ts`, and rules in the owning sets stylesheet. Use existing set
    details and catalog routes rather than a second index app or new chart dependency.
-4. **Measure before scaling:** local max-profile read (13.5 million history observations,
-   193 returned sets) took about 7.7 seconds cold and 1.7 seconds warm on a local SQLite
-   copy; the three-window JSON was about 653 KB before compression. Browser and edge
-   caches use the shared medium tier; the endpoint is lazy, so tiles incur no extra read.
-   Production D1 rows-read and p95 latency remain unmeasured. Compare cold/cached query rows, latency, payload and mobile
-   rendering with the existing sets view. If aggregate reads remain expensive, reuse §Q8's
-   daily-rollup direction, computing once per published snapshot; do not add a separate
-   cron or refresh staging daily. Any new table requires a hand-written migration and a
-   separate deployment step. Do not promise an exact monthly cost before measurements.
-5. **Release gate:** tests for medians, All-tracked weighting, null vs zero, small cohorts,
+4. **Daily snapshot (implemented locally, not deployed):** an uncached staging read took
+   ~11 seconds for 218 sets / 742 KB, while the older local max-profile scan took ~9 seconds.
+   `drizzle/0020_set_heatmap_snapshots.sql` adds two bounded rows, one per game. The existing
+   guard cron calculates once after each published live run and metrics rollup, before history;
+   the API then reads only the saved rows. Staging remains cron-less and can run the protected
+   `heatmap` ops job deliberately. Snapshot writes replace both game rows in one D1 batch;
+   the current read remains explicitly source-dated. No new upstream API calls or per-cell
+   queries are added. Production D1 rows-read and p95 latency remain unmeasured; confirm
+   them after an authorized deploy and migration before claiming a monthly cost saving.
+   The paused sales-table SQL moved outside the active migration chain so applying 0020 for
+   the heatmap does not activate or create sales summaries.
+5. **Coverage investigation:** the October 9 live payload showed no Riftbound set clearing
+   60% 30D coverage, and no game clearing 90D set coverage. Vendetta had only 21/236
+   usable 30D member returns. New Riftbound cards lack a 30-day baseline; absent older
+   observations also suppress 90D values. An older local database seeded with archive
+   history yielded 6/7 Riftbound 30D and 5/7 90D set totals, so precomputation fixes load
+   latency, not missing observations. Verify and backfill authorized dated price history
+   separately; do not loosen the coverage gate or manufacture returns to fill cells.
+6. **Release gate:** tests for medians, All-tracked weighting, null vs zero, small cohorts,
    stale/cutoff gaps, duplicate printings, cross-game same-name sets, promo/language
    boundaries, and URL round-trips. Browser checks cover Pokémon/Riftbound, desktop/mobile,
    keyboard/touch, dark/light, empty states, filtered card links and unchanged tiles.
@@ -610,11 +620,12 @@ will not recur.
 
 **R6. Detail sales-window summaries (implementation 2026-10-09; paused).**
 When enabled, 7D/30D/prior-30D TCGplayer units and period comparison use the detail
-history response. Independent sales timestamps in migration `0020_sales_summaries.sql`
+history response. Independent sales timestamps in the parked sales-table SQL
 prevent price updates from presenting stale sales as fresh; the dormant UI would mark
 legacy totals as having unknown freshness.
 The new feature is switched off in `core/domain/sales-summary.ts`: no new UI,
-summary database reads/writes, or additional API request. Keep migration 0020 unapplied.
+summary database reads/writes, or additional API request. The sales SQL is parked at
+`docs/paused-migrations/sales_summaries.sql`, not in the active migration chain.
 Existing price history, its sales fields, and signal liquidity remain unchanged. See
 `docs/sales-volume-2026-10.md`. Deploy/migration remain unrequested. Separately resolve the
 history-access failure found in the September 28 audit before promising current volume;
@@ -627,7 +638,8 @@ ingestion skips the `sales_summaries` upsert and the client skips its summary ca
 This adds **zero** summary-table reads/writes and **zero** extra upstream calls while
 paused. The ordinary price-history request and older sales-derived signal fields still
 run. Before activation: restore authorized detailed-history access, verify source
-freshness and representative card/sealed buckets, apply migration 0020 only with a
+freshness and representative card/sealed buckets, assign the parked SQL a new migration
+number and apply it only with a
 user-authorized deployment, turn the switch on, and re-run the complete gate.
 
 **R7. Daily sales and cross-market supply on card/sealed detail pages (research

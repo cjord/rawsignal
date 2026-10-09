@@ -2,7 +2,7 @@
 
 ## Current operating model
 
-The production Worker `raw-signal` owns the `DB` binding to the production D1 database and runs a `*/1 * * * *` guard cron (`worker/scheduled-ingestion.ts`, policy in `worker/scheduled-decision.ts`). Every tick first claims the single-flight `cron-lease` row in `refresh_state` for 170 seconds (`db/tick-lease.ts`) or exits idle, then advances at most one checkpointed batch of the first due job in policy order: live catalog walk → product details → graded rotation → metrics rollup → history backfill. Staging carries no schedule; its jobs run only through the operator adapter. Do not expose an unauthenticated ingestion route as a scheduling substitute.
+The production Worker `raw-signal` owns the `DB` binding to the production D1 database and runs a `*/1 * * * *` guard cron (`worker/scheduled-ingestion.ts`, policy in `worker/scheduled-decision.ts`). Every tick first claims the single-flight `cron-lease` row in `refresh_state` for 170 seconds (`db/tick-lease.ts`) or exits idle, then advances at most one checkpointed batch of the first due job in policy order: live catalog walk → product details → graded rotation → metrics rollup → heatmap snapshot → history backfill. The heatmap step is a local, not-yet-deployed change. Staging carries no schedule; its jobs run only through the operator adapter. Do not expose an unauthenticated ingestion route as a scheduling substitute.
 
 `sync-tcgcsv.mjs` and `sync-sealed.mjs` separate four concerns:
 
@@ -68,6 +68,19 @@ See [Signal eligibility](signal-eligibility.md) for the qualification and exclus
 The move to a directly managed Worker is done (see [Cloudflare cutover](cloudflare-cutover.md)): the production D1 database is bound as `DB`; the scheduled adapter walks TCGCSV live and calls `runDailyMarketIngestion` in checkpointed batches; the guard cron runs every minute rather than daily, taking the first due job in policy order; `runHistoryBackfillBatch` continues on idle ticks until it reports `done`; catalog counts, nullable values, representative histories, rejection totals, and signal counts were verified against the bundled feeds; `history-signals` is present; and failed runs are recorded without advancing the last-success pointer.
 
 Daily TCGCSV observations are sufficient for ongoing history after backfill. Detailed TCGplayer history remains the bootstrap and cache-miss source rather than a daily full-catalog fan-out.
+
+## Daily Sets heatmap snapshot (local implementation, awaiting migration/deploy)
+
+`db/set-heatmap.ts` calculates median tracked-card price changes for 7D/30D/90D from
+dated observations and applies the same 60% member-coverage gate as the live heatmap.
+Migration `0020_set_heatmap_snapshots.sql` stores one JSON row per game, each below D1's
+2 MB row limit. Once the published live run and metrics rollup complete, the guarded
+cron computes the snapshot once for that source run and atomically replaces both rows.
+Subsequent ticks read only the two-row marker, and `/api/sets/heatmap` reads the saved
+snapshot rather than scanning card history. The protected staging `heatmap` job can
+populate its database without enabling staging cron. A deploy before migration leaves
+the rest of ingestion running; the heatmap action waits until the table exists.
+The snapshot does not add upstream calls or fill missing 30D/90D baselines.
 
 ## eBay on-demand listing cache (2026-09-10)
 

@@ -4,14 +4,14 @@ import { runScheduledIngestionTick } from "../worker/scheduled-ingestion.ts";
 import { planScheduledAction } from "../worker/scheduled-decision.ts";
 import { ingestionRunId, runIdDate } from "../db/run-id.ts";
 
-// The tick reads five published-run rows; a fake D1 answers them by refresh key so the
+// The tick reads published-run rows plus the heatmap snapshot marker; a fake D1 answers them by key so the
 // dispatch is exercised end to end without a database, a clock, or a network.
 const NOW = new Date("2026-08-28T21:00:00Z");
 const DEPLOY = "2026-08-28T04:00:00.000Z";
 const PROBE = "2026-08-28T20:05:00Z";
 
 // `leaseHeld` makes the tick-lease claim report no change (another tick holds it, R4).
-function fakeDb({ published = {}, checkpoint = null, leaseHeld = false } = {}) {
+function fakeDb({ published = {}, checkpoint = null, leaseHeld = false, heatmapReady = true, heatmapRunId } = {}) {
   const db = { leaseClaims: 0, leaseReleases: 0 };
   db.prepare = (sql) => ({
     bind(key) {
@@ -26,13 +26,21 @@ function fakeDb({ published = {}, checkpoint = null, leaseHeld = false } = {}) {
           if (sql.includes("refresh_state r left join")) return checkpoint;
           throw new Error(`unexpected query: ${sql}`);
         },
+        async all() {
+          if (sql.includes("from set_heatmap_snapshots")) {
+            if (!heatmapReady) throw new Error("no such table: set_heatmap_snapshots");
+            const runId = heatmapRunId === undefined ? published["daily-market"]?.runId : heatmapRunId;
+            return { results: runId ? [{ game: "pokemon", sourceRunId: runId }, { game: "riftbound", sourceRunId: runId }] : [] };
+          }
+          throw new Error(`unexpected query: ${sql}`);
+        },
       };
     },
   });
   return db;
 }
 
-function harness({ published, checkpoint, probe = async () => PROBE, gradedKey = "key", versionTimestamp = DEPLOY, leaseHeld = false } = {}) {
+function harness({ published, checkpoint, probe = async () => PROBE, gradedKey = "key", versionTimestamp = DEPLOY, leaseHeld = false, heatmapReady = true, heatmapRunId } = {}) {
   const calls = [];
   // Recorded without the env and the synthetic asset Request: the values that matter are the
   // batch size, the snapshot identity, and the target-list mode.
@@ -45,10 +53,11 @@ function harness({ published, checkpoint, probe = async () => PROBE, gradedKey =
       details: record("details", { cursor: 4, total: 40, done: false }),
       graded: record("graded", { updated: 12, targets: 90, spent: 91, stopped: null }),
       metrics: record("metrics", { series: 3, seriesRows: 900, benchmark: { done: true, rows: 250 } }),
+      heatmap: record("heatmap", { sourceRunId: "live-daily:2026-08-28", sourceDate: "2026-08-28", sets: 193 }),
       history: record("history", { cursor: 60, total: 600, done: false }),
     },
   };
-  const env = { DB: fakeDb({ published, checkpoint, leaseHeld }), ASSETS: {}, POKEMONPRICETRACKER_API_KEY: gradedKey, CF_VERSION_METADATA: { id: "v", tag: "t", timestamp: versionTimestamp } };
+  const env = { DB: fakeDb({ published, checkpoint, leaseHeld, heatmapReady, heatmapRunId }), ASSETS: {}, POKEMONPRICETRACKER_API_KEY: gradedKey, CF_VERSION_METADATA: { id: "v", tag: "t", timestamp: versionTimestamp } };
   return { env, deps, calls };
 }
 
@@ -157,6 +166,14 @@ test("the daily history refresh starts tiered under the live run's date once liv
   assert.deepEqual(calls, [["history", 60, "2026-08-28", { all: false }]]);
 });
 
+test("a published live run computes a missing heatmap once before history, but pre-migration ticks skip it", async () => {
+  const due = harness({ published: { ...liveDone, ...detailsDone, ...gradedDone, ...metricsDone }, heatmapRunId: null });
+  assert.deepEqual(await runScheduledIngestionTick(due.env, due.deps), { action: "heatmap", detail: "193 sets through 2026-08-28" });
+  assert.deepEqual(due.calls, [["heatmap"]]);
+  const noTable = harness({ published: { ...liveDone, ...detailsDone, ...gradedDone, ...metricsDone }, heatmapReady: false });
+  assert.equal((await runScheduledIngestionTick(noTable.env, noTable.deps)).action, "history");
+});
+
 test("an uncompleted operator backfill resumes under its own date with the full target list", async () => {
   const { env, deps, calls } = harness({
     published: { ...liveDone, ...detailsDone, ...gradedDone, ...metricsDone },
@@ -199,6 +216,7 @@ test("the plan refuses a live action without a probe value instead of passing an
     deploySnapshotUpdatedAt: DEPLOY, detailsPublishedUpdatedAt: DEPLOY, detailsPublishedRunId: "product-details:2026-08-28",
     gradedKeyConfigured: false, gradedPublishedRunId: null, gradedTodayRunId: "graded-rotation:2026-08-28",
     metricsPublishedRunId: null, metricsTodayRunId: "metrics-rollup:2026-08-28",
+    heatmapStorageReady: false, heatmapSnapshotRunId: null,
     historyCheckpointRunId: null, historyPublishedRunId: null, historyTodayRunId: "history-daily:2026-08-28",
   };
   assert.deepEqual(planScheduledAction(input), { action: "live", sourceUpdatedAt: PROBE });

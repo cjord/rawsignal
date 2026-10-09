@@ -144,7 +144,7 @@ test("sales buckets from a history fetch persist the liquidity and demand column
   assert.equal(metrics.sales7, 2);
   assert.equal(metrics.sales30, 5);
   assert.equal(metrics.sales30Prior, 4);
-  assert.equal(database.prepare("select count(*) n from sales_summaries").get().n, 0);
+  assert.equal(database.prepare("select count(*) n from sqlite_master where type='table' and name='sales_summaries'").get().n, 0);
 });
 
 test("the statement builders produce exactly one write per side × strictness and per shadow side", () => {

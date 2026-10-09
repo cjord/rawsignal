@@ -263,6 +263,17 @@ export const refreshState = sqliteTable("refresh_state", {
   cursor: text("cursor"),
 });
 
+// Daily, source-dated set heatmap payloads. Two rows (one per supported game)
+// replace an expensive per-card history calculation on every page request.
+export const setHeatmapSnapshots = sqliteTable("set_heatmap_snapshots", {
+  game: text("game").primaryKey(),
+  sourceRunId: text("source_run_id").notNull(),
+  sourceDate: text("source_date").notNull(),
+  algorithmVersion: integer("algorithm_version").notNull(),
+  payloadJson: text("payload_json").notNull(),
+  computedAt: text("computed_at").notNull(),
+});
+
 // Per-set rarity aggregates (todo J2, migration 0017): one row per set × tier for EVERY
 // rarity in a TCGCSV group — the bulk commons/uncommons/rares the catalog never tracks
 // included — written by the live walk from the group files it already downloads.

@@ -6,7 +6,7 @@ Raw Signal presents market intelligence for raw trading cards and unopened produ
 
 ## Runtime and hosting
 
-The application is React 19 and TypeScript compiled by vinext into a Cloudflare Worker. Production is the directly managed Worker `raw-signal` serving `https://rawsignal.cards` on the production D1 database, with a guarded minutely cron advancing daily ingestion in checkpointed batches (policy order live → details → graded → metrics → history; each tick first claims the 170-second `cron-lease` row in `refresh_state` via `db/tick-lease.ts`, so an overlapping tick exits idle). A sandbox Worker `raw-signal-staging` stays on workers.dev with its own deliberately stale D1 (no cron) for cheap pre-production review. OpenAI Sites is dormant: `.openai/hosting.json` and Sites build compatibility are retained only as a rollback path (see [Cloudflare cutover](cloudflare-cutover.md)).
+The application is React 19 and TypeScript compiled by vinext into a Cloudflare Worker. Production is the directly managed Worker `raw-signal` serving `https://rawsignal.cards` on the production D1 database, with a guarded minutely cron advancing daily ingestion in checkpointed batches (next-release policy order live → details → graded → metrics → heatmap snapshot → history; each tick first claims the 170-second `cron-lease` row in `refresh_state` via `db/tick-lease.ts`, so an overlapping tick exits idle). A sandbox Worker `raw-signal-staging` stays on workers.dev with its own deliberately stale D1 (no cron) for cheap pre-production review. OpenAI Sites is dormant: `.openai/hosting.json` and Sites build compatibility are retained only as a rollback path (see [Cloudflare cutover](cloudflare-cutover.md)).
 
 `worker/index.ts` is the Worker entry point. It delegates application requests to vinext, retains the Cloudflare image-optimization route, and mounts the scheduled-ingestion cron handler, the staging-only ops adapter, and the Worker-native eBay account-deletion callback. `vite.config.ts` supplies a local placeholder D1 binding without encoding production resource identifiers.
 
@@ -44,6 +44,13 @@ Two caches sit in front of D1 (review §14): `worker/edge-cache.ts` stores ordin
 `core/signal-utils.ts` is the single Buy/Sell scoring implementation, called by the batch writer, the detail panel, row badges, and the backtest harness through one optional `SignalContext` (liquidity floor, demand trend, model variant; absent fields are neutral). The production model (v1) evaluates proximity, adaptive volatility cutoffs, opposite-extreme price swing, strictness, coverage confidence, a buy-side stabilization gate, and the 5/30D + 1/7D liquidity floor, returning explicit non-qualification reasons for diagnostics. A challenger (v2: winsorized percentile extremes, breakout sell gate) rides the same code behind `model:"v2"` and serves nothing until promoted (todo §P; evidence in `docs/backtests.md`).
 
 `core/domain/regime.ts` classifies every product's market regime (Falling / Improving / Breakout / Overextended / Spike / Steady) from momentum, change windows, drawdown, and the optional demand trend. The label persists on `market_metrics.regime`, surfaces as chips (board signal cells, history popovers, detail page), and is a board filter (`regime=` URL param). Labels are descriptive; only the v2 challenger consumes them for scoring.
+
+The Sets heatmap's on-demand history scan is being replaced by two source-dated
+`set_heatmap_snapshots` rows (Pokémon and Riftbound). After a published live run, the
+guard cron computes the three windows once and atomically replaces both rows; the API
+reads the saved JSON only. This local change requires migration 0020 before activation;
+until deployed, production still calculates on a heatmap request. The 60% historical
+coverage policy and `N/A` semantics do not change with precomputation.
 
 Persisted signals become authoritative only when the independent `history-signals` completion marker exists (published in production since 2026-08-28). Before that marker, `app/data/signal-coverage.ts` selects at most 400 proportional, price-stratified candidates and the interface discloses that transitional coverage.
 

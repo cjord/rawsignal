@@ -1,10 +1,12 @@
 # Detail-page sales volume — 2026-10-09
 
-Implemented but paused on `feature/set-rarity-heatmap`; not deployed. The
+Implemented but paused on `feature/set-rarity-heatmap`; the disabled code is deployed. The
 `SALES_SUMMARIES_ENABLED` switch in `core/domain/sales-summary.ts` is off: detail pages
 do not request or show the new summaries; `/api/history` performs no summary lookup;
 ingestion performs no summary upsert; and the client does not calculate the new summary.
-Do not apply migration `0020_sales_summaries.sql` while this feature is paused. Existing
+The sales table SQL is parked at `docs/paused-migrations/sales_summaries.sql`, outside
+the active migration chain. It must receive a new contiguous migration number only when
+this feature is authorized. Existing
 price-history calls, sales activity, and signal liquidity logic are unchanged. The
 design below describes the dormant feature for later activation. Scope: individual card and
 sealed-product pages. Full/hover/leaderboard views are unchanged. This is windowed
@@ -55,8 +57,9 @@ unmigrated table does not stop the existing ingestion path.
 
 ## Activation and validation
 
-- Migration: `drizzle/0020_sales_summaries.sql`, matching `db/schema.ts`. Deploy first,
-  then apply the migration under the existing environment policy when authorized.
+- Migration: the parked SQL at `docs/paused-migrations/sales_summaries.sql` matches
+  `db/schema.ts`; copy it into a new numbered `drizzle/` migration when authorized.
+  Deploy first, then apply under the existing environment policy.
   Missing table falls back to legacy summaries; only that schema-absence error is
   suppressed on writes. No migration was applied remotely during implementation.
 - Unit coverage: disjoint windows, short coverage, zero denominator, freshness,

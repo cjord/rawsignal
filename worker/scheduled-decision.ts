@@ -1,6 +1,6 @@
 import { ingestionRunId, runIdDate } from "../db/run-id.ts";
 
-export type ScheduledAction = "live" | "details" | "graded" | "metrics" | "history" | "idle";
+export type ScheduledAction = "live" | "details" | "graded" | "metrics" | "heatmap" | "history" | "idle";
 
 export type ScheduledInput = {
   probeUpdatedAt: string | null;
@@ -14,6 +14,8 @@ export type ScheduledInput = {
   gradedPublishedRunId: string | null;
   gradedTodayRunId: string;
   metricsPublishedRunId: string | null;
+  heatmapStorageReady: boolean;
+  heatmapSnapshotRunId: string | null;
   historyCheckpointRunId: string | null;
   historyPublishedRunId: string | null;
 };
@@ -26,6 +28,7 @@ export type ScheduledPlan =
   | { action: "details"; sourceUpdatedAt: string }
   | { action: "graded" }
   | { action: "metrics"; asOfDate: string }
+  | { action: "heatmap" }
   | { action: "history"; sourceUpdatedAt: string; all: boolean };
 
 // The data day the published live run represents: live runs are keyed by the TCGCSV
@@ -77,6 +80,8 @@ export function decideScheduledAction(input: ScheduledInput): ScheduledAction {
   const liveDate = liveRunDate(input.livePublishedRunId);
   const metricsForLiveCompleted = liveDate != null && input.metricsPublishedRunId === metricsRunIdFor(liveDate);
   if (liveDate != null && !metricsForLiveCompleted) return "metrics";
+  if (input.heatmapStorageReady && input.livePublishedRunId &&
+      input.heatmapSnapshotRunId !== input.livePublishedRunId) return "heatmap";
   if (input.historyCheckpointRunId && input.historyCheckpointRunId !== input.historyPublishedRunId) return "history";
   // Daily tiered refresh (M4): starts only after the live run's rollup landed; any completed
   // history run dated that live day — tiered or a full operator backfill — counts.
