@@ -604,6 +604,16 @@ will not recur.
 
 ## R. Production ingestion (R1–R3 shipped — see the completed doc; R4 fix 3 and R5 open)
 
+**R6. Detail sales-window summaries (implementation 2026-10-09; activation pending).**
+7D/30D/prior-30D TCGplayer units and period comparison now use the detail history response.
+Independent sales timestamps in migration `0020_sales_summaries.sql` prevent price updates
+from presenting stale sales as fresh. Legacy totals explicitly show unknown freshness.
+No extra upstream calls; one summary read (plus legacy fallback if needed) per uncached
+detail request, one summary write per valid existing sales refresh. See
+`docs/sales-volume-2026-10.md`. Deploy/migration remain unrequested. Separately resolve the
+history-access failure found in the September 28 audit before promising current volume;
+daily-bar granularity and Full-view volume remain deferred.
+
 **R4. Overlapping guard-cron ticks halve the live walk, then the minimum-records guard
 resets it (found 2026-09-05 03:50Z).** The `live-daily:2026-09-04` run took 7.2 h
 (20:07→03:19Z) against 4.4 h the day before, wrote

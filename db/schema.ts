@@ -105,6 +105,18 @@ export const priceObservations = sqliteTable("price_observations", {
   index("idx_price_observations_product_date").on(table.productId, table.observedDate),
 ]);
 
+export const salesSummaries = sqliteTable("sales_summaries", {
+  productId: integer("product_id").notNull().references(() => catalogProducts.productId, { onDelete: "cascade" }),
+  variant: text("variant").notNull(),
+  condition: text("condition").notNull(),
+  sales7: integer("sales_7"),
+  sales30: integer("sales_30"),
+  sales30Prior: integer("sales_30_prior"),
+  throughDate: text("through_date").notNull(),
+  fetchedAt: text("fetched_at").notNull(),
+  bucketDays: integer("bucket_days").notNull(),
+}, table => [primaryKey({ columns: [table.productId, table.variant, table.condition] })]);
+
 export const marketMetrics = sqliteTable("market_metrics", {
   productId: integer("product_id").notNull().references(() => catalogProducts.productId, { onDelete: "cascade" }),
   variant: text("variant").notNull(),

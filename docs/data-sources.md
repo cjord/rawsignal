@@ -45,6 +45,12 @@ The same endpoint reports completed-sale activity per variant/condition SKU: qua
 
 History availability varies by product. Missing or unmatched history remains unavailable and can prevent signal qualification.
 
+Detail-page window summaries (2026-10-09 implementation) display approximate 7D/30D/prior-30D
+units from whole three-day buckets. `sales_summaries` preserves the bucket and fetch dates
+independently of price updates; legacy totals have unknown freshness. Missing quantities
+are not converted to zero. See [Sales volume](sales-volume-2026-10.md) for exact windows,
+incremental calls, the unresolved upstream-access issue and migration activation.
+
 ## PokemonPriceTracker graded and raw sales
 
 The graded rotation (`db/graded-ingestion.ts`) reads PokemonPriceTracker's smart-market prices per grade and its raw-card eBay completed-sales figure (price, sale count, and date). It is the site's only eBay *sale* price and is always labelled with its provenance ("eBay completed sales via PokemonPriceTracker"). It does not enter modeled fair value or signals.

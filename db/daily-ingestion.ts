@@ -1,4 +1,5 @@
 import { demandTrend, salesWindow } from "../core/domain/detail-metrics.ts";
+import { persistSalesSummary } from "./sales-summary.ts";
 import { deriveHistoryMetrics } from "../core/domain/history-metrics.ts";
 import { classifyRegime } from "../core/domain/regime.ts";
 import type { Card, CatalogDetailEnrichment, PriceHistory, PricePoint, SealedProduct, SignalStrictness } from "../core/domain/types.ts";
@@ -93,6 +94,9 @@ export async function persistDerivedHistory(db: D1DatabaseLike, productId: numbe
   // One batch per product (review 2026-09-03): the metrics row, the six signal rows, and
   // the two shadow rows land in a single round trip, atomically, instead of nine awaits.
   await db.batch([metricsWrite, ...champion.writes, ...shadow]);
+  // Independent of the existing signal transaction: deploy-before-migrate must not
+  // stop history ingestion. Price-only passes never advance sales freshness.
+  await persistSalesSummary(db, productId, variant, condition, updatedAt, sales);
   return { signalsWritten: champion.signalsWritten, eligible: points.length >= 2 };
 }
 

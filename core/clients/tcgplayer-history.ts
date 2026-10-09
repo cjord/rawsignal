@@ -1,6 +1,7 @@
 import { deriveHistoryMetrics } from "../domain/history-metrics.ts";
 import type { PriceHistory } from "../domain/types.ts";
 import { supplementalSingle } from "../domain/supplemental-singles.ts";
+import { summarizeSales } from "../domain/sales-summary.ts";
 
 // Shared annual/quarterly TCGplayer history loading for the public /api/history route and
 // the ingestion history backfill. Lives in core/ so worker/ and app/ both depend downward
@@ -70,6 +71,11 @@ export async function fetchTcgplayerHistory(productId: number, printing: string,
   const salesBuckets = selected.buckets
     .map(bucket => ({ date: bucket.bucketStartDate, quantity: Math.max(0, Number(bucket.quantitySold) || 0), low: salePrice(bucket.lowSalePrice), high: salePrice(bucket.highSalePrice), lowWithShipping: salePrice(bucket.lowSalePriceWithShipping), highWithShipping: salePrice(bucket.highSalePriceWithShipping) }))
     .sort((a, b) => a.date.localeCompare(b.date));
+  // Do not turn an omitted/invalid source quantity into a measured zero.
+  const validSales = selected.buckets.length > 0 && selected.buckets.every(bucket =>
+    bucket.quantitySold != null && String(bucket.quantitySold).trim() !== "" &&
+    Number.isInteger(Number(bucket.quantitySold)) && Number(bucket.quantitySold) >= 0);
+  const sales = validSales ? { windowDays: 90, totalQuantity: total(selected.totalQuantitySold), totalTransactions: total(selected.totalTransactionCount), buckets: salesBuckets } : undefined;
   // Sealed products have one series (TCGplayer reports it as "Normal"/"Unopened"); every store
   // keys it Sealed/Unopened (todo R3), and a sealed-looking series is exact coverage for a sealed
   // request — the printing a caller names is meaningless for a box.
@@ -78,7 +84,8 @@ export async function fetchTcgplayerHistory(productId: number, printing: string,
     points,
     variant: sealed ? "Sealed" : selected.variant,
     condition: sealed ? "Unopened" : selected.condition,
-    sales: { windowDays: 90, totalQuantity: total(selected.totalQuantitySold), totalTransactions: total(selected.totalTransactionCount), buckets: salesBuckets },
+    sales,
+    salesSummary: sales ? summarizeSales(sales, new Date().toISOString()) ?? undefined : undefined,
     coverage: exact || sealedSeries ? "exact" : "fallback",
     ...deriveHistoryMetrics(points),
   };

@@ -44,6 +44,7 @@ export type SalesActivity = {
 };
 
 export type PriceHistory = {
+  salesSummary?: import("./sales-summary.ts").SalesSummary;
   points: PricePoint[];
   variant?: string;
   condition?: string;
