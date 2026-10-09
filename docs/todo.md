@@ -108,6 +108,114 @@ in `pull-rates.json`, curated only. Plan, model, costs, and phases:
 production; no page renders it yet. Phase 2 (panel, MSRP↔market slider, optional custom rates)
 needs a packs-per-product table and per-pack MSRP where the pack product has none.
 
+**J3. Pokémon + Riftbound set × rarity heatmap (requested 2026-09-28; implementation started 2026-10-09).**
+Work branch: `feature/set-rarity-heatmap`. Initial pure calculation helpers and tests
+cover source-date cutoffs, freshness policies, nullable median aggregation and coverage.
+They are not connected to a page or database yet. User decisions (2026-10-09): Sets-page
+toggle with tiles default; median card-price change; show 1–2-card cells with a small-sample
+warning, still requiring 60% usable coverage. Source-date freshness tolerances remain
+explicit caller inputs pending the data audit. Full release validation and data/UI
+integration remain outstanding.
+Add a market-movement matrix inspired by the
+[ShizuTCG Riftbound index](https://tcg-price-tracker.shizukaziye.workers.dev/rb-index#set=ALL&tier=ALL&w=rarity&m=index).
+Reference inspection: the public HTML/rendering code exposes a "Set × tier heat map",
+7D/30D/90D controls (30D default), signed percentage cells, empty cells, and cell selection
+that scopes the set/tier view. Its values depend on the selected index/box-value methodology.
+The browser was unavailable during research; rendered desktop/mobile behavior still needs
+visual comparison. Borrow the matrix and drill-down interaction, not its styling, code,
+pull-rate assumptions, or volume-weighted model. Implementation authorized 2026-10-09;
+remote push and deployment have not been requested for this branch.
+
+Proposed product scope and UX:
+
+- [ ] Add a **Heatmap** view alongside the existing tiles on `/sets`; preserve the default
+  tile view. Support Pokémon and Riftbound as separate game-scoped matrices (All shows
+  two sections, never mixes their tiers). One Piece and sealed-product-type heatmaps are
+  outside this first release. A set row describes its tracked **singles**, not sealed EV.
+- [ ] Rows are sets, columns are game-specific rarity/tier groups plus **All tracked**.
+  Reuse the existing catalog section/rarity registry, with an explicit mapping rather than
+  assuming Pokémon and Riftbound labels match. Pokémon should retain meaningful modern
+  and vintage tiers; Riftbound should distinguish Epic, Alt art/Showcase, Overnumbered,
+  Signature and eligible promos. Preserve the catalog's token/basic-rune/ordinary-promo
+  exclusions and keep language/printing identities separate. Unpriced Metal/Best Of and
+  foreign-exclusive promos remain discoverable with unavailable values.
+- [ ] Controls: game, 7D/30D/90D (default 30D), set search, existing era/category and
+  favorite scope; newest-first set order with optional change sorting. Scope changes and
+  selected cell round-trip through `app/state/sets-query.ts` and browser Back/Forward.
+  Keep multi-filter Apply/Close behavior consistent with existing filter primitives.
+- [ ] Each cell shows a signed percent, green/red intensity around a neutral zero, and a
+  visible legend. Use a fixed symmetric scale per window, shared across both games;
+  clamp only the color intensity, never the displayed percentage. `N/A` is visually
+  distinct from 0%. Choose the scale from representative data before implementation.
+- [ ] Click/tap/keyboard activation selects the cell and opens an in-flow summary below
+  the matrix: set, tier, window, method, eligible/total tracked counts, source date,
+  coverage warnings, and explicit **View matching cards** / **View set** links. Selection
+  must not unexpectedly navigate or scroll to the page top; include Clear selection.
+  Reuse catalog URL serialization for the card link; validate tier-to-filter parity.
+- [ ] Desktop: semantic table with sticky set labels and horizontally scrollable tier
+  columns. Mobile: preserve readable/tappable cells, sticky row labels and a visible
+  horizontal-scroll hint; allow narrowing to one tier without shrinking the whole table.
+  Support focus-visible, descriptive accessible names, non-color sign labels, reduced
+  motion, dark/light themes, and the existing surface/typography/movement tokens.
+
+Data definition and correctness gates:
+
+- [ ] MVP cell = **median percentage price change of eligible tracked printings** in that
+  game/set/tier. Label it "Median tracked-card change", not a market-cap index, full-set
+  return, sales volume, pack EV, or investment return. Compute **All tracked** from the
+  underlying eligible members, not the average of tier medians. Use the same member-level
+  calculation for both games; document that this intentionally differs from the reference.
+- [ ] Audit `db/sets-service.ts` and `market_metrics` before reuse: exact product + printing
+  + condition joins (not the existing permissive sealed join), unique members, dated
+  7/30/90-day cutoffs at or before the target date, and no newly listed/missing-price card
+  contributing a synthetic zero. Reuse `core/domain/history-metrics.ts` for the cutoff
+  contract; any stricter freshness gate is heatmap-specific, not a silent signal change.
+- [ ] Publish eligible/total tracked counts per cell, with "tracked catalog, not the full
+  checklist" disclosure. User-approved gate (2026-10-09): at least 1 eligible member and
+  60% coverage, otherwise `N/A` with a reason; show a small-sample warning for 1–2 members,
+  including sparse Signature/promo tiers. A tier absent from a set is "Not applicable",
+  not "No price history".
+  New sets without a window's history remain unavailable for that window.
+- [ ] Audit endpoint freshness and the §R5 split-source-date issue before enabling 7D/30D/
+  90D returns. Use published source dates, never response `generatedAt`, to describe
+  freshness; define and test permitted endpoint age and cutoff gaps against daily-source
+  cadence. Historical member coverage and current coverage must both be sufficient.
+- [ ] The 2026-09-28 production audit found the last successful scheduled TCGplayer
+  history run at **2026-09-18 03:53 UTC**; subsequent recorded runs failed, while sampled
+  TCGCSV daily prices continued through September 28. Price-only heatmaps need not wait
+  for daily sales-volume access, but must validate the actual dated price inputs.
+  Do not consume stale `sales_7`/`sales_30`, add volume weighting, or treat the general
+  metrics update timestamp as sales freshness. Daily volume remains a separate feature.
+
+Implementation sequence and cost boundary:
+
+1. **Data audit + fixtures:** establish tier mapping, denominators, freshness/coverage
+   gates, join uniqueness, and agreement with known member returns. Inspect query plans
+   and record baseline D1 rows read; avoid a per-cell history/API fan-out.
+2. **Shared model + aggregate payload:** pure heatmap types/aggregation in `core/domain/`,
+   one bounded game/set/tier aggregate read in `db/sets-service.ts` (or an adjacent shared
+   service), published-run-aware caching, and a compact payload containing all three
+   windows. Reuse stored prices/metrics; **zero additional upstream/provider calls**.
+   Do not send complete card histories to render the matrix. Window changes and cell
+   selection should operate on the loaded aggregate payload.
+3. **UI + drill-down:** shared `SetHeatmap` composed into `app/SetsView.tsx`, URL state in
+   `app/state/sets-query.ts`, and rules in the owning sets stylesheet. Use existing set
+   details and catalog routes rather than a second index app or new chart dependency.
+4. **Measure before scaling:** compare cold/cached query rows, latency, payload and mobile
+   rendering with the existing sets view. If aggregate reads remain expensive, reuse §Q8's
+   daily-rollup direction, computing once per published snapshot; do not add a separate
+   cron or refresh staging daily. Any new table requires a hand-written migration and a
+   separate deployment step. Do not promise an exact monthly cost before measurements.
+5. **Release gate:** tests for medians, All-tracked weighting, null vs zero, small cohorts,
+   stale/cutoff gaps, duplicate printings, cross-game same-name sets, promo/language
+   boundaries, and URL round-trips. Browser checks cover Pokémon/Riftbound, desktop/mobile,
+   keyboard/touch, dark/light, empty states, filtered card links and unchanged tiles.
+   Run `npm run check` when implementing; commit/push/deploy only when requested.
+
+Deferred: rarity/supply-weighted indexes and per-pack/per-box EV heatmaps (depend on curated
+historical composition/odds and a separate methodology decision), daily/1D movement until
+source-date consistency is verified, sales-volume weighting, and broader game/sealed scope.
+
 ## K. Signal display (added 2026-08-30)
 
 **K1. Handle a card/sealed product that carries a Hot Buy and a Hot Sell signal at once
