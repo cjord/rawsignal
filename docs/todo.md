@@ -113,8 +113,8 @@ Work branch: `feature/set-rarity-heatmap`. The Sets toggle, URL controls, D1 rea
 aggregate payload, source-date-aware calculations, and browser/unit fixtures are live in
 production. Tiles remain default and do not call the heatmap endpoint. User decisions (2026-10-09): Sets-page
 toggle with tiles default; median card-price change; show 1–2-card cells with a small-sample
-warning. The follow-up lowers the required coverage from 60% to 5%, flags cells below
-60% as limited, and changes the default window from 30D to 7D without substituting 7D
+warning. The follow-up lowers the required coverage from 60% to 5% (including the UI
+threshold), and changes the default window from 30D to 7D without substituting 7D
 returns into 30D/90D cells. The source-date audit chose at most two days
 for a member's latest price and at most three days between the requested cutoff and its
 baseline. The current on-demand endpoint is slow on a cold request; the daily D1 snapshot
@@ -176,7 +176,7 @@ Data definition and correctness gates:
 - [x] Publish eligible/total tracked counts per cell, with "tracked catalog, not the full
   checklist" disclosure. Revised gate (2026-10-09): at least one eligible member and
   5% coverage. Compute the median only from valid member comparisons, retain the full
-  tracked count for provenance, and visibly flag <60% coverage or 1–2 eligible members.
+  tracked count for provenance, and visibly flag 1–2 eligible members.
   Below 5% remains `N/A` with a reason. A tier absent from a set is "Not applicable",
   not "No price history".
   New sets without a window's history remain unavailable for that window.

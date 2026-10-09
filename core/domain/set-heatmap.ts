@@ -6,7 +6,6 @@ export const HEATMAP_WINDOWS = [7, 30, 90] as const;
 export type HeatmapWindow = typeof HEATMAP_WINDOWS[number];
 // A sparse but nonzero eligible subset may describe a set if its limited coverage is disclosed.
 export const HEATMAP_COVERAGE_POLICY = { minMembers: 1, minCoverage: 0.05 } as const;
-export const HEATMAP_COVERAGE_WARNING = 0.6;
 export type HeatmapUnavailable = "no-history" | "stale" | "insufficient-history" | "cutoff-gap";
 export type HeatmapReturn = {
   change: number | null;

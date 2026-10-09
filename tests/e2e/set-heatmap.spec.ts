@@ -22,9 +22,10 @@ test("Sets heatmap keeps tiles default and supports scoped cells on desktop and 
   await expect(page).toHaveURL(/view=heatmap/);
   await expect(page.getByRole("button", { name: "7D" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("table")).toHaveCount(1);
-  await page.getByRole("button", { name: /Origins, All tracked, 7 day.*-20.0%.*Limited coverage/ }).click();
+  await page.getByRole("button", { name: /Origins, All tracked, 7 day.*-20.0%.*21 of 236 tracked cards/ }).click();
   await expect(page.getByText(/21 of 236 tracked printings have usable history/)).toBeVisible();
   await expect(page.getByText(/Only those printings contribute to the median/)).toBeVisible();
+  await expect(page.locator(".heatmap-selection")).toContainText("At least 5% coverage.");
   await expect(page.getByRole("button", { name: /Origins, Signature, 7 day.*-20.0%/ })).toBeVisible();
   await page.getByRole("button", { name: /Origins, Signature, 7 day.*-20.0%/ }).click();
   await expect(page.getByRole("heading", { name: "Origins · Signature" })).toBeVisible();

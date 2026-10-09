@@ -51,7 +51,8 @@ guard cron computes the three windows once and atomically replaces both rows; th
 reads the saved JSON only. This local change requires migration 0020 before activation;
 until deployed, production still calculates on a heatmap request. The local policy now
 defaults to 7D and permits a median when at least 5% of tracked printings have valid
-comparisons; cells below 60% coverage carry a visible warning and exact eligible count.
+comparisons; cells below 5% remain unavailable, while cells with 1–2 eligible cards
+carry a small-sample warning. Selection shows the exact eligible count.
 Missing 30D/90D baselines remain `N/A` in their own windows.
 
 Persisted signals become authoritative only when the independent `history-signals` completion marker exists (published in production since 2026-08-28). Before that marker, `app/data/signal-coverage.ts` selects at most 400 proportional, price-stratified candidates and the interface discloses that transitional coverage.

@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState, type CSSProperties } from "react";
-import { HEATMAP_COVERAGE_POLICY, HEATMAP_COVERAGE_WARNING, HEATMAP_TIERS, HEATMAP_WINDOWS, type HeatmapCell, type HeatmapGame, type SetHeatmapPayload, type SetHeatmapRow } from "../core/domain/set-heatmap";
+import { HEATMAP_COVERAGE_POLICY, HEATMAP_TIERS, HEATMAP_WINDOWS, type HeatmapCell, type HeatmapGame, type SetHeatmapPayload, type SetHeatmapRow } from "../core/domain/set-heatmap";
 import type { SetDirectoryRow } from "../core/domain/sets";
 import { formatGameName, formatPercent } from "../core/domain/formatters";
 import { setGroupsFor } from "../core/domain/eras";
@@ -18,11 +18,7 @@ const cellReason: Record<Exclude<HeatmapCell["reason"], null>, string> = {
   "low-coverage": `Fewer than ${Math.round(HEATMAP_COVERAGE_POLICY.minCoverage * 100)}% of tracked cards have usable history`,
   "small-sample": "Too few cards",
 };
-const limitedCoverage = (cell: HeatmapCell) => cell.change != null && cell.coverage < HEATMAP_COVERAGE_WARNING;
-const cellWarning = (cell: HeatmapCell) => [
-  cell.smallSample ? "Small sample: one or two cards" : null,
-  limitedCoverage(cell) ? "Limited coverage: fewer than 60% of tracked cards" : null,
-].filter(Boolean).join("; ");
+const cellWarning = (cell: HeatmapCell) => cell.smallSample ? "Small sample: one or two cards" : "";
 const scale = (change: number) => `${Math.round(6 + Math.min(1, Math.abs(change) / 20) * 24)}%`;
 const selectedKey = (game: string, slug: string, tier: string) => `${game}|${slug}|${tier}`;
 const cardUrl = (row: SetHeatmapRow, tier: string) => {
@@ -118,7 +114,7 @@ export default function SetHeatmap({ payload, loading, error, directory, scope, 
       <label>Sort<select value={scope.sort} onChange={event => onScope({ sort: event.target.value as SetsScope["sort"], selected: "" })}><option value="newest">Newest first</option><option value="change">Strongest change</option></select></label>
       <HeatmapFilters key={`${scope.market}|${scope.query}|${scope.group}|${scope.tier}|${scope.favoritesOnly}`} scope={scope} onScope={onScope} games={games}/>
     </div>
-    <p className="detail-note heatmap-legend"><span className="heatmap-swatch down"/> Falling <span className="heatmap-swatch flat"/> Flat <span className="heatmap-swatch up"/> Rising · intensity reaches full color at ±20%; displayed percentages are never capped. ! flags 1–2 usable cards or less than 60% coverage; N/A means unavailable; — means no tracked cards in that tier.</p>
+    <p className="detail-note heatmap-legend"><span className="heatmap-swatch down"/> Falling <span className="heatmap-swatch flat"/> Flat <span className="heatmap-swatch up"/> Rising · intensity reaches full color at ±20%; displayed percentages are never capped. At least 5% coverage is required; ! flags 1–2 usable cards; N/A means unavailable; — means no tracked cards in that tier.</p>
     {loading && <p className="detail-unavailable" role="status">Loading tracked-card changes…</p>}
     {error && <p className="detail-unavailable" role="status">Heatmap is unavailable right now.</p>}
     {!loading && !error && games.length === 0 && <p className="detail-unavailable">One Piece does not yet have tracked singles for this heatmap.</p>}
@@ -144,7 +140,7 @@ export default function SetHeatmap({ payload, loading, error, directory, scope, 
     {selected && selectedCell && <section className="detail-section heatmap-selection" aria-live="polite">
       <header><span>Selected cell</span><h2>{selected.set} · {selectedLabel}</h2></header>
       <p><b>{selectedCell.change == null ? "N/A" : formatPercent(selectedCell.change)}</b> median tracked-card change over {scope.window} days.</p>
-      <p className="detail-note">{selectedCell.eligible} of {selectedCell.total} tracked printings have usable history ({Math.round(selectedCell.coverage * 100)}% coverage). Only those printings contribute to the median; missing or stale comparisons are excluded. {selectedCell.reason ? cellReason[selectedCell.reason] : cellWarning(selectedCell) || "At least 60% coverage."} Source snapshot: {payload?.asOfDate}; cutoff uses the nearest dated price at or before the target, with a three-day maximum gap.</p>
+      <p className="detail-note">{selectedCell.eligible} of {selectedCell.total} tracked printings have usable history ({Math.round(selectedCell.coverage * 100)}% coverage). Only those printings contribute to the median; missing or stale comparisons are excluded. {selectedCell.reason ? cellReason[selectedCell.reason] : cellWarning(selectedCell) || "At least 5% coverage."} Source snapshot: {payload?.asOfDate}; cutoff uses the nearest dated price at or before the target, with a three-day maximum gap.</p>
       <div className="heatmap-selection-links"><a href={cardUrl(selected, selectedTier)}>View matching cards</a><a href={`/sets/${selected.game}/${selected.slug}`}>View set</a><button type="button" onClick={() => onScope({ selected: "" })}>Clear selection</button></div>
     </section>}
   </div>;
