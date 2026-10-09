@@ -1,5 +1,6 @@
 import { normalizePricePoints } from "./history-metrics.ts";
 import type { PricePoint } from "./types.ts";
+import { setSlug } from "./formatters.ts";
 
 export const HEATMAP_WINDOWS = [7, 30, 90] as const;
 export type HeatmapWindow = typeof HEATMAP_WINDOWS[number];
@@ -72,4 +73,68 @@ export function summarizeHeatmapCell(
   const middle = Math.floor(eligible / 2);
   const change = reason ? null : eligible % 2 ? usable[middle] : usable[middle - 1] / 2 + usable[middle] / 2;
   return { change, total, eligible, coverage, smallSample: eligible > 0 && eligible < 3, reason };
+}
+
+// Section keys deliberately match the Singles URL filter. Catalog membership has
+// already applied the game's exclusion policy; a section is never inferred from rarity.
+export const HEATMAP_TIERS = {
+  pokemon: [
+    ["vintage", "Vintage / base"], ["double-rares", "Double Rare"],
+    ["ultra-rares", "Ultra Rare"], ["illustration-rares", "Illustration Rare"],
+    ["special-illustration-rares", "Special Illustration Rare"],
+    ["secret-hyper-rares", "Secret / Hyper"], ["shiny-radiant-rares", "Shiny / Radiant"],
+    ["promos", "Promos"], ["japanese-promos", "Japanese promos"],
+  ],
+  riftbound: [
+    ["riftbound-commons", "Common"], ["riftbound-uncommons", "Uncommon"],
+    ["rares", "Rare"], ["epics", "Epic"], ["alt-arts", "Alt art"],
+    ["riftbound-showcases", "Showcase"], ["overnumbered", "Overnumbered"],
+    ["signatures", "Signature"], ["riftbound-promos", "Tournament / judge"],
+    ["metal-promos", "Metal / Best Of"], ["riftbound-foreign-promos", "Foreign exclusive"],
+  ],
+} as const;
+
+export type HeatmapGame = keyof typeof HEATMAP_TIERS;
+export type HeatmapMember = {
+  productId: number;
+  game: HeatmapGame;
+  set: string;
+  section: string;
+  latest: PricePoint | null;
+  baseline7: PricePoint | null;
+  baseline30: PricePoint | null;
+  baseline90: PricePoint | null;
+};
+export type SetHeatmapRow = {
+  game: HeatmapGame;
+  set: string;
+  slug: string;
+  cells: Record<string, Record<HeatmapWindow, HeatmapCell>>;
+};
+export type SetHeatmapPayload = { asOfDate: string; rows: SetHeatmapRow[] };
+
+export function buildSetHeatmap(members: readonly HeatmapMember[], asOfDate: string): SetHeatmapPayload {
+  const rows = new Map<string, { game: HeatmapGame; set: string; members: HeatmapMember[] }>();
+  for (const member of members) {
+    const key = `${member.game}\u0000${member.set}`;
+    const group = rows.get(key) ?? { game: member.game, set: member.set, members: [] };
+    group.members.push(member);
+    rows.set(key, group);
+  }
+  const policy = { maxLatestAgeDays: 2, maxCutoffGapDays: 3 };
+  return { asOfDate, rows: [...rows.values()].map(row => {
+    const cells: SetHeatmapRow["cells"] = {};
+    for (const section of ["all", ...HEATMAP_TIERS[row.game].map(([key]) => key)]) {
+      const subset = section === "all" ? row.members : row.members.filter(member => member.section === section);
+      cells[section] = {} as Record<HeatmapWindow, HeatmapCell>;
+      for (const window of HEATMAP_WINDOWS) {
+        const changes = subset.map(member => {
+          const baseline = member[`baseline${window}`];
+          return heatmapReturn([baseline, member.latest].filter((point): point is PricePoint => point != null), window, asOfDate, policy).change;
+        });
+        cells[section][window] = summarizeHeatmapCell(changes, HEATMAP_COVERAGE_POLICY);
+      }
+    }
+    return { game: row.game, set: row.set, slug: setSlug(row.set), cells };
+  }) };
 }

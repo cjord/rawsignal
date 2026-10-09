@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { HEATMAP_COVERAGE_POLICY, heatmapReturn, summarizeHeatmapCell } from "../core/domain/set-heatmap.ts";
+import { HEATMAP_COVERAGE_POLICY, buildSetHeatmap, heatmapReturn, summarizeHeatmapCell } from "../core/domain/set-heatmap.ts";
+import { DEFAULT_SETS_SCOPE, parseSetsScope, serializeSetsScope } from "../app/state/sets-query.ts";
 
 const freshness = { maxLatestAgeDays: 2, maxCutoffGapDays: 3 };
 const coverage = { minMembers: 3, minCoverage: 0.6 };
@@ -49,4 +50,41 @@ test("small-sample policy is explicit and warning survives permissive policy", (
   assert.equal(cell.change, 15);
   assert.equal(cell.smallSample, true);
   assert.throws(() => summarizeHeatmapCell([], { ...coverage, minCoverage: 2 }));
+});
+
+test("All tracked uses underlying members, preserves missing denominators and same-name game separation", () => {
+  const member = (productId, game, section, baseline, latest) => ({
+    productId, game, set: "Shared Name", section,
+    latest: latest == null ? null : point("2026-10-09", latest),
+    baseline7: baseline == null ? null : point("2026-10-02", baseline),
+    baseline30: baseline == null ? null : point("2026-09-09", baseline),
+    baseline90: baseline == null ? null : point("2026-07-11", baseline),
+  });
+  const result = buildSetHeatmap([
+    member(1, "pokemon", "vintage", 100, 110),
+    member(2, "pokemon", "vintage", 100, 110),
+    member(3, "pokemon", "vintage", 100, 110),
+    member(4, "pokemon", "illustration-rares", 100, 0),
+    member(5, "pokemon", "illustration-rares", 100, 200),
+    member(6, "riftbound", "signatures", 100, 50),
+  ], "2026-10-09");
+  const pokemon = result.rows.find(row => row.game === "pokemon");
+  const riftbound = result.rows.find(row => row.game === "riftbound");
+  assert.equal(pokemon.cells.all[30].change, 10); // median of 10,10,10,100, not mean of tier medians
+  assert.equal(pokemon.cells.all[30].eligible, 4);
+  assert.equal(pokemon.cells.all[30].total, 5);
+  assert.equal(pokemon.cells["illustration-rares"][30].reason, "low-coverage");
+  assert.equal(riftbound.cells.all[30].change, -50);
+  assert.equal(riftbound.cells.signatures[30].smallSample, true);
+  assert.equal(pokemon.cells.promos[30].reason, "not-applicable");
+});
+
+test("sets heatmap scope round-trips while tiles and 30D remain defaults", () => {
+  const scope = { ...DEFAULT_SETS_SCOPE, market: "riftbound", view: "heatmap", window: 90,
+    query: "Origins", group: "riftbound|core", favoritesOnly: true, sort: "change",
+    tier: "signatures", selected: "riftbound|origins|signatures" };
+  const decoded = parseSetsScope(serializeSetsScope(scope));
+  assert.deepEqual({ ...decoded, market: decoded.requestedMarket, requestedMarket: undefined }, { ...scope, requestedMarket: undefined });
+  assert.equal(parseSetsScope(serializeSetsScope("pokemon")).view, "tiles");
+  assert.equal(parseSetsScope(serializeSetsScope("pokemon")).window, 30);
 });

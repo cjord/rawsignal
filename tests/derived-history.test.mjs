@@ -130,6 +130,11 @@ test("a single observation is ineligible: metrics land, every signal row is clea
 
 test("sales buckets from a history fetch persist the liquidity and demand columns", async () => {
   const { database, db } = await seeded();
+  const prepare = db.prepare.bind(db);
+  db.prepare = sql => {
+    assert.doesNotMatch(sql, /sales_summaries/i, "parked summaries must do no D1 work");
+    return prepare(sql);
+  };
   const points = fixtures.breakout, last = points.at(-1).date;
   const day = offset => { const d = new Date(`${last}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - offset); return d.toISOString().slice(0, 10); };
   const bucket = (offset, quantity) => ({ date: day(offset), quantity, low: 10, high: 20, lowWithShipping: null, highWithShipping: null });
@@ -139,6 +144,7 @@ test("sales buckets from a history fetch persist the liquidity and demand column
   assert.equal(metrics.sales7, 2);
   assert.equal(metrics.sales30, 5);
   assert.equal(metrics.sales30Prior, 4);
+  assert.equal(database.prepare("select count(*) n from sales_summaries").get().n, 0);
 });
 
 test("the statement builders produce exactly one write per side × strictness and per shadow side", () => {

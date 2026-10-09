@@ -1,18 +1,20 @@
 "use client";
-import {useMemo,useState} from "react";
+import {useEffect,useMemo,useState} from "react";
 import DeferredImage from "./DeferredImage";
 import InfoHint from "./InfoHint";
 import MarketTabs from "./MarketTabs";
 import TopBar from "./TopBar";
 import SiteFooter from "./SiteFooter";
 import {readStoredMarket,storeMarket} from "./state/market-memory";
-import {SETS_MARKETS,serializeSetsScope,useSetsScopeUrl,type SetsMarket} from "./state/sets-query";
+import {DEFAULT_SETS_SCOPE,SETS_MARKETS,serializeSetsScope,useSetsScopeUrl,type SetsMarket,type SetsScope} from "./state/sets-query";
 import {setFavoriteKey,toggleSetFavorite,useSetFavorites} from "./state/set-favorites";
 import {parseStrictness,STRICTNESS_KEY,usePreference} from "./state/usePreference";
 import {setGroupsFor} from "../core/domain/eras";
 import {formatGameName,formatPercent} from "../core/domain/formatters";
 import type {SetDirectoryRow,SetsDirectoryPayload} from "../core/domain/sets";
 import {setLogoFor} from "./data/set-logos";
+import SetHeatmap from "./SetHeatmap";
+import type {SetHeatmapPayload} from "../core/domain/set-heatmap";
 
 const GAMES:Exclude<SetsMarket,"all">[]=["pokemon","riftbound","onepiece"];
 const marketTabOptions=SETS_MARKETS.map(item=>({key:item,label:item==="all"?"All":formatGameName(item)}));
@@ -83,16 +85,33 @@ const groupSort=(a:SetDirectoryRow,b:SetDirectoryRow)=>{
 
 export default function SetsView({payload}:{payload:SetsDirectoryPayload|null}){
  const [strictness,setStrictness]=usePreference(STRICTNESS_KEY,parseStrictness,"balanced");
- const [market,setMarket]=useState<SetsMarket>("all");
- const writeScope=useSetsScopeUrl(({requestedMarket})=>{
+ const [scope,setScope]=useState<SetsScope>(DEFAULT_SETS_SCOPE);
+ const [heatmap,setHeatmap]=useState<SetHeatmapPayload|null>(null);
+ const [heatmapError,setHeatmapError]=useState(false);
+ const writeScope=useSetsScopeUrl(({requestedMarket,...rest})=>{
   const valid=SETS_MARKETS.includes(requestedMarket as SetsMarket)?requestedMarket as SetsMarket:null;
   const stored=readStoredMarket();
   const next=valid??(stored&&SETS_MARKETS.includes(stored)?stored:"all");
-  setMarket(next);
-  if(!valid)window.history.replaceState(null,"",`/sets?${serializeSetsScope(next)}`);
+  const restored={...rest,market:next};
+  setScope(restored);
+  if(!valid)window.history.replaceState(null,"",`/sets?${serializeSetsScope(restored)}`);
  });
- const changeMarket=(next:SetsMarket)=>{if(next===market)return;setMarket(next);storeMarket(next);writeScope(next)};
+ const updateScope=(changes:Partial<SetsScope>,push=true)=>{
+  const next={...scope,...changes};
+  if(next.market!==scope.market)storeMarket(next.market);
+  setScope(next);writeScope(next,{push});
+ };
+ useEffect(()=>{
+  if(scope.view!=="heatmap"||heatmap||heatmapError||!payload)return;
+  const controller=new AbortController();
+  fetch("/api/sets/heatmap",{signal:controller.signal}).then(response=>{
+   if(!response.ok)throw new Error("Heatmap unavailable");
+   return response.json() as Promise<SetHeatmapPayload>;
+  }).then(setHeatmap).catch(error=>{if(error?.name!=="AbortError")setHeatmapError(true)});
+  return ()=>controller.abort();
+ },[scope.view,heatmap,heatmapError,payload]);
  const favorites=useSetFavorites();
+ const market=scope.market;
  const asOf=payload?.generatedAt??new Date().toISOString();
  const byGame=useMemo(()=>{
   const map=new Map<string,SetDirectoryRow[]>();
@@ -106,9 +125,14 @@ export default function SetsView({payload}:{payload:SetsDirectoryPayload|null}){
    <p className="kicker">Every tracked set, by era</p>
    <h1>Sets, <span>mapped by market.</span></h1>
   </header>
-  <div className="signal-navigation sets-market-nav"><MarketTabs className="sets-market-tabs" options={marketTabOptions} value={market} onChange={next=>changeMarket(next as SetsMarket)}/></div>
+  <div className="signal-navigation sets-market-nav"><MarketTabs className="sets-market-tabs" options={marketTabOptions} value={market} onChange={next=>updateScope({market:next as SetsMarket,group:"",tier:"all",selected:""})}/></div>
   <article className="detail-content">
    {!payload?<section className="detail-section"><header><span>Unavailable</span><h2>Sets need the database</h2></header><p className="detail-unavailable">This page reads set-level aggregates from the database-backed deployment. Feed-only deployments and local dev have no per-set metrics, so nothing is estimated here — visit the published site instead.</p></section>:<>
+   <div className="sets-view-toggle" role="group" aria-label="Sets view">
+    <button type="button" aria-pressed={scope.view==="tiles"} onClick={()=>updateScope({view:"tiles",selected:""})}>Tiles</button>
+    <button type="button" aria-pressed={scope.view==="heatmap"} onClick={()=>updateScope({view:"heatmap"})}>Heatmap</button>
+   </div>
+   {scope.view==="heatmap"?<SetHeatmap payload={heatmap} loading={!heatmap&&!heatmapError} error={heatmapError} directory={payload.sets} scope={scope} onScope={updateScope} favorites={favorites}/>:<>
    <p className="detail-note sets-note">Set momentum is the median of member products&apos; price changes (singles where tracked, sealed otherwise) · signal counts read the balanced strictness hot boards.<InfoHint label="About set tiles">Each tile shows the set&apos;s tracked chase singles and sealed product counts, its 7 and 30 day median momentum, and how many of its singles currently sit on the Hot Buy or Hot Sell boards at balanced strictness. Stars pin sets to the Favorites shelf on this page.</InfoHint></p>
    {starredRows.length>0&&<GroupSection label="★ Favorites" rows={starredRows} asOf={asOf} favorites={favorites}/>}
    {games.map(game=>{
@@ -123,6 +147,7 @@ export default function SetsView({payload}:{payload:SetsDirectoryPayload|null}){
      })}
     </section>;
    })}
+   </>}
    </>}
   </article></main><SiteFooter/></>;
 }

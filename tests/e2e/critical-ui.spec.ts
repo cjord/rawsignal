@@ -144,6 +144,7 @@ test("keeps core leaderboard controls operable at phone width",async({page})=>{
 test("applies Singles filters only on confirmation and discards canceled edits",async({page})=>{
  await page.goto(singlesUrl);
  await waitForApp(page);
+ await expect(page.locator(".leader-row").first()).toBeVisible();
  const filters=page.locator(".card-filters");
  const initialUrl=page.url();
  const initialCount=await page.locator(".leader-row").count();

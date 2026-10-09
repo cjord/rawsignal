@@ -7,6 +7,7 @@ import FavoriteStar from "./FavoriteStar";
 import InfoHint from "./InfoHint";
 import PackProfilePanel from "./PackProfilePanel";
 import SalesVolumeSummary from "./SalesVolumeSummary";
+import {SALES_SUMMARIES_ENABLED} from "../core/domain/sales-summary.ts";
 import {supplementalSingle} from "../core/domain/supplemental-singles.ts";
 import {evRatio,packChaseEv} from "../core/domain/pack-ev";
 import {favoriteKey} from "./state/favorites";
@@ -94,9 +95,9 @@ function MarkersGrid({history,current}:{history:PriceHistory;current:number|null
 
 function SalesGrid({history}:{history:PriceHistory}){
  const sales=history.sales;
- if(!sales)return <SalesVolumeSummary summary={history.salesSummary}/>;
+ if(!sales)return <p className="detail-unavailable">Sales activity is unavailable for this history source.</p>;
  const recent=salesWindow(sales.buckets,30),perWeek=sales.totalQuantity==null?null:sales.totalQuantity/(sales.windowDays/7);
- return <><SalesVolumeSummary summary={history.salesSummary}/><div className="detail-history-grid"><Metric label="Sold (90D)" value={sales.totalQuantity==null?"N/A":sales.totalQuantity.toLocaleString()} hint={sales.totalTransactions==null?undefined:`${sales.totalTransactions.toLocaleString()} transactions`}/><Metric label="Sales / week" value={perWeek==null?"N/A":perWeek.toFixed(1)} info="Average units sold per week across the trailing 90-day window."/><Metric label="Realized range (30D)" value={recent.low!=null&&recent.high!=null?`${formatUsd(recent.low)}–${formatUsd(recent.high)}`:"N/A"} info="The span of actual completed-sale prices; delivered figures include shipping." hint={recent.lowWithShipping!=null&&recent.highWithShipping!=null?`Delivered ${formatUsd(recent.lowWithShipping)}–${formatUsd(recent.highWithShipping)}`:undefined}/></div></>;
+ return <>{SALES_SUMMARIES_ENABLED&&<SalesVolumeSummary summary={history.salesSummary}/>}<div className="detail-history-grid"><Metric label="Sold (90D)" value={sales.totalQuantity==null?"N/A":sales.totalQuantity.toLocaleString()} hint={sales.totalTransactions==null?undefined:`${sales.totalTransactions.toLocaleString()} transactions`}/><Metric label="Sales / week" value={perWeek==null?"N/A":perWeek.toFixed(1)} info="Average units sold per week across the trailing 90-day window."/><Metric label="Sold (30D)" value={recent.quantity.toLocaleString()}/><Metric label="Realized range (30D)" value={recent.low!=null&&recent.high!=null?`${formatUsd(recent.low)}–${formatUsd(recent.high)}`:"N/A"} info="The span of actual completed-sale prices; delivered figures include shipping." hint={recent.lowWithShipping!=null&&recent.highWithShipping!=null?`Delivered ${formatUsd(recent.lowWithShipping)}–${formatUsd(recent.highWithShipping)}`:undefined}/></div></>;
 }
 
 function PrintingsTable({detail,printing,onSelect}:{detail:CatalogDetail;printing:string;onSelect:(variant:DetailPriceVariant)=>void}){
@@ -350,7 +351,7 @@ export default function ProductDetailPage({detail,market,serverTiming}:{detail:C
  const [variant,setVariant]=useState(detail.priceVariants.find(item=>item.printing===(detail.kind==="single"?detail.printing:"Sealed"))??detail.priceVariants[0]),[historyResult,setHistoryResult]=useState<{key:string;value:PriceHistory|null;error:boolean}>({key:"",value:null,error:false});
  const [strictness,changeStrictness]=usePreference<SignalStrictness>(STRICTNESS_KEY,parseStrictness,"balanced");
  const fallback=detail.kind==="single"?`/?mode=singles&market=${detail.game}`:`/?mode=sealed&market=${market??detail.game}`,current=variant?.marketPrice??detail.marketPrice,printing=variant?.printing??(detail.kind==="single"?detail.printing:"Sealed"),historyKey=`${detail.kind}:${detail.productId}:${printing}`;
- useEffect(()=>{const controller=new AbortController(),params=new URLSearchParams({productId:String(detail.productId),printing,sales:"1"});if(detail.kind==="sealed")params.set("sealed","1");fetch(`/api/history?${params}`,{signal:controller.signal}).then(response=>{if(!response.ok)throw new Error();return response.json()}).then(value=>setHistoryResult({key:historyKey,value:value as PriceHistory,error:false})).catch(error=>{if(error.name!=="AbortError")setHistoryResult({key:historyKey,value:null,error:true})});return()=>controller.abort()},[detail.kind,detail.productId,printing,historyKey]);
+ useEffect(()=>{const controller=new AbortController(),params=new URLSearchParams({productId:String(detail.productId),printing});if(detail.kind==="sealed")params.set("sealed","1");if(SALES_SUMMARIES_ENABLED)params.set("sales","1");fetch(`/api/history?${params}`,{signal:controller.signal}).then(response=>{if(!response.ok)throw new Error();return response.json()}).then(value=>setHistoryResult({key:historyKey,value:value as PriceHistory,error:false})).catch(error=>{if(error.name!=="AbortError")setHistoryResult({key:historyKey,value:null,error:true})});return()=>controller.abort()},[detail.kind,detail.productId,printing,historyKey]);
  const historyData=historyResult.key===historyKey?historyResult.value:null,historyError=historyResult.key===historyKey&&historyResult.error,h=historyData??emptyHistory,depth=historyDepth(historyData),rankPct=detailPercentile(detail),position=rangePosition(current,h.historyLow,h.historyHigh);
  const sourceLabel=supplementalSingle(detail.productId)?"Curated identity verified against Riot Games; Simplified Chinese exclusive. TCGplayer pricing and history unavailable":detail.source.sourceUpdatedAt?`Source updated ${detail.source.sourceUpdatedAt.slice(0,10)}`:"Current TCGCSV / TCGplayer snapshot";
  const marketKey=detail.kind==="single"?detail.game:(market??detail.game);

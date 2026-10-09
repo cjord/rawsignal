@@ -1,7 +1,7 @@
 import { deriveHistoryMetrics } from "../domain/history-metrics.ts";
 import type { PriceHistory } from "../domain/types.ts";
 import { supplementalSingle } from "../domain/supplemental-singles.ts";
-import { summarizeSales } from "../domain/sales-summary.ts";
+import { SALES_SUMMARIES_ENABLED, summarizeSales } from "../domain/sales-summary.ts";
 
 // Shared annual/quarterly TCGplayer history loading for the public /api/history route and
 // the ingestion history backfill. Lives in core/ so worker/ and app/ both depend downward
@@ -85,7 +85,7 @@ export async function fetchTcgplayerHistory(productId: number, printing: string,
     variant: sealed ? "Sealed" : selected.variant,
     condition: sealed ? "Unopened" : selected.condition,
     sales,
-    salesSummary: sales ? summarizeSales(sales, new Date().toISOString()) ?? undefined : undefined,
+    salesSummary: SALES_SUMMARIES_ENABLED && sales ? summarizeSales(sales, new Date().toISOString()) ?? undefined : undefined,
     coverage: exact || sealedSeries ? "exact" : "fallback",
     ...deriveHistoryMetrics(points),
   };

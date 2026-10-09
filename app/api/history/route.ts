@@ -7,6 +7,7 @@ import { readStoredHistory } from "../../../db/history-read.ts";
 import { upsertHistory, type D1DatabaseLike } from "../../../db/repository.ts";
 import { CACHE_TIERS } from "../cache.ts";
 import { readSalesSummary } from "../../../db/sales-summary.ts";
+import { SALES_SUMMARIES_ENABLED } from "../../../core/domain/sales-summary.ts";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
   if (!/^\d{1,9}$/.test(productId)) return NextResponse.json({ error: "Invalid product ID" }, { status: 400 });
   const db=env.DB as unknown as D1DatabaseLike|undefined;
   if(db)try{const stored=await readStoredHistory(db,Number(productId),printing,sealed);if(stored){
-    const salesSummary=url.searchParams.get("sales")==="1"?await readSalesSummary(db,Number(productId),stored.variant,stored.condition).catch(()=>undefined):undefined;
+    const salesSummary=SALES_SUMMARIES_ENABLED&&url.searchParams.get("sales")==="1"?await readSalesSummary(db,Number(productId),stored.variant,stored.condition).catch(()=>undefined):undefined;
     return NextResponse.json({...stored,salesSummary,...deriveHistoryMetrics(stored.points)},{headers:{"Cache-Control":CACHE_TIERS.hour}});
   }}catch{/* D1 can be awaiting migration or backfill; retain the upstream fallback. */}
   let result;

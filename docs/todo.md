@@ -61,7 +61,7 @@ are defined in `docs/model-gaps.md` → "Review calendar" and "Update policy".
 gaps · §M ingestion scaling (M7–M13 open; M1–M6 shipped) · §O monetization · §P
 signal-model program (P8 + governance TODOs; P1–P7 shipped — see the completed doc) · §Q
 code-review follow-ups (Q1–Q5 and Q8 open; Q6/Q7/Q9 shipped in part) · §R production
-ingestion (R4 fix 3 and R5 open; R1–R3 shipped — see the completed doc) · §S crawler and
+ingestion (R4 fix 3, R5, R6 activation, and R7 open; R1–R3 shipped — see the completed doc) · §S crawler and
 bot traffic (S2 measurement due).
 
 ## I. Queued from the staging visual pass (2026-08-28)
@@ -108,14 +108,14 @@ in `pull-rates.json`, curated only. Plan, model, costs, and phases:
 production; no page renders it yet. Phase 2 (panel, MSRP↔market slider, optional custom rates)
 needs a packs-per-product table and per-pack MSRP where the pack product has none.
 
-**J3. Pokémon + Riftbound set × rarity heatmap (requested 2026-09-28; implementation started 2026-10-09).**
-Work branch: `feature/set-rarity-heatmap`. Initial pure calculation helpers and tests
-cover source-date cutoffs, freshness policies, nullable median aggregation and coverage.
-They are not connected to a page or database yet. User decisions (2026-10-09): Sets-page
+**J3. Pokémon + Riftbound set × rarity heatmap (requested 2026-09-28; local implementation 2026-10-09).**
+Work branch: `feature/set-rarity-heatmap`. The Sets toggle, URL controls, D1 read,
+aggregate payload, source-date-aware calculations, and browser/unit fixtures are implemented
+locally. Tiles remain default and do not call the heatmap endpoint. User decisions (2026-10-09): Sets-page
 toggle with tiles default; median card-price change; show 1–2-card cells with a small-sample
-warning, still requiring 60% usable coverage. Source-date freshness tolerances remain
-explicit caller inputs pending the data audit. Full release validation and data/UI
-integration remain outstanding.
+warning, still requiring 60% usable coverage. The source-date audit chose at most two days
+for a member's latest price and at most three days between the requested cutoff and its
+baseline. Full release validation and remote deployment remain outstanding.
 Add a market-movement matrix inspired by the
 [ShizuTCG Riftbound index](https://tcg-price-tracker.shizukaziye.workers.dev/rb-index#set=ALL&tier=ALL&w=rarity&m=index).
 Reference inspection: the public HTML/rendering code exposes a "Set × tier heat map",
@@ -128,31 +128,31 @@ remote push and deployment have not been requested for this branch.
 
 Proposed product scope and UX:
 
-- [ ] Add a **Heatmap** view alongside the existing tiles on `/sets`; preserve the default
+- [x] Add a **Heatmap** view alongside the existing tiles on `/sets`; preserve the default
   tile view. Support Pokémon and Riftbound as separate game-scoped matrices (All shows
   two sections, never mixes their tiers). One Piece and sealed-product-type heatmaps are
   outside this first release. A set row describes its tracked **singles**, not sealed EV.
-- [ ] Rows are sets, columns are game-specific rarity/tier groups plus **All tracked**.
+- [x] Rows are sets, columns are game-specific rarity/tier groups plus **All tracked**.
   Reuse the existing catalog section/rarity registry, with an explicit mapping rather than
   assuming Pokémon and Riftbound labels match. Pokémon should retain meaningful modern
   and vintage tiers; Riftbound should distinguish Epic, Alt art/Showcase, Overnumbered,
   Signature and eligible promos. Preserve the catalog's token/basic-rune/ordinary-promo
   exclusions and keep language/printing identities separate. Unpriced Metal/Best Of and
   foreign-exclusive promos remain discoverable with unavailable values.
-- [ ] Controls: game, 7D/30D/90D (default 30D), set search, existing era/category and
+- [x] Controls: game, 7D/30D/90D (default 30D), set search, existing era/category and
   favorite scope; newest-first set order with optional change sorting. Scope changes and
   selected cell round-trip through `app/state/sets-query.ts` and browser Back/Forward.
   Keep multi-filter Apply/Close behavior consistent with existing filter primitives.
-- [ ] Each cell shows a signed percent, green/red intensity around a neutral zero, and a
+- [x] Each cell shows a signed percent, green/red intensity around a neutral zero, and a
   visible legend. Use a fixed symmetric scale per window, shared across both games;
   clamp only the color intensity, never the displayed percentage. `N/A` is visually
   distinct from 0%. Choose the scale from representative data before implementation.
-- [ ] Click/tap/keyboard activation selects the cell and opens an in-flow summary below
+- [x] Click/tap/keyboard activation selects the cell and opens an in-flow summary below
   the matrix: set, tier, window, method, eligible/total tracked counts, source date,
   coverage warnings, and explicit **View matching cards** / **View set** links. Selection
   must not unexpectedly navigate or scroll to the page top; include Clear selection.
   Reuse catalog URL serialization for the card link; validate tier-to-filter parity.
-- [ ] Desktop: semantic table with sticky set labels and horizontally scrollable tier
+- [x] Desktop: semantic table with sticky set labels and horizontally scrollable tier
   columns. Mobile: preserve readable/tappable cells, sticky row labels and a visible
   horizontal-scroll hint; allow narrowing to one tier without shrinking the whole table.
   Support focus-visible, descriptive accessible names, non-color sign labels, reduced
@@ -160,23 +160,23 @@ Proposed product scope and UX:
 
 Data definition and correctness gates:
 
-- [ ] MVP cell = **median percentage price change of eligible tracked printings** in that
+- [x] MVP cell = **median percentage price change of eligible tracked printings** in that
   game/set/tier. Label it "Median tracked-card change", not a market-cap index, full-set
   return, sales volume, pack EV, or investment return. Compute **All tracked** from the
   underlying eligible members, not the average of tier medians. Use the same member-level
   calculation for both games; document that this intentionally differs from the reference.
-- [ ] Audit `db/sets-service.ts` and `market_metrics` before reuse: exact product + printing
+- [x] Audit `db/sets-service.ts` and `market_metrics` before reuse: exact product + printing
   + condition joins (not the existing permissive sealed join), unique members, dated
   7/30/90-day cutoffs at or before the target date, and no newly listed/missing-price card
   contributing a synthetic zero. Reuse `core/domain/history-metrics.ts` for the cutoff
   contract; any stricter freshness gate is heatmap-specific, not a silent signal change.
-- [ ] Publish eligible/total tracked counts per cell, with "tracked catalog, not the full
+- [x] Publish eligible/total tracked counts per cell, with "tracked catalog, not the full
   checklist" disclosure. User-approved gate (2026-10-09): at least 1 eligible member and
   60% coverage, otherwise `N/A` with a reason; show a small-sample warning for 1–2 members,
   including sparse Signature/promo tiers. A tier absent from a set is "Not applicable",
   not "No price history".
   New sets without a window's history remain unavailable for that window.
-- [ ] Audit endpoint freshness and the §R5 split-source-date issue before enabling 7D/30D/
+- [x] Audit endpoint freshness and the §R5 split-source-date issue before enabling 7D/30D/
   90D returns. Use published source dates, never response `generatedAt`, to describe
   freshness; define and test permitted endpoint age and cutoff gaps against daily-source
   cadence. Historical member coverage and current coverage must both be sufficient.
@@ -201,7 +201,11 @@ Implementation sequence and cost boundary:
 3. **UI + drill-down:** shared `SetHeatmap` composed into `app/SetsView.tsx`, URL state in
    `app/state/sets-query.ts`, and rules in the owning sets stylesheet. Use existing set
    details and catalog routes rather than a second index app or new chart dependency.
-4. **Measure before scaling:** compare cold/cached query rows, latency, payload and mobile
+4. **Measure before scaling:** local max-profile read (13.5 million history observations,
+   193 returned sets) took about 7.7 seconds cold and 1.7 seconds warm on a local SQLite
+   copy; the three-window JSON was about 653 KB before compression. Browser and edge
+   caches use the shared medium tier; the endpoint is lazy, so tiles incur no extra read.
+   Production D1 rows-read and p95 latency remain unmeasured. Compare cold/cached query rows, latency, payload and mobile
    rendering with the existing sets view. If aggregate reads remain expensive, reuse §Q8's
    daily-rollup direction, computing once per published snapshot; do not add a separate
    cron or refresh staging daily. Any new table requires a hand-written migration and a
@@ -602,17 +606,53 @@ will not recur.
   after 2026-09-10 23:00Z to split the drop between the challenge (fewer views) and the memo
   (fewer rows per view).
 
-## R. Production ingestion (R1–R3 shipped — see the completed doc; R4 fix 3 and R5 open)
+## R. Production ingestion (R1–R3 shipped — see the completed doc; R4 fix 3, R5, R6 activation, and R7 open)
 
-**R6. Detail sales-window summaries (implementation 2026-10-09; activation pending).**
-7D/30D/prior-30D TCGplayer units and period comparison now use the detail history response.
-Independent sales timestamps in migration `0020_sales_summaries.sql` prevent price updates
-from presenting stale sales as fresh. Legacy totals explicitly show unknown freshness.
-No extra upstream calls; one summary read (plus legacy fallback if needed) per uncached
-detail request, one summary write per valid existing sales refresh. See
+**R6. Detail sales-window summaries (implementation 2026-10-09; paused).**
+When enabled, 7D/30D/prior-30D TCGplayer units and period comparison use the detail
+history response. Independent sales timestamps in migration `0020_sales_summaries.sql`
+prevent price updates from presenting stale sales as fresh; the dormant UI would mark
+legacy totals as having unknown freshness.
+The new feature is switched off in `core/domain/sales-summary.ts`: no new UI,
+summary database reads/writes, or additional API request. Keep migration 0020 unapplied.
+Existing price history, its sales fields, and signal liquidity remain unchanged. See
 `docs/sales-volume-2026-10.md`. Deploy/migration remain unrequested. Separately resolve the
 history-access failure found in the September 28 audit before promising current volume;
 daily-bar granularity and Full-view volume remain deferred.
+
+Pause boundary (2026-10-09): the detail page omits `sales=1` from its existing
+`/api/history` request and does not render the new 7D/30D/prior-period tiles; the
+history route skips the summary lookup even if a client supplies `sales=1`; history
+ingestion skips the `sales_summaries` upsert and the client skips its summary calculation.
+This adds **zero** summary-table reads/writes and **zero** extra upstream calls while
+paused. The ordinary price-history request and older sales-derived signal fields still
+run. Before activation: restore authorized detailed-history access, verify source
+freshness and representative card/sealed buckets, apply migration 0020 only with a
+user-authorized deployment, turn the switch on, and re-run the complete gate.
+
+**R7. Daily sales and cross-market supply on card/sealed detail pages (research
+2026-10-09; open).** Use the source and cost boundaries in
+`docs/sales-volume-2026-10.md` §Daily sales and marketplace supply research.
+
+- [ ] Restore and verify authorized TCGplayer detailed-history access; confirm source
+  bucket dates and freshness on representative Pokémon/Riftbound singles and sealed
+  products. Until then, keep existing sales figures stale/unknown and do not derive
+  sales from TCGCSV price updates.
+- [ ] Present TCGplayer completed-sale volume at its actual three-day resolution,
+  with printing/condition and source date. Seek a licensed daily-granularity feed
+  before adding exact daily bars; label any three-day average as an average.
+- [ ] Add clearly scoped eBay active-listing supply from the existing six-hour
+  Browse snapshot: raw query-result estimate versus reviewed/accepted matched
+  sample, with fetch time. Never label the broad `total` or the sample count as
+  exact matching copies available across the marketplace.
+- [ ] Evaluate eBay remaining-copy quantity only if an item-detail-call budget and
+  completeness study support it. Keep listing and unit counts separate, and check
+  product/printing/language/condition matching before aggregation.
+- [ ] Find authorized marketplace-wide TCGplayer inventory and eBay completed-sale
+  sources; document licensing, coverage, freshness, API cost, and the exact unit
+  definition before showing those unavailable measures. Seller-only TCGplayer
+  inventory endpoints are not marketplace totals. No sell-through or days-of-supply
+  calculation until sales and supply are comparable in scope and time.
 
 **R4. Overlapping guard-cron ticks halve the live walk, then the minimum-records guard
 resets it (found 2026-09-05 03:50Z).** The `live-daily:2026-09-04` run took 7.2 h

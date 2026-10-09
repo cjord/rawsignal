@@ -1,5 +1,9 @@
 import type { SalesActivity } from "./types.ts";
 
+// Park the new dated-window feature until TCGplayer history access is reliable.
+// Existing history/signal sales activity is independent and remains enabled.
+export const SALES_SUMMARIES_ENABLED = false;
+
 export type SalesSummary = {
   sales7: number | null;
   sales30: number | null;

@@ -1,4 +1,5 @@
 /* Sets view (2026-08-29): era-grouped browse tiles + the set detail page. */
+.sets-page { background: var(--bg); }
 .sets-market-nav { margin-bottom: 6px; }
 .sets-note { display: flex; align-items: center; gap: 8px; }
 
@@ -104,6 +105,61 @@
   .set-grid { grid-template-columns: 1fr; gap: 10px; }
   .set-tile-foot { row-gap: 6px; }
 }
+
+/* Sets heatmap: the existing tile layout stays the default. */
+.sets-view-toggle { display: inline-flex; gap: 4px; padding: 4px; margin-bottom: 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--control); }
+.sets-view-toggle button, .heatmap-windows button { border: 1px solid transparent; border-radius: 999px; padding: 8px 15px; background: transparent; color: var(--gray); font: 750 var(--text-xs) var(--font-sans); cursor: pointer; }
+.sets-view-toggle button[aria-pressed="true"], .heatmap-windows button[aria-pressed="true"] { color: var(--text); border-color: color-mix(in srgb, var(--blue) 35%, var(--line)); background: color-mix(in srgb, var(--blue) 11%, var(--surface)); }
+.sets-view-toggle button:focus-visible, .heatmap-windows button:focus-visible, .heatmap-cell:focus-visible, .heatmap-selection-links :focus-visible { outline: 3px solid color-mix(in srgb, var(--blue) 60%, transparent); outline-offset: 2px; }
+.heatmap-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin: 16px 0 12px; }
+.heatmap-controls label { display: grid; gap: 5px; color: var(--gray); font-size: var(--text-2xs); font-weight: 800; letter-spacing: .04em; }
+.heatmap-controls input[type="search"], .heatmap-controls select { min-height: 38px; min-width: 135px; max-width: 210px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--control); color: var(--text); font: 650 var(--text-xs) var(--font-sans); }
+.heatmap-controls input:focus-visible, .heatmap-controls select:focus-visible { outline: 3px solid color-mix(in srgb, var(--blue) 60%, transparent); outline-offset: 2px; }
+.heatmap-windows { display: inline-flex; gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: 999px; background: var(--control); }
+.heatmap-controls .heatmap-favorites { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; color: var(--text); font-size: var(--text-xs); letter-spacing: 0; }
+.heatmap-filters { flex: 1 1 100%; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.heatmap-filters > summary { padding: 10px 14px; color: var(--text); font: 750 var(--text-xs) var(--font-sans); cursor: pointer; }
+.heatmap-filters > summary:focus-visible, .heatmap-filter-actions button:focus-visible { outline: 3px solid color-mix(in srgb, var(--blue) 60%, transparent); outline-offset: 2px; }
+.heatmap-filters form { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; padding: 4px 14px 14px; }
+.heatmap-filter-actions { display: flex; flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.heatmap-filter-actions button { min-height: 38px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--control); color: var(--text); font: 750 var(--text-xs) var(--font-sans); cursor: pointer; }
+.heatmap-filter-actions button[type="submit"] { border-color: color-mix(in srgb, var(--blue) 45%, var(--line)); background: color-mix(in srgb, var(--blue) 12%, var(--surface)); }
+.heatmap-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.heatmap-swatch { display: inline-block; width: 17px; height: 12px; border-radius: 3px; border: 1px solid var(--line); background: var(--soft); }
+.heatmap-swatch.up { background: color-mix(in srgb, var(--tone-up) 25%, var(--surface)); }
+.heatmap-swatch.down { background: color-mix(in srgb, var(--tone-down) 25%, var(--surface)); }
+.heatmap-section { min-width: 0; margin: 16px 0; }
+.heatmap-scroll-hint { margin: 2px 0 8px; color: var(--gray); font-size: var(--text-xs); }
+.heatmap-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; scrollbar-color: var(--gray) var(--soft); }
+.heatmap-scroll:focus-visible { outline: 3px solid color-mix(in srgb, var(--blue) 60%, transparent); outline-offset: 2px; }
+.heatmap-table { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--text-xs); }
+.heatmap-table th, .heatmap-table td { min-width: 108px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 5px; text-align: center; }
+.heatmap-table thead th { color: var(--gray); background: var(--control); font-size: var(--text-2xs); font-weight: 800; letter-spacing: .04em; }
+.heatmap-table tbody tr:last-child th, .heatmap-table tbody tr:last-child td { border-bottom: 0; }
+.heatmap-table tr > :last-child { border-right: 0; }
+.heatmap-table tr > :first-child { position: sticky; left: 0; z-index: 1; min-width: 160px; max-width: 190px; text-align: left; background: var(--surface); box-shadow: 1px 0 var(--line); }
+.heatmap-table thead tr > :first-child { z-index: 2; background: var(--control); }
+.heatmap-table tbody th a { color: var(--text); text-decoration: none; overflow-wrap: anywhere; }
+.heatmap-table tbody th a:hover { color: var(--blue); text-decoration: underline; }
+.heatmap-cell { width: 100%; min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 3px; border: 1px solid transparent; border-radius: 7px; background: var(--soft); color: var(--text); font: 800 var(--text-xs) var(--font-mono); cursor: pointer; }
+.heatmap-cell.up { background: color-mix(in srgb, var(--tone-up) var(--heat-strength), var(--surface)); }
+.heatmap-cell.down { background: color-mix(in srgb, var(--tone-down) var(--heat-strength), var(--surface)); }
+.heatmap-cell.unavailable { color: var(--gray); background: var(--control); }
+.heatmap-cell.selected { border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue); }
+.heatmap-cell small { color: var(--text); font-size: var(--text-2xs); }
+.heatmap-selection { margin: 18px 0; }
+.heatmap-selection > p > b { font-family: var(--font-mono); }
+.heatmap-selection-links { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 12px; }
+.heatmap-selection-links a, .heatmap-selection-links button { padding: 9px 13px; border: 1px solid var(--line); border-radius: 9px; background: var(--control); color: var(--text); font: 750 var(--text-xs) var(--font-sans); text-decoration: none; cursor: pointer; }
+.heatmap-selection-links a:hover, .heatmap-selection-links button:hover { border-color: var(--blue); }
+@media (max-width: 620px) {
+  .heatmap-controls label { flex: 1 1 130px; }
+  .heatmap-controls input[type="search"], .heatmap-controls select { min-width: 0; max-width: none; width: 100%; }
+  .heatmap-controls .heatmap-favorites { flex: 1 1 100%; }
+  .heatmap-table tr > :first-child { min-width: 126px; max-width: 150px; }
+  .heatmap-table th, .heatmap-table td { min-width: 100px; }
+}
+@media (prefers-reduced-motion: reduce) { .heatmap-cell, .sets-view-toggle button, .heatmap-windows button { transition: none; } }
 
 /* Set detail page */
 .set-detail-page .detail-content { padding-top: 26px; }
