@@ -52,6 +52,18 @@ test("small-sample policy is explicit and warning survives permissive policy", (
   assert.throws(() => summarizeHeatmapCell([], { ...coverage, minCoverage: 2 }));
 });
 
+test("sparse set cells use only valid comparisons, with a five-percent minimum", () => {
+  const usable = Array.from({ length: 21 }, (_, index) => index < 11 ? -10 : 20);
+  const cell = summarizeHeatmapCell([...usable, ...Array(215).fill(null)], HEATMAP_COVERAGE_POLICY);
+  assert.equal(cell.change, -10);
+  assert.equal(cell.eligible, 21);
+  assert.equal(cell.total, 236);
+  assert.equal(cell.reason, null);
+  assert.equal(cell.smallSample, false);
+  assert.equal(summarizeHeatmapCell([...usable.slice(0, 11), ...Array(225).fill(null)], HEATMAP_COVERAGE_POLICY).reason, "low-coverage");
+  assert.equal(summarizeHeatmapCell(Array(236).fill(null), HEATMAP_COVERAGE_POLICY).reason, "no-history");
+});
+
 test("All tracked uses underlying members, preserves missing denominators and same-name game separation", () => {
   const member = (productId, game, section, baseline, latest) => ({
     productId, game, set: "Shared Name", section,
@@ -73,18 +85,21 @@ test("All tracked uses underlying members, preserves missing denominators and sa
   assert.equal(pokemon.cells.all[30].change, 10); // median of 10,10,10,100, not mean of tier medians
   assert.equal(pokemon.cells.all[30].eligible, 4);
   assert.equal(pokemon.cells.all[30].total, 5);
-  assert.equal(pokemon.cells["illustration-rares"][30].reason, "low-coverage");
+  assert.equal(pokemon.cells["illustration-rares"][30].change, 100);
+  assert.equal(pokemon.cells["illustration-rares"][30].eligible, 1);
   assert.equal(riftbound.cells.all[30].change, -50);
   assert.equal(riftbound.cells.signatures[30].smallSample, true);
   assert.equal(pokemon.cells.promos[30].reason, "not-applicable");
 });
 
-test("sets heatmap scope round-trips while tiles and 30D remain defaults", () => {
+test("sets heatmap scope round-trips while tiles and 7D remain defaults", () => {
   const scope = { ...DEFAULT_SETS_SCOPE, market: "riftbound", view: "heatmap", window: 90,
     query: "Origins", group: "riftbound|core", favoritesOnly: true, sort: "change",
     tier: "signatures", selected: "riftbound|origins|signatures" };
   const decoded = parseSetsScope(serializeSetsScope(scope));
   assert.deepEqual({ ...decoded, market: decoded.requestedMarket, requestedMarket: undefined }, { ...scope, requestedMarket: undefined });
   assert.equal(parseSetsScope(serializeSetsScope("pokemon")).view, "tiles");
-  assert.equal(parseSetsScope(serializeSetsScope("pokemon")).window, 30);
+  assert.equal(parseSetsScope(serializeSetsScope("pokemon")).window, 7);
+  assert.equal(parseSetsScope("market=pokemon&view=heatmap&window=30").window, 30);
+  assert.match(serializeSetsScope({ ...DEFAULT_SETS_SCOPE, window: 30 }), /window=30/);
 });

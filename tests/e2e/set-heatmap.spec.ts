@@ -2,12 +2,13 @@ import { expect, test } from "@playwright/test";
 
 const cell = (change: number, total: number) => ({ change, total, eligible: total, coverage: 1, smallSample: total < 3, reason: null });
 const windows = (change: number, total: number) => ({ 7: cell(change, total), 30: cell(change, total), 90: cell(change, total) });
+const limited = { change: -20, total: 236, eligible: 21, coverage: 21 / 236, smallSample: false, reason: null };
 const fixture = { asOfDate: "2026-10-09", rows: [
   { game: "pokemon", set: "Surging Sparks", slug: "surging-sparks", cells: {
     all: windows(15, 2), "illustration-rares": windows(15, 2),
   } },
   { game: "riftbound", set: "Origins", slug: "origins", cells: {
-    all: windows(-20, 1), signatures: windows(-20, 1),
+    all: { 7: limited, 30: limited, 90: limited }, signatures: windows(-20, 1),
   } },
 ] };
 
@@ -19,15 +20,19 @@ test("Sets heatmap keeps tiles default and supports scoped cells on desktop and 
   await expect(page.getByRole("button", { name: "Tiles", exact: true })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Heatmap", exact: true }).click();
   await expect(page).toHaveURL(/view=heatmap/);
+  await expect(page.getByRole("button", { name: "7D" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("table")).toHaveCount(1);
-  await expect(page.getByRole("button", { name: /Origins, Signature, 30 day.*-20.0%/ })).toBeVisible();
-  await page.getByRole("button", { name: /Origins, Signature, 30 day.*-20.0%/ }).click();
+  await page.getByRole("button", { name: /Origins, All tracked, 7 day.*-20.0%.*Limited coverage/ }).click();
+  await expect(page.getByText(/21 of 236 tracked printings have usable history/)).toBeVisible();
+  await expect(page.getByText(/Only those printings contribute to the median/)).toBeVisible();
+  await expect(page.getByRole("button", { name: /Origins, Signature, 7 day.*-20.0%/ })).toBeVisible();
+  await page.getByRole("button", { name: /Origins, Signature, 7 day.*-20.0%/ }).click();
   await expect(page.getByRole("heading", { name: "Origins · Signature" })).toBeVisible();
   await expect(page.getByRole("link", { name: "View matching cards" })).toHaveAttribute("href", /market=riftbound.*sets=Origins.*rarity=signatures/);
-  await page.getByRole("button", { name: "7D" }).click();
-  await expect(page).toHaveURL(/window=7/);
+  await page.getByRole("button", { name: "30D" }).click();
+  await expect(page).toHaveURL(/window=30/);
   await page.goBack();
-  await expect(page.getByRole("button", { name: "30D" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "7D" })).toHaveAttribute("aria-pressed", "true");
   const filters = page.locator(".heatmap-filters");
   await filters.locator("summary").click();
   await filters.getByRole("searchbox", { name: "Search sets" }).fill("Missing set");
@@ -50,5 +55,5 @@ test("Sets heatmap keeps tiles default and supports scoped cells on desktop and 
     await page.screenshot({ path: `test-results/heatmap-${width}-${theme}.png`, fullPage: true });
   }
   await page.getByRole("tab", { name: "Pokémon" }).click();
-  await expect(page.getByRole("button", { name: /Surging Sparks, Illustration Rare, 30 day.*\+15.0%/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Surging Sparks, Illustration Rare, 7 day.*\+15.0%/ })).toBeVisible();
 });

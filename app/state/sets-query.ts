@@ -18,7 +18,7 @@ export type SetsScope = {
   selected: string;
 };
 export const DEFAULT_SETS_SCOPE: SetsScope = {
-  market: "all", view: "tiles", window: 30, query: "", group: "", favoritesOnly: false,
+  market: "all", view: "tiles", window: 7, query: "", group: "", favoritesOnly: false,
   sort: "newest", tier: "all", selected: "",
 };
 
@@ -28,7 +28,7 @@ export function parseSetsScope(search: string) {
   return {
     requestedMarket: params.get("market"),
     view: params.get("view") === "heatmap" ? "heatmap" as const : "tiles" as const,
-    window: days === 7 || days === 90 ? days : 30 as HeatmapWindow,
+    window: days === 30 || days === 90 ? days : 7 as HeatmapWindow,
     query: params.get("q") ?? "", group: params.get("group") ?? "",
     favoritesOnly: params.has("favorites"),
     sort: params.get("sort") === "change" ? "change" as const : "newest" as const,
@@ -41,7 +41,7 @@ export function serializeSetsScope(input: SetsMarket | SetsScope) {
   const params = new URLSearchParams();
   params.set("market", scope.market);
   if (scope.view !== "tiles") params.set("view", scope.view);
-  if (scope.window !== 30) params.set("window", String(scope.window));
+  if (scope.window !== 7) params.set("window", String(scope.window));
   if (scope.query) params.set("q", scope.query);
   if (scope.group) params.set("group", scope.group);
   if (scope.favoritesOnly) params.set("favorites", "1");

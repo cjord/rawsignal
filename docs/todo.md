@@ -113,7 +113,9 @@ Work branch: `feature/set-rarity-heatmap`. The Sets toggle, URL controls, D1 rea
 aggregate payload, source-date-aware calculations, and browser/unit fixtures are live in
 production. Tiles remain default and do not call the heatmap endpoint. User decisions (2026-10-09): Sets-page
 toggle with tiles default; median card-price change; show 1–2-card cells with a small-sample
-warning, still requiring 60% usable coverage. The source-date audit chose at most two days
+warning. The follow-up lowers the required coverage from 60% to 5%, flags cells below
+60% as limited, and changes the default window from 30D to 7D without substituting 7D
+returns into 30D/90D cells. The source-date audit chose at most two days
 for a member's latest price and at most three days between the requested cutoff and its
 baseline. The current on-demand endpoint is slow on a cold request; the daily D1 snapshot
 implementation below is not yet deployed or migrated.
@@ -140,7 +142,7 @@ Proposed product scope and UX:
   Signature and eligible promos. Preserve the catalog's token/basic-rune/ordinary-promo
   exclusions and keep language/printing identities separate. Unpriced Metal/Best Of and
   foreign-exclusive promos remain discoverable with unavailable values.
-- [x] Controls: game, 7D/30D/90D (default 30D), set search, existing era/category and
+- [x] Controls: game, 7D/30D/90D (7D default after the 2026-10-09 follow-up), set search, existing era/category and
   favorite scope; newest-first set order with optional change sorting. Scope changes and
   selected cell round-trip through `app/state/sets-query.ts` and browser Back/Forward.
   Keep multi-filter Apply/Close behavior consistent with existing filter primitives.
@@ -172,9 +174,10 @@ Data definition and correctness gates:
   contributing a synthetic zero. Reuse `core/domain/history-metrics.ts` for the cutoff
   contract; any stricter freshness gate is heatmap-specific, not a silent signal change.
 - [x] Publish eligible/total tracked counts per cell, with "tracked catalog, not the full
-  checklist" disclosure. User-approved gate (2026-10-09): at least 1 eligible member and
-  60% coverage, otherwise `N/A` with a reason; show a small-sample warning for 1–2 members,
-  including sparse Signature/promo tiers. A tier absent from a set is "Not applicable",
+  checklist" disclosure. Revised gate (2026-10-09): at least one eligible member and
+  5% coverage. Compute the median only from valid member comparisons, retain the full
+  tracked count for provenance, and visibly flag <60% coverage or 1–2 eligible members.
+  Below 5% remains `N/A` with a reason. A tier absent from a set is "Not applicable",
   not "No price history".
   New sets without a window's history remain unavailable for that window.
 - [x] Audit endpoint freshness and the §R5 split-source-date issue before enabling 7D/30D/
@@ -218,8 +221,10 @@ Implementation sequence and cost boundary:
    usable 30D member returns. New Riftbound cards lack a 30-day baseline; absent older
    observations also suppress 90D values. An older local database seeded with archive
    history yielded 6/7 Riftbound 30D and 5/7 90D set totals, so precomputation fixes load
-   latency, not missing observations. Verify and backfill authorized dated price history
-   separately; do not loosen the coverage gate or manufacture returns to fill cells.
+   latency, not missing observations. The follow-up lowers the display gate to 5% with
+   explicit limited-coverage warnings and makes 7D the default; it does not create missing
+   30D/90D observations or manufacture returns. Verify and backfill authorized dated price
+   history separately.
 6. **Release gate:** tests for medians, All-tracked weighting, null vs zero, small cohorts,
    stale/cutoff gaps, duplicate printings, cross-game same-name sets, promo/language
    boundaries, and URL round-trips. Browser checks cover Pokémon/Riftbound, desktop/mobile,

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
-import { calculateSetHeatmap, readSetHeatmapSnapshot, readSetHeatmapSnapshotStatus, writeSetHeatmapSnapshot } from "../db/set-heatmap.ts";
+import { SET_HEATMAP_ALGORITHM_VERSION, calculateSetHeatmap, readSetHeatmapSnapshot, readSetHeatmapSnapshotStatus, writeSetHeatmapSnapshot } from "../db/set-heatmap.ts";
 
 class Statement {
   constructor(statement) { this.statement = statement; this.values = []; }
@@ -62,7 +62,8 @@ test("heatmap matches published source dates, exact printings, and archive cutof
   const riftbound = payload.rows.find(row => row.game === "riftbound");
   assert.equal(pokemon.cells.all[7].total, 2);
   assert.equal(pokemon.cells.all[7].eligible, 1);
-  assert.equal(pokemon.cells.all[7].reason, "low-coverage");
+  assert.equal(pokemon.cells.all[7].change, 20);
+  assert.equal(pokemon.cells.all[7].reason, null);
   assert.equal(pokemon.cells["illustration-rares"][7].change, 20);
   assert.equal(riftbound.cells.signatures[7].change, -50);
   const db = dbFor(sqlite);
@@ -74,6 +75,10 @@ test("heatmap matches published source dates, exact printings, and archive cutof
   assert.deepEqual(written, { sourceRunId: "live-daily:2026-10-08", sourceDate: "2026-10-08", sets: 2 });
   assert.deepEqual(await readSetHeatmapSnapshotStatus(db), { available: true, sourceRunId: written.sourceRunId });
   assert.deepEqual(await readSetHeatmapSnapshot(db), payload);
+  sqlite.prepare("update set_heatmap_snapshots set algorithm_version=1 where game='pokemon'").run();
+  assert.deepEqual(await readSetHeatmapSnapshotStatus(db), { available: true, sourceRunId: null });
+  assert.equal(await readSetHeatmapSnapshot(db), null, "a changed coverage policy invalidates old snapshots");
+  sqlite.prepare("update set_heatmap_snapshots set algorithm_version=? where game='pokemon'").run(SET_HEATMAP_ALGORITHM_VERSION);
   const snapshotOnly = { prepare(sql) {
     assert.doesNotMatch(sql, /price_observations|catalog_products|ingestion_runs/i, "HTTP read must not recalculate history");
     return db.prepare(sql);

@@ -72,7 +72,9 @@ Daily TCGCSV observations are sufficient for ongoing history after backfill. Det
 ## Daily Sets heatmap snapshot (local implementation, awaiting migration/deploy)
 
 `db/set-heatmap.ts` calculates median tracked-card price changes for 7D/30D/90D from
-dated observations and applies the same 60% member-coverage gate as the live heatmap.
+dated observations. The local revision uses only printings with valid comparisons in
+the median, requires at least 5% coverage, and warns below 60%; the default display
+window is 7D. It never substitutes a 7D result for a missing 30D or 90D comparison.
 Migration `0020_set_heatmap_snapshots.sql` stores one JSON row per game, each below D1's
 2 MB row limit. Once the published live run and metrics rollup complete, the guarded
 cron computes the snapshot once for that source run and atomically replaces both rows.

@@ -13,7 +13,8 @@ type SnapshotRow = {
 };
 
 const games: HeatmapGame[] = ["pokemon", "riftbound"];
-export const SET_HEATMAP_ALGORITHM_VERSION = 1;
+// A policy change must invalidate saved rows even when the catalog run is unchanged.
+export const SET_HEATMAP_ALGORITHM_VERSION = 2;
 const maxSnapshotBytes = 1_900_000; // D1's row/string limit is 2 MB.
 
 const missingSnapshotTable = (error: unknown) =>

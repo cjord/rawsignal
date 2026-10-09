@@ -4,8 +4,9 @@ import { setSlug } from "./formatters.ts";
 
 export const HEATMAP_WINDOWS = [7, 30, 90] as const;
 export type HeatmapWindow = typeof HEATMAP_WINDOWS[number];
-// User decision 2026-10-09: show 1–2 eligible members with a warning, at 60% coverage.
-export const HEATMAP_COVERAGE_POLICY = { minMembers: 1, minCoverage: 0.6 } as const;
+// A sparse but nonzero eligible subset may describe a set if its limited coverage is disclosed.
+export const HEATMAP_COVERAGE_POLICY = { minMembers: 1, minCoverage: 0.05 } as const;
+export const HEATMAP_COVERAGE_WARNING = 0.6;
 export type HeatmapUnavailable = "no-history" | "stale" | "insufficient-history" | "cutoff-gap";
 export type HeatmapReturn = {
   change: number | null;
