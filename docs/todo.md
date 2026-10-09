@@ -108,7 +108,7 @@ in `pull-rates.json`, curated only. Plan, model, costs, and phases:
 production; no page renders it yet. Phase 2 (panel, MSRP↔market slider, optional custom rates)
 needs a packs-per-product table and per-pack MSRP where the pack product has none.
 
-**J3. Pokémon + Riftbound set × rarity heatmap (live 2026-10-09; daily snapshot improvement local).**
+**J3. Pokémon + Riftbound set × rarity heatmap (live 2026-10-09; daily snapshot on staging).**
 Work branch: `feature/set-rarity-heatmap`. The Sets toggle, URL controls, D1 read,
 aggregate payload, source-date-aware calculations, and browser/unit fixtures are live in
 production. Tiles remain default and do not call the heatmap endpoint. User decisions (2026-10-09): Sets-page
@@ -117,8 +117,8 @@ warning. The follow-up lowers the required coverage from 60% to 5% (including th
 threshold), and changes the default window from 30D to 7D without substituting 7D
 returns into 30D/90D cells. The source-date audit chose at most two days
 for a member's latest price and at most three days between the requested cutoff and its
-baseline. The current on-demand endpoint is slow on a cold request; the daily D1 snapshot
-implementation below is not yet deployed or migrated.
+baseline. Production's current on-demand endpoint is slow on a cold request; the daily
+D1 snapshot implementation below is deployed and migrated on staging only.
 Add a market-movement matrix inspired by the
 [ShizuTCG Riftbound index](https://tcg-price-tracker.shizukaziye.workers.dev/rb-index#set=ALL&tier=ALL&w=rarity&m=index).
 Reference inspection: the public HTML/rendering code exposes a "Set × tier heat map",
@@ -127,7 +127,7 @@ that scopes the set/tier view. Its values depend on the selected index/box-value
 The reference browser was unavailable during research; rendered desktop/mobile behavior still needs
 visual comparison. Borrow the matrix and drill-down interaction, not its styling, code,
 pull-rate assumptions, or volume-weighted model. The first heatmap release is live;
-the daily-snapshot change is local and has not been requested for deployment.
+the daily-snapshot change awaits production authorization.
 
 Proposed product scope and UX:
 
@@ -205,7 +205,7 @@ Implementation sequence and cost boundary:
 3. **UI + drill-down:** shared `SetHeatmap` composed into `app/SetsView.tsx`, URL state in
    `app/state/sets-query.ts`, and rules in the owning sets stylesheet. Use existing set
    details and catalog routes rather than a second index app or new chart dependency.
-4. **Daily snapshot (implemented locally, not deployed):** an uncached staging read took
+4. **Daily snapshot (staging deployed 2026-10-09; production pending):** an uncached staging read took
    ~11 seconds for 218 sets / 742 KB, while the older local max-profile scan took ~9 seconds.
    `drizzle/0020_set_heatmap_snapshots.sql` adds two bounded rows, one per game. The existing
    guard cron calculates once after each published live run and metrics rollup, before history;
@@ -215,7 +215,11 @@ Implementation sequence and cost boundary:
    queries are added. Production D1 rows-read and p95 latency remain unmeasured; confirm
    them after an authorized deploy and migration before claiming a monthly cost saving.
    The paused sales-table SQL moved outside the active migration chain so applying 0020 for
-   the heatmap does not activate or create sales summaries.
+   the heatmap does not activate or create sales summaries. Staging migration 0020 and the
+   protected job produced a 218-set snapshot dated 2026-10-08. A fresh edge-miss API read
+   took about 0.35 seconds for 742,660 bytes. At the 5% gate, 7D set totals were available
+   for 204/205 Pokémon and 11/13 Riftbound sets; 30D for 189/205 and 5/13; 90D for none.
+   This is a staging observation, not a production p95 or billing measurement.
 5. **Coverage investigation:** the October 9 live payload showed no Riftbound set clearing
    60% 30D coverage, and no game clearing 90D set coverage. Vendetta had only 21/236
    usable 30D member returns. New Riftbound cards lack a 30-day baseline; absent older

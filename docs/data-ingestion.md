@@ -2,7 +2,7 @@
 
 ## Current operating model
 
-The production Worker `raw-signal` owns the `DB` binding to the production D1 database and runs a `*/1 * * * *` guard cron (`worker/scheduled-ingestion.ts`, policy in `worker/scheduled-decision.ts`). Every tick first claims the single-flight `cron-lease` row in `refresh_state` for 170 seconds (`db/tick-lease.ts`) or exits idle, then advances at most one checkpointed batch of the first due job in policy order: live catalog walk → product details → graded rotation → metrics rollup → heatmap snapshot → history backfill. The heatmap step is a local, not-yet-deployed change. Staging carries no schedule; its jobs run only through the operator adapter. Do not expose an unauthenticated ingestion route as a scheduling substitute.
+The production Worker `raw-signal` owns the `DB` binding to the production D1 database and runs a `*/1 * * * *` guard cron (`worker/scheduled-ingestion.ts`, policy in `worker/scheduled-decision.ts`). Every tick first claims the single-flight `cron-lease` row in `refresh_state` for 170 seconds (`db/tick-lease.ts`) or exits idle, then advances at most one checkpointed batch of the first due job in policy order: live catalog walk → product details → graded rotation → metrics rollup → history backfill. The heatmap snapshot step is deployed to cron-less staging but not yet production; the next production release will put it between metrics and history. Staging carries no schedule; its jobs run only through the operator adapter. Do not expose an unauthenticated ingestion route as a scheduling substitute.
 
 `sync-tcgcsv.mjs` and `sync-sealed.mjs` separate four concerns:
 
@@ -69,7 +69,7 @@ The move to a directly managed Worker is done (see [Cloudflare cutover](cloudfla
 
 Daily TCGCSV observations are sufficient for ongoing history after backfill. Detailed TCGplayer history remains the bootstrap and cache-miss source rather than a daily full-catalog fan-out.
 
-## Daily Sets heatmap snapshot (local implementation, awaiting migration/deploy)
+## Daily Sets heatmap snapshot (staging live 2026-10-09; production pending)
 
 `db/set-heatmap.ts` calculates median tracked-card price changes for 7D/30D/90D from
 dated observations. The local revision uses only printings with valid comparisons in
@@ -80,8 +80,11 @@ Migration `0020_set_heatmap_snapshots.sql` stores one JSON row per game, each be
 cron computes the snapshot once for that source run and atomically replaces both rows.
 Subsequent ticks read only the two-row marker, and `/api/sets/heatmap` reads the saved
 snapshot rather than scanning card history. The protected staging `heatmap` job can
-populate its database without enabling staging cron. A deploy before migration leaves
-the rest of ingestion running; the heatmap action waits until the table exists.
+populate its database without enabling staging cron. Staging migration 0020 and the
+protected job produced a 218-set snapshot on 2026-10-09 (source date 2026-10-08).
+A fresh, edge-miss staging API read took about 0.35 seconds, versus an earlier
+roughly 11-second on-demand scan. A deploy before migration leaves the rest of
+ingestion running; the heatmap action waits until the table exists.
 The snapshot does not add upstream calls or fill missing 30D/90D baselines.
 
 ## eBay on-demand listing cache (2026-09-10)

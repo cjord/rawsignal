@@ -45,11 +45,11 @@ Two caches sit in front of D1 (review §14): `worker/edge-cache.ts` stores ordin
 
 `core/domain/regime.ts` classifies every product's market regime (Falling / Improving / Breakout / Overextended / Spike / Steady) from momentum, change windows, drawdown, and the optional demand trend. The label persists on `market_metrics.regime`, surfaces as chips (board signal cells, history popovers, detail page), and is a board filter (`regime=` URL param). Labels are descriptive; only the v2 challenger consumes them for scoring.
 
-The Sets heatmap's on-demand history scan is being replaced by two source-dated
+The Sets heatmap's on-demand history scan is replaced in staging by two source-dated
 `set_heatmap_snapshots` rows (Pokémon and Riftbound). After a published live run, the
-guard cron computes the three windows once and atomically replaces both rows; the API
-reads the saved JSON only. This local change requires migration 0020 before activation;
-until deployed, production still calculates on a heatmap request. The local policy now
+production guard cron computes the three windows once and atomically replaces both rows;
+the API reads the saved JSON only. Migration 0020 and one manual snapshot job ran on
+staging 2026-10-09; production still calculates on each heatmap request. The new policy
 defaults to 7D and permits a median when at least 5% of tracked printings have valid
 comparisons; cells below 5% remain unavailable, while cells with 1–2 eligible cards
 carry a small-sample warning. Selection shows the exact eligible count.
