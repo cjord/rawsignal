@@ -2,7 +2,7 @@
 import {useState} from 'react';
 import InfoHint from '../InfoHint';
 import AuctionBidder from './AuctionBidder';
-import AuctionClueIcon from './AuctionClueIcon';
+import AuctionBidders from './AuctionBidders';
 import {AuctionRoundBids} from './AuctionBidHistory';
 import {auctionUsd} from './AuctionWallet';
 import {AUCTION_ROUNDS,type Auction,type AuctionSave} from '../../core/domain/auction-types';
@@ -10,7 +10,7 @@ import {lockBid,nextAuctionRound,finishAuction} from '../../core/domain/auction-
 import AuctionInvestigate from './AuctionInvestigate';
 import AuctionResultMetrics from './AuctionResultMetrics';
 
-type Props={save:AuctionSave;now:number;transact:(update:(save:AuctionSave)=>AuctionSave)=>void;revealDone?:boolean};
+type Props={save:AuctionSave;now:number;transact:(update:(save:AuctionSave)=>AuctionSave)=>void;revealDone?:boolean;visible?:number[]};
 function RoundControls({save,now,transact}:Props){
  const auction=save.auction!,[bid,setBid]=useState(''),locked=auction.selected!==null,expired=now>=auction.deadline;
  const valid=/^\d+(\.\d{1,2})?$/.test(bid),cents=valid?Math.round(Number(bid)*100):NaN;
@@ -19,7 +19,7 @@ function RoundControls({save,now,transact}:Props){
   <AuctionInvestigate save={save} now={now} transact={transact}/>
   <section className="detail-section auction-bidding" id="auction-bidding"><div className="auction-bidding-heading"><h2>{locked?'Bid Locked':'Place Your Bid'} <InfoHint label="Bidding rules">Each round is a new total bid, not an added payment. Locking is irreversible. Unsubmitted bids become $0 at the deadline.</InfoHint></h2><div className="auction-balance"><small>Available Balance</small><strong>{auctionUsd(save.wallet.cash)}</strong></div></div>
    {locked?<p className="auction-locked-amount">{auctionUsd(auction.selected!)} · waiting for bidders</p>:<form className="auction-bid-form" onSubmit={event=>{event.preventDefault();if(!expired&&valid&&Number.isSafeInteger(cents)&&cents<=save.wallet.cash)lock(cents)}}><label>Bid (virtual USD)<input inputMode="decimal" type="text" value={bid} disabled={expired} onChange={event=>setBid(event.target.value)}/></label><button className="game-control" type="submit" disabled={expired||!valid||!Number.isSafeInteger(cents)||cents>save.wallet.cash}>Lock Bid</button><button className="game-control" type="button" disabled={expired} onClick={()=>lock(0)}>Pass ($0)</button></form>}
-   <ul className="auction-npcs"><li className={locked?'is-locked':''}><AuctionBidder name="You"/><span className="auction-lock-status"><span>{locked?'Locked':'Considering…'}</span><span className="auction-bid-clues">{auction.clues.map(clue=><AuctionClueIcon key={clue.id} id={clue.id}/>)}</span></span></li>{auction.npcs.map(npc=><li key={npc.name} className={npc.locked?'is-locked':''}><AuctionBidder name={npc.name}/><span className="auction-lock-status"><span>{npc.locked?'Locked':'Considering…'}</span><AuctionClueIcon id="identity3"/></span></li>)}</ul>
+   <AuctionBidders auction={auction}/>
   </section>
  </>;
 }
@@ -29,19 +29,19 @@ export function AuctionRoundHeader({auction,now}:{auction:Auction;now:number}){
   <p className="games-note">{auction.round<4?`Buyout: top bid must be ${AUCTION_ROUNDS[auction.round-1].threshold}% above second place, with at least two positive bids.`:'Final round: highest positive bid wins; seeded priority breaks ties. All passes mean no sale.'}</p>
  </div>;
 }
-export default function AuctionRound({save,now,transact,revealDone=true}:Props){
+export default function AuctionRound({save,now,transact,revealDone=true,visible=save.auction!.lot.map((_,index)=>index)}:Props){
  const auction=save.auction!;
  return <div className={`auction-round-panel${auction.stage==='round'?'':' is-results'}`}>
   {auction.stage==='round'?<RoundControls key={auction.round} save={save} now={now} transact={transact}/>:<section className="detail-section auction-results"><h2>{auction.stage==='result'?'Auction Settled':'Round Bids'}</h2>
-   {auction.stage==='reveal'?<><p className="auction-no-buyout">No Early Buyout</p><p className="games-note">The buyout threshold wasn’t met. Another round gives you a fresh chance to win.</p><AuctionRoundBids auction={auction}/><button className="game-control" type="button" onClick={()=>transact(current=>nextAuctionRound(current,Date.now()))}>Next auction round</button></>:revealDone?<AuctionOutcome save={save} transact={transact}/>:<p role="status">Revealing the collection…</p>}
+   {auction.stage==='reveal'?<><p className="auction-no-buyout">No Early Buyout</p><p className="games-note">The buyout threshold wasn’t met. Another round gives you a fresh chance to win.</p><AuctionRoundBids auction={auction}/><button className="game-control" type="button" onClick={()=>transact(current=>nextAuctionRound(current,Date.now()))}>Next auction round</button></>:<AuctionOutcome save={save} transact={transact} revealDone={revealDone} visible={visible}/>}
   </section>}
  </div>;
 }
-function AuctionOutcome({save,transact}:Omit<Props,'now'>){
+function AuctionOutcome({save,transact,revealDone=true,visible=[]}:Omit<Props,'now'>){
  const result=save.auction!.result!,won=result.winner==='You';
  return <><div className="auction-settled-winner" role="status">{result.winner?<><AuctionBidder name={result.winner}/><span>won{result.buyout?' by early buyout':''} for {auctionUsd(result.bid)}.</span></>:'No positive bids: this collection was not sold.'}</div>
-  <AuctionResultMetrics auction={save.auction!}/>
+  <AuctionResultMetrics auction={save.auction!} visible={visible} done={revealDone}/>
   {won&&<p className="games-note">The collection is now in your inventory. Its current market value may change; selling is optional.</p>}
-  <button className="game-control auction-finish" type="button" onClick={()=>transact(finishAuction)}>Finish &amp; manage inventory</button>
+  <button className={`game-control${revealDone?' auction-finish':''}`} disabled={!revealDone} type="button" onClick={()=>transact(finishAuction)}>Finish &amp; manage inventory</button>
  </>;
 }

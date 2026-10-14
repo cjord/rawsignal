@@ -31,6 +31,10 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
   panels, aligned bid controls, neutral zero metrics, rarity-matched inventory and
   centered dialogs are deployed and verified on staging (application `842cfe7`,
   version `e100bb10`, 2026-10-14). Full gate: 419 unit tests and 42 browser checks.
+  Settlement-count follow-up: skeleton metrics update with revealed collection
+  totals, vertically stacked investigation choices, and separate previous-bid
+  tiles beside each participant in rounds 2–4. No added data calls or writes;
+  staging validation/publication in progress. See the auction plan for details.
 
 - Riftbound Price Showdown is released and verified in production (2026-10-14).
   Shipped features and validation moved to `docs/todo-completed.md`; plan and cost

@@ -1,4 +1,12 @@
 import type {Auction,RoundBid} from './auction-types.ts';
+import {addInventory,inventoryQuote} from './auction-market.ts';
+export function auctionRevealQuote(auction:Auction,visible:number[]){
+ const cards=[...new Set(visible)].map(index=>auction.lot[index]);
+ const value=cards.reduce((sum,card)=>sum+card.cents,0);
+ const proceeds=inventoryQuote(addInventory([],cards),cards,auction.feeBps).net;
+ const result=auction.result;
+ return {value,fee:value-proceeds,net:proceeds-(result?.bid??0)-(result?.winner==='You'?result.playerExpenses:0)};
+}
 export function auctionRarity(card:{rarity?:string;section?:string}|null|undefined){
  if(/signature|over.?number/i.test(card?.section??''))return 'premium';
  if(/alt/i.test(card?.section??''))return 'epic';

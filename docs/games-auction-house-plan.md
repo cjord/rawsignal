@@ -1,5 +1,11 @@
 # Riftbound Auction House
 
+## Settlement count and previous bids — 2026-10-14
+
+After the winner announcement, Auction Settled immediately displays six skeleton values. As hidden cards flip, its market value, fees and profit/loss update from the same revealed-card calculation used by Collection Revealed. Fees round per printing/quantity, matching the final inventory sale calculation. Partial totals are explicitly labeled; Finish remains disabled until counting completes or Skip Reveal is used. Reduced-motion users receive the completed totals immediately. No extra API calls or database operations are added.
+
+Investigation options are stacked vertically. In rounds 2–4, each bidder has a separate Previous Bids tile on the right showing all completed rounds. Current sealed bid amounts and NPC private details remain hidden; the full bid-history matrix retains investigation popovers.
+
 Source: user-supplied Game Design Plan v1.0 and confirmed decisions, 2026-10-14.
 Route `/games/riftbound-auction`, tile alongside Showdown on `/games`.
 

@@ -7,14 +7,13 @@ import AuctionDialog from './AuctionDialog';
 import {auctionUsd} from './AuctionWallet';
 import {knownValue} from '../../core/domain/auction-information';
 import type {Auction} from '../../core/domain/auction-types';
-import {auctionRarity,orderedAuctionSlots} from '../../core/domain/auction-display';
+import {auctionRarity,orderedAuctionSlots,auctionRevealQuote} from '../../core/domain/auction-display';
 
 export default function AuctionCollection({auction,visible,done,skip}:{auction:Auction;visible:number[];done:boolean;skip:()=>void}){
  const [inspected,setInspected]=useState<number|null>(null),complete=auction.stage==='result';
  const selected=inspected===null?null:auction.lot[inspected],priceKnown=complete||inspected!==null&&auction.priced.includes(inspected);
- const value=complete?visible.reduce((sum,index)=>sum+auction.lot[index].cents,0):knownValue(auction);
- const result=auction.result,fee=result?Math.round(result.fee*value/result.value):0;
- const net=result?value-fee-result.bid-(result.winner==='You'?result.playerExpenses:0):0;
+ const quote=auctionRevealQuote(auction,visible),value=complete?quote.value:knownValue(auction);
+ const result=auction.result,net=quote.net;
  return <section className="detail-section auction-collection">
   <div className="auction-collection-heading"><h2>{complete?'Collection Revealed':'Mystery Collection'}</h2><strong className="auction-copy-count">{auction.lot.length}<small>Cards</small></strong></div>
   <p className="auction-known-value">{complete?'Market Value':'Known Value'}: <strong>{auctionUsd(value)}</strong> <InfoHint label="Collection value explanation">{complete?'The frozen auction market value adds up as cards flip. Net profit includes selling fees, the winning bid and winner’s investigation spend.':'Only individually revealed prices; aggregate clues are separate and never counted twice.'}</InfoHint>{complete&&result?.winner&&<> · Net Profit / Loss: <strong className={net>=0?'up':'down'}>{auctionUsd(net)}</strong></>}{complete&&!done&&<button className="game-control" type="button" onClick={skip}>Skip Reveal</button>}</p>

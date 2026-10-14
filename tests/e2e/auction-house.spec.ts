@@ -9,6 +9,26 @@ async function fixtures(page:Page){
  await page.clock.install({time:new Date('2026-10-14T12:00:00Z')});
 }
 const saved=(page:Page)=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)!),key);
+
+test('settlement skeletons count alongside revealed cards and previous bids stay public-only through rounds two to four',async({page},testInfo)=>{
+ await fixtures(page);await page.route('**/data/*.json',route=>route.fulfill({contentType:'application/json',body:JSON.stringify(rows)}));
+ await page.goto('/games/riftbound-auction');await page.getByRole('button',{name:'Enter free auction'}).click();await expect(page.getByRole('heading',{name:/Place Your Bid/})).toBeVisible();
+ const boxes=await page.locator('.auction-offers button').evaluateAll(elements=>elements.map(element=>element.getBoundingClientRect().toJSON()));expect(boxes[1].top).toBeGreaterThanOrEqual(boxes[0].bottom);expect(boxes[2].top).toBeGreaterThanOrEqual(boxes[1].bottom);
+ for(let round=1;round<=4;round++){
+  await expect(page.locator('.auction-previous-bids')).toHaveCount(round===1?0:4);
+  if(round>1){for(const width of [1440,390])for(const theme of ['dark','light']){await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);const positions=await page.locator('.auction-npcs li').first().evaluate(element=>{const status=element.querySelector('.auction-bid-status')!.getBoundingClientRect(),previous=element.querySelector('.auction-previous-bids')!.getBoundingClientRect();return {statusRight:status.right,previousLeft:previous.left}});expect(positions.previousLeft).toBeGreaterThan(positions.statusRight);await expect(page.locator('.auction-previous-bids').first().locator('strong')).toHaveCount(round-1)}await page.screenshot({path:testInfo.outputPath(`previous-bids-round-${round}.png`),fullPage:true,animations:'disabled'})}
+  await page.evaluate(key=>{const state=JSON.parse(localStorage.getItem(key)!);state.auction.npcs=state.auction.npcs.map((npc:object)=>({...npc,bid:100,locked:true}));state.revision++;const raw=JSON.stringify(state);localStorage.setItem(key,raw);dispatchEvent(new StorageEvent('storage',{key,newValue:raw}))},key);
+  await page.getByLabel('Bid (virtual USD)').fill('1');await page.getByLabel('Bid (virtual USD)').press('Enter');await page.clock.runFor(250);
+  if(round<4){await expect(page.getByRole('heading',{name:'Round Bids',exact:true})).toBeVisible();await page.getByRole('button',{name:'Next auction round'}).click()}
+ }
+ await expect(page.getByRole('heading',{name:'Winner Announced'})).toBeVisible();await page.clock.runFor(1600);await expect(page.getByRole('heading',{name:'Auction Settled'})).toBeVisible();
+ await expect(page.locator('.auction-value-skeleton')).toHaveCount(6);await expect(page.getByRole('button',{name:'Finish & manage inventory'})).toBeDisabled();
+ await page.clock.runFor(340);await expect(page.locator('.auction-value-skeleton')).toHaveCount(0);await expect(page.locator('.auction-result-metrics')).toHaveAttribute('aria-busy','true');
+ const progress=await page.evaluate(()=>({market:document.querySelector('.auction-result-metrics dd')!.textContent,collection:document.querySelector('.auction-known-value strong')!.textContent}));expect(progress.market).toBe(progress.collection);
+ const state=await saved(page);expect(progress.market).not.toBe(`$${(state.auction.result.value/100).toFixed(2)}`);
+ await page.getByRole('button',{name:'Skip Reveal'}).click();await expect(page.locator('.auction-result-metrics')).toHaveAttribute('aria-busy','false');await expect(page.getByRole('button',{name:'Finish & manage inventory'})).toBeEnabled();
+ await expect(page.locator('.auction-result-metrics > div').filter({hasText:'Collection Market Value'})).toContainText(new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(state.auction.result.value/100));
+});
 test('auction purchase, sealed lock, settlement, persisted live inventory, sale, fee and reset make no per-round pricing calls',async({page})=>{
  let requests=0,multiplier=1;
  await fixtures(page);await page.route('**/data/*.json',route=>{requests++;return route.fulfill({contentType:'application/json',body:JSON.stringify(rows.map(card=>({...card,marketPrice:card.marketPrice*multiplier})))})});
@@ -140,7 +160,7 @@ test('investigation results replace offers, controls align, neutral metrics and 
   await page.setViewportSize({width,height:1000});const boxes=await page.locator('.auction-bid-form input,.auction-bid-form button').evaluateAll(elements=>elements.map(element=>{const rect=element.getBoundingClientRect();return {top:rect.top,bottom:rect.bottom}}));expect(Math.max(...boxes.map(box=>box.top))-Math.min(...boxes.map(box=>box.top))).toBeLessThan(1);expect(Math.max(...boxes.map(box=>box.bottom))-Math.min(...boxes.map(box=>box.bottom))).toBeLessThan(1);
   if(width===1440){const heights=await page.locator('.auction-investigate,.auction-bidding').evaluateAll(elements=>elements.map(element=>element.getBoundingClientRect().height));expect(Math.abs(heights[0]-heights[1])).toBeLessThan(1)}
  }
- await expect(page.locator('.auction-npcs li').first()).toHaveCSS('animation-name','auction-awaiting-bid');await expect(page.locator('.auction-collection-grid > .auction-card').nth(0)).not.toHaveClass(/is-hidden/);await expect(page.locator('.auction-collection-grid > .auction-card').nth(1)).not.toHaveClass(/is-hidden/);
+ await expect(page.locator('.auction-npcs .auction-bid-status').first()).toHaveCSS('animation-name','auction-awaiting-bid');await expect(page.locator('.auction-collection-grid > .auction-card').nth(0)).not.toHaveClass(/is-hidden/);await expect(page.locator('.auction-collection-grid > .auction-card').nth(1)).not.toHaveClass(/is-hidden/);
  await page.locator('.auction-offers button').first().click();await expect(page.getByRole('heading',{name:/Investigation Results/})).toBeVisible();await expect(page.locator('.auction-offers')).toHaveCount(0);await expect(page.locator('.auction-collection .auction-clues')).toHaveCount(0);
  for(const width of [1440,390])for(const theme of ['dark','light']){await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);await page.screenshot({path:testInfo.outputPath(`auction-investigate-${width}-${theme}.png`),fullPage:true,animations:'disabled'})}
  await page.getByLabel('Bid (virtual USD)').fill('2000');await page.getByRole('button',{name:'Lock Bid',exact:true}).click();await page.clock.runFor(3500);await page.clock.runFor(2000);await expect(page.getByRole('heading',{name:'Auction Settled'})).toBeVisible();await page.getByRole('button',{name:'Skip Reveal'}).click();await expect(page.getByText(/Modeled Selling Fee/)).toHaveCount(0);await page.getByRole('button',{name:'Finish & manage inventory'}).click();await page.locator('.auction-inventory summary').click();await expect(page.locator('.auction-owned-card').first()).toHaveAttribute('data-rarity',/common|rare/);

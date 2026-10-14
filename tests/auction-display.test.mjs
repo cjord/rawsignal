@@ -1,8 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {auctionRarity,auctionMetricTone,orderedAuctionSlots,publicAuctionBidNotes} from '../core/domain/auction-display.ts';
+import {auctionRarity,auctionMetricTone,orderedAuctionSlots,publicAuctionBidNotes,auctionRevealQuote} from '../core/domain/auction-display.ts';
 import {beginAuction,npcBid,nextAuctionRound,tickAuction} from '../core/domain/auction-engine.ts';
 import {initialAuctionSave} from '../core/domain/auction-types.ts';
+test('reveal totals share per-printing fee rounding and charge the fixed bid and expenses only once',()=>{
+ const card={productId:1,printing:'Normal',cents:15},auction={lot:[card,card,{...card,productId:2}],feeBps:1000,result:{winner:'You',bid:10,playerExpenses:2}};
+ assert.deepEqual(auctionRevealQuote(auction,[]),{value:0,fee:0,net:-12});
+ assert.deepEqual(auctionRevealQuote(auction,[0]),{value:15,fee:2,net:1});
+ assert.deepEqual(auctionRevealQuote(auction,[0,1]),{value:30,fee:3,net:15});
+ assert.deepEqual(auctionRevealQuote(auction,[0,1,2]),{value:45,fee:5,net:28});
+ assert.deepEqual(auctionRevealQuote(auction,[0,0,1,2]),auctionRevealQuote(auction,[0,1,2]));
+ assert.equal(auctionRevealQuote({...auction,result:{...auction.result,winner:'The Dealer'}},[0,1,2]).net,30);
+});
 test('zero and unavailable metrics are neutral while actual costs and losses have their own tones',()=>{
  for(const kind of ['signed','cost','info']){assert.equal(auctionMetricTone(0,kind),'');assert.equal(auctionMetricTone(null,kind),'')}
  assert.equal(auctionMetricTone(-1),'is-loss');assert.equal(auctionMetricTone(1),'is-gain');assert.equal(auctionMetricTone(1,'cost'),'is-cost');
