@@ -1,4 +1,5 @@
 import {expect,test,type Page} from '@playwright/test';
+test.use({hasTouch:true});
 
 const key='raw-signal-auction-house-v1';
 const rows=Array.from({length:24},(_,index)=>({game:'riftbound',productId:970000+index,name:`Auction Card ${index+1}`,image:`https://images.example/auction/${index}.svg`,marketPrice:index+1,printing:'Normal',section:'rares',set:'Origins',year:2025,number:String(index),rarity:index<12?'Common':'Rare',url:'',lowPrice:null,midPrice:null,highPrice:null,priceChange:null}));
@@ -24,7 +25,7 @@ test('auction purchase, sealed lock, settlement, persisted live inventory, sale,
  for(const button of await page.locator('.auction-offers button').all())await expect(button).toBeDisabled();
  await page.getByLabel('Bid (virtual USD)').fill(String(afterBuy.wallet.cash/100));await page.getByRole('button',{name:'Lock Bid',exact:true}).click();
  await expect(page.getByRole('heading',{name:/Bid Locked/})).toBeVisible();await expect(page.getByLabel('Bid (virtual USD)')).toHaveCount(0);
- await page.clock.runFor(3500);
+ await page.clock.runFor(3500);await page.clock.runFor(2000);
  await expect(page.getByRole('heading',{name:'Auction Settled'})).toBeVisible();await expect(page.locator('.auction-card.is-hidden').first()).toBeVisible();await page.getByRole('button',{name:'Skip Reveal'}).click();await page.clock.runFor(5000);await expect(page.locator('.auction-card.is-hidden')).toHaveCount(0);
  const result=await saved(page);expect(result.auction.result.winner).toBe('You');expect(result.wallet.cash).toBe(0);
  expect(result.wallet.inventory.reduce((sum:number,row:{quantity:number})=>sum+row.quantity,0)).toBe(copies);
@@ -98,16 +99,45 @@ test('new lots skip missing, broken and placeholder images before starting the c
 test('mute persists, countdown warns, Enter locks and reduced motion reveals immediately',async({page})=>{
  await fixtures(page);await page.emulateMedia({reducedMotion:'reduce'});
  await page.route('**/data/*.json',route=>route.fulfill({contentType:'application/json',body:JSON.stringify(rows)}));
- await page.goto('/games/riftbound-auction');await page.getByRole('button',{name:'Mute Sound'}).click();
+ await page.goto('/games/riftbound-auction');await page.getByRole('button',{name:'Mute Sound'}).click();await expect(page.getByRole('button',{name:'Enable Sound'})).toHaveAttribute('aria-pressed','true');
  await page.getByRole('button',{name:'Enter free auction'}).click();await expect(page.getByRole('heading',{name:/Place Your Bid/})).toBeVisible();
  await page.clock.runFor(51000);await expect(page.getByRole('timer')).toHaveClass(/is-urgent/);await expect(page.getByRole('timer')).toHaveCSS('animation-name','none');
  await page.getByLabel('Bid (virtual USD)').fill('2500');await page.getByLabel('Bid (virtual USD)').press('Enter');
- await page.clock.runFor(3500);await expect(page.getByRole('heading',{name:'Auction Settled'})).toBeVisible();
+ await page.clock.runFor(3500);await page.clock.runFor(2000);await expect(page.getByRole('heading',{name:'Auction Settled'})).toBeVisible();
  await expect(page.locator('.auction-card.is-hidden')).toHaveCount(0);await expect(page.getByRole('button',{name:'Skip Reveal'})).toHaveCount(0);
- await expect(page.locator('.auction-bid-history li')).toHaveCount(4);
+ await expect(page.locator('.auction-bid-history .auction-history-cell[data-completed="true"]')).toHaveCount(4);
  const state=await saved(page);await expect(page.locator('.auction-known-value')).toContainText(`$${(state.auction.result.value/100).toFixed(2)}`);
  await page.reload();await expect(page.getByRole('button',{name:'Enable Sound'})).toHaveAttribute('aria-pressed','true');
  await page.getByRole('button',{name:'Enable Sound'}).click();await page.reload();await expect(page.getByRole('button',{name:'Mute Sound'})).toBeVisible();
  await page.evaluate(()=>{const Native=window.AudioContext;window.AudioContext=class extends Native{constructor(){super();document.documentElement.dataset.auctionAudio='ready'}}});
  await page.getByRole('button',{name:/Inspect Auction Card/}).first().click();await expect(page.locator('html')).toHaveAttribute('data-auction-audio','ready');
+});
+
+test('winner preview, confetti, four-round notes matrix and full-width colored results remain accessible',async({page},testInfo)=>{
+ await fixtures(page);await page.route('**/data/*.json',route=>route.fulfill({contentType:'application/json',body:JSON.stringify(rows)}));
+ await page.goto('/games/riftbound-auction');await page.getByRole('button',{name:'Enter free auction'}).click();await expect(page.getByRole('heading',{name:/Place Your Bid/})).toBeVisible();
+ await expect(page.locator('.auction-title-row')).toContainText('Mute Sound');await expect(page.getByText('Virtual Trading · Saved in This Browser')).toHaveCount(0);
+ await expect(page.locator('.auction-history-table tbody tr')).toHaveCount(4);await expect(page.locator('.auction-history-table .is-pending')).toHaveCount(16);
+ await page.locator('.auction-offers button').first().click();const clue=(await saved(page)).auction.clues[0];
+ await page.evaluate(key=>{const state=JSON.parse(localStorage.getItem(key)!);state.auction.npcs=state.auction.npcs.map((npc:object)=>({...npc,bid:100,locked:true}));state.revision++;const raw=JSON.stringify(state);localStorage.setItem(key,raw);dispatchEvent(new StorageEvent('storage',{key,newValue:raw}))},key);
+ await page.getByLabel('Bid (virtual USD)').fill('100');await page.getByLabel('Bid (virtual USD)').press('Enter');await expect(page.locator('.auction-npcs li.is-locked')).toHaveCount(4);
+ await page.clock.runFor(250);await expect(page.getByRole('heading',{name:'Winner Announced'})).toBeVisible();await expect(page.locator('.auction-confetti i')).toHaveCount(40);await expect(page.getByRole('heading',{name:'Auction Settled'})).toHaveCount(0);await expect(page.locator('.auction-collection')).toHaveCount(0);
+ const settled=await saved(page);await page.clock.runFor(1800);await expect(page.getByRole('heading',{name:'Auction Settled'})).toBeVisible();await page.getByRole('button',{name:'Skip Reveal'}).click();
+ const resultWidth=await page.locator('.auction-results').evaluate(element=>element.getBoundingClientRect().width),collectionWidth=await page.locator('.auction-collection').evaluate(element=>element.getBoundingClientRect().width);expect(Math.abs(resultWidth-collectionWidth)).toBeLessThan(2);
+ await expect(page.locator('.auction-result-metrics .is-gain')).not.toHaveCount(0);await expect(page.locator('.auction-result-metrics .is-cost')).toHaveCount(2);
+ await expect(page.locator('.auction-history-table .is-pending')).toHaveCount(12);await expect(page.locator('.auction-history-table .is-winning')).toHaveCount(1);
+ const playerBid=page.locator('.auction-history-table tbody tr').first().locator('button').first();await playerBid.hover();await expect(page.getByRole('tooltip')).toContainText(clue.text);await expect(playerBid).toHaveClass(/is-inspected/);await page.keyboard.press('Escape');await expect(page.locator('.auction-bid-popup')).toHaveCount(0);
+ const npcBid=page.locator('.auction-history-table tbody tr').nth(1).locator('button').first();await npcBid.focus();await expect(page.getByRole('tooltip')).toContainText('Private Sample');await page.keyboard.press('Escape');
+ expect(await page.locator('.auction-collection').evaluate(element=>!!(element.compareDocumentPosition(document.querySelector('.auction-bid-history')!)&Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+ await expect(page.locator('.auction-finish')).toHaveCSS('animation-name','auction-next-step');expect((await saved(page)).wallet).toEqual(settled.wallet);
+ for(const width of [1440,390])for(const theme of ['dark','light']){await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:testInfo.outputPath(`auction-results-${width}-${theme}.png`),fullPage:true,animations:'disabled'})}
+ await page.emulateMedia({reducedMotion:'reduce'});await expect(page.locator('.auction-finish')).toHaveCSS('animation-name','none');await page.setViewportSize({width:390,height:1000});await playerBid.tap();await expect(page.locator('.auction-bid-popup')).toBeVisible();await page.getByRole('heading',{name:'Bid History'}).tap();await expect(page.locator('.auction-bid-popup')).toHaveCount(0);
+});
+
+test('no early buyout has full-width round review and an NPC win has no player confetti',async({page})=>{
+ await fixtures(page);await page.route('**/data/*.json',route=>route.fulfill({contentType:'application/json',body:JSON.stringify(rows)}));await page.goto('/games/riftbound-auction');await page.getByRole('button',{name:'Enter free auction'}).click();await expect(page.getByRole('heading',{name:/Place Your Bid/})).toBeVisible();
+ const force=async(bids:number[])=>page.evaluate(({key,bids})=>{const state=JSON.parse(localStorage.getItem(key)!);state.auction.npcs=state.auction.npcs.map((npc:object,index:number)=>({...npc,bid:bids[index],locked:true}));state.revision++;const raw=JSON.stringify(state);localStorage.setItem(key,raw);dispatchEvent(new StorageEvent('storage',{key,newValue:raw}))},{key,bids});
+ await force([100,100,100]);await page.getByLabel('Bid (virtual USD)').fill('1');await page.getByRole('button',{name:'Lock Bid',exact:true}).click();await page.clock.runFor(250);await expect(page.getByRole('heading',{name:'Round Bids',exact:true})).toBeVisible();await expect(page.getByText('No Early Buyout',{exact:true})).toBeVisible();await expect(page.getByText(/Previous bids expire/)).toHaveCount(0);await expect(page.locator('.auction-round-bids button')).toHaveCount(4);
+ expect(await page.locator('.auction-results').evaluate(element=>element.getBoundingClientRect().width)).toBe(await page.locator('.auction-collection').evaluate(element=>element.getBoundingClientRect().width));
+ await page.getByRole('button',{name:'Next auction round'}).click();await force([10000,4000,3000]);await page.getByLabel('Bid (virtual USD)').fill('1');await page.getByRole('button',{name:'Lock Bid',exact:true}).click();await page.clock.runFor(250);await expect(page.getByRole('heading',{name:'Winner Announced'})).toBeVisible();await expect(page.locator('.auction-confetti')).toHaveCount(0);await page.clock.runFor(1800);await expect(page.getByRole('heading',{name:'Auction Settled'})).toBeVisible();await page.getByRole('button',{name:'Skip Reveal'}).click();await expect(page.getByText(/Your losing bid was not charged/)).toHaveCount(0);expect((await saved(page)).wallet.cash).toBe(250000);await expect(page.locator('.auction-history-table button')).toHaveCount(8);
 });

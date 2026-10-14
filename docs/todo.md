@@ -21,6 +21,11 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
   Random lots and three-of-seven NPC personalities are deployed and verified on
   staging (2026-10-14, application `f234786`, version `3e534e78`). Production remains
   pending. No additional gameplay pricing/database calls are required.
+  New review polish: participant-colored names, round-column bid history with
+  clue snapshots/popups, full-width results, winner pause and player-win confetti.
+  Validated with 415 unit tests and 41 browser checks; staging deployment in progress.
+  Review NPC balance after player testing
+  because completed rounds now expose private sample notes to the human.
 
 - Riftbound Price Showdown is released and verified in production (2026-10-14).
   Shipped features and validation moved to `docs/todo-completed.md`; plan and cost

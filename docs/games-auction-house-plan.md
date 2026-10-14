@@ -89,6 +89,39 @@ reuse the existing optimized illustrated portrait family with name/role tooltips
 
 ## Saved inventory and economy
 
+### Bid review and result presentation — 2026-10-14
+
+Bid History is a four-round table: players are rows, rounds are columns, future
+rounds have Pending/Not Played placeholders, and each positive round leader has
+a green border (seeded tie priority is identical to settlement). Completed bid
+tiles show clue icons and open notes on hover, keyboard focus or touch; Escape
+and outside taps dismiss them. Floating popups use viewport-aware positioning
+outside the horizontally scrollable matrix; bidder row labels remain visible
+while scrolling. Only one popup is open at a time. Names have consistent,
+theme-aware participant colors, backed by explicit names and portraits.
+
+Each completed round now records optional `RoundBid.notes` snapshots in the existing
+browser save: the human's purchased clues available by that round, and the NPC's
+two public starting cards plus its actual private sample with frozen prices.
+This records what the bidder knew, not their exact estimate or fictional purchases.
+Private information stays off the active-round UI until bids reveal. Older saves
+remain valid; missing historical notes are explicitly unavailable, not reconstructed.
+The new review gives the human optional post-round NPC information; NPC estimation
+still uses its existing sample/prior-bid model. Revisit balancing after playtesting.
+No extra save writes, database calls, API calls or image generation are required
+for note popups: snapshots piggyback on the existing round-resolution save.
+
+Mute is beside the title, round number and available balance are emphasized,
+and locked participant tiles turn green. Round Bids and Auction Settled occupy
+the full content width. Results use green/red gain/loss and cost accents, while
+unavailable metrics stay neutral. The completed collection precedes Bid History.
+A fresh win pauses on Winner Announced for 1.6 seconds before results/reveal;
+player wins emit a short, center-origin confetti burst. Existing finished saves
+open directly on results, without replaying confetti. Settlement remains atomic
+and immediate in the engine; these effects never charge or award anything twice.
+Finish & manage inventory pulses blue after reveal; reduced motion uses a static
+blue accent and suppresses confetti. The removed explanatory text remains absent.
+
 - Browser-only `raw-signal-auction-house-v1` localStorage. Wallet stores cash,
   configurable fee basis points (default **10%**) and holdings by product ID,
   printing and quantity. It does not store inventory prices or derived values.

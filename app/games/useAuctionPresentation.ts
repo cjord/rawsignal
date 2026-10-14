@@ -3,9 +3,9 @@ import {useEffect,useRef,useState} from 'react';
 import type {Auction} from '../../core/domain/auction-types';
 import {usePreference} from '../state/usePreference';
 
-export function useAuctionReveal(auction:Auction|null){
+export function useAuctionReveal(auction:Auction|null,start=true){
  const [progress,setProgress]=useState<{seed:number;count:number}|null>(null);
- const finished=auction?.stage==='result';
+ const finished=auction?.stage==='result'&&start;
  useEffect(()=>{
   if(!finished||!auction||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
   const seed=auction.seed,total=auction.lot.length-auction.known.length;let count=0;

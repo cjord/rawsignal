@@ -56,7 +56,8 @@ export function auctionWinner(bids:RoundBid[],round:number,seed:number):{winner:
  return {winner:round===4||buyout?positives[0]??null:null,buyout};
 }
 function resolveRound(save:AuctionSave,auction:Auction):AuctionSave{
- const bids=[{name:'You',cents:auction.selected??0},...auction.npcs.map(npc=>({name:npc.name,cents:npc.bid}))];
+ const describe=(indices:number[])=>indices.map(index=>{const card=auction.lot[index];return `${card.name.slice(0,80)} (${card.printing.slice(0,40)}): $${(card.cents/100).toFixed(2)}`}).join(' · ');
+ const bids:RoundBid[]=[{name:'You',cents:auction.selected??0,notes:auction.clues.map(clue=>({...clue}))},...auction.npcs.map(npc=>({name:npc.name,cents:npc.bid,notes:[{id:'reveal3',label:'Public Starting Cards',text:describe([0,2])},{id:'identity3',label:`Private Sample (${npc.sample.length} copies, with prices)`,text:describe(npc.sample)}]}))];
  const {winner,buyout}=auctionWinner(bids,auction.round,auction.seed);
  if(!winner&&auction.round<4)return {...save,auction:{...auction,stage:'reveal',bids,bidHistory:[...auction.bidHistory,bids]}};
  const value=auction.lot.reduce((sum,card)=>sum+card.cents,0),fee=value-inventoryQuote(addInventory([],auction.lot),auction.lot,auction.feeBps).net,won=winner?.name==='You';
