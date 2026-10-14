@@ -16,6 +16,10 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
   (2026-10-14); production publication remains pending. Browser-saved cash/inventory, current-market holdings,
   configurable 10% selling fee, sealed NPC bidding and investigations. Boundaries
   and deferred phases: `docs/games-auction-house-plan.md`.
+  Follow-up release includes full collection slots, reference card backs, sequential
+  reveal, 60-second pulsing rounds, sound/mute, clue icons, portraits and bid history.
+  Random lots and three-of-seven NPC personalities are implemented; staging
+  publication is in progress. No additional pricing/database calls are required.
 
 - Riftbound Price Showdown is released and verified in production (2026-10-14).
   Shipped features and validation moved to `docs/todo-completed.md`; plan and cost

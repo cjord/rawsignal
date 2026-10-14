@@ -1,6 +1,6 @@
 export const AUCTION_START_CASH=250000;
 export const AUCTION_DEFAULT_FEE=1000; // basis points: virtual selling fee, not real resale guidance
-export const AUCTION_ROUNDS=[{seconds:25,threshold:100},{seconds:25,threshold:60},{seconds:20,threshold:30},{seconds:20,threshold:0}] as const;
+export const AUCTION_ROUNDS=[{seconds:60,threshold:100},{seconds:60,threshold:60},{seconds:60,threshold:30},{seconds:60,threshold:0}] as const;
 export type Holding={productId:number;printing:string;quantity:number};
 export type AuctionCard={productId:number;printing:string;name:string;image:string;set:string;rarity:string;section:string;cents:number};
 export type Wallet={cash:number;feeBps:number;inventory:Holding[]};
@@ -14,7 +14,12 @@ export type AuctionSave={version:1;revision:number;sequence:number;wallet:Wallet
 export const holdingKey=(card:Pick<Holding,"productId"|"printing">)=>`${card.productId}:${card.printing}`;
 export const initialAuctionSave=():AuctionSave=>({version:1,revision:0,sequence:0,wallet:{cash:AUCTION_START_CASH,feeBps:AUCTION_DEFAULT_FEE,inventory:[]},auction:null});
 export const feeFor=(cents:number,bps:number)=>Math.round(cents*bps/10000);
-export function auctionRandom(seed:number){let value=seed>>>0;return()=>{value=(Math.imul(value,1664525)+1013904223)>>>0;return value/4294967296}}
+export function auctionRandom(seed:number){
+ let value=seed>>>0;
+ // Avalanche the seed before the LCG so adjacent auction seeds do not correlate.
+ value=Math.imul(value^(value>>>16),0x7feb352d);value=Math.imul(value^(value>>>15),0x846ca68b);value^=value>>>16;
+ return()=>{value=(Math.imul(value,1664525)+1013904223)>>>0;return value/4294967296};
+}
 export function sampleIndices(length:number,count:number,seed:number,exclude:number[]=[]){
  const random=auctionRandom(seed),indices=Array.from({length},(_,index)=>index).filter(index=>!exclude.includes(index));
  for(let index=indices.length-1;index>0;index--){const swap=Math.floor(random()*(index+1));[indices[index],indices[swap]]=[indices[swap],indices[index]]}

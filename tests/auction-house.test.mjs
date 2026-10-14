@@ -6,7 +6,11 @@ import {beginAuction,buyInformation,lockBid,tickAuction,nextAuctionRound,finishA
 import {INVESTIGATIONS,investigate,knownValue} from '../core/domain/auction-information.ts';
 import {parseAuctionSave} from '../core/domain/auction-save.ts';
 const cards=Array.from({length:24},(_,index)=>({productId:index+1,printing:'Normal',name:`Card ${index+1}`,image:`https://images.example/${index}.jpg`,game:'riftbound',set:'Origins',rarity:index<12?'Common':'Rare',section:'rares',marketPrice:index+1}));
-const catalog=auctionCatalog(cards),start=()=>beginAuction(initialAuctionSave(),catalog,1000);
+const catalog=auctionCatalog(cards),start=()=>beginAuction(initialAuctionSave(),catalog,1000,prototypeLot(catalog));
+test('new auctions expose exact copy count, exclude paid count clues and use one-minute rounds',()=>{
+ const save=start();assert.equal(save.auction.deadline,61000);assert.deepEqual(save.auction.range,[48,48]);assert.ok(save.auction.offers.every(offer=>offer.id!=='count'));
+ const prepared=prototypeLot(catalog),entered=beginAuction(initialAuctionSave(),catalog,1000,prepared);prepared[0].cents=1;assert.notEqual(entered.auction.lot[0].cents,1);
+});
 const fixedBids=(save,bids)=>({...save,auction:{...save.auction,npcs:save.auction.npcs.map((npc,index)=>({...npc,bid:bids[index],locked:false}))}});
 test('auction catalog preserves printing identity, excludes unavailable prices and freezes the prototype lot',()=>{
  const rows=auctionCatalog([...cards,{...cards[0],printing:'Foil',marketPrice:20},{...cards[1],marketPrice:null},{...cards[2],game:'pokemon'},{...cards[3],marketPrice:NaN}]);
@@ -23,7 +27,7 @@ test('information is optional, charged once, retained, affordable and blocked af
  assert.equal(buyInformation(start(),'not-offered',1100).wallet.cash,250000);
  const poor={...start(),wallet:{...start().wallet,cash:0}};assert.equal(buyInformation(poor,poor.auction.offers[0].id,1200),poor);
  const locked=lockBid(start(),10,1100);assert.equal(buyInformation(locked,locked.auction.offers[0].id,1200),locked);
- assert.equal(buyInformation(start(),start().auction.offers[0].id,26000).wallet.cash,250000);
+ assert.equal(buyInformation(start(),start().auction.offers[0].id,61000).wallet.cash,250000);
 });
 test('identity-only and aggregate investigations never leak or double-count known prices',()=>{
  let auction=start().auction;const before=knownValue(auction);
@@ -41,7 +45,7 @@ test('bid lock is irreversible, cents-valid and affordable; NPC acceleration cha
  assert.ok(locked.auction.npcs.every(npc=>npc.lockAt<=4100));
  assert.equal(lockBid(locked,20000,1200),locked);
  for(const invalid of [-1,.5,NaN,Infinity,250001])assert.equal(lockBid(save,invalid,1100),save);
- assert.equal(lockBid(save,10,26000),save);
+ assert.equal(lockBid(save,10,61000),save);
 });
 test('buyouts honor inclusive 100/60/30 percent boundaries, require two positives and tie deterministically',()=>{
  for(const [round,amount] of [[1,200],[2,160],[3,130]]){
@@ -61,8 +65,8 @@ test('unsettled bids expire and next-round bids are independent, with no accumul
  const bought=buyInformation(save,save.auction.offers[0].id,6100);assert.equal(bought.auction.clues.length,1);
 });
 test('deadlines default the player to pass and settlement occurs once across serialized reloads',()=>{
- let save=fixedBids(start(),[100,50,0]);save=tickAuction(parseAuctionSave(JSON.stringify(save)),27000);
- assert.equal(save.auction.selected,0);assert.equal(save.auction.result.winner,'The Dealer');assert.equal(save.wallet.cash,250000);
+ let save=fixedBids(start(),[100,50,0]);save=tickAuction(parseAuctionSave(JSON.stringify(save)),62000);
+ assert.equal(save.auction.selected,0);assert.equal(save.auction.result.winner,save.auction.npcs[0].name);assert.equal(save.wallet.cash,250000);
  assert.equal(tickAuction(save,99999),save);
  assert.equal(tickAuction(parseAuctionSave(JSON.stringify(save)),99999).wallet.cash,250000);
 });

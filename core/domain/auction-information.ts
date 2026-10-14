@@ -30,6 +30,7 @@ export function informationOffers(auction:Auction):Investigation[]{
  return picked;
 }
 function informationUseful(auction:Auction,id:string){
+ if(id==='count')return false; // Every copy now has a visible slot; retain old saved clues.
  if(id==='reveal3')return auction.priced.length<auction.lot.length;
  if(id.startsWith('identity'))return auction.known.length<auction.lot.length;
  if(id==='highest'){const maximum=Math.max(...auction.lot.map(card=>card.cents));return !auction.known.some(index=>auction.lot[index].cents===maximum)}

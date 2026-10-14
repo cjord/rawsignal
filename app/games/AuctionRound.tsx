@@ -1,40 +1,41 @@
 "use client";
 import {useState} from 'react';
+import InfoHint from '../InfoHint';
+import AuctionBidder from './AuctionBidder';
+import AuctionClueIcon from './AuctionClueIcon';
 import {auctionUsd} from './AuctionWallet';
 import {AUCTION_ROUNDS,type Auction,type AuctionSave} from '../../core/domain/auction-types';
 import {buyInformation,lockBid,nextAuctionRound,finishAuction} from '../../core/domain/auction-engine';
 
-type Props={save:AuctionSave;now:number;transact:(update:(save:AuctionSave)=>AuctionSave)=>void};
+type Props={save:AuctionSave;now:number;transact:(update:(save:AuctionSave)=>AuctionSave)=>void;revealDone?:boolean};
 function RoundControls({save,now,transact}:Props){
  const auction=save.auction!,[bid,setBid]=useState(''),locked=auction.selected!==null,expired=now>=auction.deadline;
  const valid=/^\d+(\.\d{1,2})?$/.test(bid),cents=valid?Math.round(Number(bid)*100):NaN;
  const lock=(amount:number)=>transact(current=>lockBid(current,amount,Date.now()));
  return <>
-  <section className="detail-section auction-investigate"><h2>Investigate</h2><p className="games-note">Optional · one purchase per round · costs are not refunded if you lose.</p>
-   <div className="auction-offers">{auction.offers.map(option=><button className="game-control" type="button" key={option.id} disabled={locked||expired||auction.bought||save.wallet.cash<option.cost} onClick={()=>transact(current=>buyInformation(current,option.id,Date.now()))}><span>{option.label}</span><strong>{auctionUsd(option.cost)}</strong></button>)}</div>
+  <section className="detail-section auction-investigate"><h2>Investigate <InfoHint label="Investigation rules">Optional: one purchase per round. Costs are not refunded if you lose.</InfoHint></h2>
+   <div className="auction-offers">{auction.offers.map(option=><button className="game-control" type="button" key={option.id} disabled={locked||expired||auction.bought||save.wallet.cash<option.cost} onClick={()=>transact(current=>buyInformation(current,option.id,Date.now()))}><AuctionClueIcon id={option.id}/><span>{option.label}</span><strong>{auctionUsd(option.cost)}</strong></button>)}</div>
    {auction.bought&&<p role="status" className="games-note">Investigation purchased. Its result stays in your notes.</p>}
   </section>
-  <section className="detail-section auction-bidding" id="auction-bidding"><h2>{locked?'Bid locked':'Place your bid'}</h2><p className="games-note">Available cash: {auctionUsd(save.wallet.cash)}. Each round is a new total bid—not an added payment.</p>
-   {locked?<p className="auction-locked-amount">{auctionUsd(auction.selected!)} · waiting for bidders</p>:<><label>Bid (virtual USD)<input inputMode="decimal" type="text" value={bid} disabled={expired} onChange={event=>setBid(event.target.value)} aria-describedby="auction-bid-help"/></label><p id="auction-bid-help" className="games-note">Up to {auctionUsd(save.wallet.cash)}; locking is irreversible for this round.</p><div className="auction-actions">
-    {[2500,10000,25000].map(amount=><button key={amount} type="button" className="game-control" disabled={amount>save.wallet.cash||expired} onClick={()=>setBid(String(amount/100))}>{auctionUsd(amount)}</button>)}
-    <button className="game-control" type="button" disabled={expired||!valid||!Number.isSafeInteger(cents)||cents>save.wallet.cash} onClick={()=>lock(cents)}>Lock Bid</button><button className="game-control" type="button" disabled={expired} onClick={()=>lock(0)}>Pass ($0)</button>
-   </div></>}
-   <ul className="auction-npcs">{auction.npcs.map(npc=><li key={npc.name}><b>{npc.name}</b><span>{npc.locked?'Locked':'Considering…'}</span></li>)}</ul>
+  <section className="detail-section auction-bidding" id="auction-bidding"><h2>{locked?'Bid Locked':'Place Your Bid'} <InfoHint label="Bidding rules">Each round is a new total bid, not an added payment. Locking is irreversible. Unsubmitted bids become $0 at the deadline.</InfoHint></h2><p className="games-note">Available Cash: {auctionUsd(save.wallet.cash)}</p>
+   {locked?<p className="auction-locked-amount">{auctionUsd(auction.selected!)} · waiting for bidders</p>:<form className="auction-bid-form" onSubmit={event=>{event.preventDefault();if(!expired&&valid&&Number.isSafeInteger(cents)&&cents<=save.wallet.cash)lock(cents)}}><label>Bid (virtual USD)<input inputMode="decimal" type="text" value={bid} disabled={expired} onChange={event=>setBid(event.target.value)}/></label><button className="game-control" type="submit" disabled={expired||!valid||!Number.isSafeInteger(cents)||cents>save.wallet.cash}>Lock Bid</button><button className="game-control" type="button" disabled={expired} onClick={()=>lock(0)}>Pass ($0)</button></form>}
+   <ul className="auction-npcs"><li><AuctionBidder name="You"/><span>{locked?'Locked':'Considering…'}</span></li>{auction.npcs.map(npc=><li key={npc.name}><AuctionBidder name={npc.name}/><span>{npc.locked?'Locked':'Considering…'}</span></li>)}</ul>
   </section>
  </>;
 }
 export function AuctionRoundHeader({auction,now}:{auction:Auction;now:number}){
- return <div className="auction-round-header"><div className="auction-round-heading"><strong>Round {auction.round} / 4</strong><span role="timer" aria-live="off">{auction.stage==='round'?`${Math.min(AUCTION_ROUNDS[auction.round-1].seconds,Math.max(0,Math.ceil((auction.deadline-now)/1000)))}s remaining`:'Bids revealed'}</span>{auction.stage==='round'&&<a className="games-back" href="#auction-bidding">Jump to bid ↓</a>}</div>
+ const seconds=Math.min(60,Math.max(0,Math.ceil((auction.deadline-now)/1000)));
+ return <div className="auction-round-header"><div className="auction-round-heading"><strong>Round {auction.round} / 4</strong><span className={`auction-timer${auction.stage==='round'&&seconds<=10?' is-urgent':''}`} role="timer" aria-live="off">{auction.stage==='round'?`${seconds}s`:'Bids Revealed'}</span>{auction.stage==='round'&&<a className="games-back" href="#auction-bidding">Jump to Bid ↓</a>}</div>
   <p className="games-note">{auction.round<4?`Buyout: top bid must be ${AUCTION_ROUNDS[auction.round-1].threshold}% above second place, with at least two positive bids.`:'Final round: highest positive bid wins; seeded priority breaks ties. All passes mean no sale.'}</p>
  </div>;
 }
-export default function AuctionRound({save,now,transact}:Props){
+export default function AuctionRound({save,now,transact,revealDone=true}:Props){
  const auction=save.auction!;
  return <div className="auction-round-panel">
-  {auction.stage==='round'?<RoundControls key={auction.round} save={save} now={now} transact={transact}/>:<section className="detail-section auction-results"><h2>{auction.stage==='result'?'Auction settled':'Round bids'}</h2>
-   <ul className="auction-bid-reveal">{auction.bids.map(bid=><li className={bid.cents>0&&bid.cents===Math.max(...auction.bids.map(row=>row.cents))?'is-leading':''} key={bid.name}><b>{bid.name}</b><strong>{auctionUsd(bid.cents)}</strong></li>)}</ul>
-   {auction.stage==='reveal'?<><p>No early buyout. Previous bids expire before the next round.</p><button className="game-control" type="button" onClick={()=>transact(current=>nextAuctionRound(current,Date.now()))}>Next auction round</button></>:<AuctionOutcome save={save} transact={transact}/>}
+  {auction.stage==='round'?<RoundControls key={auction.round} save={save} now={now} transact={transact}/>:<section className="detail-section auction-results"><h2>{auction.stage==='result'?'Auction Settled':'Round Bids'}</h2>
+   {auction.stage==='reveal'?<><p>No early buyout. Previous bids expire before the next round.</p><button className="game-control" type="button" onClick={()=>transact(current=>nextAuctionRound(current,Date.now()))}>Next auction round</button></>:revealDone?<AuctionOutcome save={save} transact={transact}/>:<p role="status">Revealing the collection…</p>}
   </section>}
+  {!!auction.bidHistory.length&&<section className="detail-section auction-bid-history"><h2>Bid History</h2>{auction.bidHistory.map((bids,index)=><div key={index}><h3>Round {index+1}</h3><ul className="auction-bid-reveal">{bids.map(bid=><li key={bid.name}><AuctionBidder name={bid.name}/><strong>{auctionUsd(bid.cents)}</strong></li>)}</ul></div>)}</section>}
  </div>;
 }
 function AuctionOutcome({save,transact}:Omit<Props,'now'>){

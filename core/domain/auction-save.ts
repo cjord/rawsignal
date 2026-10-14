@@ -1,5 +1,6 @@
 import {initialAuctionSave,type Auction,type AuctionSave} from "./auction-types.ts";
 import {INVESTIGATIONS} from "./auction-information.ts";
+import {AUCTION_NPCS} from './auction-npcs.ts';
 
 export const AUCTION_STORAGE_KEY='raw-signal-auction-house-v1';
 const record=(value:unknown)=>value!==null&&typeof value==='object'&&!Array.isArray(value);
@@ -10,7 +11,7 @@ function validLot(auction:Auction){
 }
 function validSlots(value:unknown,length:number):value is number[]{return Array.isArray(value)&&value.length<=length&&new Set(value).size===value.length&&value.every(index=>integer(index,length-1))}
 function validNpcs(auction:Auction){
- return Array.isArray(auction.npcs)&&auction.npcs.length===3&&auction.npcs.every(npc=>record(npc)&&['The Dealer','The Collector','The Opportunist'].includes(npc.name)&&integer(npc.bid,250000)&&integer(npc.lockAt,Number.MAX_SAFE_INTEGER)&&typeof npc.locked==='boolean'&&validSlots(npc.sample,auction.lot.length))&&new Set(auction.npcs.map(npc=>npc.name)).size===3;
+ return Array.isArray(auction.npcs)&&auction.npcs.length===3&&auction.npcs.every(npc=>record(npc)&&AUCTION_NPCS.some(profile=>profile.name===npc.name)&&integer(npc.bid,250000)&&integer(npc.lockAt,Number.MAX_SAFE_INTEGER)&&typeof npc.locked==='boolean'&&validSlots(npc.sample,auction.lot.length))&&new Set(auction.npcs.map(npc=>npc.name)).size===3;
 }
 function validBids(bids:unknown){return Array.isArray(bids)&&bids.length<=4&&bids.every(bid=>record(bid)&&text(bid.name)&&integer(bid.cents))}
 function validClues(auction:Auction){
@@ -23,7 +24,7 @@ function validSnapshot(auction:Auction){
 }
 function validResult(auction:Auction){
  if(auction.stage!=='result')return auction.result===null;
- const result=auction.result;return !!result&&record(result)&&(result.winner===null||['You','The Dealer','The Collector','The Opportunist'].includes(result.winner))&&integer(result.bid)&&integer(result.value)&&integer(result.fee)&&typeof result.net==='number'&&Number.isSafeInteger(result.net)&&Math.abs(result.net)<=1e12&&integer(result.playerExpenses)&&typeof result.buyout==='boolean';
+ const result=auction.result;return !!result&&record(result)&&(result.winner===null||result.winner==='You'||AUCTION_NPCS.some(profile=>profile.name===result.winner))&&integer(result.bid)&&integer(result.value)&&integer(result.fee)&&typeof result.net==='number'&&Number.isSafeInteger(result.net)&&Math.abs(result.net)<=1e12&&integer(result.playerExpenses)&&typeof result.buyout==='boolean';
 }
 function validAuction(value:unknown):value is Auction{
  if(!record(value))return false;const auction=value as Auction;

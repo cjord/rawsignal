@@ -1,33 +1,39 @@
 import {AUCTION_ROUNDS,auctionRandom,sampleIndices,type Auction,type AuctionCard,type AuctionSave,type Npc,type RoundBid} from "./auction-types.ts";
-import {addInventory,inventoryQuote,prototypeLot} from "./auction-market.ts";
+import {addInventory,inventoryQuote} from "./auction-market.ts";
+import {generateAuctionLot} from './auction-lots.ts';
+import {AUCTION_NPCS,auctionNpcRoster,auctionNpcMood} from './auction-npcs.ts';
 import {informationOffers,investigate} from "./auction-information.ts";
 
-const NPCS=[{name:'The Dealer',participation:.85,margin:.65},{name:'The Collector',participation:.9,margin:1.05},{name:'The Opportunist',participation:.8,margin:.85}];
 // This bidder knows only sample prices and a count range, never the full lot or sealed player bid.
-export function npcBid(sample:number[],range:[number,number],priorBids:number[],personality:number,random:()=>number):number{
- const npc=NPCS[personality];if(random()>npc.participation)return 0;
+export function npcBid(sample:number[],range:[number,number],priorBids:number[],personality:number,random:()=>number,feeBps=1000,confidence=1,participation=0):number{
+ const npc=AUCTION_NPCS[personality]??AUCTION_NPCS[0];if(random()>Math.min(1,Math.max(0,npc.participation+participation)))return 0;
+ const ordered=[...sample].sort((a,b)=>a-b),middle=Math.floor(ordered.length/2);
+ const median=ordered.length?(ordered[middle]+ordered[Math.max(0,middle-(ordered.length%2===0?1:0))])/2:0;
  const sampleAverage=sample.reduce((sum,price)=>sum+price,0)/Math.max(1,sample.length);
- const estimate=sampleAverage*(range[0]+range[1])/2;
+ const estimate=(sampleAverage*.6+median*.4)*(range[0]+range[1])/2*(1-feeBps/10000);
+ if(estimate<=0)return 0;
  const prior=priorBids.length?priorBids.reduce((sum,price)=>sum+price,0)/priorBids.length:estimate;
- return Math.max(1,Math.min(250000,Math.round((estimate*.85+prior*.15)*npc.margin*(.75+random()*.5))));
+ return Math.max(1,Math.min(250000,Math.round((estimate*(1-npc.prior)+prior*npc.prior)*npc.margin*confidence*(1-npc.noise+random()*npc.noise*2))));
 }
 function roundNpcs(auction:Auction,now:number):Npc[]{
  const random=auctionRandom(auction.seed+auction.round*103);
- return NPCS.map((npc,index)=>{
+ const roster=auction.npcs.length?auction.npcs.map(npc=>AUCTION_NPCS.find(profile=>profile.name===npc.name)!):auctionNpcRoster(auction.seed);
+ return roster.map((npc,index)=>{
   const sample=sampleIndices(auction.lot.length,3+auction.round,auction.seed+index*67+auction.round,[0,2]);
   const prices=[...[0,2].map(slot=>auction.lot[slot].cents),...sample.map(slot=>auction.lot[slot].cents)];
   const prior=auction.bidHistory.at(-1)?.map(bid=>bid.cents)??[];
-  return {name:npc.name,sample,bid:npcBid(prices,auction.range,prior,index,random),lockAt:now+Math.round((.3+random()*.6)*AUCTION_ROUNDS[auction.round-1].seconds*1000),locked:false};
+  const mood=auctionNpcMood(auction.seed,npc.name),personality=AUCTION_NPCS.findIndex(profile=>profile.name===npc.name);
+  return {name:npc.name,sample,bid:npcBid(prices,auction.range,prior,personality,random,auction.feeBps,mood.confidence,mood.participation),lockAt:now+Math.round((.3+random()*.6)*AUCTION_ROUNDS[auction.round-1].seconds*1000),locked:false};
  });
 }
 function openRound(auction:Auction,now:number):Auction{
  const next={...auction,stage:'round' as const,deadline:now+AUCTION_ROUNDS[auction.round-1].seconds*1000,bought:false,selected:null,bids:[]};
  next.offers=informationOffers(next);next.npcs=roundNpcs(next,now);return next;
 }
-export function beginAuction(save:AuctionSave,catalog:AuctionCard[],now:number):AuctionSave{
+export function beginAuction(save:AuctionSave,catalog:AuctionCard[],now:number,prepared?:AuctionCard[],seed=7411+save.sequence*137):AuctionSave{
  if(save.auction)return save;
- const lot=prototypeLot(catalog);if(!lot.length)return save;
- const auction:Auction={seed:7411+save.sequence*137,stage:'round',round:1,deadline:0,lot,range:[Math.floor(lot.length/25)*25,Math.ceil((lot.length+1)/25)*25],known:[0,2],priced:[0,2],offers:[],clues:[],bought:false,spent:0,selected:null,npcs:[],bids:[],bidHistory:[],result:null,feeBps:save.wallet.feeBps};
+ const lot=(prepared??generateAuctionLot(catalog,seed)).map(card=>({...card}));if(lot.length<6)return save;
+ const auction:Auction={seed,stage:'round',round:1,deadline:0,lot,range:[lot.length,lot.length],known:[0,2],priced:[0,2],offers:[],clues:[],bought:false,spent:0,selected:null,npcs:[],bids:[],bidHistory:[],result:null,feeBps:save.wallet.feeBps};
  return {...save,sequence:save.sequence+1,auction:openRound(auction,now)};
 }
 export function buyInformation(save:AuctionSave,id:string,now:number):AuctionSave{
@@ -44,7 +50,7 @@ export function lockBid(save:AuctionSave,cents:number,now:number):AuctionSave{
  return {...save,auction:{...auction,selected:cents,npcs:auction.npcs.map(npc=>({...npc,lockAt:npc.locked?npc.lockAt:Math.min(npc.lockAt,now+500+Math.round(random()*2500))}))}};
 }
 export function auctionWinner(bids:RoundBid[],round:number,seed:number):{winner:RoundBid|null;buyout:boolean}{
- const priority=['You',...NPCS.map(npc=>npc.name)],offset=seed%4;
+ const priority=['You',...bids.map(bid=>bid.name).filter(name=>name!=='You').sort()],offset=seed%4;
  const positives=bids.filter(bid=>bid.cents>0).sort((a,b)=>b.cents-a.cents||((priority.indexOf(a.name)+offset)%4)-((priority.indexOf(b.name)+offset)%4));
  const buyout=round<4&&positives.length>=2&&positives[0].cents*100>=positives[1].cents*(100+AUCTION_ROUNDS[round-1].threshold);
  return {winner:round===4||buyout?positives[0]??null:null,buyout};

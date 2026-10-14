@@ -1,28 +1,31 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- local optimized WebP back; no provider requests */
 import {useState} from 'react';
 import DeferredImage from '../DeferredImage';
+import InfoHint from '../InfoHint';
 import AuctionDialog from './AuctionDialog';
 import {auctionUsd} from './AuctionWallet';
 import {knownValue} from '../../core/domain/auction-information';
 import type {Auction} from '../../core/domain/auction-types';
+import AuctionClueIcon from './AuctionClueIcon';
 
-export default function AuctionCollection({auction}:{auction:Auction}){
+export default function AuctionCollection({auction,visible,done,skip}:{auction:Auction;visible:number[];done:boolean;skip:()=>void}){
  const [inspected,setInspected]=useState<number|null>(null),complete=auction.stage==='result';
- const visible=complete?auction.lot.map((_,index)=>index):auction.known;
  const selected=inspected===null?null:auction.lot[inspected],priceKnown=complete||inspected!==null&&auction.priced.includes(inspected);
+ const value=complete?visible.reduce((sum,index)=>sum+auction.lot[index].cents,0):knownValue(auction);
+ const result=auction.result,fee=result?Math.round(result.fee*value/result.value):0;
+ const net=result?value-fee-result.bid-(result.winner==='You'?result.playerExpenses:0):0;
  return <section className="detail-section auction-collection">
-  <span className="games-eyebrow">Small binder · casual collector</span><h2>{complete?'Collection revealed':'Mystery collection'}</h2>
-  <p className="games-note">A former player’s small binder: mixed Riftbound singles, including duplicates. Approximately {auction.range[0]}–{auction.range[1]} copies. All cards are modeled Near Mint.</p>
-  {!complete&&<p className="auction-known-value">Known value: <strong>{auctionUsd(knownValue(auction))}</strong><small>Only individually revealed prices. Aggregate clues below are separate—not added twice.</small></p>}
-  <div className="auction-collection-grid">{visible.map(index=>{
-   const card=auction.lot[index],priced=complete||auction.priced.includes(index);
-   const top=complete&&card.cents===Math.max(...auction.lot.map(row=>row.cents));
-   return <button className={`auction-card${top?' is-top-value':''}`} type="button" key={index} onClick={()=>setInspected(index)} aria-label={`Inspect ${card.name}${priced?'':', price unknown'}`}>
-    <DeferredImage src={card.image} alt=""/><b>{card.name}</b><small>{card.printing} · {card.rarity}</small><strong>{priced?auctionUsd(card.cents):'Price Unknown'}</strong>{top&&<small>Top value</small>}
+  <div className="auction-collection-heading"><h2>{complete?'Collection Revealed':'Mystery Collection'}</h2><strong className="auction-copy-count">{auction.lot.length}<small>Cards</small></strong></div>
+  <p className="auction-known-value">{complete?'Market Value':'Known Value'}: <strong>{auctionUsd(value)}</strong> <InfoHint label="Collection value explanation">{complete?'The frozen auction market value adds up as cards flip. Net profit includes selling fees, the winning bid and winner’s investigation spend.':'Only individually revealed prices; aggregate clues are separate and never counted twice.'}</InfoHint>{complete&&result?.winner&&<> · Net Profit / Loss: <strong className={net>=0?'up':'down'}>{auctionUsd(net)}</strong></>}{complete&&!done&&<button className="game-control" type="button" onClick={skip}>Skip Reveal</button>}</p>
+  <div className="auction-collection-grid">{auction.lot.map((card,index)=>{
+   if(!visible.includes(index))return <div className="auction-card is-hidden" key={index} aria-label={`Unrevealed card ${index+1}`}><span className="auction-back-art"><img src="/images/games/riftbound-card-back.webp" alt=""/><b aria-hidden="true">?</b></span></div>;
+   const priced=complete||auction.priced.includes(index),rarity=/signature|overnumber|over-number/i.test(card.section)?'premium':/alt/i.test(card.section)?'epic':card.rarity.toLowerCase();
+   return <button className={`auction-card${complete&&!auction.known.includes(index)?' is-flipping':''}`} data-rarity={rarity} type="button" key={index} onClick={()=>setInspected(index)} aria-label={`Inspect ${card.name}${priced?'':', price unknown'}`}>
+    <DeferredImage src={card.image} alt=""/><b>{card.name}</b><small>{card.printing} · {card.rarity}</small><strong>{priced?auctionUsd(card.cents):'Price Unknown'}</strong>
    </button>;
   })}</div>
-  {!complete&&<div className="auction-hidden"><span className="auction-card-back" aria-hidden="true">?</span><p>{auction.clues.some(clue=>clue.id==='count')?`${auction.lot.length-visible.length} unrevealed copies`:'Unrevealed copies'} <small>Investigations can reveal more. Exact contents stay hidden until settlement.</small></p></div>}
-  {!!auction.clues.length&&<div className="auction-clues"><h3>Investigation notes</h3><ul>{auction.clues.map(clue=><li key={clue.id}><b>{clue.label}</b><span>{clue.text}</span></li>)}</ul></div>}
-  {selected&&<AuctionDialog title={selected.name} onClose={()=>setInspected(null)}><DeferredImage className="auction-inspect-art" src={selected.image} alt={selected.name}/><p>{selected.printing} · {selected.set} · Near Mint</p><strong>{priceKnown?auctionUsd(selected.cents):'Price Unknown'}</strong></AuctionDialog>}
+  {!!auction.clues.length&&<div className="auction-clues"><h3>Investigation Notes</h3><ul>{auction.clues.map(clue=><li key={clue.id}><b><AuctionClueIcon id={clue.id}/>{clue.label}</b><span>{clue.text}</span></li>)}</ul></div>}
+  {selected&&<AuctionDialog title={selected.name} onClose={()=>setInspected(null)}><DeferredImage className="auction-inspect-art" src={selected.image} alt={selected.name}/><p>{selected.printing} · {selected.set}</p><strong>{priceKnown?auctionUsd(selected.cents):'Price Unknown'}</strong></AuctionDialog>}
  </section>;
 }
