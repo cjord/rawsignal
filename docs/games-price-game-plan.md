@@ -83,6 +83,14 @@ Normal/Hard scoring/history, real artwork and both themes. Eleven initial catalo
 requests and zero further pricing requests, no browser errors. No migrations,
 data refreshes, cron changes or production deployment.
 
+Production release (2026-10-14): already-pushed source `f72c22c`, Worker version
+`6e7e8e08`. Full release gate passed (397 unit tests, one skipped; 33 browser tests,
+no new lint warnings). Live production checks passed for real artwork, scoring,
+Normal/Hard, compact history, control copy and desktop/mobile in both themes.
+Eleven initial catalog requests, no extra pricing calls while playing, no browser
+errors. No migration/data refresh; existing production D1, guard cron and secrets
+preserved. Staging remains on `08e67604`.
+
 ## Control and artwork polish (2026-10-14)
 
 Difficulty, Auto next round and Restart game share the 56px control height and
@@ -91,7 +99,7 @@ difficulty slider sits above the Auto/Restart pair to avoid cramped controls.
 Restart uses the standard blue hover border. Score/streak/round numerals are
 reduced from 24px to 20px. Auto-next preference stays unchanged when restarting
 or changing difficulty. No extra data requests or writes. Released to staging with
-round history; production unchanged.
+round history, then promoted to production as recorded above.
 
 Polish validation: `npm run check` passed (396 unit tests passed, one skipped;
 31 Chromium tests; no new lint warnings). Browser assertions cover equal control

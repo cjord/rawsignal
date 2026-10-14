@@ -9,6 +9,27 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-14 — Riftbound Price Showdown
+
+Published already-pushed source `f72c22c` to production Worker version `6e7e8e08`.
+Staging remains on `08e67604`. Full gate: 397 unit tests passed, one skipped;
+33 Chromium tests, no new lint warnings. Live production browser checks passed
+for tile artwork, Normal/Hard scoring, reveal, compact expandable history,
+updated controls and desktop/mobile dark/light layouts, with no browser errors.
+
+- Games navigation and styled tile; Riftbound singles only, two/three-card rounds.
+- 70/25/5 same/adjacent/random rarity preference, verified images and frozen prices.
+- Session score/streak, shared artwork tilt, one-second reveal, manual/auto next.
+- Blue/black reference-back tile art, shared controls, smaller score values.
+- Showdown History: image-left name/price tiles, green/red picks, scrollbar spacing,
+  no visible round/outcome captions, reset with score/difficulty.
+- Loading skeletons cover catalog/artwork preparation and respect reduced motion.
+- Eleven initial feed requests, no additional pricing calls per round/history,
+  no database writes or new upstream pricing API spending. No migration or data
+  refresh; production database, guard cron and secrets remain unchanged.
+
+Pokémon and opt-in mixed sealed rounds remain deferred in `docs/todo.md`.
+
 ## 2026-10-14 — Shared history snapshots, promo artwork and testing notes
 
 Application commit `60b54d0` deployed to staging and production. Final Worker
