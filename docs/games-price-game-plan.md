@@ -23,3 +23,10 @@ Final name chosen by the user: **Riftbound Price Showdown** (2026-10-14). The ro
 Unit tests cover eligibility, ambiguous printings, ties, distinct rounds, repeat avoidance and double-answer protection. Browser tests cover concealment, scoring, reveal/advance, difficulty reset, keyboard input, responsive layout and request counts. Full release gate required before deployment. Implementation is local; deployment needs a separate user request.
 
 Validated 2026-10-14: `npm run check` passes (393 unit tests passed, one skipped; 29 Chromium tests passed). No new lint warnings. Dark/light game layouts checked at 1440, 561 and 390px; the shared navigation switches to its compact row below 700px to fit the sixth tab. Existing local D1 schema/cache warnings on older detail-page fixtures remain outside this feature. Test-only fresh page keys and external-script isolation keep browser fixtures deterministic; production cache and affiliate behavior are unchanged.
+
+Staging release 2026-10-14: application commit `7ce4e7f`, Worker version `fac134e0`.
+Deployed to `https://raw-signal-staging.raw-signal-watch.workers.dev/games/riftbound-price`;
+live checks passed for the chosen name/page title, concealed prices, reveal/scoring,
+Normal/Hard, desktop/mobile and both themes. Eleven initial catalog requests and zero
+additional pricing calls across rounds/difficulty changes; no browser errors.
+No migration, data refresh, cron change or production deployment was performed.

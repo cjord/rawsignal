@@ -14,8 +14,8 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 - Riftbound singles first: Games navigation/tile, Normal (two cards), Hard (three),
   session score/streak, shared art tilt and one-second answer reveal. Implemented and
-  validated locally; renamed **Riftbound Price Showdown** by the user, with staging
-  publication requested (production remains unchanged). Plan and cost boundaries: `docs/games-price-game-plan.md`.
+  validated and deployed to staging as **Riftbound Price Showdown** (2026-10-14).
+  Production publication remains pending. Plan and cost boundaries: `docs/games-price-game-plan.md`.
 - Later: Pokémon tile/pool using the shared game engine; decide language/printing scope.
 - Mixed sealed/card rounds remain deferred and opt-in pending product-type/price-band decisions.
 - No per-round API calls, sales/history spending or database writes. No public score leaderboard.
