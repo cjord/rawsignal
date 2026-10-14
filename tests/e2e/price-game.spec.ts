@@ -168,9 +168,9 @@ test("Games tile has the generated artwork in desktop/mobile and both themes",as
  for(const width of [1440,390])for(const theme of ["dark","light"]){
   await page.setViewportSize({width,height:1000});await page.goto("/games");
   await page.evaluate(theme=>{document.documentElement.dataset.theme=theme},theme);
-  const artwork=page.locator(".game-tile-art img");await expect(artwork).toBeVisible();
+  const artwork=page.getByRole("link",{name:/Riftbound Price Showdown/}).locator(".game-tile-art img");await expect(artwork).toBeVisible();
   await expect(artwork).toHaveAttribute("src","/images/games/riftbound-price-showdown-v2.webp");
-  await expect(page.locator(".game-tile-art")).toHaveClass(/is-loaded/);
+  await expect(page.getByRole("link",{name:/Riftbound Price Showdown/}).locator(".game-tile-art")).toHaveClass(/is-loaded/);
   expect(await artwork.evaluate(image=>(image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:testInfo.outputPath(`games-tile-${width}-${theme}.png`),fullPage:true,animations:"disabled"});

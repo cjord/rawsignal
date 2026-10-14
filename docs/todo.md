@@ -12,6 +12,11 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
+- Auction House single-auction prototype implemented locally; staging validation
+  and release pending. Browser-saved cash/inventory, current-market holdings,
+  configurable 10% selling fee, sealed NPC bidding and investigations. Boundaries
+  and deferred phases: `docs/games-auction-house-plan.md`.
+
 - Riftbound Price Showdown is released and verified in production (2026-10-14).
   Shipped features and validation moved to `docs/todo-completed.md`; plan and cost
   boundaries remain in `docs/games-price-game-plan.md`.
