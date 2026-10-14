@@ -8,6 +8,7 @@ import type {Card} from '../../core/domain/types';
 import {holdingKey} from '../../core/domain/auction-types';
 import {inventoryQuote} from '../../core/domain/auction-market';
 import {changeAuctionFee,sellInventory} from '../../core/domain/auction-engine';
+import {auctionRarity} from '../../core/domain/auction-display';
 
 export const auctionUsd=(cents:number)=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(cents/100);
 type Props={save:AuctionSave;catalog:AuctionCard[];cards:Card[];transact:(update:(save:AuctionSave)=>AuctionSave)=>void;reset:()=>void;refresh:()=>void;loading:boolean};
@@ -20,7 +21,7 @@ export default function AuctionWallet({save,catalog,cards,transact,reset,refresh
   <div className="auction-actions"><button className="game-control" type="button" disabled={loading} onClick={refresh}>Refresh market</button><button className="game-control" type="button" onClick={()=>setConfirm('reset')}>Reset cash &amp; inventory</button></div>
   {quote.unpriced>0&&<p className="games-note">{quote.unpriced} owned copies have unavailable current prices. You can sell priced copies; unavailable ones remain in inventory.</p>}
   <details className="auction-inventory"><summary>Inventory ({save.wallet.inventory.reduce((sum,row)=>sum+row.quantity,0)} copies)</summary>
-   {!quote.rows.length?<p className="games-note">Win an auction to start your collection.</p>:<><div className="auction-inventory-grid">{quote.rows.map(row=><div className="auction-owned-card" key={holdingKey(row.holding)}>
+   {!quote.rows.length?<p className="games-note">Win an auction to start your collection.</p>:<><div className="auction-inventory-grid">{quote.rows.map(row=><div className="auction-owned-card" data-rarity={auctionRarity(metadata.get(holdingKey(row.holding)))} key={holdingKey(row.holding)}>
     <DeferredImage src={metadata.get(holdingKey(row.holding))?.image} alt=""/><div><b>{metadata.get(holdingKey(row.holding))?.name??`Card ${row.holding.productId}`}</b><small>{row.holding.printing} · Near Mint · ×{row.holding.quantity}</small><strong>{!loading&&row.net!==null?auctionUsd(row.net):'N/A'} after fee</strong></div>
    </div>)}</div><button className="game-control" type="button" disabled={!between||loading||!quote.rows.some(row=>row.net!==null)} onClick={()=>setConfirm('sell')}>Sell priced inventory</button></>}
    {!between&&<p className="games-note">Inventory selling and fee changes are available between auctions. Finish reviewing the auction first.</p>}

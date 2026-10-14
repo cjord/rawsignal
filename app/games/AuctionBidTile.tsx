@@ -6,8 +6,10 @@ import type {RoundBid} from '../../core/domain/auction-types';
 import AuctionClueIcon from './AuctionClueIcon';
 import AuctionBidder from './AuctionBidder';
 import {auctionUsd} from './AuctionWallet';
+import {publicAuctionBidNotes} from '../../core/domain/auction-display';
 
 export default function AuctionBidTile({bid,round,leading=false}:{bid:RoundBid;round:number;leading?:boolean}){
+ const notes=publicAuctionBidNotes(bid);
  const id=useId(),button=useRef<HTMLButtonElement>(null),panel=useRef<HTMLDivElement>(null),timer=useRef<ReturnType<typeof setTimeout>|null>(null);
  const [open,setOpen]=useState(false),[position,setPosition]=useState({left:0,top:0,above:false});
  const cancel=()=>{if(timer.current)clearTimeout(timer.current)};
@@ -25,10 +27,10 @@ export default function AuctionBidTile({bid,round,leading=false}:{bid:RoundBid;r
  },[open,id]);
  return <>
   <button ref={button} className={`auction-history-cell${leading?' is-winning':''}${open?' is-inspected':''}`} data-completed="true" type="button" aria-label={`${bid.name}, round ${round}, ${auctionUsd(bid.cents)}${leading?', round leader':''}: investigation notes`} aria-expanded={open} aria-describedby={open?id:undefined} onPointerEnter={event=>{if(event.pointerType==='mouse')show()}} onPointerLeave={leave} onFocus={show} onBlur={event=>{if(!panel.current?.contains(event.relatedTarget))leave()}} onClick={()=>{cancel();show()}}>
-   <strong>{auctionUsd(bid.cents)}</strong><span className="auction-bid-clues">{bid.notes?.map(note=><AuctionClueIcon key={note.id} id={note.id}/>)}{bid.notes?.length===0&&<small>No Clues</small>}{bid.notes===undefined&&<small>Notes Unavailable</small>}</span>{leading&&<small>Round Leader</small>}
+   <strong>{auctionUsd(bid.cents)}</strong><span className="auction-bid-clues">{notes?.map(note=><AuctionClueIcon key={note.id} id={note.id}/>)}{notes?.length===0&&<small>No Clues</small>}{notes===undefined&&<small>Notes Unavailable</small>}</span>{leading&&<small>Round Leader</small>}
   </button>
   {open&&createPortal(<div ref={panel} id={id} role="tooltip" className="auction-bid-popup" style={{left:position.left,top:position.top,transform:position.above?'translateY(-100%)':undefined}} onPointerEnter={cancel} onPointerLeave={leave} tabIndex={0} onFocus={cancel} onBlur={leave}>
-   <AuctionBidder name={bid.name}/><strong>Round {round}</strong>{bid.notes===undefined?<p>Investigation history is unavailable for this older saved round.</p>:bid.notes.length===0?<p>No investigations purchased by this round.</p>:<ul>{bid.notes.map(note=><li key={note.id}><b><AuctionClueIcon id={note.id}/>{note.label}</b><p>{note.text}</p></li>)}</ul>}
+   <AuctionBidder name={bid.name}/><strong>Round {round}</strong>{notes===undefined?<p>Investigation history is unavailable for this older saved round.</p>:notes.length===0?<p>No investigations purchased by this round.</p>:<ul>{notes.map(note=><li key={note.id}><b><AuctionClueIcon id={note.id}/>{note.label}</b><p>{note.text}</p></li>)}</ul>}
   </div>,document.body)}
  </>;
 }

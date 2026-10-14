@@ -9,7 +9,7 @@ test('bid notes capture actual clue knowledge only after reveal and remain immut
  save={...save,auction:{...save.auction,npcs:save.auction.npcs.map(npc=>({...npc,bid:100,locked:true}))}};save=lockBid(save,100,1200);
  assert.equal(save.auction.bidHistory.length,0);save=tickAuction(save,1500);assert.equal(save.auction.stage,'reveal');
  const bids=save.auction.bidHistory[0];assert.deepEqual(bids[0].notes,save.auction.clues);assert.notEqual(bids[0].notes[0],save.auction.clues[0]);
- for(let index=1;index<4;index++){const npc=save.auction.npcs[index-1],notes=bids[index].notes;assert.equal(notes.length,2);for(const slot of npc.sample)assert.ok(notes[1].text.includes(save.auction.lot[slot].name))}
+ for(let index=1;index<4;index++){const notes=bids[index].notes;assert.equal(notes.length,2);assert.equal(notes[1].label,'Private Inspection');assert.ok(!notes.some(note=>/Card \d|\$/.test(note.text)))}
  const snapshot=JSON.stringify(bids);save=nextAuctionRound(save,2000);save=buyInformation(save,save.auction.offers[0].id,2100);assert.equal(JSON.stringify(save.auction.bidHistory[0]),snapshot);assert.deepEqual(parseAuctionSave(JSON.stringify(save)),save);
 });
 test('legacy notes stay unavailable and malformed new notes are rejected without dropping the save',()=>{

@@ -25,7 +25,7 @@ Route `/games/riftbound-auction`, tile alongside Showdown on `/games`.
   deadline starts. Reload/background time does not pause an active deadline.
 - NPC bid amounts are fixed before the player's lock. Their valuation function
   receives only publicly visible starting cards, a bounded private sample, the
-  public count, selling fee, personality and already-revealed prior bids—not full lot value or
+  public count, selling fee and personality—not other bidders' prices, full lot value or
   the current sealed player bid. Each auction gives NPCs fresh $2,500
   bid budgets; private inspection has no modeled charge in this first phase.
 - Fourteen offered fixed-price investigations (plus legacy count clues) in Basic/Targeted/Strong/Premium tiers,
@@ -45,7 +45,7 @@ Route `/games/riftbound-auction`, tile alongside Showdown on `/games`.
 using the bundled priced Riftbound catalog, with the human always passing and no
 image probes or network calls. It is game balancing evidence, not a prediction of
 real player outcomes or market returns. Seven profiles vary participation, bidding
-margin, estimation noise and prior-bid influence. Three distinct rivals are drawn
+margin and estimation noise. Three distinct rivals are drawn
 per auction; their confidence/participation mood and roster stay fixed for that
 auction, while bounded private samples and bidding noise change by round.
 
@@ -53,13 +53,14 @@ The old fixed 48-copy lot ($432.82) produced 561 Collector, 278 Opportunist and
 160 Dealer wins; 878 of 999 NPC wins were after-fee losses. Its three fixed rivals
 used a raw sample mean without fees, which let an expensive sampled card inflate
 an estimate. New valuation blends sample mean (60%) and median (40%), applies the
-configured fee, and then the personality/mood/noise. Prior bids are revealed-only;
-the Follower weights them more heavily. NPCs never receive full collection value
+configured fee, and then the personality/mood/noise. The current model ignores
+other bidders' prices, including previous-round bids. NPCs never receive full collection value
 or the human's current sealed bid. Private samples grow from 4 to 7 copies over
 four rounds, in addition to two public starting copies. NPCs keep $2,500 virtual
 bid caps and do not accumulate inventory or persistent cash between auctions.
 
-New simulation (different randomized lots, not a controlled same-lot A/B):
+Earlier release simulation (before the private-information-only revision below;
+different randomized lots, not a controlled same-lot A/B):
 
 | Personality | Appeared | Wins | Unprofitable wins | Average winner net |
 |---|---:|---:|---:|---:|
@@ -89,6 +90,31 @@ reuse the existing optimized illustrated portrait family with name/role tooltips
 
 ## Saved inventory and economy
 
+### Investigation layout and NPC privacy corrections — 2026-10-14
+
+Investigate and bidding stretch to equal desktop heights; bid input/buttons share
+exact top/bottom alignment. Purchasing replaces offers with the current result
+in the left panel. Previous clues remain in a disclosure there and your bid popups,
+not at the bottom of the collection. Visible slots are ordered first without
+changing frozen slot identities, prices or inspection targets. Inventory and
+collection share one rarity resolver. Reset/sale/card dialogs are viewport-centered.
+Unlocked bidders pulse blue (static under reduced motion); settled metric tiles
+gain blue hover borders. Zero/unavailable metrics stay neutral; nonzero expenses
+and actual losses keep their cost/loss colors. The fee title is Selling Fee.
+
+NPC estimates use only personally accumulated private samples (four copies first,
+one new copy per round up to seven), public starting cards/count, fee and margin.
+They do not react to current OR prior rival bids. Price noise is bounded to
+±4–16% by personality, with an auction confidence mood of ±6%; participation
+still controls passes. Locked amounts and existing finished results are unchanged.
+New NPC note snapshots contain only information types; legacy detailed hover notes
+are sanitized without destroying saves. The full lot remains client-side for
+casual single-player play; this is UI privacy, not a tamper-proof competition.
+An updated 1,000-auction bundled-catalog, human-always-passes simulation produced
+999 NPC winners and 400 unprofitable wins: Gambler 192 wins, Collector 187,
+Analyst 170, Follower 168, Opportunist 109, Dealer 107, Bargain Hunter 66.
+These are game-balancing observations, not real-world outcomes.
+
 ### Bid review and result presentation — 2026-10-14
 
 Staging release: application `8d29a28`, Worker version `35f8b249`, same staging
@@ -110,14 +136,13 @@ outside the horizontally scrollable matrix; bidder row labels remain visible
 while scrolling. Only one popup is open at a time. Names have consistent,
 theme-aware participant colors, backed by explicit names and portraits.
 
-Each completed round now records optional `RoundBid.notes` snapshots in the existing
-browser save: the human's purchased clues available by that round, and the NPC's
-two public starting cards plus its actual private sample with frozen prices.
-This records what the bidder knew, not their exact estimate or fictional purchases.
-Private information stays off the active-round UI until bids reveal. Older saves
-remain valid; missing historical notes are explicitly unavailable, not reconstructed.
-The new review gives the human optional post-round NPC information; NPC estimation
-still uses its existing sample/prior-bid model. Revisit balancing after playtesting.
+Each completed round records optional `RoundBid.notes` in the existing browser save:
+the human's actual purchased clue results, and only the TYPES of NPC information
+(public starting cards and private inspection). The initial review release exposed
+private sample prices; this has been superseded by the privacy correction below.
+Exact NPC cards, sample prices and estimates are never shown in hover notes, even
+for older detailed saved rounds (their UI notes are sanitized). Older saves remain
+valid; missing notes are explicitly unavailable, not reconstructed.
 No extra save writes, database calls, API calls or image generation are required
 for note popups: snapshots piggyback on the existing round-resolution save.
 

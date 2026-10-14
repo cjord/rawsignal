@@ -25,8 +25,11 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
   clue snapshots/popups, full-width results, winner pause and player-win confetti.
   Validated with 415 unit tests and 41 browser checks; deployed and verified on
   staging (application `8d29a28`, version `35f8b249`, 2026-10-14).
-  Review NPC balance after player testing
-  because completed rounds now expose private sample notes to the human.
+  Review NPC balance after player testing. The privacy correction now keeps NPC
+  sample identities/prices private and bases estimates on personal accumulated
+  inspection only; no other bidders' price inputs. Equal-height investigation
+  panels, aligned bid controls, neutral zero metrics, rarity-matched inventory and
+  centered dialogs are prepared for staging.
 
 - Riftbound Price Showdown is released and verified in production (2026-10-14).
   Shipped features and validation moved to `docs/todo-completed.md`; plan and cost

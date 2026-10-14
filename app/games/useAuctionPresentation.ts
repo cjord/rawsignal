@@ -7,7 +7,8 @@ export function useAuctionReveal(auction:Auction|null,start=true){
  const [progress,setProgress]=useState<{seed:number;count:number}|null>(null);
  const finished=auction?.stage==='result'&&start;
  useEffect(()=>{
-  if(!finished||!auction||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  if(!finished){const reset=setTimeout(()=>setProgress(null),0);return()=>clearTimeout(reset)}
+  if(!auction||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
   const seed=auction.seed,total=auction.lot.length-auction.known.length;let count=0;
   const timer=window.setInterval(()=>{count++;setProgress(previous=>({seed,count:previous?.seed===seed?Math.max(previous.count,count):count}));if(count>=total)clearInterval(timer)},85);
   return()=>clearInterval(timer);
