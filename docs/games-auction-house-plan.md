@@ -92,6 +92,16 @@ reuse the existing optimized illustrated portrait family with name/role tooltips
 
 ### Investigation layout and NPC privacy corrections — 2026-10-14
 
+Staging application `842cfe7`, version `e100bb10`. Full gate passed with 419 unit
+tests, one skipped, and 42 Chromium checks; no new lint warnings. Real staging
+verification passed with an 80-copy auction and Analyst/Dealer/Collector roster:
+equal panel heights, aligned controls, purchased clue replacing offers, no notes
+under the collection, type-only NPC popup without prices, centered reset, saved
+inventory/sale and another collection after reset. Desktop/mobile dark/light checks
+passed with zero browser errors; eleven initial catalog calls, eleven on reload,
+zero additional gameplay pricing calls. Production, database contents and cron
+schedules were not changed.
+
 Investigate and bidding stretch to equal desktop heights; bid input/buttons share
 exact top/bottom alignment. Purchasing replaces offers with the current result
 in the left panel. Previous clues remain in a disclosure there and your bid popups,

@@ -29,7 +29,8 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
   sample identities/prices private and bases estimates on personal accumulated
   inspection only; no other bidders' price inputs. Equal-height investigation
   panels, aligned bid controls, neutral zero metrics, rarity-matched inventory and
-  centered dialogs are prepared for staging.
+  centered dialogs are deployed and verified on staging (application `842cfe7`,
+  version `e100bb10`, 2026-10-14). Full gate: 419 unit tests and 42 browser checks.
 
 - Riftbound Price Showdown is released and verified in production (2026-10-14).
   Shipped features and validation moved to `docs/todo-completed.md`; plan and cost
