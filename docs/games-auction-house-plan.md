@@ -94,6 +94,23 @@ promise of real resale profitability. All money is fictional and nonredeemable.
 
 ## Tile artwork
 
+## Staging release — 2026-10-14
+
+Application commit `15e5978`, Worker version `7ad69954`. Deployed to
+`https://raw-signal-staging.raw-signal-watch.workers.dev/games/riftbound-auction`.
+Live browser verification passed for the tile artwork, 48-copy real-catalog lot,
+sealed bidding/early buyout, full reveal, saved inventory after reload, after-fee
+sale, reset and desktop/mobile dark/light layouts, with no browser errors. There
+were eleven initial catalog requests, zero further gameplay pricing requests,
+and eleven requests on the explicit verification reload. The first tile check
+timed out under a simulated browser clock; moving clock simulation until after
+tile loading let the complete real-page journey pass. No site change was needed.
+Some source images are unavailable and use the established fallback without
+changing frozen contents or valuation. Production remains unchanged; staging
+data is intentionally stale and no ingestion/data refresh was performed.
+
+## Tile artwork asset and prompt
+
 Imagegen skill, built-in generation mode. Saved workspace asset:
 `public/images/games/riftbound-auction-house.webp` (1536×1024). Source PNG retained
 in the generated-images library; WebP conversion only compresses the format.

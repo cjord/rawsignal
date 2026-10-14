@@ -12,8 +12,8 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
-- Auction House single-auction prototype implemented locally; staging validation
-  and release pending. Browser-saved cash/inventory, current-market holdings,
+- Auction House single-auction prototype deployed and verified on staging
+  (2026-10-14); production publication remains pending. Browser-saved cash/inventory, current-market holdings,
   configurable 10% selling fee, sealed NPC bidding and investigations. Boundaries
   and deferred phases: `docs/games-auction-house-plan.md`.
 
