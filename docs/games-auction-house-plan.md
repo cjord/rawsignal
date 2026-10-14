@@ -6,6 +6,8 @@ After the winner announcement, Auction Settled immediately displays six skeleton
 
 Investigation options are stacked vertically. In rounds 2–4, each bidder has a separate Previous Bids tile on the right showing all completed rounds. Current sealed bid amounts and NPC private details remain hidden; the full bid-history matrix retains investigation popovers.
 
+Released to staging from `a4d835a`, version `1d84c0b6-a9ca-4364-ae24-dd46e131aa0e`. Full gate passed: 420 node tests, one skipped, 43 Chromium journeys. Dedicated tests cover initial skeletons, partial totals matching collection values, final totals/skip, vertical options and previous bids in rounds 2–4 at desktop/mobile in both themes. Live staging verified a 104-card auction with Analyst/Follower/Opportunist rivals, matching settlement totals, persistence, sale, reset, fresh next collection, zero browser errors and no additional gameplay pricing calls (11 initial cached feeds, 11 on reload). An initial verification attempt failed because the local helper referenced its text-reading method instead of calling it; correcting the helper and rerunning passed without application changes. No migration or production deployment.
+
 Source: user-supplied Game Design Plan v1.0 and confirmed decisions, 2026-10-14.
 Route `/games/riftbound-auction`, tile alongside Showdown on `/games`.
 

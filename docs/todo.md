@@ -34,7 +34,10 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
   Settlement-count follow-up: skeleton metrics update with revealed collection
   totals, vertically stacked investigation choices, and separate previous-bid
   tiles beside each participant in rounds 2–4. No added data calls or writes;
-  staging validation/publication in progress. See the auction plan for details.
+  deployed and verified on staging (application `a4d835a`, version `1d84c0b6`,
+  2026-10-14). Full gate: 420 unit tests passed, one skipped, 43 browser checks.
+  Live 104-card auction verified settlement, inventory/sale/reset and zero extra
+  gameplay pricing calls. Production unchanged. See the auction plan for details.
 
 - Riftbound Price Showdown is released and verified in production (2026-10-14).
   Shipped features and validation moved to `docs/todo-completed.md`; plan and cost
