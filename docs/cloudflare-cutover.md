@@ -165,6 +165,14 @@ token, so no billing-plan change or claim of a newly verified subscription was m
 The recorded paid allowances remain in `docs/ingestion-scaling.md`; review storage
 after the first previous-version rollover. Sales features remain paused.
 
+Post-release cron check: catalog, details, graded rotation and metrics markers
+remain intact. `history-daily:2026-10-13` still fails `History quarter unavailable`
+at the upstream fetch, before snapshot persistence. This is the already documented
+TCGplayer access failure from the 2026-10-09 audit (`docs/sales-volume-2026-10.md`),
+not a migration error. The higher-priority daily TCGCSV catalog path remains
+independent and maintains price observations/snapshots. No scheduler or access-policy
+change was made to hide this failure; sales activation remains deferred.
+
 Before any remote migration or production cutover, create an export in the ignored `backups/` directory and record a D1 Time Travel bookmark:
 
 ```powershell

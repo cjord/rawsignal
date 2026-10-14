@@ -44,6 +44,9 @@ versions: staging `e83dc459-dffb-4837-abf0-ab8d8f2c2ac9`, production
   alternate-printing history, stable hover order/price cells, desktop/mobile in
   dark/light themes, and regular-rarity Metal artwork. Same-code redeploys after
   bootstrap invalidated page cache entries created before population completed.
+  The pre-existing upstream quarterly-history access failure remains open: the
+  post-release history job failed `History quarter unavailable`, before any
+  snapshot write. TCGCSV daily ingestion is independent; sales remain paused.
 
 ## Phase 1–4 summary (the later sections M, N, P, and T are not indexed here)
 

@@ -697,6 +697,12 @@ user-authorized deployment, turn the switch on, and re-run the complete gate.
 2026-10-09; open).** Use the source and cost boundaries in
 `docs/sales-volume-2026-10.md` §Daily sales and marketplace supply research.
 
+Reconfirmed after the 2026-10-14 snapshot deployment: production's
+`history-daily:2026-10-13` fails `History quarter unavailable` at its upstream fetch.
+This predates the snapshot change and remains unresolved. The deployed, populated
+price snapshots and daily TCGCSV updates do not require that endpoint; they cannot
+provide fresh completed-sale counts. Sales activation remains paused.
+
 - [ ] Restore and verify authorized TCGplayer detailed-history access; confirm source
   bucket dates and freshness on representative Pokémon/Riftbound singles and sealed
   products. Until then, keep existing sales figures stale/unknown and do not derive
