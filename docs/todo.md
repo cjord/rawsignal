@@ -113,12 +113,23 @@ Work branch: `feature/set-rarity-heatmap`. The Sets toggle, URL controls, D1 rea
 aggregate payload, source-date-aware calculations, and browser/unit fixtures are live in
 production. Tiles remain default and do not call the heatmap endpoint. User decisions (2026-10-09): Sets-page
 toggle with tiles default; median card-price change; show 1–2-card cells with a small-sample
-warning. The follow-up lowers the required coverage from 60% to 5% (including the UI
-threshold), and changes the default window from 30D to 7D without substituting 7D
+warning. The first follow-up lowered required coverage from 60% to 5%, and changed
+the default window from 30D to 7D without substituting 7D
 returns into 30D/90D cells. The source-date audit chose at most two days
 for a member's latest price and at most three days between the requested cutoff and its
 baseline. Production's current on-demand endpoint is slow on a cold request; the daily
 D1 snapshot implementation below is deployed and migrated on staging only.
+The next local revision limits Riftbound heatmap rows to the five main expansions
+(Origins, Spiritforged, Unleashed, Vendetta, Radiance) and raises the gate to 7%;
+it does not remove promo, event, or bundle products from the catalog or Sets tiles.
+The Pokémon follow-up offers an optional URL-backed series grouping (Mega Evolution,
+Scarlet & Violet, etc.; flat rows remain the default) and folds the nine TCGCSV
+Gallery/Vault/Radiant Collection subsets into their parent expansion's member-level
+median and coverage. The page discloses the fold, and matching-card drill-down includes
+all original catalog set names. No Pokémon promo/deck filtering is applied yet; the
+provisional expansion-only classification needs a separate reviewed decision.
+Staging/production retain the prior 5% policy until this revision is deployed and
+the versioned snapshot recomputed.
 Add a market-movement matrix inspired by the
 [ShizuTCG Riftbound index](https://tcg-price-tracker.shizukaziye.workers.dev/rb-index#set=ALL&tier=ALL&w=rarity&m=index).
 Reference inspection: the public HTML/rendering code exposes a "Set × tier heat map",
@@ -220,6 +231,13 @@ Implementation sequence and cost boundary:
    took about 0.35 seconds for 742,660 bytes. At the 5% gate, 7D set totals were available
    for 204/205 Pokémon and 11/13 Riftbound sets; 30D for 189/205 and 5/13; 90D for none.
    This is a staging observation, not a production p95 or billing measurement.
+   The 2026-10-08 source-dated staging snapshot had 13 Riftbound groups, of which
+   five are main expansions. For these five, 7D set-wide comparisons were complete
+   for Origins, Spiritforged, Unleashed, and Vendetta; Radiance had no usable history.
+   Their 30D coverage was 8.7%, 10.4%, 10.6%, and 11.4% respectively. Raising
+   the gate to 7% preserves these four set-wide 30D medians, while suppressing one
+   sparse rarity cell; 90D still has no usable cells. Removing unrelated set rows
+   does not increase coverage within any retained set.
 5. **Coverage investigation:** the October 9 live payload showed no Riftbound set clearing
    60% 30D coverage, and no game clearing 90D set coverage. Vendetta had only 21/236
    usable 30D member returns. New Riftbound cards lack a 30-day baseline; absent older

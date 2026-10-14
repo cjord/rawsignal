@@ -4,7 +4,7 @@ const cell = (change: number, total: number) => ({ change, total, eligible: tota
 const windows = (change: number, total: number) => ({ 7: cell(change, total), 30: cell(change, total), 90: cell(change, total) });
 const limited = { change: -20, total: 236, eligible: 21, coverage: 21 / 236, smallSample: false, reason: null };
 const fixture = { asOfDate: "2026-10-09", rows: [
-  { game: "pokemon", set: "Surging Sparks", slug: "surging-sparks", cells: {
+  { game: "pokemon", set: "Surging Sparks", slug: "surging-sparks", sourceSets: ["Surging Sparks"], cells: {
     all: windows(15, 2), "illustration-rares": windows(15, 2),
   } },
   { game: "riftbound", set: "Origins", slug: "origins", cells: {
@@ -25,7 +25,7 @@ test("Sets heatmap keeps tiles default and supports scoped cells on desktop and 
   await page.getByRole("button", { name: /Origins, All tracked, 7 day.*-20.0%.*21 of 236 tracked cards/ }).click();
   await expect(page.getByText(/21 of 236 tracked printings have usable history/)).toBeVisible();
   await expect(page.getByText(/Only those printings contribute to the median/)).toBeVisible();
-  await expect(page.locator(".heatmap-selection")).toContainText("At least 5% coverage.");
+  await expect(page.locator(".heatmap-selection")).toContainText("At least 7% coverage.");
   await expect(page.getByRole("button", { name: /Origins, Signature, 7 day.*-20.0%/ })).toBeVisible();
   await page.getByRole("button", { name: /Origins, Signature, 7 day.*-20.0%/ }).click();
   await expect(page.getByRole("heading", { name: "Origins · Signature" })).toBeVisible();
@@ -57,4 +57,9 @@ test("Sets heatmap keeps tiles default and supports scoped cells on desktop and 
   }
   await page.getByRole("tab", { name: "Pokémon" }).click();
   await expect(page.getByRole("button", { name: /Surging Sparks, Illustration Rare, 7 day.*\+15.0%/ })).toBeVisible();
+  await page.getByRole("combobox", { name: "Pokémon rows" }).selectOption("series");
+  await expect(page).toHaveURL(/grouping=series/);
+  await expect(page.getByRole("rowgroup").filter({ hasText: "Surging Sparks" })).toContainText("Scarlet & Violet");
+  await page.goBack();
+  await expect(page.getByRole("combobox", { name: "Pokémon rows" })).toHaveValue("flat");
 });

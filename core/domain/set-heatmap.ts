@@ -5,7 +5,27 @@ import { setSlug } from "./formatters.ts";
 export const HEATMAP_WINDOWS = [7, 30, 90] as const;
 export type HeatmapWindow = typeof HEATMAP_WINDOWS[number];
 // A sparse but nonzero eligible subset may describe a set if its limited coverage is disclosed.
-export const HEATMAP_COVERAGE_POLICY = { minMembers: 1, minCoverage: 0.05 } as const;
+export const HEATMAP_COVERAGE_POLICY = { minMembers: 1, minCoverage: 0.07 } as const;
+// Explicit expansion scope: event, promotional, bundle, and starter products still
+// belong in the catalog and Sets directory, but not in the Riftbound heatmap.
+export const RIFTBOUND_HEATMAP_SETS = ["Origins", "Spiritforged", "Unleashed", "Vendetta", "Radiance"] as const;
+export const isHeatmapSet = (game: HeatmapGame, set: string) =>
+  game !== "riftbound" || (RIFTBOUND_HEATMAP_SETS as readonly string[]).includes(set);
+// TCGCSV exposes these as separate groups even though they are part of their
+// parent expansion. Keep each printing's original set for catalog drill-down.
+export const POKEMON_HEATMAP_SUBSETS: Record<string, string> = {
+  "Generations: Radiant Collection": "Generations",
+  "Hidden Fates: Shiny Vault": "Hidden Fates",
+  "Legendary Treasures: Radiant Collection": "Legendary Treasures",
+  "Shining Fates: Shiny Vault": "Shining Fates",
+  "SWSH09: Brilliant Stars Trainer Gallery": "SWSH09: Brilliant Stars",
+  "SWSH10: Astral Radiance Trainer Gallery": "SWSH10: Astral Radiance",
+  "SWSH11: Lost Origin Trainer Gallery": "SWSH11: Lost Origin",
+  "SWSH12: Silver Tempest Trainer Gallery": "SWSH12: Silver Tempest",
+  "SWSH: Crown Zenith: Galarian Gallery": "SWSH: Crown Zenith",
+};
+export const heatmapSetName = (game: HeatmapGame, set: string) =>
+  game === "pokemon" ? POKEMON_HEATMAP_SUBSETS[set] ?? set : set;
 export type HeatmapUnavailable = "no-history" | "stale" | "insufficient-history" | "cutoff-gap";
 export type HeatmapReturn = {
   change: number | null;
@@ -109,6 +129,7 @@ export type SetHeatmapRow = {
   game: HeatmapGame;
   set: string;
   slug: string;
+  sourceSets: string[];
   cells: Record<string, Record<HeatmapWindow, HeatmapCell>>;
 };
 export type SetHeatmapPayload = { asOfDate: string; rows: SetHeatmapRow[] };
@@ -116,8 +137,10 @@ export type SetHeatmapPayload = { asOfDate: string; rows: SetHeatmapRow[] };
 export function buildSetHeatmap(members: readonly HeatmapMember[], asOfDate: string): SetHeatmapPayload {
   const rows = new Map<string, { game: HeatmapGame; set: string; members: HeatmapMember[] }>();
   for (const member of members) {
-    const key = `${member.game}\u0000${member.set}`;
-    const group = rows.get(key) ?? { game: member.game, set: member.set, members: [] };
+    if (!isHeatmapSet(member.game, member.set)) continue;
+    const set = heatmapSetName(member.game, member.set);
+    const key = `${member.game}\u0000${set}`;
+    const group = rows.get(key) ?? { game: member.game, set, members: [] };
     group.members.push(member);
     rows.set(key, group);
   }
@@ -135,6 +158,7 @@ export function buildSetHeatmap(members: readonly HeatmapMember[], asOfDate: str
         cells[section][window] = summarizeHeatmapCell(changes, HEATMAP_COVERAGE_POLICY);
       }
     }
-    return { game: row.game, set: row.set, slug: setSlug(row.set), cells };
+    return { game: row.game, set: row.set, slug: setSlug(row.set),
+      sourceSets: [...new Set(row.members.map(member => member.set))].sort(), cells };
   }) };
 }

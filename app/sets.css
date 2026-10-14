@@ -141,6 +141,7 @@
 .heatmap-table thead tr > :first-child { z-index: 2; background: var(--control); }
 .heatmap-table tbody th a { color: var(--text); text-decoration: none; overflow-wrap: anywhere; }
 .heatmap-table tbody th a:hover { color: var(--blue); text-decoration: underline; }
+.heatmap-table .heatmap-group-row th { position: static; min-width: 0; max-width: none; padding: 10px 12px; color: var(--text); background: var(--control); font: 800 var(--text-xs) var(--font-sans); text-align: left; box-shadow: none; }
 .heatmap-cell { width: 100%; min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 3px; border: 1px solid transparent; border-radius: 7px; background: var(--soft); color: var(--text); font: 800 var(--text-xs) var(--font-mono); cursor: pointer; }
 .heatmap-cell.up { background: color-mix(in srgb, var(--tone-up) var(--heat-strength), var(--surface)); }
 .heatmap-cell.down { background: color-mix(in srgb, var(--tone-down) var(--heat-strength), var(--surface)); }

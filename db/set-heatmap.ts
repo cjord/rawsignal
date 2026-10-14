@@ -1,4 +1,4 @@
-import { buildSetHeatmap, type HeatmapGame, type HeatmapMember, type SetHeatmapPayload, type SetHeatmapRow } from "../core/domain/set-heatmap.ts";
+import { buildSetHeatmap, RIFTBOUND_HEATMAP_SETS, type HeatmapGame, type HeatmapMember, type SetHeatmapPayload, type SetHeatmapRow } from "../core/domain/set-heatmap.ts";
 import type { PricePoint } from "../core/domain/types.ts";
 import { publishedIngestion, type D1DatabaseLike } from "./repository.ts";
 
@@ -14,7 +14,7 @@ type SnapshotRow = {
 
 const games: HeatmapGame[] = ["pokemon", "riftbound"];
 // A policy change must invalidate saved rows even when the catalog run is unchanged.
-export const SET_HEATMAP_ALGORITHM_VERSION = 2;
+export const SET_HEATMAP_ALGORITHM_VERSION = 4;
 const maxSnapshotBytes = 1_900_000; // D1's row/string limit is 2 MB.
 
 const missingSnapshotTable = (error: unknown) =>
@@ -92,9 +92,10 @@ export async function calculateSetHeatmap(
   const bounds = dates.flatMap((date, index) => [shifted(date, index ? -5 : -4), shifted(date, 2), date]);
   const rows = (await db.prepare(`select p.product_id productId,p.game,p.set_name setName,p.section,
       ${pointSql()} latest,${pointSql()} baseline7,${pointSql()} baseline30,${pointSql()} baseline90
-    from catalog_products p where p.kind='single' and p.game in ('pokemon','riftbound')
+    from catalog_products p where p.kind='single' and
+      (p.game='pokemon' or (p.game='riftbound' and p.set_name in (${RIFTBOUND_HEATMAP_SETS.map(() => "?").join(",")})))
       order by p.game,p.set_name,p.product_id`)
-    .bind(...bounds).all<MemberRow>()).results ?? [];
+    .bind(...bounds, ...RIFTBOUND_HEATMAP_SETS).all<MemberRow>()).results ?? [];
   const members: HeatmapMember[] = rows.map(row => ({
     productId: row.productId, game: row.game, set: row.setName, section: row.section ?? "",
     latest: parsePoint(row.latest), baseline7: parsePoint(row.baseline7),

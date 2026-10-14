@@ -3,7 +3,7 @@ import { useRef, useState, type CSSProperties } from "react";
 import { HEATMAP_COVERAGE_POLICY, HEATMAP_TIERS, HEATMAP_WINDOWS, type HeatmapCell, type HeatmapGame, type SetHeatmapPayload, type SetHeatmapRow } from "../core/domain/set-heatmap";
 import type { SetDirectoryRow } from "../core/domain/sets";
 import { formatGameName, formatPercent } from "../core/domain/formatters";
-import { setGroupsFor } from "../core/domain/eras";
+import { pokemonEra, setGroupsFor } from "../core/domain/eras";
 import { setFavoriteKey } from "./state/set-favorites";
 import type { SetsScope } from "./state/sets-query";
 
@@ -22,7 +22,8 @@ const cellWarning = (cell: HeatmapCell) => cell.smallSample ? "Small sample: one
 const scale = (change: number) => `${Math.round(6 + Math.min(1, Math.abs(change) / 20) * 24)}%`;
 const selectedKey = (game: string, slug: string, tier: string) => `${game}|${slug}|${tier}`;
 const cardUrl = (row: SetHeatmapRow, tier: string) => {
-  const query = new URLSearchParams({ mode: "singles", market: row.game, sets: row.set, rarity: tier });
+  const query = new URLSearchParams({ mode: "singles", market: row.game,
+    sets: (row.sourceSets?.length ? row.sourceSets : [row.set]).join("|"), rarity: tier });
   return `/?${query.toString()}`;
 };
 
@@ -43,10 +44,15 @@ function HeatCell({ cell, row, tier, window, selected, onSelect }: {
   </button>;
 }
 
-function GameMatrix({ game, rows, scope, onScope }: {
+function GameMatrix({ game, rows, scope, onScope, seriesOf }: {
   game: HeatmapGame; rows: SetHeatmapRow[]; scope: SetsScope; onScope: Props["onScope"];
+  seriesOf: (row: SetHeatmapRow) => string;
 }) {
   const tiers = HEATMAP_TIERS[game].filter(([key]) => scope.tier === "all" || scope.tier === key);
+  const sections = game === "pokemon" && scope.grouping === "series"
+    ? [...setGroupsFor(game), { key: "other", label: "Other / unknown series" }].map(group => ({ key: group.key, label: group.label,
+      rows: rows.filter(row => seriesOf(row) === group.key) })).filter(section => section.rows.length)
+    : [{ key: "all", label: "", rows }];
   return <section className="detail-section heatmap-section" aria-label={`${formatGameName(game)} heatmap`}>
     <header><span>{formatGameName(game)}</span><h2>{formatGameName(game)} sets</h2></header>
     {rows.length === 0 ? <p className="detail-unavailable">No sets match these filters.</p> : <>
@@ -54,7 +60,9 @@ function GameMatrix({ game, rows, scope, onScope }: {
       <div className="heatmap-scroll" role="region" aria-label={`Scrollable ${formatGameName(game)} heatmap`}>
         <table className="heatmap-table">
           <thead><tr><th scope="col">Set</th><th scope="col">All tracked</th>{tiers.map(([key, label]) => <th scope="col" key={key}>{label}</th>)}</tr></thead>
-          <tbody>{rows.map(row => <tr key={`${row.game}|${row.set}`}>
+          {sections.map(section => <tbody key={section.key}>
+            {section.label && <tr className="heatmap-group-row"><th scope="rowgroup" colSpan={2 + tiers.length}>{section.label} · {section.rows.length} set{section.rows.length === 1 ? "" : "s"}</th></tr>}
+            {section.rows.map(row => <tr key={`${row.game}|${row.set}`}>
             <th scope="row"><a href={`/sets/${row.game}/${row.slug}`}>{row.set}</a></th>
             {["all", ...tiers.map(([key]) => key)].map(tier => {
               const cell = row.cells[tier]?.[scope.window];
@@ -62,7 +70,8 @@ function GameMatrix({ game, rows, scope, onScope }: {
                 selected={scope.selected === selectedKey(game, row.slug, tier)}
                 onSelect={() => onScope({ selected: selectedKey(game, row.slug, tier) })} />}</td>;
             })}
-          </tr>)}</tbody>
+            </tr>)}
+          </tbody>)}
         </table>
       </div>
     </>}
@@ -96,6 +105,21 @@ function HeatmapFilters({ scope, onScope, games }: { scope: SetsScope; onScope: 
   </details>;
 }
 
+function PokemonGroupingControl({ scope, onScope, visible }: {
+  scope: SetsScope; onScope: Props["onScope"]; visible: boolean;
+}) {
+  if (!visible) return null;
+  return <label>Pokémon rows<select value={scope.grouping} onChange={event => onScope({ grouping: event.target.value as SetsScope["grouping"], selected: "" })}><option value="flat">Individual sets</option><option value="series">Group by series</option></select></label>;
+}
+
+function HeatmapDescription({ games, asOfDate }: { games: HeatmapGame[]; asOfDate: string | undefined }) {
+  return <>
+    <p className="detail-note">Median tracked-card price change by set and catalog tier. Each printing counts once; this is not sealed value or a complete set checklist. Snapshot source date: {asOfDate ?? "N/A"}.</p>
+    {games.includes("riftbound") && <p className="detail-note">Riftbound shows main expansions only.</p>}
+    {games.includes("pokemon") && <p className="detail-note">Pokémon Gallery, Shiny Vault, and Radiant Collection subset cards are folded into their parent expansion. Matching-card links include both catalog groups.</p>}
+  </>;
+}
+
 export default function SetHeatmap({ payload, loading, error, directory, scope, onScope, favorites }: Props) {
   const games: HeatmapGame[] = scope.market === "all" ? ["pokemon", "riftbound"]
     : scope.market === "onepiece" ? [] : [scope.market];
@@ -108,13 +132,14 @@ export default function SetHeatmap({ payload, loading, error, directory, scope, 
   const selectedCell = selected?.cells[selectedTier]?.[scope.window];
   const selectedLabel = selectedTier === "all" ? "All tracked" : (selected ? HEATMAP_TIERS[selected.game].find(([key]) => key === selectedTier)?.[1] : null) ?? selectedTier;
   return <div className="sets-heatmap">
-    <p className="detail-note">Median tracked-card price change by set and catalog tier. Each printing counts once; this is not sealed value or a complete set checklist. Snapshot source date: {payload?.asOfDate ?? "N/A"}.</p>
+    <HeatmapDescription games={games} asOfDate={payload?.asOfDate}/>
     <div className="heatmap-controls">
       <div role="group" aria-label="Heatmap window" className="heatmap-windows">{HEATMAP_WINDOWS.map(window => <button key={window} type="button" aria-pressed={scope.window === window} onClick={() => onScope({ window, selected: "" })}>{window}D</button>)}</div>
       <label>Sort<select value={scope.sort} onChange={event => onScope({ sort: event.target.value as SetsScope["sort"], selected: "" })}><option value="newest">Newest first</option><option value="change">Strongest change</option></select></label>
+      <PokemonGroupingControl scope={scope} onScope={onScope} visible={games.includes("pokemon")}/>
       <HeatmapFilters key={`${scope.market}|${scope.query}|${scope.group}|${scope.tier}|${scope.favoritesOnly}`} scope={scope} onScope={onScope} games={games}/>
     </div>
-    <p className="detail-note heatmap-legend"><span className="heatmap-swatch down"/> Falling <span className="heatmap-swatch flat"/> Flat <span className="heatmap-swatch up"/> Rising · intensity reaches full color at ±20%; displayed percentages are never capped. At least 5% coverage is required; ! flags 1–2 usable cards; N/A means unavailable; — means no tracked cards in that tier.</p>
+    <p className="detail-note heatmap-legend"><span className="heatmap-swatch down"/> Falling <span className="heatmap-swatch flat"/> Flat <span className="heatmap-swatch up"/> Rising · intensity reaches full color at ±20%; displayed percentages are never capped. At least {Math.round(HEATMAP_COVERAGE_POLICY.minCoverage * 100)}% coverage is required; ! flags 1–2 usable cards; N/A means unavailable; — means no tracked cards in that tier.</p>
     {loading && <p className="detail-unavailable" role="status">Loading tracked-card changes…</p>}
     {error && <p className="detail-unavailable" role="status">Heatmap is unavailable right now.</p>}
     {!loading && !error && games.length === 0 && <p className="detail-unavailable">One Piece does not yet have tracked singles for this heatmap.</p>}
@@ -135,12 +160,13 @@ export default function SetHeatmap({ payload, loading, error, directory, scope, 
         const bDate = bDir?.releaseDate ?? String(bDir?.releaseYear ?? "");
         return bDate.localeCompare(aDate) || a.set.localeCompare(b.set);
       });
-      return <GameMatrix key={game} game={game} rows={rows} scope={scope} onScope={onScope}/>;
+      return <GameMatrix key={game} game={game} rows={rows} scope={scope} onScope={onScope}
+        seriesOf={row => directoryBy.get(`${game}|${row.set}`)?.group ?? pokemonEra(row.set, null)}/>;
     })}
     {selected && selectedCell && <section className="detail-section heatmap-selection" aria-live="polite">
       <header><span>Selected cell</span><h2>{selected.set} · {selectedLabel}</h2></header>
       <p><b>{selectedCell.change == null ? "N/A" : formatPercent(selectedCell.change)}</b> median tracked-card change over {scope.window} days.</p>
-      <p className="detail-note">{selectedCell.eligible} of {selectedCell.total} tracked printings have usable history ({Math.round(selectedCell.coverage * 100)}% coverage). Only those printings contribute to the median; missing or stale comparisons are excluded. {selectedCell.reason ? cellReason[selectedCell.reason] : cellWarning(selectedCell) || "At least 5% coverage."} Source snapshot: {payload?.asOfDate}; cutoff uses the nearest dated price at or before the target, with a three-day maximum gap.</p>
+      <p className="detail-note">{selectedCell.eligible} of {selectedCell.total} tracked printings have usable history ({Math.round(selectedCell.coverage * 100)}% coverage). Only those printings contribute to the median; missing or stale comparisons are excluded. {selectedCell.reason ? cellReason[selectedCell.reason] : cellWarning(selectedCell) || `At least ${Math.round(HEATMAP_COVERAGE_POLICY.minCoverage * 100)}% coverage.`} Source snapshot: {payload?.asOfDate}; cutoff uses the nearest dated price at or before the target, with a three-day maximum gap.</p>
       <div className="heatmap-selection-links"><a href={cardUrl(selected, selectedTier)}>View matching cards</a><a href={`/sets/${selected.game}/${selected.slug}`}>View set</a><button type="button" onClick={() => onScope({ selected: "" })}>Clear selection</button></div>
     </section>}
   </div>;

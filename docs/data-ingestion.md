@@ -73,8 +73,14 @@ Daily TCGCSV observations are sufficient for ongoing history after backfill. Det
 
 `db/set-heatmap.ts` calculates median tracked-card price changes for 7D/30D/90D from
 dated observations. The local revision uses only printings with valid comparisons in
-the median, requires at least 5% coverage, and warns for 1–2 eligible cards; the default display
+the median, requires at least 7% coverage in the next local revision, and warns for 1–2 eligible cards; the default display
 window is 7D. It never substitutes a 7D result for a missing 30D or 90D comparison.
+Only the five Riftbound main expansions are selected for this heatmap; other
+Riftbound products remain in the catalog and Sets directory. The deployed staging
+snapshot still uses the earlier 5% policy until a new deploy and snapshot run.
+The nine Pokémon Gallery, Shiny Vault, and Radiant Collection subset groups are
+assigned to their parent expansion for the heatmap calculation, preserving one
+member per catalog printing and retaining source set names for card drill-down.
 Migration `0020_set_heatmap_snapshots.sql` stores one JSON row per game, each below D1's
 2 MB row limit. Once the published live run and metrics rollup complete, the guarded
 cron computes the snapshot once for that source run and atomically replaces both rows.

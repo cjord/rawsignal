@@ -46,7 +46,8 @@ test("heatmap matches published source dates, exact printings, and archive cutof
   card.run(2, "pokemon", "single", "Shared Set", "promos", "Normal", "2026-10-08T16:00:00-04:00");
   // Product timestamps can postdate the published run's source timestamp even
   // when those products belong to the published run.
-  card.run(3, "riftbound", "single", "Shared Set", "signatures", "Normal", "2026-10-09T00:30:00Z");
+  card.run(3, "riftbound", "single", "Origins", "signatures", "Normal", "2026-10-09T00:30:00Z");
+  card.run(4, "riftbound", "single", "Origins: Proving Grounds", "rares", "Normal", "2026-10-09T00:30:00Z");
   const history = sqlite.prepare("insert into price_observations values (?,?,?,?,?,?,?)");
   history.run(1, "Normal", "Near Mint", "2026-10-09", 12000, "tcgcsv-daily", "2026-10-09T00:30:00Z");
   history.run(1, "Normal", "Near Mint", "2026-10-01", 10000, "tcgcsv-archive", "2026-08-28T00:00:00Z");
@@ -66,6 +67,7 @@ test("heatmap matches published source dates, exact printings, and archive cutof
   assert.equal(pokemon.cells.all[7].reason, null);
   assert.equal(pokemon.cells["illustration-rares"][7].change, 20);
   assert.equal(riftbound.cells.signatures[7].change, -50);
+  assert.equal(payload.rows.some(row => row.set === "Origins: Proving Grounds"), false);
   const db = dbFor(sqlite);
   assert.deepEqual(await readSetHeatmapSnapshotStatus(db), { available: false, sourceRunId: null });
   assert.equal(await readSetHeatmapSnapshot(db), null);

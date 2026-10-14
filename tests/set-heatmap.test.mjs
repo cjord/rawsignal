@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { HEATMAP_COVERAGE_POLICY, buildSetHeatmap, heatmapReturn, summarizeHeatmapCell } from "../core/domain/set-heatmap.ts";
+import { HEATMAP_COVERAGE_POLICY, POKEMON_HEATMAP_SUBSETS, RIFTBOUND_HEATMAP_SETS, buildSetHeatmap, heatmapReturn, summarizeHeatmapCell } from "../core/domain/set-heatmap.ts";
 import { DEFAULT_SETS_SCOPE, parseSetsScope, serializeSetsScope } from "../app/state/sets-query.ts";
 
 const freshness = { maxLatestAgeDays: 2, maxCutoffGapDays: 3 };
@@ -52,7 +52,7 @@ test("small-sample policy is explicit and warning survives permissive policy", (
   assert.throws(() => summarizeHeatmapCell([], { ...coverage, minCoverage: 2 }));
 });
 
-test("sparse set cells use only valid comparisons, with a five-percent minimum", () => {
+test("sparse set cells use only valid comparisons, with a seven-percent minimum", () => {
   const usable = Array.from({ length: 21 }, (_, index) => index < 11 ? -10 : 20);
   const cell = summarizeHeatmapCell([...usable, ...Array(215).fill(null)], HEATMAP_COVERAGE_POLICY);
   assert.equal(cell.change, -10);
@@ -60,25 +60,25 @@ test("sparse set cells use only valid comparisons, with a five-percent minimum",
   assert.equal(cell.total, 236);
   assert.equal(cell.reason, null);
   assert.equal(cell.smallSample, false);
-  assert.equal(summarizeHeatmapCell([...usable.slice(0, 11), ...Array(225).fill(null)], HEATMAP_COVERAGE_POLICY).reason, "low-coverage");
+  assert.equal(summarizeHeatmapCell([...usable.slice(0, 16), ...Array(220).fill(null)], HEATMAP_COVERAGE_POLICY).reason, "low-coverage");
   assert.equal(summarizeHeatmapCell(Array(236).fill(null), HEATMAP_COVERAGE_POLICY).reason, "no-history");
 });
 
-test("All tracked uses underlying members, preserves missing denominators and same-name game separation", () => {
-  const member = (productId, game, section, baseline, latest) => ({
-    productId, game, set: "Shared Name", section,
+test("All tracked uses underlying members and preserves missing denominators", () => {
+  const member = (productId, game, set, section, baseline, latest) => ({
+    productId, game, set, section,
     latest: latest == null ? null : point("2026-10-09", latest),
     baseline7: baseline == null ? null : point("2026-10-02", baseline),
     baseline30: baseline == null ? null : point("2026-09-09", baseline),
     baseline90: baseline == null ? null : point("2026-07-11", baseline),
   });
   const result = buildSetHeatmap([
-    member(1, "pokemon", "vintage", 100, 110),
-    member(2, "pokemon", "vintage", 100, 110),
-    member(3, "pokemon", "vintage", 100, 110),
-    member(4, "pokemon", "illustration-rares", 100, 0),
-    member(5, "pokemon", "illustration-rares", 100, 200),
-    member(6, "riftbound", "signatures", 100, 50),
+    member(1, "pokemon", "Shared Name", "vintage", 100, 110),
+    member(2, "pokemon", "Shared Name", "vintage", 100, 110),
+    member(3, "pokemon", "Shared Name", "vintage", 100, 110),
+    member(4, "pokemon", "Shared Name", "illustration-rares", 100, 0),
+    member(5, "pokemon", "Shared Name", "illustration-rares", 100, 200),
+    member(6, "riftbound", "Origins", "signatures", 100, 50),
   ], "2026-10-09");
   const pokemon = result.rows.find(row => row.game === "pokemon");
   const riftbound = result.rows.find(row => row.game === "riftbound");
@@ -92,6 +92,38 @@ test("All tracked uses underlying members, preserves missing denominators and sa
   assert.equal(pokemon.cells.promos[30].reason, "not-applicable");
 });
 
+test("Riftbound heatmap contains only main expansions, without filtering Pokémon", () => {
+  const member = (productId, game, set) => ({ productId, game, set, section: "rares",
+    latest: point("2026-10-09", 110), baseline7: point("2026-10-02", 100),
+    baseline30: null, baseline90: null });
+  const members = RIFTBOUND_HEATMAP_SETS.map((set, index) => member(index + 1, "riftbound", set));
+  members.push(member(100, "riftbound", "Origins: Proving Grounds"));
+  members.push(member(101, "riftbound", "T1 2025 Worlds Champion Bundles"));
+  members.push(member(102, "riftbound", "Riftbound Organized Play Promotional Cards"));
+  members.push(member(103, "pokemon", "Shared Name"));
+  const rows = buildSetHeatmap(members, "2026-10-09").rows;
+  assert.deepEqual(rows.filter(row => row.game === "riftbound").map(row => row.set), [...RIFTBOUND_HEATMAP_SETS]);
+  assert.equal(rows.find(row => row.game === "pokemon")?.set, "Shared Name");
+});
+
+test("Pokémon subset printings fold into parents without merging printings or losing source sets", () => {
+  const members = Object.entries(POKEMON_HEATMAP_SUBSETS).flatMap(([subset, parent], index) => [
+    { productId: index * 2 + 1, game: "pokemon", set: parent, section: "vintage",
+      latest: point("2026-10-09", 110), baseline7: point("2026-10-02", 100), baseline30: null, baseline90: null },
+    { productId: index * 2 + 2, game: "pokemon", set: subset, section: "illustration-rares",
+      latest: point("2026-10-09", 120), baseline7: point("2026-10-02", 100), baseline30: null, baseline90: null },
+  ]);
+  const rows = buildSetHeatmap(members, "2026-10-09").rows;
+  assert.equal(rows.length, 9);
+  for (const [subset, parent] of Object.entries(POKEMON_HEATMAP_SUBSETS)) {
+    const row = rows.find(item => item.set === parent);
+    assert.deepEqual(row?.sourceSets, [parent, subset].sort());
+    assert.equal(row?.cells.all[7].total, 2);
+    assert.equal(row?.cells.all[7].change, 15);
+    assert.equal(rows.some(item => item.set === subset), false);
+  }
+});
+
 test("sets heatmap scope round-trips while tiles and 7D remain defaults", () => {
   const scope = { ...DEFAULT_SETS_SCOPE, market: "riftbound", view: "heatmap", window: 90,
     query: "Origins", group: "riftbound|core", favoritesOnly: true, sort: "change",
@@ -100,6 +132,8 @@ test("sets heatmap scope round-trips while tiles and 7D remain defaults", () => 
   assert.deepEqual({ ...decoded, market: decoded.requestedMarket, requestedMarket: undefined }, { ...scope, requestedMarket: undefined });
   assert.equal(parseSetsScope(serializeSetsScope("pokemon")).view, "tiles");
   assert.equal(parseSetsScope(serializeSetsScope("pokemon")).window, 7);
+  assert.equal(parseSetsScope(serializeSetsScope("pokemon")).grouping, "flat");
+  assert.equal(parseSetsScope("market=pokemon&view=heatmap&grouping=series").grouping, "series");
   assert.equal(parseSetsScope("market=pokemon&view=heatmap&window=30").window, 30);
   assert.match(serializeSetsScope({ ...DEFAULT_SETS_SCOPE, window: 30 }), /window=30/);
 });
