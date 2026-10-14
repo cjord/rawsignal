@@ -1,16 +1,24 @@
 "use client";
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {parsePriceHistory} from "../../core/domain/contracts.ts";
-import {deriveHistoryMetrics} from "../../core/domain/history-metrics.ts";
 import type {PriceHistory} from "../../core/domain/types";
 import {mapWithConcurrency} from "../../core/market-utils.ts";
 import {chunkHistoryTargets,encodeHistoryTargets,historyBatchKey} from "../../core/history-batch.ts";
+import type {HistoryBatchTarget} from "../../core/history-batch.ts";
 
-export type HistoryTarget={productId:number;printing:string;sealed?:boolean};
+export type HistoryTarget=HistoryBatchTarget;
 export type HistoryStatus="idle"|"loading"|"partial"|"success"|"empty"|"error";
 type BatchEntry={target:HistoryTarget;history:PriceHistory;failed:boolean};
 const unavailableHistory:PriceHistory={points:[],coverage:"none",change7:null,change30:null,change90:null,low30:null,high30:null,historyLow:null,historyHigh:null};
-export const historyTargetKey=(target:HistoryTarget)=>`${target.sealed?"sealed":"single"}:${target.productId}:${target.printing.toLowerCase()}`;
+export const historyTargetKey=historyBatchKey;
+
+function parsedHistory(value:unknown,target:HistoryTarget):PriceHistory{
+ const parsed=parsePriceHistory(value);
+ if(target.snapshotId&&parsed.snapshotId!==target.snapshotId)return unavailableHistory;
+ return parsed.snapshotId?parsed:unavailableHistory;
+}
+
+const additionsFor=(entries:BatchEntry[])=>Object.fromEntries(entries.flatMap(entry=>[[entry.target.productId,entry.history],[historyTargetKey(entry.target),entry.history]])) as Record<string,PriceHistory>;
 
 export function usePriceHistoryPrefetch(targets:HistoryTarget[],enabled:boolean,request:(targets:HistoryTarget[])=>Promise<void>){
  const targetsRef=useRef(targets);
@@ -19,30 +27,34 @@ export function usePriceHistoryPrefetch(targets:HistoryTarget[],enabled:boolean,
  useEffect(()=>{if(enabled)void request(targetsRef.current)},[enabled,key,request]);
 }
 
-// One request per page of rows (review §14 follow-up): the batch route answers from stored
-// observations; anything it has no series for (null) falls back to the single-product
-// route, which owns the upstream fetch. A failed batch request degrades to singles too.
+// Missing snapshots never fan out or substitute another version. Visitor reads never write.
 async function loadStoredBatch(targets:HistoryTarget[],signal:AbortSignal,fetcher:typeof fetch):Promise<Map<string,PriceHistory>>{
  const found=new Map<string,PriceHistory>();
  await Promise.all(chunkHistoryTargets(targets).map(async chunk=>{
-  try{
-   const response=await fetcher(`/api/history/batch?t=${encodeHistoryTargets(chunk)}`,{signal});if(!response.ok)return;
+   const response=await fetcher(`/api/history/batch?t=${encodeHistoryTargets(chunk)}&format=shared-v1`,{signal});if(!response.ok)throw new Error(`History request failed: ${response.status}`);
    const body=await response.json() as {histories?:Record<string,unknown>};
-   for(const target of chunk){const raw=body.histories?.[historyBatchKey(target)];if(raw==null)continue;try{const parsed=parsePriceHistory(raw);found.set(historyTargetKey(target),{...parsed,...deriveHistoryMetrics(parsed.points)})}catch{/* a malformed entry falls back to the single route */}}
-  }catch(error){if(signal.aborted||(error instanceof DOMException&&error.name==="AbortError"))throw error}
+   for(const target of chunk){const raw=body.histories?.[historyBatchKey(target)];if(raw==null)continue;try{found.set(historyTargetKey(target),parsedHistory(raw,target))}catch{/* a malformed entry stays unavailable */}}
  }));
  return found;
 }
 
-export async function loadPriceHistoryBatch(targets:HistoryTarget[],signal:AbortSignal,fetcher:typeof fetch=fetch,limit=4){
- const stored=targets.length>1?await loadStoredBatch(targets,signal,fetcher):new Map<string,PriceHistory>();
+export async function loadPriceHistoryBatch(targets:HistoryTarget[],signal:AbortSignal,fetcher:typeof fetch=fetch,limit=4):Promise<BatchEntry[]>{
+ if(targets.some(target=>target.snapshotId==="unavailable")){
+  const available=await loadPriceHistoryBatch(targets.filter(target=>target.snapshotId!=="unavailable"),signal,fetcher,limit);
+  return targets.map(target=>available.find(entry=>historyTargetKey(entry.target)===historyTargetKey(target))??{target,history:unavailableHistory,failed:false});
+ }
+ if(!targets.length)return [];
+ let stored=new Map<string,PriceHistory>();
+ try{if(targets.length>1)stored=await loadStoredBatch(targets,signal,fetcher)}catch(error){if(signal.aborted)throw error;return targets.map(target=>({target,history:unavailableHistory,failed:true}))}
  return mapWithConcurrency(targets,limit,async target=>{
   const fromBatch=stored.get(historyTargetKey(target));if(fromBatch)return{target,history:fromBatch,failed:false} satisfies BatchEntry;
+  if(targets.length>1)return{target,history:unavailableHistory,failed:false} satisfies BatchEntry;
   if(signal.aborted)throw new DOMException("Request aborted","AbortError");
   try{
-   const params=new URLSearchParams({productId:String(target.productId),printing:target.printing});if(target.sealed)params.set("sealed","1");
+   const params=new URLSearchParams({productId:String(target.productId),printing:target.printing,format:"shared-v1"});if(target.sealed)params.set("sealed","1");
+   if(target.snapshotId)params.set("snapshot",target.snapshotId);
    const response=await fetcher(`/api/history?${params}`,{signal});if(!response.ok)throw new Error(`History request failed: ${response.status}`);
-   const parsed=parsePriceHistory(await response.json()),history={...parsed,...deriveHistoryMetrics(parsed.points)};
+   const history=parsedHistory(await response.json(),target);
    return{target,history,failed:false} satisfies BatchEntry;
   }catch(error){if(signal.aborted||(error instanceof DOMException&&error.name==="AbortError"))throw error;return{target,history:unavailableHistory,failed:true} satisfies BatchEntry}
  });
@@ -67,14 +79,14 @@ export function useHistoryOnce(targets:HistoryTarget[]){
 }
 
 export function usePriceHistoryBatch(){
- const [history,setHistory]=useState<Record<number,PriceHistory>>({}),historyRef=useRef<Record<number,PriceHistory>>({}),[status,setStatus]=useState<HistoryStatus>("idle"),[failedCount,setFailedCount]=useState(0),loadedRef=useRef(new Set<string>()),controllerRef=useRef<AbortController|null>(null),requestRef=useRef(0),lastTargetsRef=useRef<HistoryTarget[]>([]);
+ const [history,setHistory]=useState<Record<string,PriceHistory>>({}),historyRef=useRef<Record<string,PriceHistory>>({}),[status,setStatus]=useState<HistoryStatus>("idle"),[failedCount,setFailedCount]=useState(0),loadedRef=useRef(new Set<string>()),controllerRef=useRef<AbortController|null>(null),requestRef=useRef(0),lastTargetsRef=useRef<HistoryTarget[]>([]);
  const request=useCallback(async(targets:HistoryTarget[])=>{
   const unique=[...new Map(targets.filter(target=>target.productId>0).map(target=>[historyTargetKey(target),target])).values()];lastTargetsRef.current=unique;
   controllerRef.current?.abort();const requestId=++requestRef.current;
   const missing=unique.filter(target=>!loadedRef.current.has(historyTargetKey(target)));
-  if(!missing.length){const values=unique.map(target=>historyRef.current[target.productId]).filter(Boolean);setFailedCount(0);setStatus(!unique.length?"idle":values.some(value=>value.points.length)?"success":"empty");return}
+  if(!missing.length){const values=unique.map(target=>historyRef.current[historyTargetKey(target)]).filter(Boolean);setFailedCount(0);setStatus(!unique.length?"idle":values.some(value=>value.points.length)?"success":"empty");return}
   const controller=new AbortController();controllerRef.current=controller;setStatus(Object.keys(historyRef.current).length?"partial":"loading");
-  try{const entries=await loadPriceHistoryBatch(missing,controller.signal);if(controller.signal.aborted||requestId!==requestRef.current)return;for(const entry of entries)loadedRef.current.add(historyTargetKey(entry.target));const additions=Object.fromEntries(entries.map(entry=>[entry.target.productId,entry.history])) as Record<number,PriceHistory>,next:Record<number,PriceHistory>={...historyRef.current,...additions};historyRef.current=next;setHistory(next);const failures=entries.filter(entry=>entry.failed).length,hasHistory=Object.values(next).some(value=>value.points.length);setFailedCount(failures);setStatus(failures===entries.length?(hasHistory?"partial":"error"):failures?"partial":entries.some(entry=>entry.history.points.length)?"success":"empty")}catch{if(controller.signal.aborted)return;setFailedCount(missing.length);setStatus("error")}
+  try{const entries=await loadPriceHistoryBatch(missing,controller.signal);if(controller.signal.aborted||requestId!==requestRef.current)return;for(const entry of entries)loadedRef.current.add(historyTargetKey(entry.target));const next={...historyRef.current,...additionsFor(entries)};historyRef.current=next;setHistory(next);const failures=entries.filter(entry=>entry.failed).length,hasHistory=Object.values(next).some(value=>value.points.length);setFailedCount(failures);setStatus(failures===entries.length?(hasHistory?"partial":"error"):failures?"partial":entries.some(entry=>entry.history.points.length)?"success":"empty")}catch{if(controller.signal.aborted)return;setFailedCount(missing.length);setStatus("error")}
  },[]);
  // Additive load for hover: fetch only what is missing without disturbing an in-flight page
  // request, so opening one row's chart never aborts the rest of the page.
@@ -82,7 +94,7 @@ export function usePriceHistoryBatch(){
   const missing=[...new Map(targets.filter(target=>target.productId>0&&!loadedRef.current.has(historyTargetKey(target))).map(target=>[historyTargetKey(target),target])).values()];
   if(!missing.length)return;
   for(const target of missing)loadedRef.current.add(historyTargetKey(target));
-  try{const entries=await loadPriceHistoryBatch(missing,new AbortController().signal);const additions:Record<number,PriceHistory>={};for(const entry of entries){if(entry.failed)loadedRef.current.delete(historyTargetKey(entry.target));else additions[entry.target.productId]=entry.history}
+  try{const entries=await loadPriceHistoryBatch(missing,new AbortController().signal);const additions=additionsFor(entries.filter(entry=>!entry.failed));for(const entry of entries){if(entry.failed)loadedRef.current.delete(historyTargetKey(entry.target))}
    if(Object.keys(additions).length){historyRef.current={...historyRef.current,...additions};setHistory(historyRef.current)}
   }catch{for(const target of missing)loadedRef.current.delete(historyTargetKey(target))}
  },[]);

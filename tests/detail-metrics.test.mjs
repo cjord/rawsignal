@@ -32,8 +32,9 @@ async function migratedDatabase(){
 
 const card=(productId,marketPrice)=>({game:"pokemon",section:"illustration-rares",productId,name:`Card ${productId}`,set:"Fixture Set",year:2026,rarity:"Illustration Rare",number:`${productId}/100`,image:"https://example.com/c.jpg",url:"https://example.com/c",marketPrice,lowPrice:null,midPrice:null,highPrice:null,printing:"Holofoil",priceChange:null});
 const sealed=(productId,category,marketPrice)=>({game:"pokemon",productId,name:`${category} ${productId}`,set:"Fixture Set",category,image:null,url:"https://example.com/s",msrp:null,marketPrice,midPrice:null,profit:null,profitPct:null,msrpSource:null});
-const history=(variant,condition)=>({points:[],variant,condition,coverage:"exact",change7:1.5,change30:-3.2,change90:null,low30:35,high30:44,historyLow:null,historyHigh:null});
-const expected={change7:1.5,change30:-3.2,low30:35,high30:44,regime:"steady"};
+const history=(variant,condition)=>({points:[{date:"2026-07-20",price:40},{date:"2026-07-29",price:35},{date:"2026-08-21",price:44},{date:"2026-08-28",price:42}],variant,condition,coverage:"exact",change7:null,change30:null,change90:null,low30:null,high30:null,historyLow:null,historyHigh:null});
+const expected={change7:-4.55,change30:20,low30:35,high30:44,regime:"steady"};
+const withoutVersion=metrics=>{const {snapshotId,asOfDate,...values}=metrics;assert.match(snapshotId,/^v1-/);assert.equal(asOfDate,"2026-08-28");return values};
 
 async function seededDb(){
   const db=new LocalD1(await migratedDatabase()),at="2026-08-28T00:00:00Z",run="live-daily:2026-08-28";
@@ -51,16 +52,16 @@ async function seededDb(){
 test("set row metrics are keyed by product id and cover both kinds",async()=>{
   const metrics=await readSetRowMetrics(await seededDb(),"pokemon","Fixture Set");
   assert.deepEqual([...metrics.keys()].sort(),[1,10]);
-  assert.deepEqual(metrics.get(1),expected);
+  assert.deepEqual(withoutVersion(metrics.get(1)),expected);
   assert.deepEqual(await readSetRowMetrics(await seededDb(),"pokemon","Other Set"),new Map());
 });
 
 test("chase cards and related sealed carry their metrics; rows without a metrics row carry none",async()=>{
   const repository=createD1CatalogRepository(await seededDb());
   const box=await repository.getDetail("sealed",9,"pokemon");
-  assert.deepEqual(box.chaseCards.map(item=>[item.productId,item.metrics??null]),[[1,expected],[2,null]]);
-  assert.deepEqual(box.relatedSealed.map(item=>[item.productId,item.metrics??null]),[[10,expected]]);
+  assert.deepEqual(box.chaseCards.map(item=>[item.productId,item.metrics?withoutVersion(item.metrics):null]),[[1,expected],[2,null]]);
+  assert.deepEqual(box.relatedSealed.map(item=>[item.productId,item.metrics?withoutVersion(item.metrics):null]),[[10,expected]]);
   const single=await repository.getDetail("single",1);
-  assert.deepEqual(single.relatedSealed.map(item=>[item.productId,item.metrics??null]),[[9,null],[10,expected]]);
-  assert.equal("metrics" in single,false,"the product itself is not decorated");
+  assert.deepEqual(single.relatedSealed.map(item=>[item.productId,item.metrics?withoutVersion(item.metrics):null]),[[9,null],[10,expected]]);
+  assert.deepEqual(withoutVersion(single.metrics),expected,"the main detail chart is pinned too");
 });

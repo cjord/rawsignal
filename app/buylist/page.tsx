@@ -8,6 +8,7 @@ import {parseStrictness,STRICTNESS_KEY,usePreference} from "../state/usePreferen
 import type {SignalStrictness} from "../../core/domain/types";
 import {buylistTotals,type FavoriteEntry} from "../state/favorites";
 import {useFavorites} from "../state/useFavorites";
+import {riftboundRegularArtworkImage} from "../../core/domain/riftbound-artwork";
 
 // The card-show buy list (audit Phase B / R4): favorites rendered as a checkable shopping
 // list with a running scoreboard. Prices are the ones captured when each product was
@@ -23,7 +24,7 @@ function Row({entry,acquired,paid,onAcquired,onPaid,onRemove}:{entry:FavoriteEnt
  return <li className={`buylist-row ${acquired?"acquired":""}`}>
   <label className="buylist-check"><input type="checkbox" checked={acquired} onChange={event=>onAcquired(event.target.checked)} aria-label={`Mark ${entry.name} acquired`}/><span aria-hidden="true"/></label>
   <a className="buylist-identity" href={href}>
-   <DeferredImage src={entry.image} alt=""/>
+   <DeferredImage src={riftboundRegularArtworkImage(entry)??entry.image} alt=""/>
    <span className="buylist-text">
     <b>{entry.name}</b>
     <span className="buylist-meta">{entry.set}{entry.number?` · ${entry.number}`:""} · {formatGameName(entry.game)}</span>
@@ -39,7 +40,7 @@ function Row({entry,acquired,paid,onAcquired,onPaid,onRemove}:{entry:FavoriteEnt
 // tapping toggles acquired, and acquired tiles dim but stay listed.
 function SimpleTile({entry,acquired,onToggle}:{entry:FavoriteEntry;acquired:boolean;onToggle:()=>void}){
  return <button type="button" className={`buylist-tile ${acquired?"acquired":""}`} aria-pressed={acquired} aria-label={`${entry.name}${acquired?" — acquired":""}; tap to ${acquired?"unmark":"mark"} acquired`} onClick={onToggle}>
-  <DeferredImage src={entry.image} alt=""/>
+  <DeferredImage src={riftboundRegularArtworkImage(entry)??entry.image} alt=""/>
   <b>{entry.name}</b>
   <strong>{formatUsd(entry.price,"N/A")}</strong>
   <i className="buylist-tile-check" aria-hidden="true">✓</i>

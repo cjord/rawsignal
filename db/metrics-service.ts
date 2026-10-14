@@ -1,5 +1,6 @@
 import { deriveHistoryMetrics } from "../core/domain/history-metrics.ts";
 import { pokemonEra } from "../core/domain/eras.ts";
+import { riftboundRegularArtworkImage } from "../core/domain/riftbound-artwork.ts";
 import { evRatio, packChaseEv } from "../core/domain/pack-ev.ts";
 import type { PricePoint, PullRateConfig } from "../core/domain/types.ts";
 import { pullRateFor } from "../core/catalog-repository.ts";
@@ -21,13 +22,13 @@ const changes = (points: PricePoint[]) => {
 
 // Sealed market_metrics rows are keyed by the history variant ("Sealed"), not a printing;
 // the OR keeps the join exact for singles and permissive for the single sealed row.
-const metricsJoin = "join market_metrics mm on mm.product_id=p.product_id and (mm.variant=p.printing or p.kind='sealed')";
+const metricsJoin = "join market_metrics mm on mm.product_id=p.product_id and ((mm.variant=p.printing and mm.condition='Near Mint' and p.kind='single') or (mm.variant='Sealed' and mm.condition='Unopened' and p.kind='sealed'))";
 
 type TotalsRow = { game: string; kind: "single" | "sealed"; totalCents: number; products: number };
 type SetRow = { setName: string; game: string; totalCents: number; cards: number; medianCents: number; change30Bps: number | null };
 type CategoryRow = { category: string; game: string; totalCents: number; products: number; medianCents: number; change7Bps: number | null; change30Bps: number | null; change90Bps: number | null };
 type MomentumRow = { game: string; kind: "single" | "sealed"; tracked: number; advancers7: number; decliners7: number; advancers30: number; decliners30: number; atHigh: number; atLow: number };
-type MoverRow = { productId: number; name: string; setName: string; game: string; kind: "single" | "sealed"; printing: string | null; image: string | null; cents: number; midCents: number | null; changeBps: number; win: "7d" | "30d" | "90d"; direction: "up" | "down" };
+type MoverRow = { productId: number; name: string; number: string | null; setName: string; game: string; kind: "single" | "sealed"; printing: string | null; image: string | null; cents: number; midCents: number | null; changeBps: number; win: "7d" | "30d" | "90d"; direction: "up" | "down"; snapshotId: string | null };
 
 const gameLabel: Record<string, string> = { pokemon: "Pokémon", riftbound: "Riftbound", onepiece: "One Piece" };
 
@@ -275,8 +276,8 @@ async function loadMomentum(db: D1DatabaseLike): Promise<MetricsMomentumRow[]> {
 // same reason: at those magnitudes the "move" is listing turnover, not a repricing.
 async function loadMovers(db: D1DatabaseLike): Promise<MetricsMover[]> {
   const moverRows = (await db.prepare(`with eligible as (
-      select p.product_id productId, p.name, p.set_name setName, p.game, p.kind, p.image_url image,
-        mm.variant printing, cp.market_cents cents, cp.median_cents midCents,
+      select p.product_id productId, p.name, p.card_number number, p.set_name setName, p.game, p.kind, p.image_url image,
+        mm.variant printing, cp.market_cents cents, cp.median_cents midCents, mm.history_snapshot_id snapshotId,
         mm.change_7_bps c7, mm.change_30_bps c30, mm.change_90_bps c90,
         case when p.kind='sealed' then 2000 else 1000 end floorCents
       from catalog_products p
@@ -293,19 +294,20 @@ async function loadMovers(db: D1DatabaseLike): Promise<MetricsMover[]> {
       select *, row_number() over (partition by game, kind order by c90 desc) up, row_number() over (partition by game, kind order by c90 asc) down
       from eligible where c90 is not null and c90 != 0 and c90 between -9000 and 90000 and cents / (1.0 + c90 / 10000.0) >= floorCents
     )
-    select productId, name, setName, game, kind, printing, image, cents, midCents, c7 as changeBps, '7d' as win, case when up <= 8 and c7 > 0 then 'up' else 'down' end as direction
+    select productId, name, number, setName, game, kind, printing, image, cents, midCents, c7 as changeBps, '7d' as win, case when up <= 8 and c7 > 0 then 'up' else 'down' end as direction, snapshotId
       from sevens where (up <= 8 and c7 > 0) or (down <= 8 and c7 < 0)
     union all
-    select productId, name, setName, game, kind, printing, image, cents, midCents, c30, '30d', case when up <= 8 and c30 > 0 then 'up' else 'down' end
+    select productId, name, number, setName, game, kind, printing, image, cents, midCents, c30, '30d', case when up <= 8 and c30 > 0 then 'up' else 'down' end, snapshotId
       from thirties where (up <= 8 and c30 > 0) or (down <= 8 and c30 < 0)
     union all
-    select productId, name, setName, game, kind, printing, image, cents, midCents, c90, '90d', case when up <= 8 and c90 > 0 then 'up' else 'down' end
+    select productId, name, number, setName, game, kind, printing, image, cents, midCents, c90, '90d', case when up <= 8 and c90 > 0 then 'up' else 'down' end, snapshotId
       from nineties where (up <= 8 and c90 > 0) or (down <= 8 and c90 < 0)`).bind().all<MoverRow>()).results ?? [];
   return moverRows.map(row => ({
     productId: row.productId, name: row.name, set: row.setName, game: row.game, kind: row.kind,
-    printing: row.printing ?? (row.kind === "sealed" ? "Sealed" : "Normal"), image: row.image ?? null,
+    printing: row.printing ?? (row.kind === "sealed" ? "Sealed" : "Normal"), image: riftboundRegularArtworkImage(row) ?? row.image ?? null,
     price: row.cents / 100, mid: row.midCents == null ? null : row.midCents / 100,
     change: row.changeBps / 100, window: row.win, direction: row.direction,
+    snapshotId: row.snapshotId ?? "unavailable",
   }));
 }
 

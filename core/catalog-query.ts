@@ -1,4 +1,5 @@
 import { fuzzyTextMatch } from "./market-utils.ts";
+import { withRiftboundRegularArtwork } from "./domain/riftbound-artwork.ts";
 import type { MarketRegime } from "./domain/regime.ts";
 import type { Card, MarketSignal, PriceHistory, SealedMarket, SealedProduct, SignalSide, SignalStrictness, SinglesMarket } from "./domain/types.ts";
 import type { Direction, SealedSort, SinglesSort } from "./market-state.ts";
@@ -175,17 +176,17 @@ export function querySinglesCatalog(cards: Card[], options: SinglesCatalogQuery,
   // stabilization and liquidity gates already keep weak entries off, and pagination
   // handles depth. Default score ordering comes from the "signal" sort below.
   filtered.sort((a, b) => {
-    const am = derived[a.productId], bm = derived[b.productId];
+    const am = derived[a.productId] ?? {...a.metrics,signal:null}, bm = derived[b.productId] ?? {...b.metrics,signal:null};
     if (options.sort === "name") return textCompare(a.name, b.name, options.direction);
     if (options.sort === "set") return textCompare(a.set, b.set, options.direction) || textCompare(a.name, b.name, options.direction);
     if (options.sort === "signal") return nullableCompare(am?.signal?.score, bm?.signal?.score, options.direction);
-    if (options.sort === "low") return nullableCompare(am?.low30 ?? a.lowPrice, bm?.low30 ?? b.lowPrice, options.direction);
-    if (options.sort === "high") return nullableCompare(am?.high30 ?? a.highPrice, bm?.high30 ?? b.highPrice, options.direction);
+    if (options.sort === "low") return nullableCompare(am?.low30, bm?.low30, options.direction);
+    if (options.sort === "high") return nullableCompare(am?.high30, bm?.high30, options.direction);
     if (options.sort === "change7") return nullableCompare(am?.change7, bm?.change7, options.direction);
     if (options.sort === "change30") return nullableCompare(am?.change30, bm?.change30, options.direction);
     return nullableCompare(a.marketPrice, b.marketPrice, options.direction);
   });
-  return paginate(filtered, options.page, options.perPage, facets);
+  return paginate(filtered.map(withRiftboundRegularArtwork), options.page, options.perPage, facets);
 }
 
 export function filterSinglesCandidates(cards: Card[], options: SinglesCandidateQuery) {

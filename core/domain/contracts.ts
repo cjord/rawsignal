@@ -19,7 +19,7 @@ function validRowMetrics(value: unknown): boolean {
   if (value === undefined) return true;
   if (!record(value)) return false;
   for (const key of ["change7", "change30", "low30", "high30"] as const) if (!nullableFinite(value[key])) return false;
-  return value.regime === null || string(value.regime);
+  return (value.regime === null || string(value.regime)) && optionalString(value.snapshotId) && optionalString(value.asOfDate);
 }
 
 function parsePricePoint(value: unknown): PricePoint {
@@ -43,10 +43,12 @@ export function parsePriceHistory(value: unknown): PriceHistory {
       throw new TypeError(`Invalid price-history metric: ${key}`);
     }
   }
-  if (!optionalString(value.variant) || !optionalString(value.condition)) {
+  if (!optionalString(value.variant) || !optionalString(value.condition) || !optionalString(value.snapshotId) || !optionalString(value.asOfDate)) {
     throw new TypeError("Invalid price-history variant");
   }
   return {
+    ...(value.snapshotId ? { snapshotId: value.snapshotId as string } : {}),
+    ...(value.asOfDate ? { asOfDate: value.asOfDate as string } : {}),
     points: value.points.map(parsePricePoint),
     variant: value.variant,
     condition: value.condition,

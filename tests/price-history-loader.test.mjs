@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { historyTargetKey, loadPriceHistoryBatch } from "../app/data/usePriceHistoryBatch.ts";
+import {createHistorySnapshot} from "../core/domain/history-snapshot.ts";
 
-// The client loader: one batch request per page of rows, single-product requests only for
-// what the batch route had no stored series for, and a degraded path when the batch fails.
+// One batch request per page; missing or failed snapshots never fan out to another source.
 
-const history = (price) => ({ points: [{ date: "2026-08-01", price }, { date: "2026-08-31", price: price * 1.1 }], coverage: "exact", variant: "Holofoil", condition: "Near Mint" });
+const history = (price) => createHistorySnapshot([{ date: "2026-08-01", price }, { date: "2026-08-31", price: price * 1.1 }],"Holofoil","Near Mint","exact");
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
 function fakeFetch(handlers) {
@@ -14,26 +14,27 @@ function fakeFetch(handlers) {
   return { fetcher, calls };
 }
 
-test("a page of rows is one batch request; misses fall back to the single-product route", async () => {
+test("a page of rows is one batch request; missing snapshots stay unavailable without fan-out", async () => {
   const { fetcher, calls } = fakeFetch([
     [/\/api\/history\/batch\?t=/, url => { const t = decodeURIComponent(new URL(url, "https://x").searchParams.get("t")); assert.equal(t, "1:Holofoil,2:Holofoil,3:Normal:s"); return json({ histories: { "single:1:holofoil": history(10), "single:2:holofoil": null, "sealed:3:normal": history(50) } }); }],
     [/\/api\/history\?productId=2/, () => json(history(20))],
   ]);
   const targets = [{ productId: 1, printing: "Holofoil" }, { productId: 2, printing: "Holofoil" }, { productId: 3, printing: "Normal", sealed: true }];
   const entries = await loadPriceHistoryBatch(targets, new AbortController().signal, fetcher);
-  assert.deepEqual(calls.map(url => url.split("?")[0]), ["/api/history/batch", "/api/history"]);
-  assert.deepEqual(entries.map(e => [historyTargetKey(e.target), e.failed, e.history.points[0]?.price]), [["single:1:holofoil", false, 10], ["single:2:holofoil", false, 20], ["sealed:3:normal", false, 50]]);
+  assert.deepEqual(calls.map(url => url.split("?")[0]), ["/api/history/batch"]);
+  assert.deepEqual(entries.map(e => [historyTargetKey(e.target), e.failed, e.history.points[0]?.price]), [["single:1:holofoil", false, 10], ["single:2:holofoil", false, undefined], ["sealed:3:normal", false, 50]]);
   // Derived metrics are attached client-side exactly as for single responses.
   assert.equal(typeof entries[0].history.change30, "number");
 });
 
-test("a failed batch degrades to single-product requests; a single target skips the batch entirely", async () => {
+test("a failed batch marks failures without fan-out; a single target skips the batch entirely", async () => {
   const degraded = fakeFetch([
     [/\/api\/history\/batch/, () => json({ error: "down" }, 503)],
     [/\/api\/history\?productId=(\d+)/, url => json(history(Number(url.match(/productId=(\d+)/)[1])))],
   ]);
   const entries = await loadPriceHistoryBatch([{ productId: 4, printing: "Normal" }, { productId: 5, printing: "Normal" }], new AbortController().signal, degraded.fetcher);
-  assert.deepEqual(entries.map(e => e.history.points[0].price), [4, 5]);
+  assert.deepEqual(entries.map(e => e.failed), [true, true]);
+  assert.equal(degraded.calls.length,1);
   assert.equal(degraded.calls.filter(url => url.startsWith("/api/history/batch")).length, 1);
 
   const one = fakeFetch([[/\/api\/history\?productId=9/, () => json(history(9))]]);
@@ -46,7 +47,7 @@ test("a single-route failure marks that entry failed without failing the page", 
     [/\/api\/history\/batch/, () => json({ histories: { "single:1:normal": null, "single:2:normal": history(2) } })],
     [/\/api\/history\?productId=1/, () => json({ error: "History unavailable" }, 502)],
   ]);
-  const entries = await loadPriceHistoryBatch([{ productId: 1, printing: "Normal" }, { productId: 2, printing: "Normal" }], new AbortController().signal, fetcher);
-  assert.deepEqual(entries.map(e => e.failed), [true, false]);
+  const entries = await loadPriceHistoryBatch([{ productId: 1, printing: "Normal" }], new AbortController().signal, fetcher);
+  assert.deepEqual(entries.map(e => e.failed), [true]);
   assert.equal(entries[0].history.coverage, "none");
 });

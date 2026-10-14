@@ -8,7 +8,7 @@ import MarketRow from "./leaderboard/MarketRow";
 import ProductIdentity from "./leaderboard/ProductIdentity";
 import FavoriteStar from "./FavoriteStar";
 import {usePriceHistoryBatch,type HistoryTarget} from "./data/usePriceHistoryBatch";
-import {historyFromMetrics} from "./leaderboard/mode-adapter";
+import {matchingRowHistory,loadedRowHistory,rowHistoryTarget} from "../core/domain/history-snapshot.ts";
 import {formatPercent,formatRarity,formatUsd} from "../core/domain/formatters";
 import {isRelatedSealedProduct} from "../core/sealed-product-utils";
 import {cardFavorite,sealedFavorite} from "./state/favorites";
@@ -56,7 +56,7 @@ function RowCells({set,setNote,market,history}:{set:string;setNote:string|null;m
 
 export function ChaseCardsSection({cards,packPrice,setName}:{cards:Card[];packPrice:number|null;setName:string}){
  const [view,setView]=useState<TableView>("medium");
- const missing=useMemo(()=>cards.filter(card=>!card.metrics).map(card=>({productId:card.productId,printing:card.printing})),[cards]);
+ const missing=useMemo(()=>cards.filter(card=>!card.metrics).map(rowHistoryTarget),[cards]);
  const {history,ensure}=useTableHistory(missing);
  if(!cards.length)return null;
  return <section className="detail-section detail-market-table">
@@ -64,9 +64,9 @@ export function ChaseCardsSection({cards,packPrice,setName}:{cards:Card[];packPr
   <p className="detail-note detail-table-note">{packPrice!=null?`Cards from ${setName} with a market price above the ${formatUsd(packPrice)} single-pack price.`:`The most valuable tracked cards from ${setName}.`}</p>
   <TableHead view={view} itemLabel="Card"/>
   <div className={`rows view-${view}`} role="rowgroup">{cards.map((card,index)=>{
-   const loaded=history[card.productId],cardHistory=loaded??historyFromMetrics(card);
+   const loaded=loadedRowHistory(history,card),cardHistory=matchingRowHistory(card.metrics,loaded);
    const multiple=packPrice!=null&&packPrice>0&&card.marketPrice!=null?Math.round(card.marketPrice/packPrice):null;
-   return <MarketRow className="leader-row" key={card.productId} href={`/cards/${card.productId}`} label={`View ${card.name} details`} onReveal={()=>void ensure([{productId:card.productId,printing:card.printing}])}
+   return <MarketRow className="leader-row" key={card.productId} href={`/cards/${card.productId}`} label={`View ${card.name} details`} onReveal={()=>void ensure([rowHistoryTarget(card)])}
     popover={<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={card.image} alt={`${card.name} card`} links={marketplaceLinkMetrics(card.productId,card.url,{kind:"single",game:card.game,name:card.name,set:card.set,number:card.number,section:card.section})} label={`${card.name} price history`}><HistoryPanel title="Near Mint Market History" subtitle={loaded?.variant??card.printing} points={loaded?.points??[]} metrics={historyMetrics(card.marketPrice,card.midPrice,cardHistory)} loading={!loaded}/></HistoryPopover>}>
     <span className="position">{String(index+1).padStart(2,"0")}</span>
     <ProductIdentity className="identity" image={card.image} alt="" title={card.name} meta={`${card.number} · ${formatRarity(card.rarity)} · ${card.printing}${multiple!=null&&multiple>1?` · ≈${multiple}× pack`:""}`}/>
@@ -80,7 +80,7 @@ export function ChaseCardsSection({cards,packPrice,setName}:{cards:Card[];packPr
 export function RelatedSealedSection({products,setName,market}:{products:SealedProduct[];setName:string;market?:string}){
  const [view,setView]=useState<TableView>("medium"),[page,setPage]=useState(1),perPage=useRelatedSealedPageSize();
  const relatedProducts=useMemo(()=>products.filter(isRelatedSealedProduct),[products]);
- const missing=useMemo(()=>relatedProducts.filter(product=>!product.metrics&&priced(product)).map(product=>({productId:product.productId,printing:"Sealed",sealed:true})),[relatedProducts]);
+ const missing=useMemo(()=>relatedProducts.filter(product=>!product.metrics&&priced(product)).map(rowHistoryTarget),[relatedProducts]);
  const {history,ensure}=useTableHistory(missing);
  if(!relatedProducts.length)return null;
  const pages=Math.max(1,Math.ceil(relatedProducts.length/perPage)),safePage=Math.min(page,pages),start=(safePage-1)*perPage,visible=relatedProducts.slice(start,start+perPage);
@@ -88,8 +88,8 @@ export function RelatedSealedSection({products,setName,market}:{products:SealedP
   <header><span>From this set</span><h2>More Sealed from {setName}</h2><SegmentedView className="detail-table-views" value={view} onChange={setView} options={tableViews} label="Related sealed view"/></header>
   <TableHead view={view} itemLabel="Product"/>
   <div className={`rows view-${view}`} role="rowgroup">{visible.map((product,index)=>{
-   const loaded=history[product.productId],productHistory=loaded??historyFromMetrics(product)??(priced(product)?undefined:noHistory);
-   return <MarketRow className="leader-row" key={product.productId} href={`/sealed/${product.productId}${market?`?market=${market}`:""}`} label={`View ${product.name} details`} onReveal={()=>void ensure([{productId:product.productId,printing:"Sealed",sealed:true}])}
+   const loaded=loadedRowHistory(history,product),productHistory=matchingRowHistory(product.metrics,loaded)??(priced(product)?undefined:noHistory);
+   return <MarketRow className="leader-row" key={product.productId} href={`/sealed/${product.productId}${market?`?market=${market}`:""}`} label={`View ${product.name} details`} onReveal={()=>void ensure([rowHistoryTarget(product)])}
     popover={<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={product.image} alt={`${product.name} product`} links={marketplaceLinkMetrics(product.productId,product.url,{kind:"sealed",game:product.game,name:product.name,set:product.set})} label={`${product.name} price history`}><HistoryPanel title="Sealed Market History" subtitle="Unopened" points={loaded?.points??[]} metrics={historyMetrics(product.marketPrice,product.midPrice,productHistory)} loading={!loaded}/></HistoryPopover>}>
     <span className="position">{String(start+index+1).padStart(2,"0")}</span>
     <ProductIdentity className="identity" image={product.image} alt="" title={product.name} meta={product.category}/>

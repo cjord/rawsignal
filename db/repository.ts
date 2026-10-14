@@ -1,4 +1,5 @@
 import type {Card,CatalogDetailEnrichment,MarketSignal,PriceHistory,PricePoint,SealedProduct,SignalStrictness} from "../core/domain/types.ts";
+import { createHistorySnapshot, serializeHistorySnapshot } from "../core/domain/history-snapshot.ts";
 
 type Statement = {
   bind(...values: unknown[]): Statement;
@@ -107,12 +108,16 @@ export async function upsertHistory(db:D1DatabaseLike,productId:number,variant:s
 export type MarketLiquidityWrite={sales7:number|null;sales30:number|null;sales30Prior:number|null;realizedLow30?:number|null;realizedHigh30?:number|null};
 
 export function marketMetricsStatement(db:D1DatabaseLike,productId:number,variant:string,condition:string,asOfDate:string,history:PriceHistory,updatedAt:string,liquidity?:MarketLiquidityWrite,regime?:string|null){
+  const snapshot = history.snapshotId ? history : createHistorySnapshot(history.points, variant, condition, history.coverage);
   // Sales counts and realized ranges persist only when the fetch carried them (history
   // jobs); a sales-less daily upsert preserves the last-known values instead of erasing
   // them. The regime is recomputed from points on every upsert, so it always overwrites.
   return db.prepare(`insert into market_metrics (product_id,variant,condition,as_of_date,coverage,
-    change_7_bps,change_30_bps,change_90_bps,low_30_cents,high_30_cents,historic_low_cents,historic_high_cents,sales_7,sales_30,sales_30_prior,realized_low_30_cents,realized_high_30_cents,regime,updated_at)
-    values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) on conflict(product_id,variant,condition) do update set
+    change_7_bps,change_30_bps,change_90_bps,low_30_cents,high_30_cents,historic_low_cents,historic_high_cents,sales_7,sales_30,sales_30_prior,realized_low_30_cents,realized_high_30_cents,regime,updated_at,history_snapshot_id,history_snapshot_json)
+    values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) on conflict(product_id,variant,condition) do update set
+    previous_history_snapshot_id=case when market_metrics.history_snapshot_id is not excluded.history_snapshot_id then market_metrics.history_snapshot_id else market_metrics.previous_history_snapshot_id end,
+    previous_history_snapshot_json=case when market_metrics.history_snapshot_id is not excluded.history_snapshot_id then market_metrics.history_snapshot_json else market_metrics.previous_history_snapshot_json end,
+    history_snapshot_id=excluded.history_snapshot_id,history_snapshot_json=excluded.history_snapshot_json,
     as_of_date=excluded.as_of_date,coverage=excluded.coverage,change_7_bps=excluded.change_7_bps,
     change_30_bps=excluded.change_30_bps,change_90_bps=excluded.change_90_bps,
     low_30_cents=excluded.low_30_cents,high_30_cents=excluded.high_30_cents,
@@ -123,10 +128,10 @@ export function marketMetricsStatement(db:D1DatabaseLike,productId:number,varian
     realized_high_30_cents=coalesce(excluded.realized_high_30_cents,market_metrics.realized_high_30_cents),
     regime=excluded.regime,
     updated_at=excluded.updated_at`).bind(productId,variant,condition,asOfDate,history.coverage,
-      toBasisPoints(history.change7),toBasisPoints(history.change30),toBasisPoints(history.change90),
-      toCents(history.low30),toCents(history.high30),toCents(history.historyLow),toCents(history.historyHigh),
+      toBasisPoints(snapshot.change7),toBasisPoints(snapshot.change30),toBasisPoints(snapshot.change90),
+      toCents(snapshot.low30),toCents(snapshot.high30),toCents(snapshot.historyLow),toCents(snapshot.historyHigh),
       liquidity?.sales7??null,liquidity?.sales30??null,liquidity?.sales30Prior??null,
-      toCents(liquidity?.realizedLow30??null),toCents(liquidity?.realizedHigh30??null),regime??null,updatedAt);
+      toCents(liquidity?.realizedLow30??null),toCents(liquidity?.realizedHigh30??null),regime??null,updatedAt,snapshot.snapshotId,serializeHistorySnapshot(snapshot));
 }
 
 export async function upsertMarketMetrics(db:D1DatabaseLike,productId:number,variant:string,condition:string,asOfDate:string,history:PriceHistory,updatedAt:string,liquidity?:MarketLiquidityWrite,regime?:string|null){

@@ -1,4 +1,5 @@
 import { setGroupKey } from "../core/domain/eras.ts";
+import { riftboundRegularArtworkImage } from "../core/domain/riftbound-artwork.ts";
 import { hasMarketPrice } from "../core/domain/prices.ts";
 import { setSlug } from "../core/domain/formatters.ts";
 import type { SetDetailPayload, SetDirectoryRow, SetsDirectoryPayload } from "../core/domain/sets.ts";
@@ -59,11 +60,11 @@ export async function loadSetsDirectory(db: D1DatabaseLike | undefined): Promise
   // Cover art per set (2026-09-04): the image of the set's highest-market eligible
   // product — cases and display multiples are wholesale packaging rather than useful
   // set identity. SQLite returns the bare column from the max() row.
-  const coversQuery = db.prepare(`select p.game, p.set_name setName, p.image_url image, max(coalesce(cp.market_cents, 0)) cents
+  const coversQuery = db.prepare(`select p.game, p.set_name setName, p.name, p.card_number number, p.image_url image, max(coalesce(cp.market_cents, 0)) cents
     from catalog_products p left join current_prices cp on cp.product_id=p.product_id
     where p.image_url is not null and p.image_url<>''
       and (p.kind<>'sealed' or (coalesce(p.product_type,'')<>'Cases' and lower(p.name) not like '%display%'))
-    group by p.game, p.set_name`).bind().all<{ game: string; setName: string; image: string }>();
+    group by p.game, p.set_name`).bind().all<{ game: string; setName: string; name: string; number: string | null; image: string }>();
 
   const [singlesResult, sealedResult, momentum7Result, momentum30Result, releasesResult, signalsResult, coversResult] = await Promise.all([
     singlesQuery, sealedQuery,
@@ -71,7 +72,7 @@ export async function loadSetsDirectory(db: D1DatabaseLike | undefined): Promise
     db.prepare(momentumWindow("change_30_bps")).bind().all<MomentumRow>(),
     releasesQuery, signalsQuery, coversQuery,
   ]);
-  const coverBy = new Map((coversResult.results ?? []).map(row => [gameSetKey(row.game, row.setName), row.image]));
+  const coverBy = new Map((coversResult.results ?? []).map(row => [gameSetKey(row.game, row.setName), riftboundRegularArtworkImage(row) ?? row.image]));
   const singles = singlesResult.results ?? [], sealed = sealedResult.results ?? [];
   const momentum7 = momentum7Result.results ?? [], momentum30 = momentum30Result.results ?? [];
   const releases = releasesResult.results ?? [], signals = signalsResult.results ?? [];

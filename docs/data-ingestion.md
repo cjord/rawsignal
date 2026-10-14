@@ -55,6 +55,32 @@ The catalog API compares the published run count with records bearing that run I
 
 ## History backfill and signal readiness
 
+### Shared price-history snapshots (2026-10-14 local revision)
+
+Migration `0021_shared_history_snapshots.sql` adds four nullable columns to
+`market_metrics`: current/previous history version and JSON. Each existing metrics
+upsert stores the normalized combined series and its rounded metrics atomically.
+Identical series keep their content version and do not evict the prior version.
+Snapshot points use compact date/price tuples internally and are bounded to the
+supported 1Y chart window plus its actual prior baseline (at most 367 daily points).
+All-time extrema are calculated from the full series before bounding; original
+observations and the signal-model input remain untouched. Public responses retain
+named point fields. This keeps the additional storage bounded per printing.
+This adds **no daily catalog Worker invocations, upstream calls, D1 read calls,
+write statements, or batches**; it increases bytes stored/written on existing rows.
+History refresh jobs add one indexed observation-series read per refreshed product
+after their delta write, so archive/daily points are preserved in the same snapshot.
+Their existing batch sizes and upstream cadence remain unchanged.
+
+Visitor history GETs now read the saved exact version, never fetch TCGplayer or
+re-derive/write database metrics. Batch misses do not fan out. Unavailable legacy
+versions are resolved locally without a request. Sales summaries remain paused.
+After an authorized deploy, apply migration 0021, then let the next daily catalog
+pass populate priced rows. Until populated, row metrics remain available but
+charts are explicitly unavailable. Staging has no cron: deliberate catalog
+ingestion is required there. No automatic full-catalog upstream history refresh
+or additional production job is introduced.
+
 The `history-signals` readiness marker has been published in production since 2026-08-28, so the bounded browser evaluation below is the cold-start fallback for a database without it, not a live transition. That fallback evaluates at most 400 candidates (`SIGNAL_FALLBACK_LIMIT`). Pokémon has 499 Illustration Rares and 721 cards across Illustration Rare plus Special Illustration Rare, so 99 and 321 candidates respectively can be unevaluated in that fallback.
 
 Candidate selection is proportional across selected rarities and evenly stratified through each rarity's existing price order. An earlier source file or only the highest-priced records can no longer consume the full budget.

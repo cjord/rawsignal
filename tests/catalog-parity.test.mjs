@@ -4,8 +4,10 @@ import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { parseCard, parseSealedProduct } from "../core/domain/contracts.ts";
 import { createMemoryCatalogRepository } from "../core/catalog-repository.ts";
-import { createD1CatalogRepository } from "../db/catalog-repository.ts";
+import { createD1CatalogRepository, readSectionFeed } from "../db/catalog-repository.ts";
 import { completeIngestion, startIngestion, upsertCard, upsertSealedProduct } from "../db/repository.ts";
+import { loadMetricsPayload } from "../db/metrics-service.ts";
+import { loadSetsDirectory } from "../db/sets-service.ts";
 
 // Decision D5 parity suite: the D1 repository (SQL-narrowed candidates + facet queries
 // + the shared engine) must return byte-identical pages to the pure in-memory engine
@@ -38,6 +40,33 @@ async function migratedDatabase() {
 // --- fuzzy targets, tie prices, off-vocabulary and case-variant categories.   ---
 
 const RUN_ID = "parity-run", STALE_RUN_ID = "parity-stale", OBSERVED = "2026-08-30T12:00:00.000Z";
+
+test("existing D1 Metal rows and feed-only detail rows share regular artwork without repricing",async()=>{
+ const {database,db}=await seededDatabase();
+ const metal=parseCard(cardFixture(669250,{game:"riftbound",section:"metal-promos",name:"Kai'Sa, Daughter of the Void (Metal) (Best Of)",set:"Riftbound Organized Play Promotional Cards",number:"247/298",marketPrice:null,image:"https://example.com/old-metal.jpg"}));
+ await upsertCard(db,metal,OBSERVED,RUN_ID);
+ const regularImage="https://tcgplayer-cdn.tcgplayer.com/product/653045_in_1000x1000.jpg";
+ const feed=await readSectionFeed(db,["metal-promos"]);
+ assert.equal(feed.find(card=>card.productId===metal.productId)?.image,regularImage);
+ const memory=createMemoryCatalogRepository([metal],[]);
+ const d1=createD1CatalogRepository(db,RUN_ID);
+ for(const repository of [memory,d1]){
+  const page=await repository.querySingles({...singlesDefaults,market:"riftbound",sections:["metal-promos"]});
+  assert.equal(page.items.find(card=>card.productId===metal.productId)?.image,regularImage);
+  const detail=await repository.getDetail("single",metal.productId);
+  assert.equal(detail.image,regularImage);assert.equal(detail.marketPrice,null);assert.equal(detail.productId,metal.productId);assert.equal(detail.name,metal.name);
+ }
+ assert.equal(database.prepare("select image_url from catalog_products where product_id=?").get(metal.productId).image_url,metal.image,"read-side correction needs no migration");
+ database.prepare("update current_prices set market_cents=50000 where product_id=?").run(metal.productId);
+ database.prepare("insert into market_metrics(product_id,variant,condition,as_of_date,coverage,change_7_bps,updated_at) values (?,?,'Near Mint','2026-08-30','exact',2000,?)").run(metal.productId,metal.printing,OBSERVED);
+ await startIngestion(db,"artwork-metrics","fixture",OBSERVED);
+ await completeIngestion(db,"artwork-metrics","metrics-rollup",OBSERVED,1,1);
+ const metrics=await loadMetricsPayload(db);
+ assert.equal(metrics.movers.find(item=>item.productId===metal.productId)?.image,regularImage);
+ const directory=await loadSetsDirectory(db);
+ assert.equal(directory.sets.find(item=>item.game==="riftbound"&&item.set===metal.set)?.cover,regularImage);
+ database.close();
+});
 
 const cardFixture = (productId, overrides = {}) => ({
   game: "pokemon", section: "illustration-rares", productId, name: `Card ${productId}`, set: "Fixture Set",
@@ -94,7 +123,7 @@ const CATEGORY_REWRITES = { 207: "Mystery Crate", 208: "booster packs" };
 
 const metricRows = [
   { productId: 101, variant: "Holofoil", change7Bps: 210, change30Bps: -1240, low30Cents: 39000, high30Cents: 42250, updatedAt: "2026-08-30T10:00:00Z" },
-  // Older row for 101 under another variant: loadDerived must keep the LATEST row only.
+  // Another variant never replaces the catalog printing's metrics.
   { productId: 101, variant: "Normal", change7Bps: -9999, change30Bps: 9999, low30Cents: 1, high30Cents: 2, updatedAt: "2026-08-29T10:00:00Z" },
   { productId: 102, variant: "Holofoil", change7Bps: -35, change30Bps: 480, low30Cents: 140000, high30Cents: 149000, updatedAt: "2026-08-30T10:01:00Z" },
   { productId: 106, variant: "Holofoil", change7Bps: 0, change30Bps: null, low30Cents: null, high30Cents: null, updatedAt: "2026-08-30T10:02:00Z" },
@@ -103,9 +132,7 @@ const metricRows = [
   { productId: 201, variant: "Sealed", change7Bps: 120, change30Bps: 890, low30Cents: 21000, high30Cents: 24500, updatedAt: "2026-08-30T10:05:00Z" },
   { productId: 205, variant: "Sealed", change7Bps: -60, change30Bps: -180, low30Cents: 1700, high30Cents: 2100, updatedAt: "2026-08-30T10:06:00Z" },
   { productId: 209, variant: "Sealed", change7Bps: 45, change30Bps: 95, low30Cents: 580, high30Cents: 680, updatedAt: "2026-08-30T10:07:00Z" },
-  // Equal-timestamp variants: loadDerived's (updated_at desc, variant asc, condition asc)
-  // tiebreak must pick "Alt" deterministically — history-backfill really writes multi-variant
-  // rows with one shared timestamp.
+  // Equal-timestamp variants must still pick canonical Sealed/Unopened, not Alt.
   { productId: 202, variant: "Alt", change7Bps: 777, change30Bps: 120, low30Cents: 8000, high30Cents: 9500, updatedAt: "2026-08-30T10:08:00Z" },
   { productId: 202, variant: "Sealed", change7Bps: -777, change30Bps: -120, low30Cents: 7000, high30Cents: 9000, updatedAt: "2026-08-30T10:08:00Z" },
 ];
@@ -144,7 +171,7 @@ async function seededDatabase() {
     database.prepare("update catalog_products set product_type=? where product_id=?").run(category, Number(productId));
   for (const row of metricRows)
     database.prepare(`insert into market_metrics (product_id,variant,condition,as_of_date,coverage,change_7_bps,change_30_bps,low_30_cents,high_30_cents,updated_at)
-      values (?,?,?,?,?,?,?,?,?,?)`).run(row.productId, row.variant, "Near Mint", "2026-08-30", "exact", row.change7Bps, row.change30Bps, row.low30Cents, row.high30Cents, row.updatedAt);
+      values (?,?,?,?,?,?,?,?,?,?)`).run(row.productId, row.variant, row.productId>=200?"Unopened":"Near Mint", "2026-08-30", "exact", row.change7Bps, row.change30Bps, row.low30Cents, row.high30Cents, row.updatedAt);
   for (const row of signalRows)
     database.prepare(`insert into market_signals (product_id,side,strictness,score,confidence,reason,detail,distance_bps,cutoff_bps,as_of_date,observation_date,coverage)
       values (?,?,?,?,?,?,?,?,?,?,?,?)`).run(row.productId, row.side, row.strictness, row.score, row.confidence, row.reason, row.detail, row.distanceBps, row.cutoffBps, "2026-08-30", "2026-08-30", "exact");
@@ -159,6 +186,8 @@ function referenceDerived(kindIds, options) {
   const side = options.signal === "leaderboard" ? "buy" : options.signal;
   const derived = {};
   for (const row of [...metricRows].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.variant.localeCompare(b.variant))) {
+    const item=[...cards,...sealed].find(item=>item.productId===row.productId);
+    if(row.variant!==(item?.printing??"Sealed"))continue;
     if (!kindIds.has(row.productId) || derived[row.productId]) continue;
     const signal = signalRows.find(s => s.productId === row.productId && s.side === side && s.strictness === options.strictness) ?? null;
     derived[row.productId] = {
@@ -180,9 +209,14 @@ function referenceDerived(kindIds, options) {
 const referenceCards = [...cards,
   cardFixture(120, { name: "Priceless Alpha", set: "Priceless Set", marketPrice: null, lowPrice: null, midPrice: null, highPrice: null }),
   cardFixture(121, { name: "Priceless Beta", set: "Priceless Set", marketPrice: null }),
-].sort((a, b) => a.productId - b.productId);
+].sort((a, b) => a.productId - b.productId).map(withReferenceMetrics);
 const referenceSealed = [...sealed].sort((a, b) => a.productId - b.productId)
-  .map(product => CATEGORY_REWRITES[product.productId] ? { ...product, category: CATEGORY_REWRITES[product.productId] } : product);
+  .map(product => CATEGORY_REWRITES[product.productId] ? { ...product, category: CATEGORY_REWRITES[product.productId] } : product).map(withReferenceMetrics);
+
+function withReferenceMetrics(item){
+ const row=metricRows.find(row=>row.productId===item.productId&&row.variant===(item.printing??"Sealed"));
+ return row?{...item,metrics:{change7:row.change7Bps==null?null:row.change7Bps/100,change30:row.change30Bps==null?null:row.change30Bps/100,low30:row.low30Cents==null?null:row.low30Cents/100,high30:row.high30Cents==null?null:row.high30Cents/100,regime:null}}:item;
+}
 const cardIds = new Set(cards.map(card => card.productId));
 const sealedIds = new Set(sealed.map(product => product.productId));
 

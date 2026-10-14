@@ -3,14 +3,14 @@
 // spaces or slashes survive. Shared by the client loader and the route so the two cannot
 // drift, and small enough that the URL doubles as the cache key at the edge.
 
-export type HistoryBatchTarget = { productId: number; printing: string; sealed?: boolean };
+export type HistoryBatchTarget = { productId: number; printing: string; sealed?: boolean; snapshotId?: string };
 
 export const HISTORY_BATCH_LIMIT = 40;
 
-export const historyBatchKey = (target: HistoryBatchTarget) => `${target.sealed ? "sealed" : "single"}:${target.productId}:${target.printing.toLowerCase()}`;
+export const historyBatchKey = (target: HistoryBatchTarget) => `${target.sealed ? "sealed" : "single"}:${target.productId}:${target.printing.toLowerCase()}${target.snapshotId ? `:${target.snapshotId}` : ""}`;
 
 export function encodeHistoryTargets(targets: readonly HistoryBatchTarget[]): string {
-  return targets.map(target => `${target.productId}:${encodeURIComponent(target.printing)}${target.sealed ? ":s" : ""}`).join(",");
+  return targets.map(target => `${target.productId}:${encodeURIComponent(target.printing)}${target.sealed ? ":s" : ""}${target.snapshotId ? `:v=${encodeURIComponent(target.snapshotId)}` : ""}`).join(",");
 }
 
 // Returns null for anything malformed or over the limit; the route answers 400 rather than
@@ -19,11 +19,14 @@ export function parseHistoryTargets(raw: string | null): HistoryBatchTarget[] | 
   if (!raw) return null;
   const seen = new Map<string, HistoryBatchTarget>();
   for (const part of raw.split(",")) {
-    const match = /^(\d{1,9}):([^:]*)(:s)?$/.exec(part);
+    const match = /^(\d{1,9}):([^:]*)(:s)?(?::v=([^:]+))?$/.exec(part);
     if (!match) return null;
     let printing: string;
     try { printing = decodeURIComponent(match[2]); } catch { return null; }
-    const target: HistoryBatchTarget = { productId: Number(match[1]), printing, ...(match[3] ? { sealed: true } : {}) };
+    let snapshotId: string | undefined;
+    try { snapshotId = match[4] ? decodeURIComponent(match[4]) : undefined; } catch { return null; }
+    if (snapshotId && !/^[a-zA-Z0-9_-]{1,100}$/.test(snapshotId)) return null;
+    const target: HistoryBatchTarget = { productId: Number(match[1]), printing, ...(match[3] ? { sealed: true } : {}), ...(snapshotId ? { snapshotId } : {}) };
     const key = historyBatchKey(target);
     if (!seen.has(key)) seen.set(key, target);
     if (seen.size > HISTORY_BATCH_LIMIT) return null;

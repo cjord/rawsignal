@@ -17,16 +17,26 @@ test("maps the selected range onto the 240×76 plot with the extremes marked",()
  assert.equal(geometry.minIndex,2);assert.equal(geometry.maxIndex,3);
  assert.equal(geometry.xy[3].y,8); // the high sits at the top of the 62px band (70 − 62)
  assert.equal(geometry.xy[2].y,70); // the low sits on the baseline
- assert.equal(geometry.delta,10);assert.equal(geometry.deltaTone,"up");
+ assert.equal(geometry.delta,null);assert.equal(geometry.deltaTone,""); // no real 30D baseline
  assert.equal(geometry.line.split(" ").length,5);
  assert.equal(geometry.maLine,null);
 });
 
-test("a narrow range keeps only the trailing window, falling back to the full series when too short",()=>{
+test("a narrow range keeps only the trailing window and never substitutes older points",()=>{
  const points=series(Array.from({length:60},(_,i)=>10+i),1);
  assert.equal(chartGeometry(points,7,undefined,undefined,false).chartPoints.length,8);
  const sparse=series([10,20],1);
  assert.equal(chartGeometry(sparse,7,undefined,undefined,false).chartPoints.length,2);
+ const distant=[{date:"2026-01-01",price:1},{date:"2026-02-01",price:10}];
+ assert.equal(chartGeometry(distant,7,undefined,undefined,false).chartPoints.length,1);
+ assert.equal(chartGeometry(distant,7,undefined,undefined,false).mainMin,10);
+});
+
+test("chart percentages use the same at-or-before baseline as row metrics on sparse dates",()=>{
+ const points=[{date:"2026-01-01",price:10},{date:"2026-01-03",price:30},{date:"2026-02-01",price:20}];
+ const geometry=chartGeometry(points,30,undefined,undefined,false);
+ assert.equal(geometry.delta,100);
+ assert.equal(geometry.mainMin,20);assert.equal(geometry.mainMax,30);
 });
 
 test("the detail chart carries a trailing-30-day mean and overlays share the scale",()=>{

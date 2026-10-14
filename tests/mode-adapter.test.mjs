@@ -3,27 +3,27 @@ import test from "node:test";
 import {readFileSync} from "node:fs";
 import {buildCatalogDerived,historyFromMetrics,nextSortDirection,selectionChips,signalAwareSorts,signalResolver} from "../app/leaderboard/mode-adapter.ts";
 
-test("feed metrics stand in for a row's history until one loads; a loaded history still wins",()=>{
+test("feed metrics stay authoritative when hover history loads",()=>{
  const metrics={change7:1.5,change30:-3.2,low30:35,high30:44,regime:"steady"};
  const items=[{productId:1,metrics},{productId:2,metrics},{productId:3}];
  const history={2:{points:[],change7:9,change30:9,low30:1,high30:2}};
  const derived=buildCatalogDerived(items,history,{ready:false,derived:{}},()=>null);
  assert.deepEqual(derived[1],{change7:1.5,change30:-3.2,low30:35,high30:44,regime:"steady",signal:null});
- assert.equal(derived[2].change7,9,"a loaded history is preferred over the feed metrics");
+ assert.equal(derived[2].change7,1.5,"hover must not replace published row metrics");
  assert.deepEqual(derived[3],{change7:null,change30:null,low30:null,high30:null,regime:null,signal:null});
- // Persisted coverage ignores both, as before.
- assert.equal(buildCatalogDerived(items,history,{ready:true,derived:{}},()=>null)[1].change7,null);
- assert.deepEqual(historyFromMetrics(items[0]),{points:[],coverage:"none",change7:1.5,change30:-3.2,change90:null,low30:35,high30:44,historyLow:null,historyHigh:null});
+ // Signals have their own readiness gate; numerical row metrics stay on the catalog version.
+ assert.equal(buildCatalogDerived(items,history,{ready:true,derived:{}},()=>null)[1].change7,1.5);
+ assert.deepEqual(historyFromMetrics(items[0]),{points:[],coverage:"none",change7:1.5,change30:-3.2,change90:null,low30:35,high30:44,historyLow:null,historyHigh:null,snapshotId:undefined,asOfDate:undefined});
  assert.equal(historyFromMetrics(items[2]),undefined);
 });
 
-test("shared mode adapter derives history and honors persisted coverage",()=>{
+test("shared mode adapter leaves missing snapshot metrics unavailable and honors persisted coverage",()=>{
  const items=[{productId:1},{productId:2}],history={1:{change7:1,change30:2,low30:3,high30:4}};
  const fallback=buildCatalogDerived(items,history,{ready:false,derived:{}},item=>item.productId===2?{side:"buy",score:80,confidence:"medium",reason:"Low",detail:"Near low",distance:1,cutoff:2}:null);
- assert.deepEqual(fallback[1],{change7:1,change30:2,low30:3,high30:4,regime:null,signal:null});
+ assert.deepEqual(fallback[1],{change7:null,change30:null,low30:null,high30:null,regime:null,signal:null});
  assert.equal(fallback[2].signal?.side,"buy");
  const persisted={change7:-4,change30:-8,low30:10,high30:20,signal:null};
- assert.equal(buildCatalogDerived(items,{}, {ready:true,derived:{1:persisted}},()=>null)[1],persisted);
+ assert.equal(buildCatalogDerived(items,{}, {ready:true,derived:{1:persisted}},()=>null)[1].change7,null);
 });
 
 test("shared mode adapter inserts signal sorting and applies stable direction defaults",()=>{

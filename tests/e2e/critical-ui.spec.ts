@@ -50,9 +50,11 @@ test("unpriced Metal promos keep their eBay grid and affiliate links at phone an
  await page.route("**/api/ebay/listings?productId=669250",route=>route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({snapshot:{query:"fixture",categoryId:183454,listingCount:1,reviewedCount:1,acceptedCount:1,highConfidenceCount:1,lowestAsk:null,medianAsk:null,lowestDeliveredAsk:null,medianDeliveredAsk:null,deliveredQ1:null,deliveredQ3:null,belowMarketCount:0,nearMarketCount:0,freeShippingCount:1,bestOfferCount:0,samples:[sample],fetchedAt:"2026-09-18T12:00:00Z",expiresAt:"2026-09-18T18:00:00Z",updatedAt:"2026-09-18"},history:{points:[]}})}));
  for(const width of [390,1440]){
   await page.setViewportSize({width,height:1000});
-  await page.goto("/cards/669250?e2e=unpriced-metal-v1");
+  await page.goto("/cards/669250?e2e=metal-regular-art-v2");
   await expect(page.locator("h1")).toContainText("Metal");
+  await expect(page.locator(".detail-art img")).toHaveAttribute("src",/653045_in_1000x1000/);
   await expect(page.locator(".detail-primary-price strong")).toHaveText("N/A");
+  await page.locator(".detail-hero").screenshot({path:testInfo.outputPath(`metal-art-${width}.png`)});
   await page.locator(".detail-ebay").scrollIntoViewIfNeeded();
   await expect(page.locator(".ebay-listing-card")).toHaveCount(1);
   await expect(page.locator(".ebay-listing-card")).toContainText("$900");
@@ -267,6 +269,15 @@ test("opens a row's hover chart with TCGplayer and eBay link tiles under the art
 });
 
 test("matches card and sealed metric typography and tone tiles in mobile popups",async({page})=>{
+ // Fixed metric blocks keep this styling test independent of snapshot activation
+ // in the deliberately stale local/staging database.
+ const metrics={change7:5,change30:-5,low30:20,high30:40,regime:"steady"};
+ await page.route("**/data/*.json",route=>{
+  const sealed=route.request().url().includes("sealed-");
+  const common={game:"pokemon",productId:sealed?990022:990021,name:"Typography fixture",set:"Fixture Set",image:"",url:"",marketPrice:30,midPrice:30,metrics};
+  const fixture=sealed?{...common,category:"Booster Boxes",msrp:null,msrpSource:null,profit:null,profitPct:null}:{...common,section:"illustration-rares",rarity:"Illustration Rare",year:2026,number:"1/100",printing:"Holofoil",lowPrice:1,highPrice:100,priceChange:null};
+  return route.fulfill({contentType:"application/json",body:JSON.stringify([fixture])});
+ });
  await page.setViewportSize({width:390,height:844});
  await page.goto(singlesUrl);await waitForApp(page);
  const openPopup=async(requireDown=false)=>{

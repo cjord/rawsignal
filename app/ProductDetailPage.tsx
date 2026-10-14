@@ -8,6 +8,7 @@ import InfoHint from "./InfoHint";
 import PackProfilePanel from "./PackProfilePanel";
 import SalesVolumeSummary from "./SalesVolumeSummary";
 import {SALES_SUMMARIES_ENABLED} from "../core/domain/sales-summary.ts";
+import {matchingRowHistory} from "../core/domain/history-snapshot.ts";
 import {supplementalSingle} from "../core/domain/supplemental-singles.ts";
 import {evRatio,packChaseEv} from "../core/domain/pack-ev";
 import {favoriteKey} from "./state/favorites";
@@ -350,8 +351,10 @@ function PriceHistorySection({detail,variant,onVariant,historyData,historyError,
 export default function ProductDetailPage({detail,market,serverTiming}:{detail:CatalogDetail;market?:string;serverTiming?:string|null}){
  const [variant,setVariant]=useState(detail.priceVariants.find(item=>item.printing===(detail.kind==="single"?detail.printing:"Sealed"))??detail.priceVariants[0]),[historyResult,setHistoryResult]=useState<{key:string;value:PriceHistory|null;error:boolean}>({key:"",value:null,error:false});
  const [strictness,changeStrictness]=usePreference<SignalStrictness>(STRICTNESS_KEY,parseStrictness,"balanced");
- const fallback=detail.kind==="single"?`/?mode=singles&market=${detail.game}`:`/?mode=sealed&market=${market??detail.game}`,current=variant?.marketPrice??detail.marketPrice,printing=variant?.printing??(detail.kind==="single"?detail.printing:"Sealed"),historyKey=`${detail.kind}:${detail.productId}:${printing}`;
- useEffect(()=>{const controller=new AbortController(),params=new URLSearchParams({productId:String(detail.productId),printing});if(detail.kind==="sealed")params.set("sealed","1");if(SALES_SUMMARIES_ENABLED)params.set("sales","1");fetch(`/api/history?${params}`,{signal:controller.signal}).then(response=>{if(!response.ok)throw new Error();return response.json()}).then(value=>setHistoryResult({key:historyKey,value:value as PriceHistory,error:false})).catch(error=>{if(error.name!=="AbortError")setHistoryResult({key:historyKey,value:null,error:true})});return()=>controller.abort()},[detail.kind,detail.productId,printing,historyKey]);
+ const fallback=detail.kind==="single"?`/?mode=singles&market=${detail.game}`:`/?mode=sealed&market=${market??detail.game}`,current=variant?.marketPrice??detail.marketPrice,printing=variant?.printing??(detail.kind==="single"?detail.printing:"Sealed");
+ const rowMetrics=printing===(detail.kind==="single"?detail.printing:"Sealed")?detail.metrics:undefined;
+ const snapshotId=rowMetrics?(rowMetrics.snapshotId??"unavailable"):undefined,historyKey=`${detail.kind}:${detail.productId}:${printing}:${snapshotId??"latest"}`;
+ useEffect(()=>{const controller=new AbortController(),params=new URLSearchParams({productId:String(detail.productId),printing,format:"shared-v1"});if(detail.kind==="sealed")params.set("sealed","1");if(snapshotId)params.set("snapshot",snapshotId);if(SALES_SUMMARIES_ENABLED)params.set("sales","1");fetch(`/api/history?${params}`,{signal:controller.signal}).then(response=>{if(!response.ok)throw new Error();return response.json()}).then(value=>setHistoryResult({key:historyKey,value:matchingRowHistory(rowMetrics,value as PriceHistory)??null,error:false})).catch(error=>{if(error.name!=="AbortError")setHistoryResult({key:historyKey,value:null,error:true})});return()=>controller.abort()},[detail.kind,detail.productId,printing,historyKey,snapshotId,rowMetrics]);
  const historyData=historyResult.key===historyKey?historyResult.value:null,historyError=historyResult.key===historyKey&&historyResult.error,h=historyData??emptyHistory,depth=historyDepth(historyData),rankPct=detailPercentile(detail),position=rangePosition(current,h.historyLow,h.historyHigh);
  const sourceLabel=supplementalSingle(detail.productId)?"Curated identity verified against Riot Games; Simplified Chinese exclusive. TCGplayer pricing and history unavailable":detail.source.sourceUpdatedAt?`Source updated ${detail.source.sourceUpdatedAt.slice(0,10)}`:"Current TCGCSV / TCGplayer snapshot";
  const marketKey=detail.kind==="single"?detail.game:(market??detail.game);

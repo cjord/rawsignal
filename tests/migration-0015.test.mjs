@@ -36,6 +36,9 @@ test("0015 folds Normal/Unopened sealed observations into Sealed/Unopened and dr
   assert.ok(target,"migration 0015 exists");
   const database=new DatabaseSync(":memory:");database.exec("pragma foreign_keys=on");
   for(const migration of all){if(migration.name>=target.name)break;apply(database,migration.sql)}
+  // Current repository writes include the additive snapshot columns; the migration
+  // under test still runs against the pre-0015 observation/variant layout.
+  apply(database,all.find(migration=>migration.name.startsWith("0021_")).sql);
   const db=new LocalD1(database);
   await startIngestion(db,"seed","fixture",at,{});
   await upsertSealedProduct(db,{game:"pokemon",productId:9,name:"Box",set:"Set",category:"Booster Boxes",image:null,url:"https://example.com/b",msrp:null,marketPrice:116,midPrice:null,profit:null,profitPct:null,msrpSource:null},at,"seed");

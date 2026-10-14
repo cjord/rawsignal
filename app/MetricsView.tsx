@@ -16,7 +16,7 @@ import MarketRow from "./leaderboard/MarketRow";
 import HistoryPopover from "./leaderboard/HistoryPopover";
 import ProductIdentity from "./leaderboard/ProductIdentity";
 import {favoriteKey,type FavoriteEntry} from "./state/favorites";
-import {usePriceHistoryBatch,type HistoryTarget} from "./data/usePriceHistoryBatch";
+import {usePriceHistoryBatch,historyTargetKey,type HistoryTarget} from "./data/usePriceHistoryBatch";
 import {canonicalSealedType} from "../core/catalog-query";
 import {deriveHistoryMetrics} from "../core/domain/history-metrics";
 import {POKEMON_ERAS,eraLabel} from "../core/domain/eras";
@@ -194,17 +194,17 @@ function CategoryTable({categories}:{categories:MetricsCategoryRow[]}){
  {pages>1&&<NumberedPagination page={current} pages={pages} onChange={setPage} label="Category leaderboard pages"/>}</>;
 }
 
-const moverTarget=(mover:MetricsMover):HistoryTarget=>mover.kind==="single"?{productId:mover.productId,printing:mover.printing}:{productId:mover.productId,printing:"Sealed",sealed:true};
+const moverTarget=(mover:MetricsMover):HistoryTarget=>({productId:mover.productId,printing:mover.kind==="single"?mover.printing:"Sealed",sealed:mover.kind==="sealed",snapshotId:mover.snapshotId});
 const moverFavorite=(mover:MetricsMover):FavoriteEntry=>({key:favoriteKey(mover.kind,mover.productId),kind:mover.kind,game:mover.game,productId:mover.productId,name:mover.name,set:mover.set,number:null,section:null,image:mover.image||null,price:mover.price,addedAt:""});
 const moverMetrics=(mover:MetricsMover,history?:PriceHistory):HistoryMetric[]=>standardHistoryMetrics(mover.price,mover.mid,history,"N/A");
 const moverLinks=(mover:MetricsMover)=>marketplaceLinkMetrics(mover.productId,null,{kind:mover.kind,game:mover.game,name:mover.name,set:mover.set});
 
-function MoverTable({title,movers,history,onReveal,empty}:{title:string;movers:MetricsMover[];history:Record<number,PriceHistory>;onReveal:(mover:MetricsMover)=>void;empty:string}){
+function MoverTable({title,movers,history,onReveal,empty}:{title:string;movers:MetricsMover[];history:Record<string,PriceHistory>;onReveal:(mover:MetricsMover)=>void;empty:string}){
  return <div className="metrics-mover-list"><h3>{title}</h3>
   {movers.length?<>
    <div className="metrics-mover-head" aria-hidden="true"><span/><span>Name</span><span>Market Price</span><span>% Change</span></div>
    <div className="metrics-mover-rows">{movers.map(mover=>{
-    const h=history[mover.productId];
+    const h=history[historyTargetKey(moverTarget(mover))];
     return <MarketRow className="metrics-mover-row" key={`${mover.window}:${mover.kind}:${mover.productId}`} href={mover.kind==="single"?`/cards/${mover.productId}`:`/sealed/${mover.productId}`} label={`View ${mover.name} details`} onReveal={()=>onReveal(mover)}
      popover={<HistoryPopover className="hover-card" identityClassName="hover-card-art" image={mover.image} alt={`${mover.name} ${mover.kind==="single"?"card":"product"}`} links={moverLinks(mover)} label={`${mover.name} price history`}>
       <HistoryPanel title={mover.kind==="single"?"Near Mint Market History":"Sealed Market History"} subtitle={mover.kind==="single"?mover.printing:"Unopened"} points={h?.points??[]} metrics={moverMetrics(mover,h)} loading={!h}/>

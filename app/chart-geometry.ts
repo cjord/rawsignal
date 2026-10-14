@@ -1,4 +1,5 @@
 import type {PricePoint} from "../core/domain/types";
+import {changeAtCutoff} from "../core/domain/history-metrics.ts";
 
 // The pure geometry behind PriceChart: range slicing, scale, the polyline, volume bars, the
 // extreme markers, overlays, and the trailing 30-day mean. Computed once per
@@ -12,7 +13,7 @@ const time=(date:string)=>Date.parse(`${date}T00:00:00Z`);
 
 export function chartGeometry(points:PricePoint[],range:7|30|90|365,overlays:ChartOverlay[]|undefined,volumes:ChartVolume[]|undefined,large:boolean){
  const cutoff=new Date(`${points.at(-1)!.date}T00:00:00Z`);cutoff.setUTCDate(cutoff.getUTCDate()-range);
- const shown=points.filter(point=>new Date(`${point.date}T00:00:00Z`)>=cutoff),chartPoints=shown.length>1?shown:points;
+ const chartPoints=points.filter(point=>new Date(`${point.date}T00:00:00Z`)>=cutoff);
  const values=chartPoints.map(point=>point.price),times=chartPoints.map(point=>time(point.date)),timeSpan=times.at(-1)!-times[0]||1;
  // Optional comparison series (base-100 overlays, the S&P benchmark) share the scale and
  // time axis; each keeps its label so the hover tooltip can read every line at once.
@@ -21,7 +22,7 @@ export function chartGeometry(points:PricePoint[],range:7|30|90|365,overlays:Cha
  const mainMin=Math.min(...values),mainMax=Math.max(...values);
  const min=Math.min(mainMin,...overlayPrices),max=Math.max(mainMax,...overlayPrices),span=max-min||1;
  const xy=chartPoints.map((point,index)=>({x:((times[index]-times[0])/timeSpan)*240,y:70-((point.price-min)/span)*62}));
- const first=values[0],last=values.at(-1)!,delta=first?((last-first)/first)*100:null,deltaTone=delta==null||delta===0?"":delta>0?"up":"down";
+ const change=changeAtCutoff(points,range),delta=change==null?null:Math.round(change*100)/100,deltaTone=delta==null||delta===0?"":delta>0?"up":"down";
  const midDate=chartPoints[Math.floor(chartPoints.length/2)].date,line=xy.map(point=>`${point.x},${point.y}`).join(" ");
  const shownVolumes=(volumes??[]).map(bucket=>({...bucket,time:time(bucket.date)})).filter(bucket=>bucket.time>=times[0]&&bucket.time<=times.at(-1)!);
  const maxQuantity=Math.max(0,...shownVolumes.map(bucket=>bucket.quantity)),volumeByDate=new Map(shownVolumes.map(bucket=>[bucket.date,bucket.quantity])),barWidth=shownVolumes.length?Math.max(1.4,Math.min(7,240/(shownVolumes.length*1.7))):0;

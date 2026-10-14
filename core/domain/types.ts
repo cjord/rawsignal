@@ -44,6 +44,8 @@ export type SalesActivity = {
 };
 
 export type PriceHistory = {
+  snapshotId?: string;
+  asOfDate?: string;
   salesSummary?: import("./sales-summary.ts").SalesSummary;
   points: PricePoint[];
   variant?: string;
@@ -63,6 +65,8 @@ export type PriceHistory = {
 // 7-/30-day changes (percent), 30-day range (dollars), and regime label the leaderboard
 // used to derive from a per-row history request. Absent on the bundled fallback feeds.
 export type RowMetrics = {
+  snapshotId?: string;
+  asOfDate?: string;
   change7: number | null;
   change30: number | null;
   low30: number | null;
@@ -315,6 +319,7 @@ export type EarlyValueEstimate = {
 };
 
 export type CardDetail = CatalogDetailBase & {
+  metrics?: RowMetrics;
   kind: "single";
   game: SinglesGame;
   section: string;
@@ -332,6 +337,7 @@ export type CardDetail = CatalogDetailBase & {
 };
 
 export type SealedDetail = CatalogDetailBase & {
+  metrics?: RowMetrics;
   kind: "sealed";
   category: string;
   msrp: number | null;

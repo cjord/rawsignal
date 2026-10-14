@@ -138,8 +138,14 @@ export and recovery bookmark. Its initial snapshot has the same 201 rows dated
 2026-10-13; the same writer was invoked directly while the guard cron continued
 routine detail enrichment. Production-version browser checks passed for series
 grouping, subset links, and desktop/mobile rendering; the API returned 200.
-The custom domain challenged the automated browser, so these checks used the
-existing version URL with production bindings. No security rule was changed.
+The custom domain initially challenged the automated browser, so the first checks
+used the existing version URL with production bindings. Security Events identified
+ordinary Bot Fight Mode. The user then added a site-scoped IP Access Allow rule for
+the observed IPv6 address; direct `rawsignal.cards` checks returned 200 and passed
+on 2026-10-14, including series grouping, nine folded subsets and card links, five
+Riftbound expansions, the 7% gate, and desktop/mobile controls. The working setup
+and troubleshooting procedure are documented in
+[Cloudflare automated testing](cloudflare-cutover.md#cloudflare-exceptions-for-automated-testing).
 Add a market-movement matrix inspired by the
 [ShizuTCG Riftbound index](https://tcg-price-tracker.shizukaziye.workers.dev/rb-index#set=ALL&tier=ALL&w=rarity&m=index).
 Reference inspection: the public HTML/rendering code exposes a "Set × tier heat map",
@@ -292,6 +298,15 @@ Follow-up local expansion: 1,333 Riftbound cards after the user's explicit exclu
 including English commons/uncommons, collectible promos, alt-art runes and Lunar
 Irelia (Simplified Chinese). 169 catalog cards excluded by policy; details and source
 limitations in `docs/riftbound-coverage-2026-09.md`. Still not deployed.
+
+2026-10-14 local artwork follow-up: all 68 Metal / Best Of / Prize Wall printings
+use the regular-rarity image of the matching card (40 name-and-number identities,
+including four Proving Grounds Starter cards). Shared normalization and read-side
+resolution cover existing D1 records, feed-backed lists/details and saved buylists
+without a migration or extra data calls. Product IDs, treatments, prices and eBay
+queries remain unchanged. Unknown future matches retain the original source image.
+Artwork change is included on `feature/set-rarity-heatmap`; deployment remains pending.
+Source details are in `docs/data-sources.md`.
 
 Diagnosed from the @srikaskrr test import: several unmatched items are real products we
 simply don't ingest. Matching is a TCGplayer product-id join, and a **name fallback now
@@ -541,12 +556,23 @@ graduated to P7.)
 Open findings the September review (`docs/codebase-review-2026-09-03.md`) recorded but did
 not act on; each needs a product or design decision before code changes.
 
-- **Q1 — `/api/history` GET writes to D1.** On a stored-history miss the route fetches
-  TCGplayer and re-derives that product's metrics and signals (`persistDerivedHistory`), so an
-  unauthenticated read is a write path, and the local max-profile database drifts under the
-  Playwright gate (review §8.12–8.13). Options: keep (cache warm is the intended design;
-  document and rate-limit), or move the derive step to the next cron tick and leave GET
-  read-only. Decision owner: user.
+- **Q1 — Shared row/chart history snapshots: implemented on `feature/set-rarity-heatmap` 2026-10-14; activation pending.**
+  User approved one shared price-history snapshot to stop hover-driven repricing/reordering.
+  Current/previous exact-printing snapshots and rounded metrics land in the existing atomic
+  metrics write; Singles/Sealed rows, all leaderboard views, detail charts/tables, catalog API
+  rows and movers request the same version. Import movement and charts share their fetched
+  snapshot; buylist prices remain explicitly captured-at-save values. GET routes are read-only,
+  batch misses never fan out, and stale/mismatched/unversioned snapshots show unavailable.
+  Chart cutoff percentages now match row calculations, including sparse dates. Daily catalog
+  Worker calls/upstream calls/read calls/write statements are unchanged; existing rows carry
+  more bytes. Background history refresh adds one combined-series read per refreshed product.
+  **Release checklist:** full gate → authorized push/deploy → migration 0021 after deploy →
+  next complete catalog pass populates snapshots → verify matching row/chart figures, storage headroom and stable
+  order on both environments. Staging requires deliberate ingestion (no cron). No remote
+  migration, deploy, or upstream full-catalog refresh has been performed for this change.
+  **Validation:** `npm run check` green 2026-10-14: 390 node tests passed, one skipped,
+  all 27 Chromium journeys passed; matching/mismatched snapshots tested on Singles
+  and Sealed at desktop/phone widths in dark/light themes. Existing lint warnings only.
 - **Q2 — Collectr `matchCards` feed fallback** sees only the top 50 rows per market and runs
   two catalog queries per call (review §8.5, §8.10). Dev-only path today (production matches
   against D1); tighten or delete once the feed fallback is retired.

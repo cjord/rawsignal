@@ -118,6 +118,10 @@ export const salesSummaries = sqliteTable("sales_summaries", {
 }, table => [primaryKey({ columns: [table.productId, table.variant, table.condition] })]);
 
 export const marketMetrics = sqliteTable("market_metrics", {
+  historySnapshotId: text("history_snapshot_id"),
+  historySnapshotJson: text("history_snapshot_json"),
+  previousHistorySnapshotId: text("previous_history_snapshot_id"),
+  previousHistorySnapshotJson: text("previous_history_snapshot_json"),
   productId: integer("product_id").notNull().references(() => catalogProducts.productId, { onDelete: "cascade" }),
   variant: text("variant").notNull(),
   condition: text("condition").notNull(),

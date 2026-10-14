@@ -5,6 +5,7 @@ import { readGradedCard } from "./graded-ingestion.ts";
 import { readPeerAnchor } from "./peer-anchors.ts";
 import { readSetRarityStats } from "./rarity-stats.ts";
 import { buildValueBreakdown } from "../core/domain/value-breakdown.ts";
+import { withRiftboundRegularArtwork } from "../core/domain/riftbound-artwork.ts";
 import type { D1DatabaseLike } from "./repository.ts";
 
 type ProductRow = {
@@ -53,7 +54,7 @@ const percent = (value: number | null) => value == null ? null : value / 100;
 
 function toCard(row: ProductRow): Card | null {
   if (row.kind !== "single" || row.game === "onepiece") return null;
-  return {
+  return withRiftboundRegularArtwork({
     game: row.game,
     section: row.section ?? "all",
     productId: row.productId,
@@ -70,7 +71,7 @@ function toCard(row: ProductRow): Card | null {
     highPrice: dollars(row.listingHighCents),
     printing: row.printing ?? "Normal",
     priceChange: null,
-  };
+  });
 }
 
 function toSealed(row: ProductRow): SealedProduct | null {
@@ -124,7 +125,7 @@ async function loadDerived(db: D1DatabaseLike, kind: "single" | "sealed", game: 
     ms.distance_bps as distanceBps,ms.cutoff_bps as cutoffBps
     from market_metrics mm join catalog_products p on p.product_id=mm.product_id
     left join market_signals ms on ms.product_id=mm.product_id and ms.side=? and ms.strictness=?
-    where p.kind=? and p.game=? order by mm.updated_at desc, mm.variant asc, mm.condition asc`).bind(side, options.strictness, kind, game);
+    where p.kind=? and p.game=? and ((p.kind='single' and mm.variant=p.printing and mm.condition='Near Mint') or (p.kind='sealed' and mm.variant='Sealed' and mm.condition='Unopened')) order by mm.updated_at desc, mm.variant asc, mm.condition asc`).bind(side, options.strictness, kind, game);
   const rows = (await statement.all<MetricRow>()).results ?? [], derived: Record<number, CatalogDerived> = {};
   for (const row of rows) if (!derived[row.productId]) derived[row.productId] = {
     change7: percent(row.change7Bps),
@@ -143,21 +144,32 @@ async function loadDerived(db: D1DatabaseLike, kind: "single" | "sealed", game: 
 // The live feeds carry each row's latest market metrics (review §14 follow-up) so the
 // leaderboard renders its 7-/30-day columns, range, and regime chip without a per-row
 // history request. One indexed lookup per product; the variant match mirrors loadDerived.
-type MetricColumns = { change7Bps: number | null; change30Bps: number | null; low30Cents: number | null; high30Cents: number | null; regime: string | null; metricsUpdatedAt: string | null };
+type MetricColumns = { change7Bps: number | null; change30Bps: number | null; low30Cents: number | null; high30Cents: number | null; regime: string | null; metricsUpdatedAt: string | null; snapshotId: string | null; asOfDate: string | null };
 type FeedRow = ProductRow & MetricColumns;
 const feedSqlBase = `${productsSqlBase}
-  left join market_metrics mm on mm.rowid=(select rowid from market_metrics where product_id=p.product_id and (variant=p.printing or p.kind='sealed') order by updated_at desc limit 1)`;
-const feedColumns = ", mm.change_7_bps as change7Bps, mm.change_30_bps as change30Bps, mm.low_30_cents as low30Cents, mm.high_30_cents as high30Cents, mm.regime, mm.updated_at as metricsUpdatedAt";
+  left join market_metrics mm on mm.rowid=(select rowid from market_metrics where product_id=p.product_id and ((variant=p.printing and condition='Near Mint' and p.kind='single') or (variant='Sealed' and condition='Unopened' and p.kind='sealed')) order by updated_at desc limit 1)`;
+const feedColumns = ", mm.change_7_bps as change7Bps, mm.change_30_bps as change30Bps, mm.low_30_cents as low30Cents, mm.high_30_cents as high30Cents, mm.regime, mm.updated_at as metricsUpdatedAt, mm.history_snapshot_id as snapshotId, mm.as_of_date as asOfDate";
 const withFeedSelect = (sql: string) => sql.replace("sd.msrp_cents as msrpCents,sd.msrp_source as msrpSource", `sd.msrp_cents as msrpCents,sd.msrp_source as msrpSource${feedColumns}`);
 function rowMetrics(row: MetricColumns): RowMetrics | undefined {
   if (row.metricsUpdatedAt == null) return undefined;
-  return { change7: percent(row.change7Bps), change30: percent(row.change30Bps), low30: dollars(row.low30Cents), high30: dollars(row.high30Cents), regime: row.regime ?? null };
+  return { change7: percent(row.change7Bps), change30: percent(row.change30Bps), low30: dollars(row.low30Cents), high30: dollars(row.high30Cents), regime: row.regime ?? null, ...(row.snapshotId ? { snapshotId: row.snapshotId, asOfDate: row.asOfDate ?? undefined } : {}) };
 }
 const withMetrics = <T extends Card | SealedProduct>(row: FeedRow, item: T | null): T | null => {
   if (!item) return null;
   const metrics = rowMetrics(row);
   return metrics ? { ...item, metrics } : item;
 };
+
+// A background refresh can land between the candidate and signal reads. Keep
+// numerical sorting/filtering on the version actually returned in each API row.
+function snapshotDerived(items: (Card | SealedProduct)[], derived: Record<number, CatalogDerived>): Record<number, CatalogDerived> {
+  return Object.fromEntries(items.map(item => [item.productId, {
+    change7: item.metrics?.change7 ?? null, change30: item.metrics?.change30 ?? null,
+    low30: item.metrics?.low30 ?? null, high30: item.metrics?.high30 ?? null,
+    regime: (item.metrics?.regime as CatalogDerived["regime"]) ?? null,
+    signal: derived[item.productId]?.signal ?? null,
+  }]));
+}
 
 // The latest metrics row of every product in one set, keyed by product id: the detail page's
 // set-scoped tables (chase cards, related sealed) render their change/range columns from it
@@ -166,7 +178,7 @@ const withMetrics = <T extends Card | SealedProduct>(row: FeedRow, item: T | nul
 export async function readSetRowMetrics(db: D1DatabaseLike, game: string, setName: string): Promise<Map<number, RowMetrics>> {
   const rows = (await db.prepare(`select p.product_id as productId${feedColumns}
     from catalog_products p
-    left join market_metrics mm on mm.rowid=(select rowid from market_metrics where product_id=p.product_id and (variant=p.printing or p.kind='sealed') order by updated_at desc limit 1)
+    left join market_metrics mm on mm.rowid=(select rowid from market_metrics where product_id=p.product_id and ((variant=p.printing and condition='Near Mint' and p.kind='single') or (variant='Sealed' and condition='Unopened' and p.kind='sealed')) order by updated_at desc limit 1)
     where p.game=? and p.set_name=?`).bind(game, setName).all<MetricColumns & { productId: number }>()).results ?? [];
   const metrics = new Map<number, RowMetrics>();
   for (const row of rows) { const value = rowMetrics(row); if (value) metrics.set(row.productId, value); }
@@ -351,7 +363,7 @@ export function createD1CatalogRepository(db: D1DatabaseLike, ingestionRunId?: s
     if (min != null) { where += ` and cp.market_cents >= ?`; params.push(min); }
     if (max != null) { where += ` and cp.market_cents <= ?`; params.push(max); }
     where += signalClause(options, params);
-    const sql = `${productsSqlBase} where p.kind='single' and p.game=?${runClause}${where} order by p.product_id`;
+    const sql = withFeedSelect(`${feedSqlBase} where p.kind='single' and p.game=?${runClause}${where} order by p.product_id`);
     return (await db.prepare(sql).bind(...params).all<ProductRow>()).results ?? [];
   };
   const sealedFacets = async (options: SealedCatalogQuery): Promise<CatalogPage<SealedProduct>["facets"]> => {
@@ -388,22 +400,22 @@ export function createD1CatalogRepository(db: D1DatabaseLike, ingestionRunId?: s
     const profitFiltered = options.profitableOnly || [options.profitMin, options.profitMax, options.profitPctMin, options.profitPctMax].some(bound => bound.trim() !== "" && Number.isFinite(Number(bound)));
     if (profitFiltered) where += ` and sd.msrp_cents is not null and ${valueExpr} is not null`;
     where += signalClause(options, params);
-    const sql = `${productsSqlBase} where p.kind='sealed' and p.game=?${runClause}${where} order by p.product_id`;
+    const sql = withFeedSelect(`${feedSqlBase} where p.kind='sealed' and p.game=?${runClause}${where} order by p.product_id`);
     return (await db.prepare(sql).bind(...params).all<ProductRow>()).results ?? [];
   };
   return {
     async querySingles(options) {
       const [facets, rows] = await Promise.all([singlesFacets(options), singlesCandidates(options)]);
-      const cards = rows.map(toCard).filter((card): card is Card => card !== null);
+      const cards = rows.map(row=>withMetrics(row as FeedRow,toCard(row))).filter((card): card is Card => card !== null);
       const derived = await loadDerived(db, "single", options.market, options);
-      const page = await createMemoryCatalogRepository(cards, []).querySingles(options, derived);
+      const page = await createMemoryCatalogRepository(cards, []).querySingles(options, snapshotDerived(cards, derived));
       return { ...page, facets };
     },
     async querySealed(options) {
       const [facets, rows] = await Promise.all([sealedFacets(options), sealedCandidates(options)]);
-      const products = rows.map(toSealed).filter((product): product is SealedProduct => product !== null);
+      const products = rows.map(row=>withMetrics(row as FeedRow,toSealed(row))).filter((product): product is SealedProduct => product !== null);
       const derived = await loadDerived(db, "sealed", options.market, options);
-      const page = await createMemoryCatalogRepository([], products).querySealed(options, derived);
+      const page = await createMemoryCatalogRepository([], products).querySealed(options, snapshotDerived(products, derived));
       return { ...page, facets };
     },
     async getDetail(kind,productId,market){
@@ -435,7 +447,8 @@ export function createD1CatalogRepository(db: D1DatabaseLike, ingestionRunId?: s
       // The set-scoped tables carry each row's latest metrics so the page renders their
       // change/range columns at once; a row's chart loads only on its first popover reveal.
       const attach=<T extends Card|SealedProduct>(item:T):T=>{const metrics=setMetrics.get(item.productId);return metrics?{...item,metrics}:item};
-      return detail.kind==="single"?{...detail,relatedSealed:detail.relatedSealed.map(attach)}:{...detail,chaseCards:detail.chaseCards.map(attach),relatedSealed:detail.relatedSealed.map(attach)};
+      const metrics=setMetrics.get(productId);
+      return detail.kind==="single"?{...detail,...(metrics?{metrics}:{}),relatedSealed:detail.relatedSealed.map(attach)}:{...detail,...(metrics?{metrics}:{}),chaseCards:detail.chaseCards.map(attach),relatedSealed:detail.relatedSealed.map(attach)};
     },
   };
 }

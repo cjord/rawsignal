@@ -1,6 +1,6 @@
 import type { PriceHistory } from "../core/domain/types.ts";
 import { mapWithConcurrency } from "../core/market-utils.ts";
-import { persistDerivedHistory } from "./daily-ingestion.ts";
+import { persistStoredHistory } from "./daily-ingestion.ts";
 import { clampBatchSize, markIngestionFailed, parseStatsJson, resumeCheckpoint } from "./ingestion-batch.ts";
 import { checkpointIngestion, completeIngestion, startIngestion, upsertHistory, type D1DatabaseLike } from "./repository.ts";
 import { ingestionRunId } from "./run-id.ts";
@@ -66,7 +66,7 @@ export async function runHistoryBackfillBatch(db: D1DatabaseLike, targets: Histo
         const newPoints = bounds ? history.points.filter(point => point.date > bounds.maxDate || point.date < bounds.minDate || point.date >= revisionFloor) : history.points;
         if (newPoints.length) await upsertHistory(db, target.productId, variant, condition, newPoints, startedAt);
         pointsWritten += newPoints.length;
-        await persistDerivedHistory(db, target.productId, variant, condition, target.currentPrice, history.points, history.coverage, startedAt, history.sales);
+        await persistStoredHistory(db, target.productId, variant, condition, target.currentPrice, startedAt, history.coverage, history.sales);
         historiesWithData++; if (history.coverage === "exact") exactCoverage++;
       }
       written++;

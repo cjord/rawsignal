@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import index from "../tcg-index.json";
 import SealedView, { sealedUrlState } from "./SealedView";
+import { matchingRowHistory, loadedRowHistory, rowHistoryTarget } from "../core/domain/history-snapshot.ts";
 import {
   SegmentedView,
   SortableHeader,
@@ -79,7 +80,6 @@ import FullMarketCard from "./leaderboard/FullMarketCard";
 import MarketMedianContext from "./MarketMedianContext";
 import {
   buildCatalogDerived,
-  historyFromMetrics,
   nextSortDirection,
   selectionChips,
   signalAwareSorts,
@@ -552,10 +552,7 @@ export default function Home() {
         ? fallbackCandidates
         : visible;
   usePriceHistoryPrefetch(
-    historyCards.map((card) => ({
-      productId: card.productId,
-      printing: card.printing,
-    })),
+    historyCards.map(rowHistoryTarget),
     signalView === "leaderboard" || persistedSignals.resolved,
     requestHistory,
   );
@@ -959,9 +956,8 @@ export default function Home() {
           emptyMessage="No cards match the current selection."
           onRetry={reloadCatalog}
           rows={visible.map((c, i) => {
-            // Columns and popover metrics come from the feed's metrics until the row's
-            // history loads (Full view prefetch, or the popover's first reveal).
-            const h = history[c.productId] ?? historyFromMetrics(c),
+            // Rows and charts share a version; a chart load never changes row metrics.
+            const loaded = loadedRowHistory(history,c), h = matchingRowHistory(c.metrics,loaded),
               rank = (page - 1) * perPage + i + 1,
               signal = signalFor(c),
               columnSignal = signal && (view === "medium" || view === "text");
@@ -983,13 +979,13 @@ export default function Home() {
                 key={c.productId}
                 href={`/cards/${c.productId}`}
                 label={`View ${c.name} details`}
-                onReveal={() => void ensureHistory([{ productId: c.productId, printing: c.printing }])}
+                onReveal={() => void ensureHistory([rowHistoryTarget(c)])}
                 popover={
                   <HoverCard
                     card={c}
                     history={h}
                     signal={signal ?? undefined}
-                    loading={!history[c.productId]}
+                    loading={!loaded}
                   />
                 }
               >

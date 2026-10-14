@@ -5,6 +5,7 @@ import index from "../tcg-index.json";
 import { useFreshness } from "./data/useFreshness";
 import HistoryPanel, { movementMetric, movementTone } from "./HistoryPanel";
 import { marketplaceLinkMetrics } from "../core/domain/marketplace-links";
+import { matchingRowHistory, loadedRowHistory, rowHistoryTarget } from "../core/domain/history-snapshot.ts";
 import {
   SegmentedView,
   SortableHeader,
@@ -59,7 +60,6 @@ import FullMarketCard from "./leaderboard/FullMarketCard";
 import MarketMedianContext from "./MarketMedianContext";
 import {
   buildCatalogDerived,
-  historyFromMetrics,
   nextSortDirection,
   selectionChips,
   signalAwareSorts,
@@ -391,11 +391,7 @@ export default function SealedView({
     (product) => product.marketPrice != null || product.midPrice != null,
   );
   usePriceHistoryPrefetch(
-    historyProducts.map((product) => ({
-      productId: product.productId,
-      printing: "Normal",
-      sealed: true,
-    })),
+    historyProducts.map(rowHistoryTarget),
     signalView === "leaderboard" || persistedSignals.resolved,
     requestHistory,
   );
@@ -760,8 +756,8 @@ export default function SealedView({
       onRetry={reloadCatalog}
       rows={visible.map((product) => {
         const result = calculate(product),
-          // Cells and popover metrics come from the feed's metrics until the row's history loads.
-          h = history[product.productId] ?? historyFromMetrics(product),
+          // Cells and popovers share the catalog's immutable history version.
+          loaded = loadedRowHistory(history,product), h = matchingRowHistory(product.metrics,loaded),
           priced = result.value != null,
           comparable = result.profit != null,
           signal = signalFor(product),
@@ -788,7 +784,7 @@ export default function SealedView({
                     {product.set} · {product.category}
                   </>
                 }
-                content={rowDetails(product, result, h, false, !history[product.productId], true)}
+                content={rowDetails(product, result, h, false, !loaded, true)}
               />
             </FullViewCardWrap>
           );
@@ -798,7 +794,7 @@ export default function SealedView({
             key={product.productId}
             href={`/sealed/${product.productId}${isScalpingMarket?"?market=scalping":""}`}
             label={`View ${product.name} details`}
-            onReveal={() => void ensureHistory([{ productId: product.productId, printing: "Normal", sealed: true }])}
+            onReveal={() => void ensureHistory([rowHistoryTarget(product)])}
             popupWidth={650}
             popover={
               <HistoryPopover
@@ -811,7 +807,7 @@ export default function SealedView({
                 links={productLinks(product)}
                 label={`${product.name} price history`}
               >
-                {rowDetails(product, result, h, false, !history[product.productId])}
+                {rowDetails(product, result, h, false, !loaded)}
               </HistoryPopover>
             }
           >

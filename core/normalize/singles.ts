@@ -1,6 +1,7 @@
 import type { Card } from "../domain/types.ts";
 import type { SealedSourceGroup } from "../sealed-product-utils.ts";
 import { ebayCardLanguage } from "../domain/marketplace-links.ts";
+import { withRiftboundRegularArtwork } from "../domain/riftbound-artwork.ts";
 
 // Pure normalization of one TCGCSV group walk into typed Card records (converted from
 // scripts/normalize/singles.mjs — decision D2; the sync scripts and the Worker share
@@ -111,14 +112,14 @@ export function normalizeSinglesGroup({ game, group, products, prices, previous 
     if (!selected) { reject("unsupported-rarity"); continue; }
     const [section, label] = selected, prior = previous.get(`${game}:${product.productId}`);
     labels.set(section, label);
-    cards.push({
+    cards.push(withRiftboundRegularArtwork({
       game, section, productId: Number(product.productId), name: product.name, set: group.name, year, rarity, number,
       image: product.imageUrl?.replace("_200w", "_in_1000x1000") ?? "", url: product.url ?? "",
       marketPrice: price ? Number(price.marketPrice) : null, lowPrice: positive(price?.lowPrice),
       midPrice: positive(price?.midPrice), highPrice: positive(price?.highPrice),
       printing: price?.subTypeName ?? missingPricePrinting(product, prices, keepUnpriced),
       priceChange: price && typeof prior === "number" ? Number((Number(price.marketPrice) - prior).toFixed(2)) : null,
-    });
+    }));
   }
   return { cards, rejected, labels };
 }

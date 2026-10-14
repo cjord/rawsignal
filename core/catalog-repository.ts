@@ -5,6 +5,7 @@ import { querySealedCatalog, querySinglesCatalog, type CatalogDerived, type Cata
 import {isRelatedSealedProduct} from "./sealed-product-utils.ts";
 import {buildRiftboundPairMetrics} from "./domain/riftbound-pairs.ts";
 import {packProfileFor,evidenceFor} from "./domain/pack-profile.ts";
+import {withRiftboundRegularArtwork} from "./domain/riftbound-artwork.ts";
 
 export interface CatalogRepository {
   querySingles(options: SinglesCatalogQuery, derived?: Record<number, CatalogDerived | undefined>): Promise<CatalogPage<Card>>;
@@ -72,7 +73,7 @@ export function perPackFor(config:PullRateConfig|undefined,game:string,set:strin
 const tierLabel=(key:string,bySection:boolean)=>bySection?key.split("-").map(word=>word.charAt(0).toUpperCase()+word.slice(1)).join(" "):key;
 
 export function createMemoryCatalogRepository(cards: Card[], sealedProducts: SealedProduct[], enrichments:CatalogDetailEnrichment[]=[], pullRateConfig?:PullRateConfig, gradedByProductId?:Record<string,GradedCardData>, peerAnchorsByCohort?:Record<string,PeerAnchorStats>): CatalogRepository {
-  const uniqueCards = [...new Map(cards.map(card => [card.productId, card])).values()];
+  const uniqueCards = [...new Map(cards.map(card => [card.productId, withRiftboundRegularArtwork(card)])).values()];
   const uniqueSealed = [...new Map(sealedProducts.map(product => [product.productId, product])).values()];
   const enrichmentByKey=new Map(enrichments.map(detail=>[`${detail.kind}:${detail.productId}`,detail]));
   // Game-scoped: set names collide across games ("Unleashed" exists in both Pokémon and

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import {readFileSync} from "node:fs";
 import {cardImageFallbackFor,normalizeSetName,resolveTcgdexSet,tcgdexCardUrl} from "../core/domain/card-images.ts";
+import {riftboundRegularArtworkImage,withRiftboundRegularArtwork} from "../core/domain/riftbound-artwork.ts";
 
 const index={
  sets:{"surging sparks":{lang:"en",serie:"sv",id:"sv08",padded:true},"base set":{lang:"en",serie:"base",id:"base1",padded:false},"151":{lang:"en",serie:"sv",id:"sv03.5",padded:true},"brilliant stars":{lang:"en",serie:"swsh",id:"swsh9",padded:false}},
@@ -33,4 +35,28 @@ test("only Pokémon cards with a number and a known set get a fallback",()=>{
  assert.equal(cardImageFallbackFor(index,{game:"riftbound",set:"Origins",number:"1/298"}),null);
  assert.equal(cardImageFallbackFor(index,{game:"pokemon",set:"Unknown Set",number:"1/1"}),null);
  assert.equal(cardImageFallbackFor(index,{game:"pokemon",set:"Surging Sparks",number:null}),null);
+});
+
+test("all catalog Metal and Best Of printings use the exact regular-rarity artwork",()=>{
+ const read=path=>JSON.parse(readFileSync(new URL(path,import.meta.url),"utf8"));
+ const sections=read("../tcg-index.json").rarities.riftbound.filter(row=>row.key!=="all");
+ const cards=sections.flatMap(row=>read(`../public/data/${row.key}.json`));
+ const special=cards.filter(card=>card.section==="metal-promos");
+ assert.ok(special.length>0);
+ for(const card of special){
+  const base=card.name.replace(/(?:\s*\((?:Metal|Best Of|Prize Wall)\))+\s*$/i,"").trim().toLowerCase();
+  const matches=cards.filter(other=>other.section==="rares"&&other.number===card.number&&other.name.replace(/\s*\(Starter\)$/i,"").trim().toLowerCase()===base);
+  assert.equal(matches.length,1,`Unique regular printing for ${card.name}`);
+  const resolved=withRiftboundRegularArtwork(card);
+  assert.equal(resolved.image,matches[0].image,card.name);
+  assert.deepEqual({...resolved,image:card.image},card,"only artwork changes");
+ }
+});
+
+test("artwork matching preserves other treatments and fails closed for unknown identities",()=>{
+ const card={game:"riftbound",name:"Kai'Sa, Daughter of the Void (Metal) (Best Of)",number:"247/298",image:"original"};
+ assert.match(riftboundRegularArtworkImage(card),/653045_in_1000x1000/);
+ for(const changed of [{game:"pokemon"},{number:"247a/298"},{name:"Kai'Sa, Daughter of the Void (Signature)"},{name:"Unknown (Metal)"},{number:null}])
+  assert.equal(riftboundRegularArtworkImage({...card,...changed}),null);
+ assert.equal(withRiftboundRegularArtwork({...card,number:"247a/298"}).image,"original");
 });

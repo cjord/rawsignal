@@ -79,6 +79,57 @@ The parity command checks representative Pokémon and Riftbound Singles categori
 
 Before cutover, also verify null handling, historical series, Hot Buy/Hot Sell eligibility, URL navigation, and representative desktop/mobile views manually.
 
+### Cloudflare exceptions for automated testing
+
+Verified 2026-10-14: the production domain challenged local Playwright requests with
+HTTP 403 and a "Just a moment..." page. Security Events identified **Managed
+Challenge by Bot Fight Mode**. A WAF Skip rule matching the observed IPv6 address
+did not resolve it. The user added an **IP Access Allow** rule for that address,
+scoped to `rawsignal.cards`, after which direct production browser and API checks
+returned 200 and passed. Staging checks also passed.
+
+Use the following procedure when automated tests are challenged:
+
+1. Find the exact request in **Security → Events**, using its Cloudflare Ray ID
+   when available. Inspect **Source IP**, **Service**, and **Rule** before changing
+   an exception. A challenge occurs before application code and does not by itself
+   establish a Worker failure.
+2. Use the request's **public source IP**, rather than a private LAN address or an
+   assumed IPv4 address. These tests run from the local desktop computer; IPv6,
+   VPNs, proxies, or network changes can affect the outbound address. Cloudflare's
+   event is the authoritative record for that request. IPv6 temporary addresses
+   may change, so recheck the event if an existing exception stops matching.
+3. If the service is ordinary **Bot Fight Mode**, create an **IP Access rule**:
+   **Security → Security rules → Create rule → IP access rules**; enter the exact
+   observed IP, select **Allow**, choose the current website (`rawsignal.cards`)
+   only, and add a note such as `Local automated testing`. An IP Access Allow rule
+   exempts matching traffic from additional security checks, so keep it limited to
+   the trusted source and remove obsolete addresses. Do not substitute a broad
+   IPv6 subnet or an account-wide allowance.
+4. If the service is a WAF custom/managed rule or **Super Bot Fight Mode**, a
+   matching WAF **Skip** rule can apply. Put it before rules that could terminate
+   the request, enable **Log matching requests**, and choose the relevant skip
+   options. **All remaining custom rules** covers the current ruleset;
+   **All remaining custom rules in this phase** also covers later custom rulesets
+   in that phase. Skip options include rate limiting, Managed Rules, Super Bot
+   Fight Mode, and selected products such as Browser Integrity Check and Security
+   Level. They do **not** skip ordinary Bot Fight Mode or override IP Access blocks.
+5. Retest the actual production hostname with a fresh browser context. Confirm
+   application content and API JSON as well as status 200; verify the controls,
+   links, desktop/mobile behavior, and snapshot source date. A production version
+   URL can validate the deployed code and production bindings, but does not prove
+   the custom domain's zone security rules allow the request.
+
+The `rawsignal.cards` zone exception does not govern staging's `workers.dev` URL.
+Testing access does not change staging's no-cron policy or the protected ops
+endpoint's bearer-token requirement. If the connected API token lacks custom-rule
+or security-analytics read permissions, inspect the matching event in the dashboard.
+No public IP addresses or credentials are stored in this runbook.
+
+References: [Cloudflare bot false-positive guidance](https://developers.cloudflare.com/bots/troubleshooting/false-positives/),
+[IP Access rule setup](https://developers.cloudflare.com/waf/tools/ip-access-rules/create/),
+[WAF Skip options](https://developers.cloudflare.com/waf/custom-rules/skip/options/).
+
 ## 5. Backup and rollback boundaries
 
 Before any remote migration or production cutover, create an export in the ignored `backups/` directory and record a D1 Time Travel bookmark:

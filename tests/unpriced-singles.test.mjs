@@ -18,6 +18,7 @@ test("Riftbound singles survive missing prices without manufacturing values",()=
  for(const card of cards){assert.equal(card.marketPrice,null);assert.equal(card.priceChange,null);assert.equal(card.lowPrice,null);assert.deepEqual(parseCard(card),card);}
  assert.ok(cards.every(card=>card.section==="metal-promos"));
  assert.equal(cards[0].printing,"Foil");assert.equal(cards[1].printing,"Unknown");
+ assert.equal(cards[0].image,"https://tcgplayer-cdn.tcgplayer.com/product/653045_in_1000x1000.jpg");
  assert.equal(validateCatalogSnapshot({cards}).cards,3);
  const priced=normalize([product(1,"Kai'Sa (Metal) (Best Of)")],[{productId:1,subTypeName:"Foil",marketPrice:500}]).cards[0];
  assert.equal(priced.marketPrice,500);

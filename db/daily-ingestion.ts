@@ -1,7 +1,7 @@
 import { demandTrend, salesWindow } from "../core/domain/detail-metrics.ts";
 import { persistSalesSummary } from "./sales-summary.ts";
 import { SALES_SUMMARIES_ENABLED } from "../core/domain/sales-summary.ts";
-import { deriveHistoryMetrics } from "../core/domain/history-metrics.ts";
+import { createHistorySnapshot } from "../core/domain/history-snapshot.ts";
 import { classifyRegime } from "../core/domain/regime.ts";
 import type { Card, CatalogDetailEnrichment, PriceHistory, PricePoint, SealedProduct, SignalStrictness } from "../core/domain/types.ts";
 import { marketSignal, type SignalContext, type SignalLiquidity } from "../core/signal-utils.ts";
@@ -73,9 +73,8 @@ async function storedHistory(db: D1DatabaseLike, productId: number, variant: str
 }
 
 export async function persistDerivedHistory(db: D1DatabaseLike, productId: number, variant: string, condition: string, currentPrice: number | null, points: PricePoint[], coverage: PriceHistory["coverage"], updatedAt: string, sales?: PriceHistory["sales"]) {
-  const asOfDate = points.at(-1)?.date ?? updatedAt.slice(0, 10);
-  const metrics = deriveHistoryMetrics(points);
-  const history: PriceHistory = { points, variant, condition, coverage, ...metrics };
+  const history = createHistorySnapshot(points, variant, condition, coverage);
+  const asOfDate = history.asOfDate ?? updatedAt.slice(0, 10);
   // Liquidity for the signal gate (user decision 2026-08-28): counts come from this
   // fetch's completed-sale buckets when the caller has them (history jobs); a sales-less
   // daily pass gates against the last counts a history run stored.
@@ -131,9 +130,9 @@ export function shadowSignalStatements(db: D1DatabaseLike, productId: number, po
   });
 }
 
-async function persistDerived(db: D1DatabaseLike, productId: number, variant: string, condition: string, currentPrice: number, updatedAt: string) {
+export async function persistStoredHistory(db: D1DatabaseLike, productId: number, variant: string, condition: string, currentPrice: number | null, updatedAt: string, coverage: PriceHistory["coverage"] = "exact", sales?: PriceHistory["sales"]) {
   const points = await storedHistory(db, productId, variant, condition);
-  return persistDerivedHistory(db, productId, variant, condition, currentPrice, points, "exact", updatedAt);
+  return persistDerivedHistory(db, productId, variant, condition, currentPrice, points, coverage, updatedAt, sales);
 }
 
 export async function persistRecord(db: D1DatabaseLike, record: Card | SealedProduct, observedAt: string, asOfDate: string, runId: string) {
@@ -149,13 +148,13 @@ export async function persistRecord(db: D1DatabaseLike, record: Card | SealedPro
       return { observationsWritten: 0, signalsWritten: 0, eligible: false };
     }
     await db.batch([...cardStatements(db, record, observedAt, runId), ...historyStatements(db, record.productId, record.printing, "Near Mint", [{ date: asOfDate, price: record.marketPrice }], observedAt, "tcgcsv-daily")]);
-    const derived = await persistDerived(db, record.productId, record.printing, "Near Mint", record.marketPrice, observedAt);
+    const derived = await persistStoredHistory(db, record.productId, record.printing, "Near Mint", record.marketPrice, observedAt);
     return { observationsWritten: 1, ...derived };
   }
   const observation = record.marketPrice == null ? [] : historyStatements(db, record.productId, "Sealed", "Unopened", [{ date: asOfDate, price: record.marketPrice }], observedAt, "tcgcsv-daily");
   await db.batch([...sealedProductStatements(db, record, observedAt, runId), ...observation]);
   if (record.marketPrice == null) return { observationsWritten: 0, signalsWritten: 0, eligible: false };
-  const derived = await persistDerived(db, record.productId, "Sealed", "Unopened", record.marketPrice, observedAt);
+  const derived = await persistStoredHistory(db, record.productId, "Sealed", "Unopened", record.marketPrice, observedAt);
   return { observationsWritten: 1, ...derived };
 }
 
