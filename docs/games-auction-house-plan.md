@@ -92,8 +92,6 @@ holding sales, five/eight-auction competitive sessions, persistent NPC bankrolls
 daily seeds, accounts/leaderboards and multiplayer. Prototype balancing is not a
 promise of real resale profitability. All money is fictional and nonredeemable.
 
-## Tile artwork
-
 ## Staging release — 2026-10-14
 
 Application commit `15e5978`, Worker version `7ad69954`. Deployed to
