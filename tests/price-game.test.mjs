@@ -29,6 +29,23 @@ test("answer locks once, correct increments score/streak, wrong resets streak, n
  state=priceGameReducer(state,{type:"answer",productId:1});assert.equal(state.streak,0);assert.equal(state.attempts,2);assert.equal(state.correct,1);
 });
 
+test("history captures each accepted pick once with frozen prices, newest first, and clears with a new session",()=>{
+ const first=[card(1,1),card(2,5)],second=[card(3,3),card(4,8),card(5,6)];
+ let state=initialPriceGame(first);
+ assert.deepEqual(state.history,[]);
+ assert.equal(priceGameReducer(state,{type:"answer",productId:99}).history.length,0);
+ state=priceGameReducer(state,{type:"answer",productId:2});
+ assert.deepEqual(state.history[0],{roundNumber:1,cards:first,selected:2,winner:2,correct:true});
+ assert.equal(priceGameReducer(state,{type:"answer",productId:1}).history.length,1);
+ first[0].marketPrice=99;assert.equal(state.history[0].cards[0].marketPrice,1);
+ state=priceGameReducer(state,{type:"next",round:second});
+ assert.equal(state.history.length,1);
+ state=priceGameReducer(state,{type:"answer",productId:3});
+ assert.deepEqual(state.history.map(entry=>[entry.roundNumber,entry.selected,entry.winner,entry.correct]),[[2,3,4,false],[1,2,2,true]]);
+ assert.equal(priceGameReducer(state,{type:"replace",round:first}).history.length,2);
+ assert.deepEqual(initialPriceGame(second).history,[]);
+});
+
 test("rarity preferences use 70/25/5 boundaries and distinct signature/overnumbered tiers",()=>{
  assert.equal(priceRoundStyle(.6999),"same");assert.equal(priceRoundStyle(.7),"similar");assert.equal(priceRoundStyle(.9499),"similar");assert.equal(priceRoundStyle(.95),"random");
  assert.equal(priceGameRarity(card(1,1,{rarity:"Showcase",section:"signatures"})),"signature");

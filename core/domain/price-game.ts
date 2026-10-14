@@ -67,14 +67,16 @@ export function drawPriceRound(pool:PriceGameCard[],difficulty:PriceGameDifficul
  return findRound(pool,count,previous,random);
 }
 
-export type PriceGameState={round:PriceGameCard[];roundNumber:number;selected:number|null;correct:number;streak:number;attempts:number};
+export type PriceGameHistory={roundNumber:number;cards:PriceGameCard[];selected:number;winner:number;correct:boolean};
+export type PriceGameState={round:PriceGameCard[];roundNumber:number;selected:number|null;correct:number;streak:number;attempts:number;history:PriceGameHistory[]};
 export type PriceGameAction={type:"answer";productId:number}|{type:"next";round:PriceGameCard[]}|{type:"replace";round:PriceGameCard[]};
 export const priceGameWinner=(round:PriceGameCard[])=>round.reduce<PriceGameCard|null>((best,card)=>!best||card.marketPrice>best.marketPrice?card:best,null);
-export const initialPriceGame=(round:PriceGameCard[]):PriceGameState=>({round,roundNumber:1,selected:null,correct:0,streak:0,attempts:0});
+export const initialPriceGame=(round:PriceGameCard[]):PriceGameState=>({round,roundNumber:1,selected:null,correct:0,streak:0,attempts:0,history:[]});
 export function priceGameReducer(state:PriceGameState,action:PriceGameAction):PriceGameState{
  if(action.type==="replace")return state.selected==null?{...state,round:action.round}:state;
  if(action.type==="next")return state.selected==null?state:{...state,round:action.round,roundNumber:state.roundNumber+1,selected:null};
  if(state.selected!=null||!state.round.some(card=>card.productId===action.productId))return state;
- const correct=priceGameWinner(state.round)?.productId===action.productId;
- return {...state,selected:action.productId,attempts:state.attempts+1,correct:state.correct+Number(correct),streak:correct?state.streak+1:0};
+ const winner=priceGameWinner(state.round)!.productId,correct=winner===action.productId;
+ const entry={roundNumber:state.roundNumber,cards:state.round.map(card=>({...card})),selected:action.productId,winner,correct};
+ return {...state,selected:action.productId,attempts:state.attempts+1,correct:state.correct+Number(correct),streak:correct?state.streak+1:0,history:[entry,...state.history]};
 }

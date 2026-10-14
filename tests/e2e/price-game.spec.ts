@@ -45,6 +45,21 @@ test("game layout and tilt work on desktop/mobile in both themes with reduced mo
   await expect(page.getByRole("link",{name:"Games",exact:true}).filter({visible:true})).toBeVisible();
   await expect(page.locator(".price-game-art img").first()).toBeVisible();
   await expect(page.locator(".price-game-choice").first()).toHaveAttribute("aria-disabled","false");
+  const controls=page.locator(".price-game-controls"),restart=page.getByRole("button",{name:"Restart game",exact:true});
+  await expect(controls.getByLabel("Auto next round (1s)")).toHaveCount(1);
+  await expect(page.locator(".price-game-toolbar").getByLabel("Auto next round (1s)")).toHaveCount(0);
+  await expect(restart).toHaveCSS("font-size","13px");await expect(restart).toHaveCSS("font-weight","650");
+  await expect(page.locator(".price-game-score dd").first()).toHaveCSS("font-size","20px");
+  const controlBoxes=await controls.locator(":scope > .price-game-difficulty, :scope > .price-game-auto, :scope > .price-game-restart").evaluateAll(elements=>elements.map(element=>({x:element.getBoundingClientRect().x,y:element.getBoundingClientRect().y,height:element.getBoundingClientRect().height})));
+  expect(controlBoxes.every(box=>box.height===56)).toBe(true);
+  if(width>600){expect(controlBoxes[0].y).toBe(controlBoxes[1].y);expect(controlBoxes[1].y).toBe(controlBoxes[2].y);expect(controlBoxes[1].x).toBeGreaterThan(controlBoxes[0].x);expect(controlBoxes[2].x).toBeGreaterThan(controlBoxes[1].x)}else{expect(controlBoxes[1].y).toBe(controlBoxes[2].y)}
+  const border=await restart.evaluate(element=>getComputedStyle(element).borderTopColor);
+  await restart.hover();await expect(restart).not.toHaveCSS("border-top-color",border);
+  await page.getByLabel("Auto next round (1s)").uncheck();await restart.click();
+  await expect(page.getByLabel("Auto next round (1s)")).not.toBeChecked();
+  await expect(page.locator(".price-game-choice")).toHaveCount(3);
+  await page.getByRole("tab",{name:"Normal · 2 cards"}).click();await expect(page.getByLabel("Auto next round (1s)")).not.toBeChecked();
+  await page.getByRole("tab",{name:"Hard · 3 cards"}).click();await expect(page.locator(".price-game-choice")).toHaveCount(3);
   await page.screenshot({path:testInfo.outputPath(`game-${width}-${theme}.png`),fullPage:true,animations:"disabled"});
  }
  await page.emulateMedia({reducedMotion:"reduce"});await page.locator(".price-game-art").first().hover();
@@ -80,12 +95,51 @@ test("game skips missing, broken and placeholder artwork without counting an ans
  expect(hardImages.every(src=>!unavailable.has(src))).toBe(true);
 });
 
+test("round history expands, captures right/wrong selections and resets without extra data calls",async({page},testInfo)=>{
+ let calls=0;
+ await page.route("**/data/*.json",route=>{calls++;return route.fulfill({contentType:"application/json",body:JSON.stringify(rows)})});
+ await page.route("https://images.example/**",route=>route.fulfill({contentType:"image/svg+xml",body:'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280"><rect width="200" height="280" fill="#7557ff"/></svg>'}));
+ for(const width of [1440,390])for(const theme of ["dark","light"]){
+  await page.setViewportSize({width,height:1100});await page.goto("/games/riftbound-price");
+  await page.evaluate(theme=>{document.documentElement.dataset.theme=theme},theme);
+  const choices=page.locator(".price-game-choice"),history=page.locator(".price-game-history");
+  await expect(choices).toHaveCount(2);await expect(choices.first()).toHaveAttribute("aria-disabled","false");
+  await page.getByLabel("Auto next round (1s)").uncheck();
+  await expect(history).not.toHaveAttribute("open","");
+  await history.locator("summary").focus();await page.keyboard.press("Enter");
+  await expect(history).toHaveAttribute("open","");await expect(history.getByText("Make a pick to start your history.")).toBeVisible();
+  const names=await choices.locator(".price-game-name").allTextContents(),prices=names.map(name=>Number(name.match(/Game Card (\d+)/)![1]));
+  await choices.nth(prices.indexOf(Math.max(...prices))).click();
+  await expect(history.locator(".price-game-history-row")).toHaveCount(1);
+  await expect(history.locator(".is-correct")).toHaveCount(1);await expect(history.locator(".is-correct small")).toHaveText("Your pick · Correct");
+  await expect(history.locator(".price-game-history-card strong")).toHaveText(prices.map(price=>`$${price.toFixed(2)}`));
+  await choices.first().click({force:true});await expect(history.locator(".price-game-history-row")).toHaveCount(1);
+  await page.getByRole("button",{name:"Next round"}).click();await expect(choices.first()).toHaveAttribute("aria-disabled","false");
+  const nextNames=await choices.locator(".price-game-name").allTextContents(),nextPrices=nextNames.map(name=>Number(name.match(/Game Card (\d+)/)![1]));
+  await choices.nth(nextPrices.indexOf(Math.min(...nextPrices))).click();
+  await expect(history.locator(".price-game-history-row")).toHaveCount(2);
+  await expect(history.locator(".price-game-history-row").first()).toHaveAttribute("aria-label","Round 2: wrong");
+  await expect(history.locator(".is-wrong small")).toHaveText("Your pick · Wrong");
+  await expect(history.locator(".price-game-history-row").first().getByText("Highest price",{exact:true})).toBeVisible();
+  await history.scrollIntoViewIfNeeded();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:testInfo.outputPath(`game-history-${width}-${theme}.png`),fullPage:true,animations:"disabled"});
+  const before=calls;await history.locator("summary").click();await history.locator("summary").click();expect(calls).toBe(before);
+  await page.getByRole("button",{name:"Restart game",exact:true}).click();await expect(history.locator(".price-game-history-count")).toHaveText("(0)");
+  await expect(choices.first()).toHaveAttribute("aria-disabled","false");await choices.first().click();
+  await expect(history.locator(".price-game-history-count")).toHaveText("(1)");
+  await page.getByRole("tab",{name:"Hard · 3 cards"}).click();await expect(history.locator(".price-game-history-count")).toHaveText("(0)");
+  await expect(choices).toHaveCount(3);await expect(choices.first()).toHaveAttribute("aria-disabled","false");await choices.first().click();
+  await history.locator("summary").click();await expect(history.locator(".price-game-history-card")).toHaveCount(3);
+  expect(calls).toBe(before);
+ }
+});
+
 test("Games tile has the generated artwork in desktop/mobile and both themes",async({page},testInfo)=>{
  for(const width of [1440,390])for(const theme of ["dark","light"]){
   await page.setViewportSize({width,height:1000});await page.goto("/games");
   await page.evaluate(theme=>{document.documentElement.dataset.theme=theme},theme);
   const artwork=page.locator(".game-tile-art img");await expect(artwork).toBeVisible();
-  await expect(artwork).toHaveAttribute("src","/images/games/riftbound-price-showdown.webp");
+  await expect(artwork).toHaveAttribute("src","/images/games/riftbound-price-showdown-v2.webp");
   await expect(page.locator(".game-tile-art")).toHaveClass(/is-loaded/);
   expect(await artwork.evaluate(image=>(image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

@@ -1,8 +1,8 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- verified game artwork reuses the browser image cache */
 import {useCallback,useEffect,useReducer,useRef,useState} from "react";
-import {CheckboxGrid} from "../filters/CheckboxGrid";
 import {useArtTilt} from "../hooks/useArtTilt";
+import PriceShowdownHistory from "./PriceShowdownHistory";
 import {preparePriceRound,type PriceGameImageLoader} from "../data/price-game-images";
 import {isTcgplayerPlaceholder} from "../../core/domain/image-availability";
 import {initialPriceGame,priceGameReducer,priceGameWinner,type PriceGameCard,type PriceGameDifficulty} from "../../core/domain/price-game";
@@ -26,9 +26,9 @@ function RoundChoices({round,difficulty,selected,preparing,onChoose,onFailed,fir
  </div>;
 }
 
-export default function GameSession({pool,difficulty,images}:{pool:PriceGameCard[];difficulty:PriceGameDifficulty;images:PriceGameImageLoader}){
+export default function GameSession({pool,difficulty,images,auto}:{pool:PriceGameCard[];difficulty:PriceGameDifficulty;images:PriceGameImageLoader;auto:boolean}){
  const [state,dispatch]=useReducer(priceGameReducer,initialPriceGame([]));
- const [preparing,setPreparing]=useState(true),[error,setError]=useState(false),[auto,setAuto]=useState(true);
+ const [preparing,setPreparing]=useState(true),[error,setError]=useState(false);
  const firstButton=useRef<HTMLButtonElement|null>(null),restoreFocus=useRef(false),request=useRef<AbortController|null>(null);
  const winner=priceGameWinner(state.round),revealed=state.selected!=null,correct=state.selected===winner?.productId;
  useEffect(()=>{
@@ -62,10 +62,11 @@ export default function GameSession({pool,difficulty,images}:{pool:PriceGameCard
    <div className="detail-metric price-game-stat stat-correct"><dt><span aria-hidden="true">✓</span>Total correct</dt><dd>{state.correct}</dd></div>
    <div className="detail-metric price-game-stat stat-streak"><dt><span aria-hidden="true">↗</span>Streak</dt><dd>{state.streak}</dd></div>
    <div className="detail-metric price-game-stat stat-round"><dt><span aria-hidden="true">◇</span>Round</dt><dd>{state.roundNumber}</dd></div>
-  </dl><CheckboxGrid className="set-option-grid price-game-auto" options={[{key:"auto",label:"Auto next round (1s)"}]} selected={auto?["auto"]:[]} onToggle={()=>setAuto(value=>!value)}/></div>
+  </dl></div>
   <p className="price-game-result" role="status" aria-live="polite" aria-atomic="true">{revealed?`${correct?"Correct!":"Not quite."} ${winner?.name} has the highest price at ${usd(winner!.marketPrice)}.`:preparing?"Preparing card artwork…":""}</p>
   {error&&<p className="games-note" role="alert">Not enough cards with working artwork are available for this round. <button type="button" className="game-control" onClick={()=>void advance()}>Try another round</button></p>}
   {state.round.length>0&&<RoundChoices key={`${state.roundNumber}:${state.round.map(card=>card.productId).join(",")}`} round={state.round} difficulty={difficulty} selected={state.selected} preparing={preparing} firstButton={firstButton} onChoose={(card,keyboard)=>{restoreFocus.current=keyboard;dispatch({type:"answer",productId:card.productId})}} onFailed={image=>{images.exclude(image);void advance()}}/>}
   <div className="price-game-next"><button type="button" className="game-control" disabled={!revealed||preparing} onClick={()=>{restoreFocus.current=true;void advance()}}>{preparing&&revealed?"Preparing next round…":"Next round →"}</button><span className="games-note">{state.attempts} answered · {state.attempts?Math.round(state.correct/state.attempts*100):0}% correct</span></div>
+  <PriceShowdownHistory history={state.history}/>
  </section>;
 }
