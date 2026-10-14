@@ -6,7 +6,7 @@ Raw Signal presents market intelligence for raw trading cards and unopened produ
 
 ## Runtime and hosting
 
-The application is React 19 and TypeScript compiled by vinext into a Cloudflare Worker. Production is the directly managed Worker `raw-signal` serving `https://rawsignal.cards` on the production D1 database, with a guarded minutely cron advancing daily ingestion in checkpointed batches (next-release policy order live → details → graded → metrics → heatmap snapshot → history; each tick first claims the 170-second `cron-lease` row in `refresh_state` via `db/tick-lease.ts`, so an overlapping tick exits idle). A sandbox Worker `raw-signal-staging` stays on workers.dev with its own deliberately stale D1 (no cron) for cheap pre-production review. OpenAI Sites is dormant: `.openai/hosting.json` and Sites build compatibility are retained only as a rollback path (see [Cloudflare cutover](cloudflare-cutover.md)).
+The application is React 19 and TypeScript compiled by vinext into a Cloudflare Worker. Production is the directly managed Worker `raw-signal` serving `https://rawsignal.cards` on the production D1 database, with a guarded minutely cron advancing daily ingestion in checkpointed batches (policy order live → details → graded → metrics → heatmap snapshot → history; each tick first claims the 170-second `cron-lease` row in `refresh_state` via `db/tick-lease.ts`, so an overlapping tick exits idle). A sandbox Worker `raw-signal-staging` stays on workers.dev with its own deliberately stale D1 (no cron) for cheap pre-production review. OpenAI Sites is dormant: `.openai/hosting.json` and Sites build compatibility are retained only as a rollback path (see [Cloudflare cutover](cloudflare-cutover.md)).
 
 `worker/index.ts` is the Worker entry point. It delegates application requests to vinext, retains the Cloudflare image-optimization route, and mounts the scheduled-ingestion cron handler, the staging-only ops adapter, and the Worker-native eBay account-deletion callback. `vite.config.ts` supplies a local placeholder D1 binding without encoding production resource identifiers.
 
@@ -45,12 +45,13 @@ Two caches sit in front of D1 (review §14): `worker/edge-cache.ts` stores ordin
 
 `core/domain/regime.ts` classifies every product's market regime (Falling / Improving / Breakout / Overextended / Spike / Steady) from momentum, change windows, drawdown, and the optional demand trend. The label persists on `market_metrics.regime`, surfaces as chips (board signal cells, history popovers, detail page), and is a board filter (`regime=` URL param). Labels are descriptive; only the v2 challenger consumes them for scoring.
 
-The Sets heatmap's on-demand history scan is replaced in staging by two source-dated
+The Sets heatmap's on-demand history scan is replaced in both environments by two source-dated
 `set_heatmap_snapshots` rows (Pokémon and Riftbound). After a published live run, the
 production guard cron computes the three windows once and atomically replaces both rows;
 the API reads the saved JSON only. Migration 0020 and one manual snapshot job ran on
-staging 2026-10-09; production still calculates on each heatmap request. The new policy
-defaults to 7D. The 2026-10-14 staging release requires at least 7% of tracked printings
+staging 2026-10-09 and production 2026-10-14. Production's first version-4 snapshot
+was initialized from the published 2026-10-13 catalog using the same writer; future
+published runs use the guard cron. The policy defaults to 7D and requires at least 7% of tracked printings
 to have valid comparisons and limits Riftbound
 heatmap rows to the five main expansions; Pokémon set inclusion and the Sets directory are unchanged.
 Pokémon's nine Gallery/Vault/Radiant Collection catalog subsets are folded into their

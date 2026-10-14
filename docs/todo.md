@@ -108,7 +108,7 @@ in `pull-rates.json`, curated only. Plan, model, costs, and phases:
 production; no page renders it yet. Phase 2 (panel, MSRP↔market slider, optional custom rates)
 needs a packs-per-product table and per-pack MSRP where the pack product has none.
 
-**J3. Pokémon + Riftbound set × rarity heatmap (live 2026-10-09; daily snapshot on staging).**
+**J3. Pokémon + Riftbound set × rarity heatmap (daily snapshot live in production 2026-10-14).**
 Work branch: `feature/set-rarity-heatmap`. The Sets toggle, URL controls, D1 read,
 aggregate payload, source-date-aware calculations, and browser/unit fixtures are live in
 production. Tiles remain default and do not call the heatmap endpoint. User decisions (2026-10-09): Sets-page
@@ -117,8 +117,8 @@ warning. The first follow-up lowered required coverage from 60% to 5%, and chang
 the default window from 30D to 7D without substituting 7D
 returns into 30D/90D cells. The source-date audit chose at most two days
 for a member's latest price and at most three days between the requested cutoff and its
-baseline. Production's current on-demand endpoint is slow on a cold request; the daily
-D1 snapshot implementation below is deployed and migrated on staging only.
+baseline. The daily D1 snapshot implementation below is deployed and migrated in
+both staging and production, replacing the slow on-demand history scan.
 The 2026-10-14 staging release limits Riftbound heatmap rows to the five main expansions
 (Origins, Spiritforged, Unleashed, Vendetta, Radiance) and raises the gate to 7%;
 it does not remove promo, event, or bundle products from the catalog or Sets tiles.
@@ -128,12 +128,18 @@ Gallery/Vault/Radiant Collection subsets into their parent expansion's member-le
 median and coverage. The page discloses the fold, and matching-card drill-down includes
 all original catalog set names. No Pokémon promo/deck filtering is applied yet; the
 provisional expansion-only classification needs a separate reviewed decision.
-Production retains the prior 5% policy until this revision is deployed there and
-the versioned snapshot recomputed. Staging's version-4 snapshot was regenerated on
+Production now uses the same 7% policy and version-4 snapshot as staging. Staging's snapshot was regenerated on
 2026-10-14 from the 2026-10-13 catalog: 196 Pokémon rows and five Riftbound rows,
 including all nine folded Pokémon parents. The public API returned 200 in about
 0.56 seconds for 687,491 bytes; live browser checks confirmed series grouping,
 combined subset links, and desktop/mobile rendering. Staging remains cron-less.
+Production deployment and migration 0020 completed on 2026-10-14 after a database
+export and recovery bookmark. Its initial snapshot has the same 201 rows dated
+2026-10-13; the same writer was invoked directly while the guard cron continued
+routine detail enrichment. Production-version browser checks passed for series
+grouping, subset links, and desktop/mobile rendering; the API returned 200.
+The custom domain challenged the automated browser, so these checks used the
+existing version URL with production bindings. No security rule was changed.
 Add a market-movement matrix inspired by the
 [ShizuTCG Riftbound index](https://tcg-price-tracker.shizukaziye.workers.dev/rb-index#set=ALL&tier=ALL&w=rarity&m=index).
 Reference inspection: the public HTML/rendering code exposes a "Set × tier heat map",
@@ -142,7 +148,7 @@ that scopes the set/tier view. Its values depend on the selected index/box-value
 The reference browser was unavailable during research; rendered desktop/mobile behavior still needs
 visual comparison. Borrow the matrix and drill-down interaction, not its styling, code,
 pull-rate assumptions, or volume-weighted model. The first heatmap release is live;
-the daily-snapshot change awaits production authorization.
+the daily-snapshot change is also live in production.
 
 Proposed product scope and UX:
 
@@ -220,7 +226,7 @@ Implementation sequence and cost boundary:
 3. **UI + drill-down:** shared `SetHeatmap` composed into `app/SetsView.tsx`, URL state in
    `app/state/sets-query.ts`, and rules in the owning sets stylesheet. Use existing set
    details and catalog routes rather than a second index app or new chart dependency.
-4. **Daily snapshot (staging deployed 2026-10-09; production pending):** an uncached staging read took
+4. **Daily snapshot (staging deployed 2026-10-09; production deployed 2026-10-14):** an uncached staging read took
    ~11 seconds for 218 sets / 742 KB, while the older local max-profile scan took ~9 seconds.
    `drizzle/0020_set_heatmap_snapshots.sql` adds two bounded rows, one per game. The existing
    guard cron calculates once after each published live run and metrics rollup, before history;

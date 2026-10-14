@@ -2,7 +2,7 @@
 
 ## Current operating model
 
-The production Worker `raw-signal` owns the `DB` binding to the production D1 database and runs a `*/1 * * * *` guard cron (`worker/scheduled-ingestion.ts`, policy in `worker/scheduled-decision.ts`). Every tick first claims the single-flight `cron-lease` row in `refresh_state` for 170 seconds (`db/tick-lease.ts`) or exits idle, then advances at most one checkpointed batch of the first due job in policy order: live catalog walk → product details → graded rotation → metrics rollup → history backfill. The heatmap snapshot step is deployed to cron-less staging but not yet production; the next production release will put it between metrics and history. Staging carries no schedule; its jobs run only through the operator adapter. Do not expose an unauthenticated ingestion route as a scheduling substitute.
+The production Worker `raw-signal` owns the `DB` binding to the production D1 database and runs a `*/1 * * * *` guard cron (`worker/scheduled-ingestion.ts`, policy in `worker/scheduled-decision.ts`). Every tick first claims the single-flight `cron-lease` row in `refresh_state` for 170 seconds (`db/tick-lease.ts`) or exits idle, then advances at most one checkpointed batch of the first due job in policy order: live catalog walk → product details → graded rotation → metrics rollup → heatmap snapshot → history backfill. Staging carries no schedule; its jobs run only through the operator adapter. Do not expose an unauthenticated ingestion route as a scheduling substitute.
 
 `sync-tcgcsv.mjs` and `sync-sealed.mjs` separate four concerns:
 
@@ -69,16 +69,19 @@ The move to a directly managed Worker is done (see [Cloudflare cutover](cloudfla
 
 Daily TCGCSV observations are sufficient for ongoing history after backfill. Detailed TCGplayer history remains the bootstrap and cache-miss source rather than a daily full-catalog fan-out.
 
-## Daily Sets heatmap snapshot (staging live 2026-10-09; production pending)
+## Daily Sets heatmap snapshot (production live 2026-10-14)
 
 `db/set-heatmap.ts` calculates median tracked-card price changes for 7D/30D/90D from
-dated observations. The staging revision uses only printings with valid comparisons in
+dated observations. The deployed revision uses only printings with valid comparisons in
 the median, requires at least 7% coverage, and warns for 1–2 eligible cards; the default display
 window is 7D. It never substitutes a 7D result for a missing 30D or 90D comparison.
 Only the five Riftbound main expansions are selected for this heatmap; other
 Riftbound products remain in the catalog and Sets directory. The 2026-10-14 staging
 deploy and protected heatmap job produced a version-4 snapshot dated 2026-10-13:
-196 Pokémon rows and five Riftbound rows. Production still uses the earlier policy.
+196 Pokémon rows and five Riftbound rows. Production deployed the same revision and
+applied migration 0020 on 2026-10-14 after a database backup. Its initial version-4
+snapshot was computed from the published 2026-10-13 catalog with the same writer,
+while the cron continued routine detail enrichment; future live runs refresh it daily.
 The nine Pokémon Gallery, Shiny Vault, and Radiant Collection subset groups are
 assigned to their parent expansion for the heatmap calculation, preserving one
 member per catalog printing and retaining source set names for card drill-down.
