@@ -164,8 +164,6 @@ Some source images are unavailable and use the established fallback without
 changing frozen contents or valuation. Production remains unchanged; staging
 data is intentionally stale and no ingestion/data refresh was performed.
 
-## Tile artwork asset and prompt
-
 ## Random collections and polish staging release — 2026-10-14
 
 Application commit `f234786`, Worker version `3e534e78`, same staging route as above.
@@ -189,7 +187,7 @@ explicit failure feedback, while saved lots remain frozen.
 No migrations, database mutations, source refreshes, upstream pricing calls,
 cron changes or production deployment. Staging remains deliberately stale.
 
-## Tile artwork assets and prompts (continued)
+## Tile artwork assets and prompts
 
 ### Auction polish (included in staging version `3e534e78`)
 
