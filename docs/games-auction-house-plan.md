@@ -166,7 +166,32 @@ data is intentionally stale and no ingestion/data refresh was performed.
 
 ## Tile artwork asset and prompt
 
-### Auction polish (included in the next staging release)
+## Random collections and polish staging release — 2026-10-14
+
+Application commit `f234786`, Worker version `3e534e78`, same staging route as above.
+Full gate passed: 413 unit tests, one skipped, 39 Chromium browser checks; 21
+pre-existing lint complexity warnings and no new warnings. Live fresh-browser
+verification passed for a 109-copy collection, Dealer/Bargain Hunter/Analyst roster,
+clue icons, full-width slots, settlement/full reveal, saved wallet after reload,
+after-fee inventory sale, reset, a different seeded collection on re-entry, and
+desktop/mobile dark/light layouts. No browser errors. Eleven initial catalog
+requests, eleven on reload, and zero further gameplay pricing requests.
+
+Verification notes: one test helper initially checked virtual-time settlement
+before the pre-existing native timer caught up; a short synchronization wait fixed
+that helper. A subsequent run timed out awaiting artwork preparation; the next
+fresh browser completed the full real-data journey in about seven seconds. The
+timeout cause was not established, so image/CDN availability remains a review
+limitation, not a claim that every source card will always load. No application
+changes were made to hide failures: new lots retain bounded candidate probes and
+explicit failure feedback, while saved lots remain frozen.
+
+No migrations, database mutations, source refreshes, upstream pricing calls,
+cron changes or production deployment. Staging remains deliberately stale.
+
+## Tile artwork assets and prompts (continued)
+
+### Auction polish (included in staging version `3e534e78`)
 
 Every copy now has a visible slot using the supplied blue/gold back and a question
 mark. Exact count is public; new offers exclude the paid count clue and NPCs use
