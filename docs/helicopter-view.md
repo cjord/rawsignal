@@ -175,10 +175,11 @@ source text can express.
   by wrangler in filename order). drizzle-kit is retired (2026-09-03): its journal stopped
   at 0004 and the generator emitted wrong cumulative diffs, so the `db:generate` script,
   `drizzle.config.ts`, and the devDependency are gone; `drizzle/meta/` stays as history.
-- Local revision 2026-10-14: `/api/history` and its batch route are read-only and
-  serve the exact shared snapshot named by the row. Migration 0021 plus the next
-  catalog pass populate snapshots; before that, charts are unavailable rather
-  than warming upstream data or drifting the database on hover. Not yet deployed.
+- Live since 2026-10-14: `/api/history` and its batch route are read-only and
+  serve the exact shared snapshot named by the row. Migration 0021 is applied in
+  both environments; stored-observation bootstrap populated 19,044 staging and
+  19,085 production printing/condition series, including alternate printings.
+  Daily ingestion maintains versions; unmatched versions remain unavailable.
 - The eBay deletion callback is intercepted in `worker/index.ts` before vinext and the colo
   cache. Production Cloudflare security rules must skip managed challenges for that exact
   path so eBay can complete its GET challenge and deliver signed POST notifications; the

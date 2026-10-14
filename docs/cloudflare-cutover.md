@@ -132,6 +132,39 @@ References: [Cloudflare bot false-positive guidance](https://developers.cloudfla
 
 ## 5. Backup and rollback boundaries
 
+### 2026-10-14 shared-history release
+
+Application commit `60b54d0` deployed first to staging, then production after staging
+checks passed. Migration `0021_shared_history_snapshots.sql` was applied after each
+deployment and verified in `d1_migrations`. Complete SQL exports and Time Travel
+bookmarks were captured before mutation; exports, checksums and recovery metadata
+remain under ignored `backups/` and must never be committed.
+
+Population used existing dated observations only: 19,044 staging printing/condition
+series (16,491 Near Mint singles variants; 2,553 Unopened sealed) and 19,085 production
+series (16,481 singles variants; 2,604 sealed). Conditional updates populated missing
+versions only when the metric row's `updated_at` still matched the read. No source
+API calls, current-price changes, source/sales freshness advances, signal rewrites,
+missing series or concurrent-write conflicts occurred. All saved snapshot IDs and
+7D/30D/range metrics match their corresponding database fields (zero audit mismatches).
+
+Final same-source deployments, after population, invalidated page caches created
+during activation: staging `e83dc459-dffb-4837-abf0-ab8d8f2c2ac9`, production
+`df0fb5f7-ad88-4b29-b3f1-e8a61b859ff1`. Production retains its custom domain and
+guard cron; staging retains workers.dev and no cron. Browser/API checks passed on
+both final URLs for every supported singles/sealed market, alternate-printing
+history, matching row/chart figures, stable hover order/values, desktop/mobile
+dark/light behavior and regular-rarity Metal artwork. eBay listing calls were
+intercepted in the test browser only to avoid unnecessary quota spending.
+
+Database files measured approximately 421 MiB staging and 471 MiB production
+after population. The snapshot format bounds chart storage to 1Y plus its true
+baseline and retains one previous version on subsequent changes; full observations
+remain intact. Account-subscription inspection returned 403 with the connected
+token, so no billing-plan change or claim of a newly verified subscription was made.
+The recorded paid allowances remain in `docs/ingestion-scaling.md`; review storage
+after the first previous-version rollover. Sales features remain paused.
+
 Before any remote migration or production cutover, create an export in the ignored `backups/` directory and record a D1 Time Travel bookmark:
 
 ```powershell

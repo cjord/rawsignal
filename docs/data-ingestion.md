@@ -55,7 +55,7 @@ The catalog API compares the published run count with records bearing that run I
 
 ## History backfill and signal readiness
 
-### Shared price-history snapshots (2026-10-14 local revision)
+### Shared price-history snapshots (live 2026-10-14)
 
 Migration `0021_shared_history_snapshots.sql` adds four nullable columns to
 `market_metrics`: current/previous history version and JSON. Each existing metrics
@@ -81,6 +81,22 @@ charts are explicitly unavailable. Staging has no cron: deliberate catalog
 ingestion is required there. No automatic full-catalog upstream history refresh
 or additional production job is introduced.
 
+Activation completed 2026-10-14 from application commit `60b54d0`: both Workers
+deployed before migration 0021, with database exports and recovery bookmarks saved
+under ignored `backups/`. An idempotent, guarded stored-observation bootstrap
+populated 19,044 staging series (16,491 singles variants and 2,553 sealed) and
+19,085 production series (16,481 singles variants and 2,604 sealed). It used no
+upstream requests, changed no current prices, advanced no ingestion/sales freshness
+markers, and preserved stored signals; ordinary ingestion re-evaluates signals with
+its normal context. Existing observations remain untouched. Each metrics row and
+its new snapshot were written together, only while its version was absent and
+its `updated_at` still matched the read. No missing series or concurrency conflicts
+occurred. Full-database audits found zero version/metric mismatches. Missing
+unpriced products remain unavailable rather than gaining synthetic observations.
+Measured database size after bootstrap: approximately 421 MiB staging and 471 MiB
+production; subsequent daily changes retain one previous version. Staging still
+has no cron and its price freshness remains deliberately unchanged.
+
 The `history-signals` readiness marker has been published in production since 2026-08-28, so the bounded browser evaluation below is the cold-start fallback for a database without it, not a live transition. That fallback evaluates at most 400 candidates (`SIGNAL_FALLBACK_LIMIT`). Pokémon has 499 Illustration Rares and 721 cards across Illustration Rare plus Special Illustration Rare, so 99 and 321 candidates respectively can be unevaluated in that fallback.
 
 Candidate selection is proportional across selected rarities and evenly stratified through each rarity's existing price order. An earlier source file or only the highest-priced records can no longer consume the full budget.
@@ -93,7 +109,7 @@ See [Signal eligibility](signal-eligibility.md) for the qualification and exclus
 
 The move to a directly managed Worker is done (see [Cloudflare cutover](cloudflare-cutover.md)): the production D1 database is bound as `DB`; the scheduled adapter walks TCGCSV live and calls `runDailyMarketIngestion` in checkpointed batches; the guard cron runs every minute rather than daily, taking the first due job in policy order; `runHistoryBackfillBatch` continues on idle ticks until it reports `done`; catalog counts, nullable values, representative histories, rejection totals, and signal counts were verified against the bundled feeds; `history-signals` is present; and failed runs are recorded without advancing the last-success pointer.
 
-Daily TCGCSV observations are sufficient for ongoing history after backfill. Detailed TCGplayer history remains the bootstrap and cache-miss source rather than a daily full-catalog fan-out.
+Daily TCGCSV observations are sufficient for ongoing history after backfill. Detailed TCGplayer history remains a background bootstrap/refresh source, never a visitor cache-miss source or a daily full-catalog fan-out.
 
 ## Daily Sets heatmap snapshot (production live 2026-10-14)
 

@@ -9,6 +9,42 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-14 — Shared history snapshots, promo artwork and testing notes
+
+Application commit `60b54d0` deployed to staging and production. Final Worker
+versions: staging `e83dc459-dffb-4837-abf0-ab8d8f2c2ac9`, production
+`df0fb5f7-ad88-4b29-b3f1-e8a61b859ff1`.
+
+- **Q1 resolved:** rows, full views, hover charts, detail charts/tables, catalog API
+  results and movers use one immutable, exact-printing price-history snapshot.
+  Import rows share their fetched snapshot; buylist prices remain capture-time values.
+  Hover cannot replace published row metrics or change numerical sorting/filtering.
+  Charts use the same dated cutoff and rounding as row metrics; sparse windows do
+  not expand silently. GET history routes are read-only, missing versions never
+  fan out, and mismatches remain explicitly unavailable. Current and previous
+  versions are stored in the existing atomic metrics write. Compact chart points
+  cover 1Y plus its true baseline; all-time extrema and original observations are
+  preserved. Daily catalog calls/write statements are unchanged; background
+  history refresh adds one combined-series read per refreshed product.
+- **Migration 0021 and bootstrap complete:** 19,044 staging and 19,085 production
+  printing/condition series populated from stored data, including alternate
+  Near Mint printings. No upstream calls, current-price changes, freshness-marker
+  changes, or synthetic observations. No missing series/concurrency conflicts;
+  full-database audits found zero metric/version mismatches. Exports/bookmarks
+  are ignored recovery artifacts, never repository files. Staging stays cron-less.
+- **Riftbound artwork:** all 68 Metal/Best Of/Prize Wall printings resolve to the
+  regular-rarity image of the same name-and-number identity (40 base identities),
+  including existing D1 rows, feed fallback and saved buylists. No price, identity,
+  treatment or marketplace-link change; unknown future matches keep source artwork.
+- **Cloudflare testing notes:** the proven site-scoped IP Access Allow procedure
+  for ordinary Bot Fight Mode is recorded in `docs/cloudflare-cutover.md`.
+- **Validation:** full gate green (390 node tests passed, one skipped; 27 Chromium
+  journeys). Live checks passed on both deployed hostnames: 20 snapshot comparisons
+  across Pokémon/Riftbound singles and Pokémon/Riftbound/One Piece sealed, exact
+  alternate-printing history, stable hover order/price cells, desktop/mobile in
+  dark/light themes, and regular-rarity Metal artwork. Same-code redeploys after
+  bootstrap invalidated page cache entries created before population completed.
+
 ## Phase 1–4 summary (the later sections M, N, P, and T are not indexed here)
 
 | # | Item | Phase | Effort | Risk |

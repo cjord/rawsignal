@@ -21,7 +21,7 @@ and remain eligible for eBay browsing (active asks remain separate from market p
 The `metal-promos` section includes both Best Of and Prize Wall metal treatments;
 their eBay query and matching rules preserve those distinctions.
 
-The 2026-10-14 local artwork revision uses the corresponding regular-rarity scan
+The 2026-10-14 deployed artwork revision uses the corresponding regular-rarity scan
 for these Metal / Best Of cards. `core/domain/riftbound-artwork.ts` matches both
 card name and collector number against 40 verified TCGCSV base identities, covering
 all 68 bundled metal printings; the four /024 identities use Proving Grounds
@@ -30,7 +30,7 @@ prices and marketplace links. The same resolver runs during normalization and on
 catalog reads (including feed fallback, movers, set covers and saved buylist views), so existing D1
 rows need no migration or additional query. New unmapped identities retain their
 source image until the regular printing is verified and added to the registry.
-This revision is not yet deployed.
+This revision is deployed to staging and production; live artwork checks passed.
 
 The 2026-09-18 expansion adds English commons/uncommons, other Showcases (including
 T1 variants), alternate-art runes and promos, plus judge and tournament-stamped
@@ -45,14 +45,15 @@ unavailable until verified, rather than borrowing the ordinary card's image.
 
 ## TCGplayer dated market history
 
-2026-10-14 local revision (not deployed): public chart endpoints now serve the
+2026-10-14 deployed revision: public chart endpoints now serve the
 same versioned, combined durable TCGCSV daily/archive + TCGplayer market series
 that produced each row's metrics. TCGplayer fetches belong to background ingestion
 only. Exact printing/condition is required; charts never replace row figures with
 an upstream-only, stale, or different-printing series. Both row and chart changes
 use the observation at or before the window cutoff. Insufficient chart windows
-never silently expand to older dates. Migration 0021 and the next catalog pass
-are required to populate these snapshots.
+never silently expand to older dates. Migration 0021 is applied to both databases;
+a stored-observation bootstrap populated all existing Near Mint singles variants
+and canonical Unopened sealed series. Daily ingestion maintains them thereafter.
 
 The upstream TCGplayer history client retrieves normalized Near Mint market history for Singles and unopened-product history for Sealed. Background ingestion preserves its coverage label; public charts require the exact catalog printing/condition. Dated observations support:
 
