@@ -1,6 +1,8 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- external TCGplayer CDN images use a custom data-first loader */
 import { useEffect, useRef, useState } from "react";
+import {isTcgplayerPlaceholder} from "../core/domain/image-availability";
+export {isTcgplayerPlaceholder} from "../core/domain/image-availability";
 
 // `fallback` (2026-09-04): a second source tried once when `src` fails to load — the TCGdex
 // scan for Pokémon cards (app/data/card-images.ts). Only after both fail does the tile read
@@ -8,9 +10,6 @@ import { useEffect, useRef, useState } from "react";
 // placeholder JPEG (400×570, or 200×285 for the 200w variant) rather than an error, so a
 // loaded CDN image of exactly that size counts as a failure too.
 type Props={src?:string|null;fallback?:string|null;alt:string;className?:string};
-
-const TCGPLAYER_CDN=/^https:\/\/tcgplayer-cdn\.tcgplayer\.com\//;
-export const isTcgplayerPlaceholder=(image:{currentSrc?:string;src:string;naturalWidth:number;naturalHeight:number})=>TCGPLAYER_CDN.test(image.currentSrc||image.src)&&((image.naturalWidth===400&&image.naturalHeight===570)||(image.naturalWidth===200&&image.naturalHeight===285));
 
 export default function DeferredImage({src,fallback=null,alt,className=""}:Props){
  const host=useRef<HTMLSpanElement>(null),[near,setNear]=useState(false),[idle,setIdle]=useState(false),[loaded,setLoaded]=useState(false),[failed,setFailed]=useState(false),[useFallback,setUseFallback]=useState(false);
