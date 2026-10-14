@@ -45,7 +45,7 @@ test("game layout and tilt work on desktop/mobile in both themes with reduced mo
   await expect(page.getByRole("link",{name:"Games",exact:true}).filter({visible:true})).toBeVisible();
   await expect(page.locator(".price-game-art img").first()).toBeVisible();
   await expect(page.locator(".price-game-choice").first()).toHaveAttribute("aria-disabled","false");
-  const controls=page.locator(".price-game-controls"),restart=page.getByRole("button",{name:"Restart game",exact:true});
+  const controls=page.locator(".price-game-controls"),restart=page.getByRole("button",{name:"Restart Game",exact:true});
   await expect(controls.getByLabel("Auto next round (1s)")).toHaveCount(1);
   await expect(page.locator(".price-game-toolbar").getByLabel("Auto next round (1s)")).toHaveCount(0);
   await expect(restart).toHaveCSS("font-size","13px");await expect(restart).toHaveCSS("font-weight","650");
@@ -111,7 +111,7 @@ test("round history expands, captures right/wrong selections and resets without 
   const names=await choices.locator(".price-game-name").allTextContents(),prices=names.map(name=>Number(name.match(/Game Card (\d+)/)![1]));
   await choices.nth(prices.indexOf(Math.max(...prices))).click();
   await expect(history.locator(".price-game-history-row")).toHaveCount(1);
-  await expect(history.locator(".is-correct")).toHaveCount(1);await expect(history.locator(".is-correct small")).toHaveText("Your pick · Correct");
+  await expect(history.locator(".is-correct")).toHaveCount(1);await expect(history.locator(".is-correct")).toHaveAttribute("aria-label",/your pick, correct$/);
   await expect(history.locator(".price-game-history-card strong")).toHaveText(prices.map(price=>`$${price.toFixed(2)}`));
   await choices.first().click({force:true});await expect(history.locator(".price-game-history-row")).toHaveCount(1);
   await page.getByRole("button",{name:"Next round"}).click();await expect(choices.first()).toHaveAttribute("aria-disabled","false");
@@ -119,12 +119,18 @@ test("round history expands, captures right/wrong selections and resets without 
   await choices.nth(nextPrices.indexOf(Math.min(...nextPrices))).click();
   await expect(history.locator(".price-game-history-row")).toHaveCount(2);
   await expect(history.locator(".price-game-history-row").first()).toHaveAttribute("aria-label","Round 2: wrong");
-  await expect(history.locator(".is-wrong small")).toHaveText("Your pick · Wrong");
-  await expect(history.locator(".price-game-history-row").first().getByText("Highest price",{exact:true})).toBeVisible();
+  await expect(history.locator(".is-wrong")).toHaveAttribute("aria-label",/your pick, wrong$/);
+  await expect(history.locator("summary")).toHaveText("Showdown History (2)▸");
+  await expect(history.locator(".price-game-history-row header, .price-game-history-card small")).toHaveCount(0);
+  await expect(history.getByText("Your session",{exact:true})).toHaveCount(0);
+  await expect(page.getByText("Changing difficulty resets your streak and score.",{exact:true})).toBeVisible();
+  const positions=await history.locator(".price-game-history-card").first().evaluate(element=>({image:element.querySelector('img')!.getBoundingClientRect().right,copy:element.querySelector('.price-game-history-copy')!.getBoundingClientRect().left}));
+  expect(positions.copy).toBeGreaterThan(positions.image);
+  await expect(history.locator(".price-game-history-list")).toHaveCSS("padding-right","12px");
   await history.scrollIntoViewIfNeeded();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:testInfo.outputPath(`game-history-${width}-${theme}.png`),fullPage:true,animations:"disabled"});
   const before=calls;await history.locator("summary").click();await history.locator("summary").click();expect(calls).toBe(before);
-  await page.getByRole("button",{name:"Restart game",exact:true}).click();await expect(history.locator(".price-game-history-count")).toHaveText("(0)");
+  await page.getByRole("button",{name:"Restart Game",exact:true}).click();await expect(history.locator(".price-game-history-count")).toHaveText("(0)");
   await expect(choices.first()).toHaveAttribute("aria-disabled","false");await choices.first().click();
   await expect(history.locator(".price-game-history-count")).toHaveText("(1)");
   await page.getByRole("tab",{name:"Hard · 3 cards"}).click();await expect(history.locator(".price-game-history-count")).toHaveText("(0)");
@@ -132,6 +138,30 @@ test("round history expands, captures right/wrong selections and resets without 
   await history.locator("summary").click();await expect(history.locator(".price-game-history-card")).toHaveCount(3);
   expect(calls).toBe(before);
  }
+});
+
+test("card skeletons cover catalog and artwork preparation without leaking prices or taking answers",async({page},testInfo)=>{
+ let releaseData!:()=>void,releaseImages!:()=>void;
+ const dataGate=new Promise<void>(resolve=>{releaseData=resolve}),imageGate=new Promise<void>(resolve=>{releaseImages=resolve});
+ await page.route("**/data/*.json",async route=>{await dataGate;return route.fulfill({contentType:"application/json",body:JSON.stringify(rows)})});
+ await page.route("https://images.example/**",async route=>{await imageGate;return route.fulfill({contentType:"image/svg+xml",body:'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280"><rect width="200" height="280" fill="#7557ff"/></svg>'})});
+ await page.setViewportSize({width:390,height:1100});await page.goto("/games/riftbound-price");
+ await expect(page.locator(".price-game-choice-skeleton")).toHaveCount(2);
+ await expect(page.getByRole("status")).toHaveText("Loading Riftbound cards…");
+ await expect(page.locator(".price-game-choice")).toHaveCount(0);
+ await expect(page.locator(".price-game-skeleton")).toHaveAttribute("aria-hidden","true");
+ await page.emulateMedia({reducedMotion:"reduce"});
+ await expect(page.locator(".price-game-skeleton .detail-skeleton").first()).toHaveCSS("animation-name","none");
+ releaseData();await expect(page.locator(".price-game-score dd")).toHaveText(["0","0","1"]);
+ await expect(page.locator(".price-game-choice-skeleton")).toHaveCount(2);
+ await page.getByRole("tab",{name:"Hard · 3 cards"}).click();await expect(page.locator(".price-game-choice-skeleton")).toHaveCount(3);
+ await expect(page.locator(".price-game-choice")).toHaveCount(0);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:testInfo.outputPath("game-skeleton-mobile.png"),fullPage:true,animations:"disabled"});
+ releaseImages();await expect(page.locator(".price-game-choice")).toHaveCount(3);
+ await expect(page.locator(".price-game-choice").first()).toHaveAttribute("aria-disabled","false");
+ await expect(page.locator(".price-game-choice-skeleton, .price-game-image-skeleton")).toHaveCount(0);
+ await expect(page.locator(".price-game-score dd")).toHaveText(["0","0","1"]);
 });
 
 test("Games tile has the generated artwork in desktop/mobile and both themes",async({page},testInfo)=>{

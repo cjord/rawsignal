@@ -17,10 +17,22 @@ Final name chosen by the user: **Riftbound Price Showdown** (2026-10-14). The ro
 
 ## Later phases / decisions
 
+Compact history and loading polish (2026-10-14): heading is now “Showdown History
+(count)” without a kicker. Rows omit their round/outcome header and card captions;
+only the artwork on the left and name/frozen price on the right remain. Green/red
+selected-pick borders stay, with outcome labels retained for screen readers. On
+phones, cards within each completed round stack to keep names readable. The bounded
+list reserves a scrollbar gutter plus 12px of spacing. “Restart Game” capitalization
+and “Changing difficulty resets your streak and score.” are the current control copy.
+Two/three skeleton tiles cover catalog loading and round artwork preparation;
+individual images also have skeletons until ready. They use the existing shimmer,
+respect reduced motion, do not disclose prices and cannot accept answers. No new
+data/API calls, migration or ingestion work.
+
 Round history (2026-10-14): a collapsed native-details tile below the game records
 each accepted answer immediately, newest first, with small uncropped card art,
 frozen market prices and the actual selected card outlined/tinted green or red.
-Wrong answers also identify the highest-price card in text. Repeated clicks and
+Selected-pick outcomes remain available to screen readers. Repeated clicks and
 failed artwork retries do not add entries. The expanded list is keyboard-scrollable
 and height-bounded so long sessions do not grow the page indefinitely. History
 is session-only and clears on Restart or difficulty change; no browser storage,
