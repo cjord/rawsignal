@@ -50,8 +50,8 @@ The Sets heatmap's on-demand history scan is replaced in staging by two source-d
 production guard cron computes the three windows once and atomically replaces both rows;
 the API reads the saved JSON only. Migration 0020 and one manual snapshot job ran on
 staging 2026-10-09; production still calculates on each heatmap request. The new policy
-defaults to 7D and currently permits a median when at least 5% of tracked printings have valid
-comparisons. The next local revision raises that gate to 7% and limits Riftbound
+defaults to 7D. The 2026-10-14 staging release requires at least 7% of tracked printings
+to have valid comparisons and limits Riftbound
 heatmap rows to the five main expansions; Pokémon set inclusion and the Sets directory are unchanged.
 Pokémon's nine Gallery/Vault/Radiant Collection catalog subsets are folded into their
 parent heatmap rows from individual printings, retaining the original set names for

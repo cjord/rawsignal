@@ -119,7 +119,7 @@ returns into 30D/90D cells. The source-date audit chose at most two days
 for a member's latest price and at most three days between the requested cutoff and its
 baseline. Production's current on-demand endpoint is slow on a cold request; the daily
 D1 snapshot implementation below is deployed and migrated on staging only.
-The next local revision limits Riftbound heatmap rows to the five main expansions
+The 2026-10-14 staging release limits Riftbound heatmap rows to the five main expansions
 (Origins, Spiritforged, Unleashed, Vendetta, Radiance) and raises the gate to 7%;
 it does not remove promo, event, or bundle products from the catalog or Sets tiles.
 The Pokémon follow-up offers an optional URL-backed series grouping (Mega Evolution,
@@ -128,8 +128,12 @@ Gallery/Vault/Radiant Collection subsets into their parent expansion's member-le
 median and coverage. The page discloses the fold, and matching-card drill-down includes
 all original catalog set names. No Pokémon promo/deck filtering is applied yet; the
 provisional expansion-only classification needs a separate reviewed decision.
-Staging/production retain the prior 5% policy until this revision is deployed and
-the versioned snapshot recomputed.
+Production retains the prior 5% policy until this revision is deployed there and
+the versioned snapshot recomputed. Staging's version-4 snapshot was regenerated on
+2026-10-14 from the 2026-10-13 catalog: 196 Pokémon rows and five Riftbound rows,
+including all nine folded Pokémon parents. The public API returned 200 in about
+0.56 seconds for 687,491 bytes; live browser checks confirmed series grouping,
+combined subset links, and desktop/mobile rendering. Staging remains cron-less.
 Add a market-movement matrix inspired by the
 [ShizuTCG Riftbound index](https://tcg-price-tracker.shizukaziye.workers.dev/rb-index#set=ALL&tier=ALL&w=rarity&m=index).
 Reference inspection: the public HTML/rendering code exposes a "Set × tier heat map",
