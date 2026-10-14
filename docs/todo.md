@@ -20,7 +20,7 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
   rarity preferences; verified artwork before answers; shared difficulty slider and
   checkbox; refreshed intro and metric tiles; generated abstract market/card tile art.
 - Later: Pokémon tile/pool using the shared game engine; decide language/printing scope.
-- Ready for staging: blue/black reference card-back tile art, aligned controls and
+- Deployed and verified on staging (2026-10-14): blue/black reference card-back tile art, aligned controls and
   smaller score values; expandable session round history with compact cards,
   frozen prices and green/red selected picks. History adds no API/D1 activity.
 - Mixed sealed/card rounds remain deferred and opt-in pending product-type/price-band decisions.

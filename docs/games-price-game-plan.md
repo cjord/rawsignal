@@ -62,20 +62,29 @@ initial catalog requests and zero further pricing requests while playing/changin
 difficulty. No browser errors, migrations, data refreshes or cron changes.
 Production remains unchanged and is not authorized for this release.
 
-## Control and artwork polish (local, 2026-10-14)
+## Control and artwork polish (2026-10-14)
 
 Difficulty, Auto next round and Restart game share the 56px control height and
 site typography. On desktop they share one row in that order; on phones the
 difficulty slider sits above the Auto/Restart pair to avoid cramped controls.
 Restart uses the standard blue hover border. Score/streak/round numerals are
 reduced from 24px to 20px. Auto-next preference stays unchanged when restarting
-or changing difficulty. No extra data requests or writes. Not yet published.
+or changing difficulty. No extra data requests or writes. Released to staging with
+round history; production unchanged.
 
 Polish validation: `npm run check` passed (396 unit tests passed, one skipped;
 31 Chromium tests; no new lint warnings). Browser assertions cover equal control
 heights/order, Restart typography/hover border, smaller values and preserved
 auto-next preference. Screenshots reviewed in dark/light at desktop/mobile sizes;
 the existing local D1/cache fixture warnings are unchanged.
+
+History and polish staging release: application commit `dde27bf`, Worker version
+`9833f54c` (2026-10-14). Live verification passed for real artwork, revealed prices,
+selected-pick highlighting, Normal/Hard history rows, history reset and both themes
+at desktop/mobile widths. Eleven initial catalog requests, zero further pricing
+requests; no browser errors. The first artwork check timed out immediately after
+deployment; direct responses and a subsequent complete browser journey passed.
+No migrations, data refreshes, database writes or cron changes were performed.
 
 ## Tile artwork
 
