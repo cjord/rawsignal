@@ -91,6 +91,16 @@ reuse the existing optimized illustrated portrait family with name/role tooltips
 
 ### Bid review and result presentation — 2026-10-14
 
+Staging release: application `8d29a28`, Worker version `35f8b249`, same staging
+game URL. Full gate passed: 415 unit tests, one skipped; 41 Chromium checks; no
+new lint warnings. Live real-data verification passed on a 40-copy auction with
+Follower/Opportunist/Bargain Hunter: header mute control, round-column matrix,
+positive leaders, NPC note popup, full-width results, collection-before-history,
+saved inventory, sale/reset and a different collection on re-entry. Desktop/mobile
+and dark/light checks passed with zero browser errors, eleven initial catalog
+requests, eleven on explicit reload and zero additional gameplay pricing requests.
+Production, database contents and cron schedules were not changed.
+
 Bid History is a four-round table: players are rows, rounds are columns, future
 rounds have Pending/Not Played placeholders, and each positive round leader has
 a green border (seeded tie priority is identical to settlement). Completed bid

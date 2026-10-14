@@ -23,7 +23,8 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
   pending. No additional gameplay pricing/database calls are required.
   New review polish: participant-colored names, round-column bid history with
   clue snapshots/popups, full-width results, winner pause and player-win confetti.
-  Validated with 415 unit tests and 41 browser checks; staging deployment in progress.
+  Validated with 415 unit tests and 41 browser checks; deployed and verified on
+  staging (application `8d29a28`, version `35f8b249`, 2026-10-14).
   Review NPC balance after player testing
   because completed rounds now expose private sample notes to the human.
 
