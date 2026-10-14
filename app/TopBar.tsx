@@ -10,6 +10,7 @@ const marketLinks=[
  {key:"cards",label:"Cards",href:"/",icon:"◫"},
  {key:"sets",label:"Sets",href:"/sets",icon:"▦"},
  {key:"metrics",label:"Metrics",href:"/metrics",icon:"∿"},
+ {key:"games",label:"Games",href:"/games",icon:"◇"},
  {key:"buylist",label:"Buy List",href:"/buylist",icon:"≡"},
  {key:"import",label:"Import",href:"/import",icon:"⇪"},
 ] as const;

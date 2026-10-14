@@ -10,6 +10,16 @@ Related documents: `docs/roadmap.md` (deferred infra work), `docs/model-gaps.md`
 (signal-model gaps register + review calendar), `docs/cloudflare-cutover.md` (D1
 runbook), `docs/todo-completed.md` (shipped items and the resolved decision log).
 
+## Games — price comparison (2026-10-14)
+
+- Riftbound singles first: Games navigation/tile, Normal (two cards), Hard (three),
+  session score/streak, shared art tilt and one-second answer reveal. Implemented and
+  validated locally; renamed **Riftbound Price Showdown** by the user, with staging
+  publication requested (production remains unchanged). Plan and cost boundaries: `docs/games-price-game-plan.md`.
+- Later: Pokémon tile/pool using the shared game engine; decide language/printing scope.
+- Mixed sealed/card rounds remain deferred and opt-in pending product-type/price-band decisions.
+- No per-round API calls, sales/history spending or database writes. No public score leaderboard.
+
 ## Current priorities (proposed 2026-09-03 — confirm at review)
 
 Everything through P7, waves 12–19 of the refactor program, J2 phase 1, and the R1–R4

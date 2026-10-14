@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import {freshWorkerPages} from "./fresh-worker-pages";
 
 const cell = (change: number, total: number) => ({ change, total, eligible: total, coverage: 1, smallSample: total < 3, reason: null });
 const windows = (change: number, total: number) => ({ 7: cell(change, total), 30: cell(change, total), 90: cell(change, total) });
@@ -13,6 +14,7 @@ const fixture = { asOfDate: "2026-10-09", rows: [
 ] };
 
 test("Sets heatmap keeps tiles default and supports scoped cells on desktop and phone", async ({ page }) => {
+  await freshWorkerPages(page);
   await page.route("**/api/sets/heatmap", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixture) }));
   await page.goto("/sets?market=riftbound");
   if (await page.getByText("Sets need the database").count()) test.skip(true, "No seeded local D1");

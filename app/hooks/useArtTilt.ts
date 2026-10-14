@@ -30,7 +30,8 @@ export function useArtTilt(){
   const onContextMenu=(event:Event)=>{if(touchTilt.current.active)event.preventDefault()};
   element.addEventListener("touchmove",onTouchMove,{passive:false});
   element.addEventListener("contextmenu",onContextMenu);
-  return()=>{element.removeEventListener("touchmove",onTouchMove);element.removeEventListener("contextmenu",onContextMenu)};
+  const state=touchTilt.current;
+  return()=>{if(state.timer!=null)window.clearTimeout(state.timer);element.removeEventListener("touchmove",onTouchMove);element.removeEventListener("contextmenu",onContextMenu)};
  },[]);
  // A tuple, not an object: the React Compiler lint tracks the ref through destructuring
  // but treats a returned object holding a ref as a ref read during render.

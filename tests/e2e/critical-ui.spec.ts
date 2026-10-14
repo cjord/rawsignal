@@ -1,4 +1,6 @@
 import {expect,test} from "@playwright/test";
+import {freshWorkerPages} from "./fresh-worker-pages";
+test.beforeEach(async({page})=>freshWorkerPages(page));
 import {renderPackValueFixture} from "../helpers/render-pack-value.mjs";
 
 const singlesUrl="/?market=pokemon&view=medium&sort=market&direction=desc&page=1&perPage=20&mode=singles&signal=leaderboard&strictness=balanced&rarity=illustration-rares%7Cspecial-illustration-rares";
@@ -245,6 +247,8 @@ test("enables Scalper features without navigating away from Singles",async({page
 });
 
 test("opens a row's hover chart with TCGplayer and eBay link tiles under the artwork",async({page})=>{
+ // Assert our generated links, not a timing-dependent rewrite by EPN Smart Links.
+ await page.route("**/epn-smart-tools.js*",route=>route.abort());
  await page.goto(singlesUrl);
  await waitForApp(page);
  const row=page.locator(".market-row-shell").first();

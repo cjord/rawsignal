@@ -105,7 +105,8 @@ Defined in `app/styles/tokens.css` (dimensions/motion/stacking) and `app/globals
   toward the pointer (rotateX/Y ≤ ~6°) as an interactive flourish. Mouse pointers tilt on
   hover; touch (added 2026-09-01, user-requested) tilts only after a ~220ms hold on the
   art and then tracks the drag — a finger that wanders before the hold matures stays a
-  scroll. It is not a hover lift, appears nowhere else (detail pages only), and is
+  scroll. It is not a hover lift. The same shared tilt also applies to price-game
+  artwork (2026-10-14, user-requested), but not to ordinary browse tiles, and is
   disabled under reduced motion.
 - The card-details expander animates open via `interpolate-size`/`::details-content`
   (progressive enhancement — unsupported browsers open instantly).

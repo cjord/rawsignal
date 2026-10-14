@@ -83,7 +83,8 @@ Shared primitives live under `app/leaderboard/`, `app/filters/`, `MarketUI.tsx`,
 8. `app/metrics.css`;
 9. `app/buylist.css`;
 10. `app/sets.css`;
-11. `app/collectr.css`.
+11. `app/collectr.css`;
+12. `app/games.css` (Games tiles and price-comparison interactions).
 
 New rules should use the shared tokens and component-owned styles rather than append another versioned override to a legacy stylesheet.
 
