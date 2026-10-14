@@ -74,6 +74,15 @@ initial catalog requests and zero further pricing requests while playing/changin
 difficulty. No browser errors, migrations, data refreshes or cron changes.
 Production remains unchanged and is not authorized for this release.
 
+Compact-history/skeleton staging release (2026-10-14): application commit
+`30b3249`, Worker version `08e67604`. Full release gate passed: 397 unit tests,
+one skipped; 33 Chromium tests; no new lint warnings. Screenshots reviewed for
+desktop/mobile dark/light history and reduced-motion skeletons. Live staging
+verification passed for heading/captions, image-left layout, updated control copy,
+Normal/Hard scoring/history, real artwork and both themes. Eleven initial catalog
+requests and zero further pricing requests, no browser errors. No migrations,
+data refreshes, cron changes or production deployment.
+
 ## Control and artwork polish (2026-10-14)
 
 Difficulty, Auto next round and Restart game share the 56px control height and

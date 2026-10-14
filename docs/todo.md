@@ -23,6 +23,9 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 - Deployed and verified on staging (2026-10-14): blue/black reference card-back tile art, aligned controls and
   smaller score values; expandable session round history with compact cards,
   frozen prices and green/red selected picks. History adds no API/D1 activity.
+- Compact history and skeleton polish deployed/verified on staging (2026-10-14):
+  Showdown History title, image-left name/price tiles without outcome captions or
+  round headers, scrollbar spacing, updated reset copy and loading placeholders.
 - Mixed sealed/card rounds remain deferred and opt-in pending product-type/price-band decisions.
 - No per-round API calls, sales/history spending or database writes. No public score leaderboard.
 
