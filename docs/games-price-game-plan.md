@@ -39,8 +39,14 @@ one skipped; 31 Chromium tests; no new lint warnings). New tests force HTTP fail
 and TCGplayer placeholder artwork, verify image exclusion without score changes,
 exercise preference cutoffs/fallbacks, and check shared controls and tile artwork.
 A 1,000-round Hard-mode check on the bundled 1,271-card eligible pool produced no
-empty rounds and completed in about 0.2 seconds. Staging deployment is the next step;
-production is not authorized for this release.
+empty rounds and completed in about 0.2 seconds.
+
+Refinement staging release: application commit `743a2fa`, Worker version `59e4891d`.
+Live checks passed for real card artwork, scoring, Normal/Hard, shared controls,
+generated tile artwork, desktop/mobile and both themes. The game still makes eleven
+initial catalog requests and zero further pricing requests while playing/changing
+difficulty. No browser errors, migrations, data refreshes or cron changes.
+Production remains unchanged and is not authorized for this release.
 
 ## Tile artwork
 
