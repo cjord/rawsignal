@@ -12,63 +12,16 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
-- Production promotion pending for the latest staging release: remove Collection Value Band, restore bidding-round
-  history below the collection, group findings by round, hide current investigation
-  choices in bidding rows, use responsive side-by-side settlement/history and bound
-  the investigation panel height. NPCs participate more frequently and sometimes use
-  bounded influence from completed public bids only. No new data/API/DB work.
-  Pushed `862210e`, staged `c1721b27`; full gate (469 node / 55 browser) and live
-  verification passed. Production promotion remains pending user direction. Details:
-  `docs/games-auction-house-plan.md` (Round information and more active rivals).
-
-- Production promotion pending user direction for compact ranked Round Bids / Bid
-  History, larger history heading, centered no-buyout status with top-right next
-  action, collection-theme titles and profile/theme tooltips. That release's Value
-  Band setting is superseded by its removal above; old purchased results remain.
-  Pushed `366498b`, staged `6caa9d71`; full gate
-  (465 node / 55 browser) and live verification passed. No extra data calls/DB work. Release details:
+- Production gameplay verification pending Cloudflare testing access: latest Auction
+  House application `4fee230` is deployed to staging `82e7c9ec` and production
+  `174de053`, including the previously staging-only auction improvements. Full gate
+  passed (470 node / 56 browser); live staging verified safe purple/private and
+  blue/public finding popups grouped by round, latest-bid rows, reveal controls,
+  responsive themes, free/paid auctions, persistence and sales with no extra gameplay
+  data calls. Production code/styles/assets match the validated build, but Games
+  routes challenge the automated client with HTTP 403. No security changes made.
+  Shipped details and superseded staging records: `docs/todo-completed.md` and
   `docs/games-auction-house-plan.md`.
-
-- Production promotion pending user direction for the approved investigation rebalance:
-  expanded rarity markers / scans / identity peeks, top-card rarity/location only,
-  common/uncommon counts and revised clue prices. Its Collection Value Band has
-  since been withdrawn above; old purchased findings remain readable. Old offers/results
-  remain compatible. Pushed `172188e`, staged `4d0c9c3e`; full gate (462 node /
-  54 browser) and live clue/gameplay verification passed. No data/API/DB changes. Staging release details:
-  `docs/games-auction-house-plan.md`.
-
-- Production promotion pending user direction for compact Auction House headings,
-  centered lobby / full-width active auctions, running Total Value, concise reveal
-  summaries, public-eye markers with uniformly sized cards and embedded bid history.
-  No gameplay rules or data calls changed. Pushed `0d8f83e`, staged `0bc4cd7b`;
-  full gate (455 node / 53 browser) and live verification passed. Staging release details:
-  `docs/games-auction-house-plan.md`.
-
-- Production promotion pending user direction for Investigation memory/opening reveals:
-  cumulative public cards/prices and private clues in Investigation / Investigation
-  Results, `ceil(5% of copies) + 1` opening cards with occasional 0–2 extras,
-  round-start pop/flip feedback and centered larger Known Value. Existing saves
-  retained; no additional data calls or database work. Pushed `a67e785`, staging
-  `c16d9d67`; full gate (455 node / 53 browser) and live staging verification passed.
-  Production remains `4e8f2913`. Staging release details:
-  `docs/games-auction-house-plan.md`.
-
-- Production promotion pending user direction for settlement polish: finish button in the heading row, winner-line
-  value tooltip, no completed-count line, inline card count, collection-only rarity
-  hover rings and no separators between bidders. Counting/disabled-state safety and
-  neutral unrevealed cards retained. No gameplay/data changes. Pushed `bf79148`,
-  staging `370f09e9`; full gate (454 node / 52 browser) and live staging verification
-  passed. Production remains `4e8f2913`. Details:
-  `docs/games-auction-house-plan.md`.
-
-- Production gameplay verification pending Cloudflare testing access: Auction House balance, ten-profile
-  roster (three original portraits), themed lots/playset limits, partial clues and
-  UI polish are deployed from `cace4c2`: staging `50b0ad31`, production `4e8f2913`. Full gate passed
-  (454 node / 51 browser); live staging passed free/paid auctions, persistence and
-  sales with zero browser errors/additional gameplay data calls. Production assets
-  match the validated build, but Games routes still challenge automated browsers
-  with HTTP 403. No security changes made. Details: `docs/todo-completed.md` and
-  `docs/games-auction-house-plan.md`; prompts/assets: `docs/auction-npc-artwork.md`.
 
 - Future Auction House multiplayer (2026-10-15): **public auctions only** through
   a public lobby / Quick Join; no private rooms, invite-only auctions or join codes.

@@ -22,6 +22,19 @@ by this UI update. Release sequence: validate and push, stage and verify, then d
 the same application build to production. This production promotion also includes
 the preceding staging-only auction work documented below.
 
+Release: application `4fee230`, staging `82e7c9ec-4153-4503-9eaa-75f9bf15ffb1`,
+production `174de053-c6d4-4269-b2dc-4cca3270529f`. Full gate passed: 470 node tests /
+one skipped, 56 browser tests, lint/typecheck with 21 existing warnings and none new.
+Live staging passed 43 free / 76 paid cards, finding popup privacy, latest-bid rows,
+reveal controls, inventory/sales, persistence, NPC loss sharing and reset in both
+themes and responsive layouts; zero browser errors or extra gameplay data calls.
+An initial Games-to-lobby timeout did not recur on subsequent full-flow verification;
+an outdated live-test selector was corrected for the deliberately moved Skip Reveal.
+Production Games routes return a Cloudflare managed challenge (HTTP 403) to this
+automated client, so live production gameplay remains unverified. Production JS/CSS
+and portrait assets return 200 and hash-match the validated build. Existing databases,
+production guard cron and security rules are unchanged.
+
 ## Round information and more active rivals — 2026-10-15
 
 Collection Value Band is withdrawn from all new player/NPC choices, including round

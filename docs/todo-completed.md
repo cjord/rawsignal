@@ -9,6 +9,33 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-15 — Paired investigation popups and auction staging promotion (production)
+
+Pushed application `4fee230`; staging `82e7c9ec-4153-4503-9eaa-75f9bf15ffb1`,
+then production `174de053-c6d4-4269-b2dc-4cca3270529f`. Purple private investigation
+tiles precede blue public reveals within each round. Hover/focus/tap popups retain
+rarity-only and identity-only privacy, using slot/knowledge metadata rather than
+duplicating frozen price values. Older findings keep their stored text. Bidding rows
+show only the immediately preceding bid; full history is retained. No Early Buyout
+is larger and Skip Reveal sits beside Total Value, including a dedicated paired
+header row on phones.
+
+This also promotes the preceding staging-only work: settlement/header polish,
+opening public reveals and investigation memory, themed headings and ranked compact
+history, investigation rebalance (with Value Band now removed), and more active NPCs
+with bounded prior-public-bid influence. Earlier staging entries below remain the
+historical record, not pending production releases.
+
+Full gate: 470 node / one skipped, 56 browser, lint/typecheck; no new warnings.
+Live staging: 43 free / 76 paid cards, safe finding popups and controls, both themes
+and responsive layouts, persistence/sales, loss shares and reset; zero browser errors
+and zero extra gameplay data calls. Production Worker deployed successfully and
+published JS/CSS/portraits hash-match the validated build. Cloudflare challenges this
+automated client on Games pages (403), so production gameplay verification remains
+open. No database migrations, resource changes or security-rule changes were made;
+the existing production guard cron remains intact. Details:
+`docs/games-auction-house-plan.md`.
+
 ## 2026-10-15 — Round information and more active rivals (staging)
 
 Pushed application `862210e`; deployed staging `c1721b27-8fd7-47b2-b675-b60386724dae`.
