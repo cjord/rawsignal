@@ -1,5 +1,13 @@
 # Riftbound Auction House
 
+## Rarity selling and NPC loss sharing — 2026-10-14
+
+Between auctions, inventory offers Sell All buttons for each owned, currently priced rarity group: Commons, Uncommons, Rares, Epics, Alt Arts, Over-Numbered and Signatures where present. Each action confirms the exact copy count and proceeds after the configured fee. Other rarities and unpriced holdings remain owned; printing identities stay separate. No new data fetching or database work.
+
+When an NPC wins with negative net value (frozen collection market value minus selling fees minus winning bid), that loss is divided among all three other bidders, including passes. Whole-cent remainders are assigned using seeded recipient order; the sum exactly equals the loss. Your share is added atomically at settlement, once only, and Your Auction Result includes the credit less your investigation spend. NPC shares appear in the result but NPC wallets are not persisted. Profitable/zero-loss NPC wins, player wins/losses and no-sale auctions pay no rebate. Existing already-settled saves are not retroactively credited. The reveal waits to display shares until the collection count completes, avoiding disclosure of the final loss early.
+
+The lobby uses a readable summary and Free Entry / Up to 4 Rounds / 1 Minute per Round badges. Timer/reload and pre-entry advice moves into a keyboard/touch-accessible tooltip. The wallet uses green cash/blue inventory accents and the next-collection panel uses the site's blue accent, in both themes.
+
 ## Settlement count and previous bids — 2026-10-14
 
 After the winner announcement, Auction Settled immediately displays six skeleton values. As hidden cards flip, its market value, fees and profit/loss update from the same revealed-card calculation used by Collection Revealed. Fees round per printing/quantity, matching the final inventory sale calculation. Partial totals are explicitly labeled; Finish remains disabled until counting completes or Skip Reveal is used. Reduced-motion users receive the completed totals immediately. No extra API calls or database operations are added.

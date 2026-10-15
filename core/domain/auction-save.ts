@@ -25,7 +25,10 @@ function validSnapshot(auction:Auction){
 }
 function validResult(auction:Auction){
  if(auction.stage!=='result')return auction.result===null;
- const result=auction.result;return !!result&&record(result)&&(result.winner===null||result.winner==='You'||AUCTION_NPCS.some(profile=>profile.name===result.winner))&&integer(result.bid)&&integer(result.value)&&integer(result.fee)&&typeof result.net==='number'&&Number.isSafeInteger(result.net)&&Math.abs(result.net)<=1e12&&integer(result.playerExpenses)&&typeof result.buyout==='boolean';
+ const result=auction.result;return !!result&&record(result)&&(result.winner===null||result.winner==='You'||AUCTION_NPCS.some(profile=>profile.name===result.winner))&&integer(result.bid)&&integer(result.value)&&integer(result.fee)&&typeof result.net==='number'&&Number.isSafeInteger(result.net)&&Math.abs(result.net)<=1e12&&integer(result.playerExpenses)&&typeof result.buyout==='boolean'&&validLossShares(result.lossShares);
+}
+function validLossShares(shares:unknown){
+ return shares===undefined||Array.isArray(shares)&&shares.length<=3&&new Set(shares.map(share=>share?.name)).size===shares.length&&shares.every(share=>record(share)&&text(share.name)&&integer(share.cents));
 }
 function validAuction(value:unknown):value is Auction{
  if(!record(value))return false;const auction=value as Auction;

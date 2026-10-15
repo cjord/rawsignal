@@ -16,13 +16,14 @@ import {createPriceGameImageLoader} from './data/price-game-images';
 import {useAuctionReveal,useAuctionSound} from './games/useAuctionPresentation';
 import AuctionBidHistory from './games/AuctionBidHistory';
 import AuctionWinner,{useAuctionWinner} from './games/AuctionWinner';
+import InfoHint from './InfoHint';
 
 const sources=allowedRarities.riftbound.map(section=>`/data/${section}.json`);
 function AuctionSaveFeedback({save,error,reset}:{save:AuctionSave|null;error:string|null;reset:()=>void}){
  return <>{error&&<p className="auction-warning" role="alert">{error} {!save&&<button className="game-control" type="button" onClick={()=>{if(window.confirm('Reset this game to $2,500 cash and no inventory?'))reset()}}>Reset saved game</button>}</p>}{!save&&!error&&<p role="status">Loading saved game…</p>}</>;
 }
 function AuctionLobby({available,preparing,imageError,enter}:{available:boolean;preparing:boolean;imageError:string;enter:()=>Promise<void>}){
- return <section className="detail-section auction-lobby"><h2>Your Next Collection</h2><p>Free entry · three random rivals · up to four one-minute rounds.</p><p className="games-note">Background tabs and reloads do not pause an active round. Review inventory or sell it before entering.</p><button className="game-control" type="button" disabled={!available||preparing} onClick={()=>void enter()}>Enter free auction</button>{preparing&&<div aria-busy="true"><p role="status">Checking card artwork…</p><div className="auction-loading detail-skeleton" aria-hidden="true"/></div>}{imageError&&<p role="alert">{imageError}</p>}</section>;
+ return <section className="detail-section auction-lobby"><h2>Your Next Collection <InfoHint label="Auction timing and preparation">Background tabs and reloads do not pause an active round. Review inventory or sell it before entering.</InfoHint></h2><p className="auction-lobby-intro">Bid on a new collection against three NPC bidders.</p><div className="auction-lobby-facts"><span>Free Entry</span><span>Up to 4 Rounds</span><span>1 Minute per Round</span></div><button className="game-control" type="button" disabled={!available||preparing} onClick={()=>void enter()}>Enter free auction</button>{preparing&&<div aria-busy="true"><p role="status">Checking card artwork…</p><div className="auction-loading detail-skeleton" aria-hidden="true"/></div>}{imageError&&<p role="alert">{imageError}</p>}</section>;
 }
 export default function RiftboundAuctionHouse(){
  const {items,status,reload}=useCatalogPage({sources,parse:parseCards,keyOf:holdingKey});

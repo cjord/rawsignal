@@ -12,6 +12,12 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
+- Auction economy/lobby follow-up: rarity-group inventory selling with confirmation,
+  NPC winner losses shared among the other three bidders, accessible timing tooltip,
+  clearer lobby facts and theme-aware wallet/lobby accents. Validating for staging
+  and production; rules and backwards-compatible save behavior are documented in
+  `docs/games-auction-house-plan.md`. No new API or database activity.
+
 - Auction House single-auction prototype deployed and verified on staging
   (2026-10-14); production publication remains pending. Browser-saved cash/inventory, current-market holdings,
   configurable 10% selling fee, sealed NPC bidding and investigations. Boundaries

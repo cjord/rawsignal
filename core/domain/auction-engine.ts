@@ -3,6 +3,7 @@ import {addInventory,inventoryQuote} from "./auction-market.ts";
 import {generateAuctionLot} from './auction-lots.ts';
 import {AUCTION_NPCS,auctionNpcRoster,auctionNpcMood} from './auction-npcs.ts';
 import {informationOffers,investigate} from "./auction-information.ts";
+import {auctionLossShares,auctionSaleRarity} from './auction-economy.ts';
 
 // This bidder knows only sample prices and a count range, never the full lot or sealed player bid.
 export function npcBid(sample:number[],range:[number,number],_priorBids:number[],personality:number,random:()=>number,feeBps=1000,confidence=1,participation=0):number{
@@ -60,7 +61,8 @@ function resolveRound(save:AuctionSave,auction:Auction):AuctionSave{
  if(!winner&&auction.round<4)return {...save,auction:{...auction,stage:'reveal',bids,bidHistory:[...auction.bidHistory,bids]}};
  const value=auction.lot.reduce((sum,card)=>sum+card.cents,0),fee=value-inventoryQuote(addInventory([],auction.lot),auction.lot,auction.feeBps).net,won=winner?.name==='You';
  const result={winner:winner?.name??null,bid:winner?.cents??0,value,fee,net:winner?value-fee-winner.cents-(won?auction.spent:0):0,playerExpenses:auction.spent,buyout};
- return {...save,wallet:won?{...save.wallet,cash:save.wallet.cash-result.bid,inventory:addInventory(save.wallet.inventory,auction.lot)}:save.wallet,auction:{...auction,stage:'result',bids,bidHistory:[...auction.bidHistory,bids],result}};
+ const lossShares=auctionLossShares(result.winner,result.net,bids,auction.seed),credit=lossShares.find(share=>share.name==='You')?.cents??0;
+ return {...save,wallet:won?{...save.wallet,cash:save.wallet.cash-result.bid,inventory:addInventory(save.wallet.inventory,auction.lot)}:{...save.wallet,cash:save.wallet.cash+credit},auction:{...auction,stage:'result',bids,bidHistory:[...auction.bidHistory,bids],result:{...result,lossShares}}};
 }
 export function tickAuction(save:AuctionSave,now:number):AuctionSave{
  const auction=save.auction;if(!auction||auction.stage!=='round')return save;
@@ -79,9 +81,9 @@ export function finishAuction(save:AuctionSave):AuctionSave{return save.auction?
 export function changeAuctionFee(save:AuctionSave,bps:number):AuctionSave{
  return !save.auction&&Number.isInteger(bps)&&bps>=0&&bps<=10000?{...save,wallet:{...save.wallet,feeBps:bps}}:save;
 }
-export function sellInventory(save:AuctionSave,catalog:AuctionCard[],key?:string):AuctionSave{
+export function sellInventory(save:AuctionSave,catalog:AuctionCard[],key?:string,rarity?:string):AuctionSave{
  if(save.auction)return save;
- const quote=inventoryQuote(save.wallet.inventory,catalog,save.wallet.feeBps),sold=quote.rows.filter(row=>row.net!==null&&(!key||`${row.holding.productId}:${row.holding.printing}`===key));
+ const quote=inventoryQuote(save.wallet.inventory,catalog,save.wallet.feeBps),sold=quote.rows.filter(row=>row.net!==null&&(!key||`${row.holding.productId}:${row.holding.printing}`===key)&&(!rarity||row.card&&auctionSaleRarity(row.card)===rarity));
  if(!sold.length)return save;
  const identities=new Set(sold.map(row=>row.holding));
  return {...save,wallet:{...save.wallet,cash:save.wallet.cash+sold.reduce((sum,row)=>sum+row.net!,0),inventory:save.wallet.inventory.filter(row=>!identities.has(row))}};
