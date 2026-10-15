@@ -12,11 +12,16 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
-- Auction compact-grid/settlement follow-up: auto-fill collection columns with a
+- Released Auction compact-grid/settlement follow-up: auto-fill collection columns with a
   140px tile cap, bid-control and participant separators, six settlement metrics
   in both modes (Gross Market Spread removed, free entry explicitly $0), and
   Auction Finished header after settlement. No pricing, save or database changes.
-  Release verification pending; details: `docs/games-auction-house-plan.md`.
+  Pushed `ddac677`; staging `85126f47` and production `9fd0dd82` deployed.
+  Full gate: 438 node tests passed, one skipped, 47 browser checks. Live staging
+  passed all new UI checks plus auctions/inventory (54-card free / 67-card paid).
+  Production bundle/styles match the validated build after brief propagation;
+  gameplay testing remains Cloudflare-challenged (403). No security, migration
+  or ingestion changes. Details: `docs/games-auction-house-plan.md`.
 
 - Released Auction House balance/layout: free overnumbers/signatures retained at
   80%/50% of selected draws (replacement goes to non-chase stock); unchanged paid

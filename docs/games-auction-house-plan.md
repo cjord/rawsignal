@@ -23,6 +23,18 @@ journeys; 21 existing lint warnings, no new warnings). Browser assertions cover
 six metrics in free/paid settlements and the finished status. Dark/light screenshots
 reviewed at 1440px and 390px; Singles and Sealed regression journeys also passed.
 
+Pushed application commit `ddac677` on `feature/set-rarity-heatmap`; staging
+`85126f47-a469-4971-a111-ba231d447a91`, then production
+`9fd0dd82-366b-4e98-af1e-3cb492bb2488` deployed. Live staging passed compact
+card caps, bid divider, finished label, six settlement metrics, 54-card free /
+67-card paid auctions, sales, persistence, reset and NPC loss sharing. Dark/light
+desktop/mobile layouts passed; zero browser errors and zero extra gameplay pricing
+calls (11 initial feeds plus 11 on reload). Production page testing still receives
+Cloudflare 403 (`Cf-Mitigated: challenge`). Its new bundle/CSS initially returned
+404 during propagation, then returned 200 at their normal URLs with exact validated
+build hashes; no redeploy or cache/security mutation was needed. No migrations,
+database writes or ingestion jobs; existing environment schedules are unchanged.
+
 ## Free chase balance, opening bids and full-width layout — released 2026-10-14
 
 Free draws retain 80% of initially selected overnumbered copies and 50% of signatures.
