@@ -3,7 +3,7 @@ import {useState} from 'react';
 import InfoHint from '../InfoHint';
 import AuctionBidder from './AuctionBidder';
 import AuctionBidders from './AuctionBidders';
-import {AuctionRoundBids} from './AuctionBidHistory';
+import AuctionBidHistory from './AuctionBidHistory';
 import {auctionUsd} from './AuctionWallet';
 import {AUCTION_ROUNDS,type Auction,type AuctionSave} from '../../core/domain/auction-types';
 import {lockBid,nextAuctionRound,finishAuction} from '../../core/domain/auction-engine';
@@ -34,7 +34,7 @@ export default function AuctionRound({save,now,transact,revealDone=true,visible=
  const auction=save.auction!;
  return <div className={`auction-round-panel${auction.stage==='round'?'':' is-results'}`}>
   {auction.stage==='round'?<RoundControls key={auction.round} save={save} now={now} transact={transact}/>:<section className="detail-section auction-results" id={auction.stage==='result'?'auction-settled':undefined}><div className="auction-results-heading"><h2>{auction.stage==='result'?'Auction Settled':'Round Bids'}</h2>{auction.stage==='result'&&<button className={`game-control${revealDone?' auction-finish':''}`} disabled={!revealDone} type="button" onClick={()=>transact(finishAuction)}>Finish &amp; Manage Inventory</button>}</div>
-   {auction.stage==='reveal'?<><p className="auction-no-buyout">No Early Buyout</p><p className="games-note">The buyout threshold wasn’t met. Another round gives you a fresh chance to win.</p><AuctionRoundBids auction={auction}/><button className="game-control auction-finish auction-next-round" type="button" onClick={()=>transact(current=>nextAuctionRound(current,Date.now()))}>Next Auction Round</button></>:<AuctionOutcome save={save} revealDone={revealDone} visible={visible}/>}
+   {auction.stage==='reveal'?<><p className="auction-no-buyout">No Early Buyout</p><p className="games-note">The buyout threshold wasn’t met. Another round gives you a fresh chance to win.</p><AuctionBidHistory auction={auction} heading={false}/><button className="game-control auction-finish auction-next-round" type="button" onClick={()=>transact(current=>nextAuctionRound(current,Date.now()))}>Next Auction Round</button></>:<><AuctionOutcome save={save} revealDone={revealDone} visible={visible}/><AuctionBidHistory auction={auction}/></>}
   </section>}
  </div>;
 }

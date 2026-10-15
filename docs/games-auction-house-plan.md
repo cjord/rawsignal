@@ -1,5 +1,32 @@
 # Riftbound Auction House
 
+## Compact collection headings and embedded bid history — 2026-10-15
+
+The pre-auction lobby/inventory returns to the centered standard Games page width;
+an active auction (including reveal/results) still uses the whole window. Collection
+headings have title left, centered Known Value / Total Value and copy count right,
+including compact phone layouts. Final Total Value uses the same visible frozen-card
+sum as the settlement metrics while counting, never leaking unseen prices early.
+Skip Reveal stays centered immediately below that heading to avoid displacing value.
+
+Round Bids embeds the complete four-round matrix with pending/unplayed placeholders,
+winner coloring and private-clue-type tooltips, rather than repeating only the most
+recent bids. Final Auction Settled embeds the same matrix. The separate Bid History
+tile and its empty active-round matrix are removed; earlier bids remain visible next
+to bidders during active rounds as before.
+
+Investigation keeps cumulative public round/count summaries and purchased clue text,
+not full card/price lists. Cards themselves retain their revealed information. An eye
+in the bottom-right marks only slots publicly revealed before settlement (including
+the legacy opening cards); private identities/prices never acquire an eye merely
+because someone investigated them or because the final collection is revealed.
+All collection cards share a fixed 300px height and consistent grid width, with the
+eye absolutely positioned so it adds no size. Full names remain in accessible inspect
+labels/dialogs, artwork keeps its natural ratio, and rarity-hover behavior is retained.
+
+No auction economics, NPC strategy, save-format, data calls, database or cron changes.
+Target: GitHub push and staging deployment only; production remains a separate decision.
+
 ## Investigation memory and opening reveals — 2026-10-15
 
 The Investigation tile owns cumulative shared public information and purchased clues.

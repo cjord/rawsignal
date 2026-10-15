@@ -12,6 +12,12 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
+- Production promotion pending user direction for compact Auction House headings,
+  centered lobby / full-width active auctions, running Total Value, concise reveal
+  summaries, public-eye markers with uniformly sized cards and embedded bid history.
+  No gameplay rules or data calls changed. Staging release details:
+  `docs/games-auction-house-plan.md`.
+
 - Production promotion pending user direction for Investigation memory/opening reveals:
   cumulative public cards/prices and private clues in Investigation / Investigation
   Results, `ceil(5% of copies) + 1` opening cards with occasional 0–2 extras,
