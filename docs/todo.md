@@ -12,26 +12,27 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
-- Current staging release work: remove Collection Value Band, restore bidding-round
+- Production promotion pending for the latest staging release: remove Collection Value Band, restore bidding-round
   history below the collection, group findings by round, hide current investigation
   choices in bidding rows, use responsive side-by-side settlement/history and bound
   the investigation panel height. NPCs participate more frequently and sometimes use
   bounded influence from completed public bids only. No new data/API/DB work.
-  Production promotion remains pending user direction. Details:
+  Pushed `862210e`, staged `c1721b27`; full gate (469 node / 55 browser) and live
+  verification passed. Production promotion remains pending user direction. Details:
   `docs/games-auction-house-plan.md` (Round information and more active rivals).
 
 - Production promotion pending user direction for compact ranked Round Bids / Bid
   History, larger history heading, centered no-buyout status with top-right next
-  action, collection-theme titles and profile/theme tooltips. Collection Value Band
-  widens to three ranges and is round-4-only; old purchased results retained and old
-  unpurchased offers withdrawn safely. Pushed `366498b`, staged `6caa9d71`; full gate
+  action, collection-theme titles and profile/theme tooltips. That release's Value
+  Band setting is superseded by its removal above; old purchased results remain.
+  Pushed `366498b`, staged `6caa9d71`; full gate
   (465 node / 55 browser) and live verification passed. No extra data calls/DB work. Release details:
   `docs/games-auction-house-plan.md`.
 
 - Production promotion pending user direction for the approved investigation rebalance:
   expanded rarity markers / scans / identity peeks, top-card rarity/location only,
-  common/uncommon counts, revised clue prices and fixed Collection Value Band in
-  rounds 3–4. NPC knowledge uses the same count/band semantics; old offers/results
+  common/uncommon counts and revised clue prices. Its Collection Value Band has
+  since been withdrawn above; old purchased findings remain readable. Old offers/results
   remain compatible. Pushed `172188e`, staged `4d0c9c3e`; full gate (462 node /
   54 browser) and live clue/gameplay verification passed. No data/API/DB changes. Staging release details:
   `docs/games-auction-house-plan.md`.

@@ -9,6 +9,25 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-15 — Round information and more active rivals (staging)
+
+Pushed application `862210e`; deployed staging `c1721b27-8fd7-47b2-b675-b60386724dae`.
+Collection Value Band is removed from new purchases/offers for players and NPCs;
+historical purchased clues remain compatible. Investigation findings group newest
+round first and scroll inside a desktop panel matching the bidding panel's height.
+Bidding rows hide current investigations and retain earlier bid values; completed
+bid history returns below the collection during bidding. Settlement/history share
+two columns on wide screens and full-width stacked history otherwise.
+
+Bots pass much less often and can take a bounded nudge from completed rival bids,
+never current sealed bids or rival private findings. Neutral-mood seeded comparison
+at 30% certainty: 4.44% passes versus 21.02% previously, across 10,000 bids.
+Full gate passed: 469 node / one skipped, 55 browser, lint/typecheck with no new
+warnings. Live staging verified 48 free / 70 paid cards, both themes and viewport
+layouts, inventory/sales, persistence, NPC loss shares and reset; no browser errors
+or extra gameplay data requests. No database, schedule or production changes.
+Details: `docs/games-auction-house-plan.md`.
+
 ## 2026-10-15 — Compact ranked auction review and tooltips (staging)
 
 Pushed application `366498b`; deployed staging `6caa9d71-74bf-4c31-823f-3e914ebec0f3`.

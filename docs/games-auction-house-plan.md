@@ -32,7 +32,14 @@ hidden market values are never social inputs. Margins, rare risk stretches, sell
 fees and NPC-loss sharing remain unchanged. No new API calls, DB reads/writes,
 ingestion changes or migrations.
 
-Release target: GitHub and staging only; production remains unchanged.
+Pushed application `862210e`; deployed staging `c1721b27-8fd7-47b2-b675-b60386724dae`.
+Full gate passed: 469 node tests / one skipped, 55 browser tests, lint/typecheck with
+21 pre-existing warnings and none new. Live staging verified 48 free / 70 paid cards,
+round-grouped findings, restored bidding history, wide side-by-side and narrow
+full-width results, persistence, selling, loss shares and reset. Desktop/mobile,
+dark/light checks passed with zero browser errors and zero extra gameplay data
+requests (11 initial catalog feeds; 11 on deliberate reload). No DB/cron changes;
+production remains unchanged.
 
 ## Compact ranked review and theme/profile tooltips — 2026-10-15
 
