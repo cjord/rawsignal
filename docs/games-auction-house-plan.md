@@ -1,6 +1,22 @@
 # Riftbound Auction House
 
-## NPC balance and three new rivals — staged 2026-10-15
+## NPC balance and three new rivals — production 2026-10-15
+
+Production promotion: the same staging-tested application `cace4c2` (already on
+GitHub; release-note HEAD `08f9a15`) deployed to `raw-signal` at `rawsignal.cards`,
+version `4e8f2913-b1de-460b-b985-0f1cbbdcbe46`. Reused the green 454-node / 51-browser
+gate and exact existing build; subsequent committed differences were docs only.
+Production config verified the existing production D1, custom domain, workers.dev
+disabled, production environment and unchanged minutely guard cron. No migrations,
+ingestion refreshes, security changes or production database mutations were made.
+
+Automated production gameplay checks receive HTTP 403 with Cloudflare's managed
+challenge on both Games routes. JavaScript, stylesheet and all three new portraits
+return 200 and match the staging-tested build byte-for-byte. Full game-flow checks
+remain confirmed on staging, not production; do not describe asset parity as a
+successful production gameplay test. Staging remains version `50b0ad31` with no cron.
+This promotion record is a local documentation update; the deploy-only request did
+not authorize a new GitHub push.
 
 Removed the 1.15 opening bid multiplier and 1.08 paid-price multiplier. Paid NPCs
 retain their small participation increase, not a higher automatic valuation. Most
@@ -44,7 +60,7 @@ NPC investigation costs or adding persistent bankrolls was not decided and is no
 silently implemented. NPC-loss sharing is unchanged. Existing frozen saves load;
 current saved bids remain frozen, while subsequent rounds use the revised model.
 The optional validated NPC `identified` slot list is backward compatible. No database
-migration, production change, ingestion job or extra market API call is required.
+migration, ingestion job or extra market API call is required.
 
 Offline bundled-catalog audit: 500 seeds per mode, all four potential rounds,
 excluding passes. Collector bids above net resale value fell from approximately

@@ -9,6 +9,18 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-15 — Auction production promotion
+
+Promoted the staging-tested application `cace4c2` to production
+`4e8f2913-b1de-460b-b985-0f1cbbdcbe46`, preserving the existing production database,
+custom domain and guard cron. No code changes, migrations, data refreshes or security
+changes. The validated build had 454 passing node tests (one skipped), 51 browser
+journeys and passing live staging game flows. Production game JavaScript, CSS and
+all three portrait assets return 200 and match the build exactly. Automated Games
+page/gameplay checks remain blocked by Cloudflare managed challenge (403), so full
+production gameplay verification is still pending. Staging is unchanged. Release
+notes committed locally only; this deploy-only request did not authorize a new push.
+
 ## 2026-10-15 — Auction balance, themed lots and new rivals (staging)
 
 Application `cace4c2` pushed on `feature/set-rarity-heatmap` and deployed to staging

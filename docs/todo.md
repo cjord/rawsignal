@@ -12,12 +12,13 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
-- Production promotion pending user direction: Auction House balance, ten-profile
+- Production gameplay verification pending Cloudflare testing access: Auction House balance, ten-profile
   roster (three original portraits), themed lots/playset limits, partial clues and
-  UI polish are staged from `cace4c2`, version `50b0ad31`. Full gate passed
+  UI polish are deployed from `cace4c2`: staging `50b0ad31`, production `4e8f2913`. Full gate passed
   (454 node / 51 browser); live staging passed free/paid auctions, persistence and
-  sales with zero browser errors/additional gameplay data calls. Production remains
-  on the previous release. Details: `docs/todo-completed.md` and
+  sales with zero browser errors/additional gameplay data calls. Production assets
+  match the validated build, but Games routes still challenge automated browsers
+  with HTTP 403. No security changes made. Details: `docs/todo-completed.md` and
   `docs/games-auction-house-plan.md`; prompts/assets: `docs/auction-npc-artwork.md`.
 
 - Future Auction House multiplayer (2026-10-15): **public auctions only** through
