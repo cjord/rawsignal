@@ -1,6 +1,6 @@
 # Riftbound Auction House
 
-## Settlement layout and collection hover — staging preparation (2026-10-15)
+## Settlement layout and collection hover — staged 2026-10-15
 
 Finish & Manage Inventory sits top-right on the Auction Settled heading row, including
 compact phone layouts. It remains disabled until reveal/counting completes, then
@@ -21,8 +21,15 @@ No pricing, NPC behavior, save, API or database changes. Focused browser checks 
 desktop/390px/320px dark/light header/count layouts, all rarity hover colors,
 hidden-card privacy, tooltip placement, completion gating and bidder separators.
 Full release gate passed: 454 node tests (one skipped), 52 Chromium journeys,
-21 existing lint warnings and no new warnings. Screenshots reviewed. Authorized
-GitHub push / staging deployment and live verification pending.
+21 existing lint warnings and no new warnings. Screenshots reviewed. Application
+`bf79148` pushed on `feature/set-rarity-heatmap`, then deployed to staging version
+`370f09e9-bac0-47ed-9446-c14c4c31a1f5`. Live staging verified the header finish action,
+winner-line tooltip, absent completed-count line, inline count and absent bidder
+separators, plus 60-card free / 83-card paid flows, settlement, reload persistence,
+inventory sales, shared NPC losses and reset. Zero browser errors and zero additional
+gameplay data calls beyond eleven initial feeds / eleven on reload. Desktop/mobile
+dark/light checks passed. No migrations or refresh jobs; staging remains no-cron.
+Production is unchanged at `4e8f2913`. Release notes are a subsequent docs-only commit.
 
 ## NPC balance and three new rivals — production 2026-10-15
 

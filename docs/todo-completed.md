@@ -9,6 +9,26 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-15 — Settlement layout and rarity hover (staging)
+
+Pushed application `bf79148` on `feature/set-rarity-heatmap`; deployed staging
+`370f09e9-bac0-47ed-9446-c14c4c31a1f5`. Production unchanged at `4e8f2913`.
+
+Finish & Manage Inventory is top-right on the Auction Settled heading row, disabled
+until counting finishes. Value tooltip follows the winner/price sentence; completed
+count line removed, temporary progress retained. Card count and Cards label share a
+baseline. Collection-only hover uses rarity-colored borders/rings; hidden unmarked
+backs stay neutral and keyboard focus stays blue. This narrow exception is recorded
+in the design baseline. Bidder-row separators removed; one divider remains between
+entry controls and participants. Lock feedback and participant borders are retained.
+
+Full gate: 454 node tests passed (one skipped), 52 Chromium journeys, 21 existing lint
+warnings/no new warnings. Focused desktop/390px/320px dark/light screenshots reviewed.
+Live staging passed the new layout/tooltip/count/separator checks and free (60-card) /
+paid (83-card) auctions, reload persistence, inventory sales, NPC-loss sharing and
+reset: zero browser errors, no extra gameplay data calls. No migrations, data refresh,
+pricing or NPC behavior changes. Staging remains cron-less.
+
 ## 2026-10-15 — Auction production promotion
 
 Promoted the staging-tested application `cace4c2` to production

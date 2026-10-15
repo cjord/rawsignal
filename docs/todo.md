@@ -12,11 +12,12 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
-- Staging preparation: settlement finish button in the heading row, winner-line
+- Production promotion pending user direction for settlement polish: finish button in the heading row, winner-line
   value tooltip, no completed-count line, inline card count, collection-only rarity
   hover rings and no separators between bidders. Counting/disabled-state safety and
-  neutral unrevealed cards retained. No gameplay/data changes. Full gate passed
-  (454 node / 52 browser); push and staging verification pending; production out of scope. Details:
+  neutral unrevealed cards retained. No gameplay/data changes. Pushed `bf79148`,
+  staging `370f09e9`; full gate (454 node / 52 browser) and live staging verification
+  passed. Production remains `4e8f2913`. Details:
   `docs/games-auction-house-plan.md`.
 
 - Production gameplay verification pending Cloudflare testing access: Auction House balance, ten-profile
