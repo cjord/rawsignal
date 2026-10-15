@@ -1,5 +1,39 @@
 # Riftbound Auction House
 
+## Round information and more active rivals — 2026-10-15
+
+Collection Value Band is withdrawn from all new player/NPC choices, including round
+4. Both band identifiers are rejected by purchasing and removed from unpurchased
+saved offers; previously purchased findings remain readable without changing cash.
+
+Completed bid history returns below the collection during bidding rounds 2–4.
+Place Your Bid shows only lock status/profile and earlier public bid amounts, not
+the investigations selected this round. History retains placements and the existing
+private-clue-type tooltips. Final settlement and history sit side by side at 1700px+
+viewports; narrower layouts stack them with a full-width history matrix.
+
+Investigation findings are grouped newest round first, with that round's public reveal and
+private purchase together. New clues persist an optional round tag; older findings
+use their first appearance in completed player bid notes. The desktop investigation
+panel matches the bidding panel's height and scrolls internally, retaining all prior
+findings and keyboard access. On phones its scroll region is bounded to 480px.
+
+Rival participation rises to 94–99% before modest seeded mood/paid adjustments;
+Skeptic uncertainty reduces participation by at most 10%, instead of 65%. A seeded
+10,000-bid audit at 30% certainty, neutral mood and positive personal estimates gives
+4.44% passes versus 21.02% under the preceding rules. This is a controlled balance
+comparison, not a measured live player rate; zero-value estimates still pass.
+
+Only the most recent completed round's *other bidders'* positive offers can influence
+an NPC. A 30% chance (65% for the Follower) blends 20% toward their median, capped at
+±8% of the personal bid (±12% for the Follower). Passes are ignored. This can move
+bids down as well as up; sealed current-round bids, rival private findings and full
+hidden market values are never social inputs. Margins, rare risk stretches, selling
+fees and NPC-loss sharing remain unchanged. No new API calls, DB reads/writes,
+ingestion changes or migrations.
+
+Release target: GitHub and staging only; production remains unchanged.
+
 ## Compact ranked review and theme/profile tooltips — 2026-10-15
 
 Collection Value Band is now $0–under $250, $250–under $1,000 or $1,000–$2,000

@@ -16,6 +16,7 @@ import {createPriceGameImageLoader} from './data/price-game-images';
 import {useAuctionNavigation,useAuctionReveal,useAuctionSound} from './games/useAuctionPresentation';
 import AuctionWinner,{useAuctionWinner} from './games/AuctionWinner';
 import AuctionLobby from './games/AuctionLobby';
+import {AuctionBiddingHistory} from './games/AuctionBidHistory';
 
 const sources=allowedRarities.riftbound.map(section=>`/data/${section}.json`);
 function AuctionSaveFeedback({save,error,reset}:{save:AuctionSave|null;error:string|null;reset:()=>void}){
@@ -49,7 +50,7 @@ export default function RiftboundAuctionHouse(){
   {status==='loading'&&<p role="status">Loading Market…</p>}
   {(status==='error'||status==='empty')&&<p role="status">Current market prices are unavailable. <button className="game-control" type="button" onClick={reload}>Retry market</button></p>}
   {save&&!save.auction&&<AuctionLobby available={available} preparing={preparing} imageError={imageError} enter={enter} cash={save.wallet.cash}/>}
-  {save?.auction&&<div ref={arena} className="auction-arena" onPointerDownCapture={audio.unlock} onKeyDownCapture={audio.unlock}><AuctionRoundHeader auction={save.auction} now={now}/>{celebrating?<AuctionWinner auction={save.auction}/>:<AuctionRound save={save} now={now} transact={transact} revealDone={reveal.done} visible={reveal.visible}/>} {!celebrating&&<AuctionCollection auction={save.auction} visible={reveal.visible} done={reveal.done} skip={reveal.skip}/>}</div>}
+  {save?.auction&&<div ref={arena} className="auction-arena" onPointerDownCapture={audio.unlock} onKeyDownCapture={audio.unlock}><AuctionRoundHeader auction={save.auction} now={now}/>{celebrating?<AuctionWinner auction={save.auction}/>:<AuctionRound save={save} now={now} transact={transact} revealDone={reveal.done} visible={reveal.visible}/>} {!celebrating&&<AuctionCollection auction={save.auction} visible={reveal.visible} done={reveal.done} skip={reveal.skip}/>} <AuctionBiddingHistory auction={save.auction}/></div>}
   <p className="games-note">TCGCSV / TCGplayer Near Mint market pricing. Auction contents/prices freeze on entry; owned inventory is repriced from the current loaded catalog. Price refreshes use existing cached feeds, not real-time sale quotes. Missing prices remain unavailable. Clearing browser storage removes progress. Casual single-player only; local saves are not tamper-proof.</p>
  </GamesShell>;
 }

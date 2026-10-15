@@ -9,14 +9,23 @@ import {auctionSampleValue,publicAuctionSlots,revealPublicRound} from './auction
 import {auctionLotTheme} from './auction-lot-themes.ts';
 import {rankAuctionBids} from './auction-ranking.ts';
 
-// This bidder knows only sample prices and a count range, never the full lot or sealed player bid.
-export function npcBid(sample:number[],range:[number,number],_priorBids:number[],personality:number,random:()=>number,feeBps=1000,confidence=1,participation=0,grossEstimate?:number,certainty=1):number{
- const npc=AUCTION_NPCS[personality]??AUCTION_NPCS[0],caution=npc.name==='The Skeptic'?.35+.65*certainty:1;
+// Only completed public bids may influence an estimate; current sealed bids are never inputs.
+export function npcBid(sample:number[],range:[number,number],priorBids:number[],personality:number,random:()=>number,feeBps=1000,confidence=1,participation=0,grossEstimate?:number,certainty=1):number{
+ const npc=AUCTION_NPCS[personality]??AUCTION_NPCS[0],caution=npc.name==='The Skeptic'?.9+.1*certainty:1;
  if(random()>Math.min(1,Math.max(0,(npc.participation+participation)*caution)))return 0;
  const estimate=(grossEstimate??auctionSampleValue(sample)*(range[0]+range[1])/2)*(1-feeBps/10000);
  if(estimate<=0)return 0;
  const noise=1-npc.noise+random()*npc.noise*2,stretch=random()<npc.risk?1.08+random()*.1:1;
- return Math.max(1,Math.min(250000,Math.round(estimate*npc.margin*confidence*noise*stretch)));
+ const personal=estimate*npc.margin*confidence*noise*stretch;
+ return Math.max(1,Math.min(250000,Math.round(influencedBid(personal,priorBids,npc.name,random))));
+}
+function influencedBid(personal:number,priorBids:number[],name:string,random:()=>number){
+ const positives=priorBids.filter(bid=>Number.isSafeInteger(bid)&&bid>0).sort((a,b)=>a-b);
+ if(!positives.length||random()>(name==='The Follower'?.65:.3))return personal;
+ const middle=Math.floor(positives.length/2),median=positives.length%2?positives[middle]:(positives[middle-1]+positives[middle])/2;
+ // A rival's offer is evidence of interest, not a valuation: cap the nudge at 8% (12% for the Follower).
+ const limit=name==='The Follower'?.12:.08;
+ return personal+Math.max(-personal*limit,Math.min(personal*limit,(median-personal)*.2));
 }
 function roundNpcs(auction:Auction,now:number):Npc[]{
  const random=auctionRandom(auction.seed+auction.round*103);
@@ -27,7 +36,8 @@ function roundNpcs(auction:Auction,now:number):Npc[]{
   const knowledge=npcRoundInformation(auction,index,sample,auction.npcs.find(bidder=>bidder.name===npc.name),npc.name);
   const mood=auctionNpcMood(auction.seed,npc.name),personality=AUCTION_NPCS.findIndex(profile=>profile.name===npc.name);
   const paid=auction.kind==='paid';
-  return {name:npc.name,sample,investigations:knowledge.investigations,inspected:knowledge.inspected,identified:knowledge.identified,bid:npcBid(knowledge.prices,auction.range,[],personality,random,auction.feeBps,mood.confidence,mood.participation+(paid?0.04:0),knowledge.estimate,knowledge.certainty),lockAt:now+Math.round((.3+random()*.6)*AUCTION_ROUNDS[auction.round-1].seconds*1000),locked:false};
+  const priorBids=(auction.bidHistory.at(-1)??[]).filter(bid=>bid.name!==npc.name).map(bid=>bid.cents);
+  return {name:npc.name,sample,investigations:knowledge.investigations,inspected:knowledge.inspected,identified:knowledge.identified,bid:npcBid(knowledge.prices,auction.range,priorBids,personality,random,auction.feeBps,mood.confidence,mood.participation+(paid?0.04:0),knowledge.estimate,knowledge.certainty),lockAt:now+Math.round((.3+random()*.6)*AUCTION_ROUNDS[auction.round-1].seconds*1000),locked:false};
  });
 }
 function openRound(auction:Auction,now:number):Auction{
@@ -45,9 +55,9 @@ export function beginAuction(save:AuctionSave,catalog:AuctionCard[],now:number,p
 export function buyInformation(save:AuctionSave,id:string,now:number):AuctionSave{
  const auction=save.auction;
  if(!auction||auction.stage!=='round'||auction.selected!==null||auction.bought||now>=auction.deadline)return save;
- const option=auction.offers.find(option=>option.id===id);if(!option||save.wallet.cash<option.cost||id==='value-band'||id==='value-band4'&&auction.round!==4)return save;
+ const option=auction.offers.find(option=>option.id===id);if(!option||save.wallet.cash<option.cost||id==='value-band'||id==='value-band4')return save;
  const result=investigate(auction,option);
- return {...save,wallet:{...save.wallet,cash:save.wallet.cash-option.cost},auction:{...auction,known:result.known,priced:result.priced,...(result.rarityKnown?{rarityKnown:result.rarityKnown}:{}),...(result.topCardSlot!==undefined?{topCardSlot:result.topCardSlot}:{}),clues:[...auction.clues,result.clue],bought:true,spent:auction.spent+option.cost}};
+ return {...save,wallet:{...save.wallet,cash:save.wallet.cash-option.cost},auction:{...auction,known:result.known,priced:result.priced,...(result.rarityKnown?{rarityKnown:result.rarityKnown}:{}),...(result.topCardSlot!==undefined?{topCardSlot:result.topCardSlot}:{}),clues:[...auction.clues,{...result.clue,round:auction.round}],bought:true,spent:auction.spent+option.cost}};
 }
 export function lockBid(save:AuctionSave,cents:number,now:number):AuctionSave{
  const auction=save.auction;

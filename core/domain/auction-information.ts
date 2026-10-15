@@ -4,7 +4,7 @@ import {PARTIAL_INVESTIGATIONS,partialInvestigationSlots,investigatePartial} fro
 import {balancedClue} from './auction-balanced-clues.ts';
 
 // Retain old definitions for active saves and historic NPC clues, never new offers.
-export const RETIRED_INVESTIGATION_IDS=['count','rarity-peek3','rare-mark2','epic-mark2','alt-mark1','rare-identity2','epic-identity2','common3','uncommon3','rare2','epic2','alt1','highest','appraisal','value-band'];
+export const RETIRED_INVESTIGATION_IDS=['count','rarity-peek3','rare-mark2','epic-mark2','alt-mark1','rare-identity2','epic-identity2','common3','uncommon3','rare2','epic2','alt1','highest','appraisal','value-band','value-band4'];
 
 export const INVESTIGATIONS:Investigation[]=[
  ...PARTIAL_INVESTIGATIONS,
@@ -48,7 +48,6 @@ export function informationOffers(auction:Auction):Investigation[]{
 }
 export function informationUseful(auction:Auction,id:string){
  if(RETIRED_INVESTIGATION_IDS.includes(id))return false;
- if(id==='value-band4')return auction.round===4;
  if(['common-count','uncommon-count'].includes(id))return !auction.clues.some(clue=>clue.id==='rarities');
  const partialSlots=partialInvestigationSlots(auction,id);if(partialSlots!==null)return partialSlots.length>0;
  const raritySlots=rarityInvestigationSlots(auction,id);if(raritySlots!==null)return raritySlots.length>0;

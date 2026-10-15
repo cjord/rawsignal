@@ -12,6 +12,14 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
+- Current staging release work: remove Collection Value Band, restore bidding-round
+  history below the collection, group findings by round, hide current investigation
+  choices in bidding rows, use responsive side-by-side settlement/history and bound
+  the investigation panel height. NPCs participate more frequently and sometimes use
+  bounded influence from completed public bids only. No new data/API/DB work.
+  Production promotion remains pending user direction. Details:
+  `docs/games-auction-house-plan.md` (Round information and more active rivals).
+
 - Production promotion pending user direction for compact ranked Round Bids / Bid
   History, larger history heading, centered no-buyout status with top-right next
   action, collection-theme titles and profile/theme tooltips. Collection Value Band

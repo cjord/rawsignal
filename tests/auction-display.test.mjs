@@ -25,8 +25,8 @@ test('even legacy NPC notes redact card names and values, while your purchased c
  assert.ok(!JSON.stringify(publicAuctionBidNotes(bid)).includes('Secret Card'));assert.ok(!JSON.stringify(publicAuctionBidNotes(bid)).includes('$123'));
  assert.deepEqual(publicAuctionBidNotes({...bid,name:'You'}),bid.notes);assert.equal(publicAuctionBidNotes({name:'The Dealer',cents:100}),undefined);
 });
-test('NPC valuation ignores previous bids and personal samples persist and grow across rounds',()=>{
- assert.equal(npcBid([100,200],[40,40],[],6,()=>.5),npcBid([100,200],[40,40],[250000,1],6,()=>.5));
+test('NPC social influence is bounded and personal samples persist and grow across rounds',()=>{
+ const personal=npcBid([100,200],[40,40],[],6,()=>.5),social=npcBid([100,200],[40,40],[250000,1],6,()=>.5);assert.ok(social>personal&&social<=Math.round(personal*1.12)+1);
  const pool=Array.from({length:30},(_,index)=>({productId:index+1,printing:'Normal',name:`Card ${index}`,image:`https://images.example/${index}`,set:'Origins',rarity:'Common',section:'commons',cents:100+index}));
  let save=beginAuction(initialAuctionSave(),pool,1000,undefined,42);const samples=save.auction.npcs.map(npc=>npc.sample);
  save={...save,auction:{...save.auction,npcs:save.auction.npcs.map(npc=>({...npc,bid:0}))}};save=tickAuction(save,save.auction.deadline+1);save=nextAuctionRound(save,100000);

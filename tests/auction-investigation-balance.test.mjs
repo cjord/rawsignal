@@ -42,16 +42,16 @@ test('top-card rarity marks its precise location without revealing identity/artw
  const unmarked=structuredClone(bought);unmarked.auction.rarityKnown=[];assert.throws(()=>parseAuctionSave(JSON.stringify(unmarked)));
 });
 
-test('wide value bands have fixed boundaries, preserve uncertainty and are available only in round four',()=>{
+test('retired value bands preserve historical boundaries but cannot be offered or purchased',()=>{
  for(const [value,low,high] of [[0,0,250],[24999,0,250],[25000,250,1000],[99999,250,1000],[100000,1000,2000],[200000,1000,2000]]){
   const text=auctionValueBand(value);assert.ok(text.includes(`$${low.toFixed(2)}`)&&text.includes(`$${high.toFixed(2)}`));assert.match(text,/before fees/);
  }
  assert.equal(auctionValueBand(30000),auctionValueBand(45000));assert.match(auctionValueBand(200001),/\$2000.00\+/);
- for(let round=1;round<=4;round++)assert.equal(informationUseful({...fresh().auction,round},'value-band4'),round===4);
+ for(let round=1;round<=4;round++)assert.equal(informationUseful({...fresh().auction,round},'value-band4'),false);
  const observed=pool.slice(0,2),clues=[{id:'value-band4',label:'Collection Value Band',text:auctionValueBand(30000)}];
  const valuation=npcKnowledgeValue({count:50,observed,random:observed,clues});assert.equal(valuation.estimate,25000);assert.equal(valuation.certainty,.5);
  const old=fresh();old.auction.offers=[option('value-band')];assert.equal(parseAuctionSave(JSON.stringify(old)).auction.offers.length,0);assert.equal(buyInformation(old,'value-band',1100),old);
- for(const round of [1,2,3]){const early=fresh();early.auction.round=round;early.auction.offers=[option('value-band4')];assert.equal(buyInformation(early,'value-band4',1100),early)}
+ for(const round of [1,2,3,4]){const early=fresh();early.auction.round=round;early.auction.offers=[option('value-band4')];assert.equal(buyInformation(early,'value-band4',1100),early);assert.equal(parseAuctionSave(JSON.stringify(early)).auction.offers.length,0)}
  const legacy=investigate(fresh().auction,option('value-band'));assert.match(legacy.clue.text,/\$250.00–under \$500.00/);
  assert.ok(Number.isFinite(npcKnowledgeValue({count:350,observed:[],random:[],clues:[{...clues[0],text:auctionValueBand(250000)}]}).estimate));
 });
@@ -87,4 +87,11 @@ test('NPC count investigations do not learn unseen prices or reuse the player’
  assert.ok(matched);const {auction,info}=matched,hidden=auction.lot.findIndex((card,i)=>!info.inspected.includes(i)&&card.rarity==='Rare');assert.ok(hidden>=0);
  const changed={...auction,lot:auction.lot.map((card,i)=>i===hidden?{...card,cents:999999}:card)};
  assert.equal(npcRoundInformation(changed,0,[],undefined,'The Bargain Hunter').estimate,info.estimate);
+});
+
+test('private findings persist their purchase round, reject invalid round tags and preserve legacy purchased bands',()=>{
+ const save=fresh();save.auction.offers=[option('common-count')];
+ const bought=buyInformation(save,'common-count',1100);assert.equal(bought.auction.clues[0].round,1);assert.deepEqual(parseAuctionSave(JSON.stringify(bought)),bought);
+ for(const round of [0,2,5,'1']){const invalid=structuredClone(bought);invalid.auction.clues[0].round=round;assert.throws(()=>parseAuctionSave(JSON.stringify(invalid)))}
+ const legacy=structuredClone(bought);legacy.auction.clues=[{id:'value-band4',label:'Collection Value Band',text:auctionValueBand(30000)}];assert.deepEqual(parseAuctionSave(JSON.stringify(legacy)),legacy);
 });

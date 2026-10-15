@@ -1,3 +1,4 @@
+/* eslint-disable jsx-a11y/no-noninteractive-tabindex -- keyboard users can scroll cumulative round findings */
 import InfoHint from '../InfoHint';
 import AuctionClueIcon from './AuctionClueIcon';
 import {auctionUsd} from './AuctionWallet';
@@ -10,15 +11,24 @@ function ClueResults({clues}:{clues:Clue[]}){
 export default function AuctionInvestigate({save,now,transact}:{save:AuctionSave;now:number;transact:(update:(save:AuctionSave)=>AuctionSave)=>void}){
  const auction=save.auction!;
  return <section className="detail-section auction-investigate"><h2>{auction.bought?'Investigation Results':'Investigation'} <InfoHint label="Investigation rules">Shared reveals are free and visible to every bidder. Optionally buy one private investigation per round. Costs are not refunded if you lose. All findings carry forward.</InfoHint></h2>
-  {!auction.bought&&<div className="auction-offers">{auction.offers.map(option=><button className="game-control" type="button" key={option.id} disabled={auction.selected!==null||now>=auction.deadline||save.wallet.cash<option.cost} onClick={()=>transact(current=>buyInformation(current,option.id,Date.now()))}><AuctionClueIcon id={option.id}/><span>{option.label}{option.description&&<small>{option.description}</small>}</span><strong>{auctionUsd(option.cost)}</strong></button>)}</div>}
-  <PublicInformation auction={auction}/>
-  {!!auction.clues.length&&<div className="auction-investigation-results"><h3>Your Investigations</h3><ClueResults clues={auction.clues}/></div>}
+  <div className="auction-investigation-scroll" role="region" aria-label="Investigation options and round findings" tabIndex={0}>
+   {!auction.bought&&<div className="auction-offers">{auction.offers.map(option=><button className="game-control" type="button" key={option.id} disabled={auction.selected!==null||now>=auction.deadline||save.wallet.cash<option.cost} onClick={()=>transact(current=>buyInformation(current,option.id,Date.now()))}><AuctionClueIcon id={option.id}/><span>{option.label}{option.description&&<small>{option.description}</small>}</span><strong>{auctionUsd(option.cost)}</strong></button>)}</div>}
+   <PublicInformation auction={auction}/>
+  </div>
  </section>;
 }
 function PublicInformation({auction}:{auction:Auction}){
  const reveals=auction.publicReveals??[{round:1,slots:publicAuctionSlots(auction)}];
- return <div className="auction-public-information"><h3>Shared Public Information</h3>{reveals.map(reveal=><div className={`auction-shared-reveal${reveal.round===auction.round?' is-new':''}`} key={reveal.round}>
-  <h4>Round {reveal.round} Public Reveal — {reveal.slots.length} cards with prices</h4>
-  {reveal.round===auction.round&&<span className="auction-public-announcement" role="status">Round {reveal.round}: {reveal.slots.length} public cards revealed.</span>}
- </div>)}</div>;
+ return <div className="auction-public-information">{Array.from({length:auction.round},(_,index)=>auction.round-index).map(round=>{
+  const reveal=reveals.find(reveal=>reveal.round===round);
+  const clues=auction.clues.filter(clue=>(clue.round??legacyClueRound(auction,clue))===round);
+  return <section className={`auction-investigation-round${round===auction.round?' is-new':''}`} key={round} aria-label={`Round ${round} investigation information`}><h3>Round {round}</h3>
+   {reveal&&<div className="auction-shared-reveal"><h4>Public Reveal — {reveal.slots.length} cards with prices</h4>{round===auction.round&&<span className="auction-public-announcement" role="status">Round {round}: {reveal.slots.length} public cards revealed.</span>}</div>}
+   {!!clues.length&&<div className="auction-investigation-results"><h4>Your Investigation</h4><ClueResults clues={clues}/></div>}
+  </section>;
+ })}</div>;
+}
+function legacyClueRound(auction:Auction,clue:Clue){
+ const completed=auction.bidHistory.findIndex(bids=>bids.find(bid=>bid.name==='You')?.notes?.some(note=>note.id===clue.id));
+ return completed>=0?completed+1:auction.round;
 }

@@ -24,7 +24,7 @@ test('ordinary profiles keep a margin; explicit risk and skeptical uncertainty r
  const dealer=AUCTION_NPCS.findIndex(npc=>npc.name==='The Dealer'),gambler=AUCTION_NPCS.findIndex(npc=>npc.name==='The Gambler'),skeptic=AUCTION_NPCS.findIndex(npc=>npc.name==='The Skeptic');
  assert.equal(npcBid([],[50,50],[],dealer,()=>.5,1000,1,0,10000),7560);
  let values=[.1,.5,0,.5];const stretch=npcBid([],[50,50],[],gambler,()=>values.shift(),1000,1,0,10000);assert.ok(stretch>9000);
- assert.equal(npcBid([],[50,50],[],skeptic,()=>.5,1000,1,0,10000,.1),0);assert.ok(npcBid([],[50,50],[],skeptic,()=>.5,1000,1,0,10000,1)>0);
+ assert.ok(npcBid([],[50,50],[],skeptic,()=>.5,1000,1,0,10000,.1)>0);assert.ok(npcBid([],[50,50],[],skeptic,()=>.5,1000,1,0,10000,1)>0);
 });
 
 test('new profiles have distinct original assets and identity-only clues cannot expose price knowledge',()=>{

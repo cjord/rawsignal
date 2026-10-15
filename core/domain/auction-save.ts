@@ -16,10 +16,14 @@ function validNpcs(auction:Auction){
  return Array.isArray(auction.npcs)&&auction.npcs.length===3&&auction.npcs.every(npc=>record(npc)&&AUCTION_NPCS.some(profile=>profile.name===npc.name)&&integer(npc.bid,250000)&&integer(npc.lockAt,Number.MAX_SAFE_INTEGER)&&typeof npc.locked==='boolean'&&validSlots(npc.sample,auction.lot.length)&&validNpcInformation(npc,auction.lot.length))&&new Set(auction.npcs.map(npc=>npc.name)).size===3;
 }
 function validNpcInformation(npc:Auction['npcs'][number],length:number){return (npc.identified===undefined||validSlots(npc.identified,length))&&(npc.inspected===undefined||validSlots(npc.inspected,length))&&(npc.investigations===undefined||Array.isArray(npc.investigations)&&npc.investigations.length<=4&&new Set(npc.investigations).size===npc.investigations.length&&npc.investigations.every(id=>NPC_INVESTIGATION_IDS.includes(id)))}
-function validBidNotes(notes:unknown){return notes===undefined||Array.isArray(notes)&&notes.length<=4&&notes.every(note=>record(note)&&text(note.id)&&text(note.label)&&text(note.text,3000))}
+function validClue(value:unknown){
+ const clue=value as {id?:unknown;label?:unknown;text?:unknown;round?:unknown};
+ return record(value)&&text(clue.id)&&text(clue.label)&&text(clue.text,3000)&&(clue.round===undefined||integer(clue.round,4)&&clue.round>=1);
+}
+function validBidNotes(notes:unknown){return notes===undefined||Array.isArray(notes)&&notes.length<=4&&notes.every(validClue)}
 function validBids(bids:unknown){return Array.isArray(bids)&&bids.length<=4&&bids.every(bid=>record(bid)&&text(bid.name)&&integer(bid.cents)&&validBidNotes(bid.notes))}
 function validClues(auction:Auction){
- return Array.isArray(auction.offers)&&auction.offers.length<=3&&auction.offers.every(option=>record(option)&&INVESTIGATIONS.some(known=>known.id===option.id&&(known.cost===option.cost||LEGACY_INVESTIGATION_COSTS[option.id]===option.cost||PREVIOUS_INVESTIGATION_COSTS[option.id]===option.cost||PRE_BALANCE_INVESTIGATION_COSTS[option.id]===option.cost)&&known.tier===option.tier)&&text(option.label)&&(option.description===undefined||text(option.description,500)))&&Array.isArray(auction.clues)&&auction.clues.length<=4&&auction.clues.every(clue=>record(clue)&&text(clue.id)&&text(clue.label)&&text(clue.text,3000));
+ return Array.isArray(auction.offers)&&auction.offers.length<=3&&auction.offers.every(option=>record(option)&&INVESTIGATIONS.some(known=>known.id===option.id&&(known.cost===option.cost||LEGACY_INVESTIGATION_COSTS[option.id]===option.cost||PREVIOUS_INVESTIGATION_COSTS[option.id]===option.cost||PRE_BALANCE_INVESTIGATION_COSTS[option.id]===option.cost)&&known.tier===option.tier)&&text(option.label)&&(option.description===undefined||text(option.description,500)))&&Array.isArray(auction.clues)&&auction.clues.length<=4&&auction.clues.every(clue=>validClue(clue)&&(clue.round===undefined||clue.round<=auction.round));
 }
 function validRoundMetadata(auction:Auction){return ['round','reveal','result'].includes(auction.stage)&&integer(auction.round,4)&&auction.round>=1&&integer(auction.seed)&&integer(auction.deadline,Number.MAX_SAFE_INTEGER)&&integer(auction.feeBps,10000)&&integer(auction.spent)&&typeof auction.bought==='boolean'&&(auction.selected===null||integer(auction.selected))}
 function validSnapshot(auction:Auction){
@@ -49,6 +53,6 @@ export function parseAuctionSave(raw:string|null):AuctionSave{
  const inventory=value.wallet.inventory;
  if(!Array.isArray(inventory)||inventory.length>10000||!inventory.every(row=>record(row)&&integer(row.productId)&&row.productId>0&&text(row.printing,80)&&integer(row.quantity,1000000)&&row.quantity>0))throw new Error('Saved inventory is invalid. Reset to start again.');
  if(value.auction!==null&&!validAuction(value.auction))throw new Error('Saved auction is invalid. Reset to start again.');
- const auction=value.auction?{...value.auction,offers:value.auction.offers.filter(option=>option.id!=='value-band')}:null;
+ const auction=value.auction?{...value.auction,offers:value.auction.offers.filter(option=>option.id!=='value-band'&&option.id!=='value-band4')}:null;
  return {...value,auction,wallet:{cash:value.wallet.cash,feeBps:value.wallet.feeBps,inventory:inventory.map(({productId,printing,quantity})=>({productId,printing,quantity}))}};
 }

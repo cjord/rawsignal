@@ -5,6 +5,9 @@ import AuctionBidder from './AuctionBidder';
 import AuctionBidTile from './AuctionBidTile';
 import {rankAuctionBids} from '../../core/domain/auction-ranking';
 
+export function AuctionBiddingHistory({auction}:{auction:Auction}){
+ return auction.stage==='round'&&auction.bidHistory.length>0?<section className="detail-section auction-active-history"><AuctionBidHistory auction={auction}/></section>:null;
+}
 export default function AuctionBidHistory({auction,heading=true}:{auction:Auction;heading?:boolean}){
  const names=['You',...auction.npcs.map(npc=>npc.name)];
  const placements=auction.bidHistory.map(bids=>new Map(rankAuctionBids(bids,auction.seed).map((bid,index)=>[bid.name,index+1])));
