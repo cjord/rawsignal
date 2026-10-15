@@ -1,6 +1,6 @@
 # Riftbound Auction House
 
-## NPC balance and three new rivals — staging release preparation (2026-10-15)
+## NPC balance and three new rivals — staged 2026-10-15
 
 Removed the 1.15 opening bid multiplier and 1.08 paid-price multiplier. Paid NPCs
 retain their small participation increase, not a higher automatic valuation. Most
@@ -37,7 +37,7 @@ Each new rival has an original 192px WebP portrait, distinct visible strategy an
 theme-aware name color. Generation prompts, asset paths and tool provenance are in
 `docs/auction-npc-artwork.md`. Existing art stays intact. Strength/rarity icon colors,
 centered Skip Reveal, neutral entry captions, five lot themes and playset caps from
-the preceding local follow-ups are included in this release preparation.
+the preceding follow-ups are included in this staging release.
 
 NPC information remains free and NPC budgets still reset per auction. Charging
 NPC investigation costs or adding persistent bankrolls was not decided and is not
@@ -59,10 +59,26 @@ no opening/paid uplift, save compatibility and original asset checks.
 
 Release validation: `npm run check` passed (454 node tests, one skipped, 51 Chromium
 journeys; 21 existing lint warnings, no new warnings). New-rival portrait/strategy
-screenshots were reviewed at desktop/mobile widths in both themes. Authorized
-GitHub push / staging deployment identifiers will follow. Production is out of scope.
+screenshots were reviewed at desktop/mobile widths in both themes.
 
-## Investigation icon colors and heading spacing — local follow-up
+Application `cace4c2` pushed to `feature/set-rarity-heatmap`, then deployed to staging
+version `50b0ad31-38fd-4386-aa11-f161b3ea6f8f`. Live checks passed an 87-card free
+auction and 64-card paid auction, charged paid entry once, verified exact new
+portrait asset hashes, visible themes/strategies, caption styling and centered
+Skip Reveal, completed settlement, saved-game reloads, rarity/all inventory sales,
+reset and NPC-loss sharing. Eleven initial catalog feed requests, eleven after
+reload, zero additional gameplay data requests and zero browser errors. Desktop /
+mobile dark/light layouts passed. The first smoke run timed out waiting on lazy
+game-tile art; direct page inspection was 200/error-free, and a normal-URL,
+scroll-aware lazy-image retry passed without a redeploy or application change.
+
+No migrations, database writes outside normal page reads, ingestion refreshes,
+cron or security changes. Staging keeps its existing D1 and no cron; production
+was not deployed. Start a new auction to draw from the expanded roster; old saved
+bids remain frozen. Deployment record is documentation-only after the application
+release; no second deployment is needed for those notes.
+
+## Investigation icon colors and heading spacing — included in 2026-10-15 staging
 
 Rarity-targeted scans, markers and identity peeks now use the same icon palette as
 collection rarity borders: common gray, uncommon green, rare blue, epic/alt art
@@ -74,14 +90,14 @@ descriptions remain the non-color cues. The shared icon component keeps the same
 colors in results and bid history without revealing private findings.
 
 Investigate / Investigation Results headings have a 24px gap before their following
-content. No clue pricing, gameplay, save, API or database changes. Not pushed/deployed.
+content. No clue pricing, gameplay, save, API or database changes. Included above.
 Validation: `npm run check` passed (450 node tests, one skipped, 50 Chromium journeys;
 21 existing lint warnings, no new warnings). Browser checks exercise every active
 clue's color mapping and heading gap on desktop/mobile in dark/light themes; reviewed
 screenshots. Icon rendering now uses a local glyph variable rather than reassigning
 the component's input ID.
 
-## Reveal heading and entry caption polish — local follow-up
+## Reveal heading and entry caption polish — included in 2026-10-15 staging
 
 Skip Reveal now occupies the centered column of the same heading row as Collection
 Revealed and the right-aligned card count. It disappears when counting completes;
@@ -89,7 +105,7 @@ the count stays right-aligned. Narrow screens use compact type and a wrapping ti
 without moving the button to a separate row. Both entry-button captions explicitly
 have no independent border, corner radius, shadow or background; the accessible
 outer button retains its normal blue hover/focus/pulse treatment. No gameplay,
-prices, save format, API or database changes. Not pushed or deployed.
+prices, save format, API or database changes. Included in the staging release above.
 
 Regression checks cover centered same-row positioning at desktop/390px/320px in both
 themes, Skip Reveal completion behavior and borderless entry captions on hover.
@@ -174,9 +190,9 @@ Architecture references: [Durable Object WebSockets](https://developers.cloudfla
 [alarms](https://developers.cloudflare.com/durable-objects/api/alarms/),
 [pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/).
 
-## Personality strategies and themed lots — local follow-up
+## Initial personality strategies and themed lots — included in 2026-10-15 staging
 
-Seven NPC profiles now have distinct named investigation strategies, displayed below
+The initial seven NPC profiles gained distinct named investigation strategies, displayed below
 their names while bidding. Dealer: bulk-first reseller; Collector: premium specialist;
 Opportunist: targeted scout; Analyst: aggregate valuation; Gambler: chase hunter;
 Bargain Hunter: everyday value; Follower: sample checker. Preferences are seeded
@@ -215,7 +231,8 @@ limits stay in force. Themes never alter source prices or printing identities.
 Only an optional validated theme ID is added to browser saves. New prepared lots
 retain their generation seed/theme through artwork rerolls; old frozen saves without
 a theme stay unlabelled, rather than inventing a theme from their seed. No database,
-ingestion, API or additional feed calls. Not pushed or deployed.
+ingestion, API or additional feed calls. Included in staging above; the balance
+release expands the roster to ten and revises the estimator/strategy weights.
 
 Validation: `npm run check` passed (450 node tests, one skipped, 49 Chromium
 journeys; 21 existing lint warnings, no new warnings). Dedicated tests cover seeded
@@ -224,7 +241,7 @@ mix/focus differences across 300 seeds per mode, budget/count limits, legacy sav
 artwork-retry theme consistency and responsive theme/strategy labels. Desktop/mobile
 dark/light screenshots reviewed. Existing Singles/Sealed regressions passed.
 
-## Playsets, partial clues and NPC-note cleanup — local follow-up
+## Playsets, partial clues and NPC-note cleanup — included in 2026-10-15 staging
 
 Removed the paid-entry caption's independent gold background; it now inherits the
 same button surface as free entry. Shared-public-reveal notes/icons are filtered
@@ -255,7 +272,7 @@ Existing frozen auctions remain unchanged.
 Real bundled-catalog check, 500 seeds per mode: free common groups >3 copies 110/4532,
 uncommon 63/4471, rare 10/5983; paid common 99/4526, uncommon 13/3413, rare 34/12238.
 No epic/alt/overnumber/signature group exceeded three in this sample. Maximum free
-common stack was five; other observed exceptions were four. Not pushed/deployed.
+common stack was five; other observed exceptions were four. Included in staging above.
 
 Validation: `npm run check` passed (445 node tests, one skipped, 48 Chromium
 journeys; 21 existing lint warnings, no new warnings). New tests cover rarity-scaled

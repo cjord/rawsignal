@@ -12,23 +12,13 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
-- Staging release preparation (2026-10-15): conservative evidence-only NPC valuation,
-  removal of stacked price boosts, occasional profile-specific risk and three new
-  original-portrait rivals (Archivist, Playset Builder, Skeptic). Includes preceding
-  local auction polish/themes/playsets. NPC information stays free; persistence and
-  loss-sharing rules unchanged. Full gate passed (454 node / 51 browser); authorized
-  push and staging verification pending; production out of scope. `docs/games-auction-house-plan.md` has model and
-  simulation caveats; `docs/auction-npc-artwork.md` records final prompts/assets.
-
-- Local investigation polish: rarity-targeted icons use matching card colors;
-  general clues use existing strength-tier colors. Added 24px heading-to-content
-  spacing. Labels remain explicit; no gameplay/data changes. Not pushed/deployed.
-  Details: `docs/games-auction-house-plan.md`.
-
-- Local auction heading/caption polish: Skip Reveal centered between Collection
-  Revealed and card count on the same row, including narrow phones; entry-caption
-  spans share borderless/transparent styling while outer controls retain feedback.
-  No gameplay/data changes; not pushed/deployed. See `docs/games-auction-house-plan.md`.
+- Production promotion pending user direction: Auction House balance, ten-profile
+  roster (three original portraits), themed lots/playset limits, partial clues and
+  UI polish are staged from `cace4c2`, version `50b0ad31`. Full gate passed
+  (454 node / 51 browser); live staging passed free/paid auctions, persistence and
+  sales with zero browser errors/additional gameplay data calls. Production remains
+  on the previous release. Details: `docs/todo-completed.md` and
+  `docs/games-auction-house-plan.md`; prompts/assets: `docs/auction-npc-artwork.md`.
 
 - Future Auction House multiplayer (2026-10-15): **public auctions only** through
   a public lobby / Quick Join; no private rooms, invite-only auctions or join codes.
@@ -39,22 +29,12 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
   Not implemented; no hosting changes authorized. Full plan:
   `docs/games-auction-house-plan.md` §Future multiplayer.
 
-- Local NPC strategy/themed-lot follow-up: seven named weighted clue strategies,
-  five visible collection themes (Bulk Seller, Deck Builder, Trade Binder, Set
-  Collector, Chase Collector), expansion focus and paid quality weighting. Targeted
-  scan prices count individually, not as representative prices for every hidden
-  copy. Existing count/budget/playset limits and unthemed legacy saves preserved.
-  No added data calls or database changes; not pushed/deployed. Validation and rules:
-  `docs/games-auction-house-plan.md`. Economy guardrails, challenge progression,
-  structured clue menus and post-auction recaps remain deferred.
-
-- Local playset/partial-clue follow-up: neutral paid-entry caption, private-only NPC
-  note display, five rarity-marker and three targeted identity investigations, and
-  rarity-scaled exceptions above three copies per printing. Budget/count guarantees
-  and legacy saves retained; no added data calls or database changes. Not deployed.
-  Design review awaiting decisions: passive-payout inflation, bankroll progression,
-  structured clue menus/menu information leaks. NPC strategies and collection themes
-  are now implemented locally above. Details: `docs/games-auction-house-plan.md`.
+- Auction design backlog: passive-payout inflation/economy guardrails, NPC
+  investigation charges or persistent budgets, challenge progression, structured
+  clue menus/menu information leaks and post-auction recaps. Initial bids are now
+  deliberately cautious; tune difficulty from playtesting without giving NPCs
+  hidden true-value knowledge. Existing NPC information remains free and shared-loss
+  rules are unchanged. Details: `docs/games-auction-house-plan.md`.
 
 - Auction House production browser verification remains pending Cloudflare's
   managed challenge (403). Shared-round reveals, revised/rarity investigations,

@@ -9,6 +9,36 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-15 — Auction balance, themed lots and new rivals (staging)
+
+Application `cace4c2` pushed on `feature/set-rarity-heatmap` and deployed to staging
+`50b0ad31-38fd-4386-aa11-f161b3ea6f8f`. Production unchanged; promotion remains a
+separate user decision. No migrations, refresh jobs, security or cron changes.
+
+- Removed opening/paid price boosts; conservative observation-only valuations,
+  corrected category/top-five remainder estimates, lower-range appraisal and
+  explicit occasional profile risks. No actual hidden-value cap or sealed-player
+  bid reaction. NPC information stays free; budgets and loss sharing unchanged.
+- Added Archivist, Playset Builder and Skeptic to the ten-profile roster, with
+  original fantasy portraits and distinct investigation strategies/name colors.
+  Identity-only knowledge stays separate from priced knowledge; legacy saves load.
+- Included five visible lot themes, expansion focus, paid quality weighting,
+  rarity-scaled playset exceptions, five rarity markers / three identity peeks,
+  private-only NPC notes, investigation icon colors/spacing, centered Skip Reveal
+  and transparent/borderless entry captions. Artwork retries keep the lot theme.
+- Future multiplayer documented as public auctions only, not implemented.
+
+Full gate: 454 node tests passed (one skipped), 51 Chromium journeys; 21 existing
+lint warnings, no new warnings. Desktop/mobile dark/light screenshots reviewed.
+Live staging passed free (87-card) and paid (64-card) flows, three exact portrait
+asset hashes, themes/strategies, settlement/counting, saved reloads, inventory
+sales, reset and shared losses: zero browser errors and no additional gameplay
+data calls beyond 11 initial feeds / 11 on reload. First lazy tile-art smoke wait
+timed out; normal page inspection was clean and a scroll-aware retry passed.
+
+Rules, simulation caveats and release details: `docs/games-auction-house-plan.md`.
+Built-in image-generation prompt set and final paths: `docs/auction-npc-artwork.md`.
+
 ## 2026-10-14 — Auction shared reveals, investigations and collection cleanup
 
 Application `2a3f8da` pushed and deployed to staging `1be620f0` and production
