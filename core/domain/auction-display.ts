@@ -5,7 +5,7 @@ export function auctionRevealQuote(auction:Auction,visible:number[]){
  const value=cards.reduce((sum,card)=>sum+card.cents,0);
  const proceeds=inventoryQuote(addInventory([],cards),cards,auction.feeBps).net;
  const result=auction.result;
- return {value,fee:value-proceeds,net:proceeds-(result?.bid??0)-(result?.winner==='You'?result.playerExpenses:0)};
+ return {value,fee:value-proceeds,net:proceeds-(result?.bid??0)-(result?.winner==='You'?result.playerExpenses+(auction.entryFee??0):0)};
 }
 export function auctionRarity(card:{rarity?:string;section?:string}|null|undefined){
  if(/signature|over.?number/i.test(card?.section??''))return 'premium';

@@ -1,4 +1,4 @@
-import {AUCTION_ROUNDS,auctionRandom,sampleIndices,type Auction,type AuctionCard,type AuctionSave,type Npc,type RoundBid} from "./auction-types.ts";
+import {AUCTION_ROUNDS,AUCTION_PAID_ENTRY,auctionRandom,sampleIndices,type Auction,type AuctionCard,type AuctionSave,type AuctionKind,type Npc,type RoundBid} from "./auction-types.ts";
 import {addInventory,inventoryQuote} from "./auction-market.ts";
 import {generateAuctionLot} from './auction-lots.ts';
 import {AUCTION_NPCS,auctionNpcRoster,auctionNpcMood} from './auction-npcs.ts';
@@ -23,18 +23,20 @@ function roundNpcs(auction:Auction,now:number):Npc[]{
   const sample=[...previous,...sampleIndices(auction.lot.length,Math.max(0,3+auction.round-previous.length),auction.seed+index*67+auction.round,[0,2,...previous])];
   const prices=[...[0,2].map(slot=>auction.lot[slot].cents),...sample.map(slot=>auction.lot[slot].cents)];
   const mood=auctionNpcMood(auction.seed,npc.name),personality=AUCTION_NPCS.findIndex(profile=>profile.name===npc.name);
-  return {name:npc.name,sample,bid:npcBid(prices,auction.range,[],personality,random,auction.feeBps,mood.confidence,mood.participation),lockAt:now+Math.round((.3+random()*.6)*AUCTION_ROUNDS[auction.round-1].seconds*1000),locked:false};
+  const paid=auction.kind==='paid';
+  return {name:npc.name,sample,bid:npcBid(prices,auction.range,[],personality,random,auction.feeBps,mood.confidence*(paid?1.08:1),mood.participation+(paid?.04:0)),lockAt:now+Math.round((.3+random()*.6)*AUCTION_ROUNDS[auction.round-1].seconds*1000),locked:false};
  });
 }
 function openRound(auction:Auction,now:number):Auction{
  const next={...auction,stage:'round' as const,deadline:now+AUCTION_ROUNDS[auction.round-1].seconds*1000,bought:false,selected:null,bids:[]};
  next.offers=informationOffers(next);next.npcs=roundNpcs(next,now);return next;
 }
-export function beginAuction(save:AuctionSave,catalog:AuctionCard[],now:number,prepared?:AuctionCard[],seed=7411+save.sequence*137):AuctionSave{
- if(save.auction)return save;
- const lot=(prepared??generateAuctionLot(catalog,seed)).map(card=>({...card}));if(lot.length<6)return save;
- const auction:Auction={seed,stage:'round',round:1,deadline:0,lot,range:[lot.length,lot.length],known:[0,2],priced:[0,2],offers:[],clues:[],bought:false,spent:0,selected:null,npcs:[],bids:[],bidHistory:[],result:null,feeBps:save.wallet.feeBps};
- return {...save,sequence:save.sequence+1,auction:openRound(auction,now)};
+export function beginAuction(save:AuctionSave,catalog:AuctionCard[],now:number,prepared?:AuctionCard[],seed=7411+save.sequence*137,kind:AuctionKind='free'):AuctionSave{
+ const entryFee=kind==='paid'?AUCTION_PAID_ENTRY:0;
+ if(save.auction||save.wallet.cash<entryFee)return save;
+ const lot=(prepared??generateAuctionLot(catalog,seed,kind)).map(card=>({...card}));if(lot.length<(kind==='paid'?128:6))return save;
+ const auction:Auction={seed,kind,entryFee,stage:'round',round:1,deadline:0,lot,range:[lot.length,lot.length],known:[0,2],priced:[0,2],offers:[],clues:[],bought:false,spent:0,selected:null,npcs:[],bids:[],bidHistory:[],result:null,feeBps:save.wallet.feeBps};
+ return {...save,wallet:{...save.wallet,cash:save.wallet.cash-entryFee},sequence:save.sequence+1,auction:openRound(auction,now)};
 }
 export function buyInformation(save:AuctionSave,id:string,now:number):AuctionSave{
  const auction=save.auction;
@@ -60,7 +62,7 @@ function resolveRound(save:AuctionSave,auction:Auction):AuctionSave{
  const {winner,buyout}=auctionWinner(bids,auction.round,auction.seed);
  if(!winner&&auction.round<4)return {...save,auction:{...auction,stage:'reveal',bids,bidHistory:[...auction.bidHistory,bids]}};
  const value=auction.lot.reduce((sum,card)=>sum+card.cents,0),fee=value-inventoryQuote(addInventory([],auction.lot),auction.lot,auction.feeBps).net,won=winner?.name==='You';
- const result={winner:winner?.name??null,bid:winner?.cents??0,value,fee,net:winner?value-fee-winner.cents-(won?auction.spent:0):0,playerExpenses:auction.spent,buyout};
+ const result={winner:winner?.name??null,bid:winner?.cents??0,value,fee,net:winner?value-fee-winner.cents-(won?auction.spent+(auction.entryFee??0):0):0,playerExpenses:auction.spent,buyout};
  const lossShares=auctionLossShares(result.winner,result.net,bids,auction.seed),credit=lossShares.find(share=>share.name==='You')?.cents??0;
  return {...save,wallet:won?{...save.wallet,cash:save.wallet.cash-result.bid,inventory:addInventory(save.wallet.inventory,auction.lot)}:{...save.wallet,cash:save.wallet.cash+credit},auction:{...auction,stage:'result',bids,bidHistory:[...auction.bidHistory,bids],result:{...result,lossShares}}};
 }

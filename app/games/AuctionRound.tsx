@@ -25,7 +25,7 @@ function RoundControls({save,now,transact}:Props){
 }
 export function AuctionRoundHeader({auction,now}:{auction:Auction;now:number}){
  const seconds=Math.min(60,Math.max(0,Math.ceil((auction.deadline-now)/1000)));
- return <div className="auction-round-header"><div className="auction-round-heading"><strong>Round {auction.round} / 4</strong><span className={`auction-timer${auction.stage==='round'&&seconds<=10?' is-urgent':''}`} role="timer" aria-live="off">{auction.stage==='round'?`${seconds}s`:'Bids Revealed'}</span>{auction.stage==='round'&&<a className="games-back" href="#auction-bidding">Jump to Bid ↓</a>}</div>
+ return <div className="detail-section auction-round-header"><div className="auction-round-heading"><strong>Round {auction.round} / 4</strong><span className={`auction-timer${auction.stage==='round'&&seconds<=10?' is-urgent':''}`} role="timer" aria-live="off">{auction.stage==='round'?`${seconds}s`:'Bids Revealed'}</span></div>
   <p className="games-note">{auction.round<4?`Buyout: top bid must be ${AUCTION_ROUNDS[auction.round-1].threshold}% above second place, with at least two positive bids.`:'Final round: highest positive bid wins; seeded priority breaks ties. All passes mean no sale.'}</p>
  </div>;
 }

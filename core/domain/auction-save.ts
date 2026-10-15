@@ -1,5 +1,5 @@
 import {initialAuctionSave,type Auction,type AuctionSave} from "./auction-types.ts";
-import {INVESTIGATIONS} from "./auction-information.ts";
+import {INVESTIGATIONS,LEGACY_INVESTIGATION_COSTS} from "./auction-information.ts";
 import {AUCTION_NPCS} from './auction-npcs.ts';
 
 export const AUCTION_STORAGE_KEY='raw-signal-auction-house-v1';
@@ -16,7 +16,7 @@ function validNpcs(auction:Auction){
 function validBidNotes(notes:unknown){return notes===undefined||Array.isArray(notes)&&notes.length<=4&&notes.every(note=>record(note)&&text(note.id)&&text(note.label)&&text(note.text,3000))}
 function validBids(bids:unknown){return Array.isArray(bids)&&bids.length<=4&&bids.every(bid=>record(bid)&&text(bid.name)&&integer(bid.cents)&&validBidNotes(bid.notes))}
 function validClues(auction:Auction){
- return Array.isArray(auction.offers)&&auction.offers.length<=3&&auction.offers.every(option=>record(option)&&INVESTIGATIONS.some(known=>known.id===option.id&&known.cost===option.cost&&known.tier===option.tier)&&text(option.label))&&Array.isArray(auction.clues)&&auction.clues.length<=4&&auction.clues.every(clue=>record(clue)&&text(clue.id)&&text(clue.label)&&text(clue.text,3000));
+ return Array.isArray(auction.offers)&&auction.offers.length<=3&&auction.offers.every(option=>record(option)&&INVESTIGATIONS.some(known=>known.id===option.id&&(known.cost===option.cost||LEGACY_INVESTIGATION_COSTS[option.id]===option.cost)&&known.tier===option.tier)&&text(option.label))&&Array.isArray(auction.clues)&&auction.clues.length<=4&&auction.clues.every(clue=>record(clue)&&text(clue.id)&&text(clue.label)&&text(clue.text,3000));
 }
 function validRoundMetadata(auction:Auction){return ['round','reveal','result'].includes(auction.stage)&&integer(auction.round,4)&&auction.round>=1&&integer(auction.seed)&&integer(auction.deadline,Number.MAX_SAFE_INTEGER)&&integer(auction.feeBps,10000)&&integer(auction.spent)&&typeof auction.bought==='boolean'&&(auction.selected===null||integer(auction.selected))}
 function validSnapshot(auction:Auction){
@@ -32,8 +32,9 @@ function validLossShares(shares:unknown){
 }
 function validAuction(value:unknown):value is Auction{
  if(!record(value))return false;const auction=value as Auction;
- return validRoundMetadata(auction)&&validSnapshot(auction)&&validNpcs(auction)&&validClues(auction)&&validBids(auction.bids)&&Array.isArray(auction.bidHistory)&&auction.bidHistory.length<=4&&auction.bidHistory.every(validBids)&&validResult(auction);
+ return validAuctionEntry(auction)&&validRoundMetadata(auction)&&validSnapshot(auction)&&validNpcs(auction)&&validClues(auction)&&validBids(auction.bids)&&Array.isArray(auction.bidHistory)&&auction.bidHistory.length<=4&&auction.bidHistory.every(validBids)&&validResult(auction);
 }
+function validAuctionEntry(auction:Auction){return auction.kind===undefined&&auction.entryFee===undefined||auction.kind==='free'&&auction.entryFee===0||auction.kind==='paid'&&auction.entryFee===5000}
 export function parseAuctionSave(raw:string|null):AuctionSave{
  if(raw===null)return initialAuctionSave();
  if(raw.length>1e6)throw new Error('Saved game is too large. Reset to start again.');

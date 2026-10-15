@@ -1,5 +1,7 @@
 export const AUCTION_START_CASH=250000;
 export const AUCTION_DEFAULT_FEE=1000; // basis points: virtual selling fee, not real resale guidance
+export const AUCTION_PAID_ENTRY=5000;
+export type AuctionKind='free'|'paid';
 export const AUCTION_ROUNDS=[{seconds:60,threshold:100},{seconds:60,threshold:60},{seconds:60,threshold:30},{seconds:60,threshold:0}] as const;
 export type Holding={productId:number;printing:string;quantity:number};
 export type AuctionCard={productId:number;printing:string;name:string;image:string;set:string;rarity:string;section:string;cents:number};
@@ -9,7 +11,7 @@ export type Investigation={id:string;label:string;cost:number;tier:"basic"|"targ
 export type Clue={id:string;label:string;text:string};
 export type RoundBid={name:string;cents:number;notes?:Clue[]};
 export type AuctionResult={winner:string|null;bid:number;value:number;fee:number;net:number;playerExpenses:number;buyout:boolean;lossShares?:{name:string;cents:number}[]};
-export type Auction={seed:number;stage:"round"|"reveal"|"result";round:number;deadline:number;lot:AuctionCard[];range:[number,number];known:number[];priced:number[];offers:Investigation[];clues:Clue[];bought:boolean;spent:number;selected:number|null;npcs:Npc[];bids:RoundBid[];bidHistory:RoundBid[][];result:AuctionResult|null;feeBps:number};
+export type Auction={seed:number;stage:"round"|"reveal"|"result";round:number;deadline:number;lot:AuctionCard[];range:[number,number];known:number[];priced:number[];offers:Investigation[];clues:Clue[];bought:boolean;spent:number;selected:number|null;npcs:Npc[];bids:RoundBid[];bidHistory:RoundBid[][];result:AuctionResult|null;feeBps:number;kind?:AuctionKind;entryFee?:number};
 export type AuctionSave={version:1;revision:number;sequence:number;wallet:Wallet;auction:Auction|null};
 export const holdingKey=(card:Pick<Holding,"productId"|"printing">)=>`${card.productId}:${card.printing}`;
 export const initialAuctionSave=():AuctionSave=>({version:1,revision:0,sequence:0,wallet:{cash:AUCTION_START_CASH,feeBps:AUCTION_DEFAULT_FEE,inventory:[]},auction:null});

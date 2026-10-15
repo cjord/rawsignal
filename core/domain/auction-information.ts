@@ -2,21 +2,23 @@ import {sampleIndices,type Auction,type AuctionCard,type Clue,type Investigation
 
 export const INVESTIGATIONS:Investigation[]=[
  {id:"count",label:"Exact card count",cost:500,tier:"basic"},
- {id:"sets",label:"Set breakdown",cost:500,tier:"basic"},
- {id:"rarities",label:"Rarity breakdown",cost:1000,tier:"basic"},
- {id:"duplicates",label:"Duplicate count",cost:1000,tier:"basic"},
- {id:"over5",label:"Copies worth over $5",cost:1500,tier:"basic"},
- {id:"reveal3",label:"Reveal 3 cards with prices",cost:2000,tier:"targeted"},
- {id:"identity3",label:"Reveal 3 card identities",cost:2000,tier:"targeted"},
- {id:"bulk",label:"Common/uncommon total value",cost:1500,tier:"targeted"},
- {id:"over20",label:"Copies worth over $20",cost:2500,tier:"targeted"},
- {id:"highest",label:"Highest-value identity (no price)",cost:4000,tier:"strong"},
- {id:"rares",label:"Rare total value",cost:4000,tier:"strong"},
+ {id:"sets",label:"Set breakdown",cost:300,tier:"basic"},
+ {id:"rarities",label:"Rarity breakdown",cost:800,tier:"basic"},
+ {id:"duplicates",label:"Duplicate count",cost:500,tier:"basic"},
+ {id:"over5",label:"Copies worth over $5",cost:1200,tier:"basic"},
+ {id:"reveal3",label:"Reveal 3 cards with prices",cost:2500,tier:"targeted"},
+ {id:"identity3",label:"Reveal 3 card identities",cost:1000,tier:"targeted"},
+ {id:"bulk",label:"Common/uncommon total value",cost:2500,tier:"targeted"},
+ {id:"over20",label:"Copies worth over $20",cost:2000,tier:"targeted"},
+ {id:"highest",label:"Highest-value identity (no price)",cost:1500,tier:"strong"},
+ {id:"rares",label:"Rare total value",cost:3500,tier:"strong"},
  {id:"share",label:"Top 3 copies' value share",cost:3000,tier:"strong"},
- {id:"top5",label:"Top 5 copies' combined value",cost:6000,tier:"premium"},
- {id:"identity10",label:"Reveal 10 identities",cost:4500,tier:"premium"},
- {id:"appraisal",label:"Approximate market appraisal",cost:7500,tier:"premium"},
+ {id:"top5",label:"Top 5 copies' combined value",cost:5000,tier:"premium"},
+ {id:"identity10",label:"Reveal 10 identities",cost:2500,tier:"premium"},
+ {id:"appraisal",label:"Approximate market appraisal",cost:10000,tier:"premium"},
 ];
+// Active version-1 saves retain their already-offered prices; new rounds use current prices.
+export const LEGACY_INVESTIGATION_COSTS:Record<string,number>={count:500,sets:500,rarities:1000,duplicates:1000,over5:1500,reveal3:2000,identity3:2000,bulk:1500,over20:2500,highest:4000,rares:4000,share:3000,top5:6000,identity10:4500,appraisal:7500};
 const money=(cents:number)=>`$${(cents/100).toFixed(2)}`;
 const sum=(cards:AuctionCard[])=>cards.reduce((value,card)=>value+card.cents,0);
 const tiers=[['basic','basic','targeted'],['basic','targeted','strong'],['targeted','strong','premium'],['targeted','strong','premium']];

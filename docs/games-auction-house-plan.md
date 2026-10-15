@@ -1,5 +1,17 @@
 # Riftbound Auction House
 
+## Paid entry and round controls — 2026-10-14
+
+Free entry retains existing collection profiles. Paid entry costs $50 virtual cash and uses a 128–160-copy profile (25% bulk, 45% rare, 30% premium selection weights, eight-copy printing cap). These are game-generation weights, not pack odds. Both modes retain the $2,000 collection-value cap and verified-artwork requirements. Paid entry requires the complete minimum lot and sufficient cash, charges atomically only after preparation succeeds, starts the clock then, and never recharges on reload. Entry is non-refundable; player profit/loss includes it separately from investigation expenses. Missing required stock/artwork aborts without charge.
+
+Paid NPCs retain the same personal sample/count-based valuation and $2,500 bid ceiling, with 8% higher valuation confidence and four percentage points higher participation. No access to hidden full collection values or the sealed player bid is added. Premium inventory is not guaranteed to make a profit. Existing saves without entry fields remain free; already-offered legacy investigation prices are accepted until a new round offers current prices.
+
+Real-catalog validation exposed short lots when expensive early picks exhausted the affordable copy pool. Paid generation now reserves the exact cheapest remaining copy capacity, not an unlimited repetition of the single cheapest price, before allowing each pick. A 100-seed bundled-catalog regression enforces the full 128–160 count and $2,000 cap. Insufficient stock/budget aborts before charging instead of admitting a short lot.
+
+Investigation prices by information strength (virtual USD): sets $3, duplicates $5, rarity counts $8, three identities $10, copies over $5 $12, highest identity without price $15, copies over $20 $20, three priced cards / bulk total / ten identities $25, top-three value share $30, rare total $35, top-five total $50, approximate appraisal $100. Retired exact-count clues keep their historical $5 value for old saves.
+
+Both entry buttons are capitalized and pulse blue only when enabled, with a static reduced-motion equivalent. Entry preparation uses inline status text, not a skeleton tile. Round/time information is grouped in a bordered tile; Jump to Bid is removed. Previous-bid tiles have no visible heading and color the seeded positive round leader green (ties use the same rule as the full matrix); all-pass rounds have no winner. No new API calls, database work or schema migration.
+
 ## Rarity selling and NPC loss sharing — 2026-10-14
 
 Between auctions, inventory offers Sell All buttons for each owned, currently priced rarity group: Commons, Uncommons, Rares, Epics, Alt Arts, Over-Numbered and Signatures where present. Each action confirms the exact copy count and proceeds after the configured fee. Other rarities and unpriced holdings remain owned; printing identities stay separate. No new data fetching or database work.
