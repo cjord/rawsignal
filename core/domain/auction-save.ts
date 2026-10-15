@@ -56,6 +56,6 @@ export function parseAuctionSave(raw:string|null):AuctionSave{
  const inventory=value.wallet.inventory;
  if(!Array.isArray(inventory)||inventory.length>10000||!inventory.every(row=>record(row)&&integer(row.productId)&&row.productId>0&&text(row.printing,80)&&integer(row.quantity,1000000)&&row.quantity>0))throw new Error('Saved inventory is invalid. Reset to start again.');
  if(value.auction!==null&&!validAuction(value.auction))throw new Error('Saved auction is invalid. Reset to start again.');
- const auction=value.auction?{...value.auction,offers:value.auction.offers.filter(option=>option.id!=='value-band'&&option.id!=='value-band4')}:null;
+ const auction=value.auction?{...value.auction,offers:value.auction.offers.filter(option=>option.id!=='value-band'&&option.id!=='value-band4'&&option.id!=='top5')}:null;
  return {...value,auction,wallet:{cash:value.wallet.cash,feeBps:value.wallet.feeBps,inventory:inventory.map(({productId,printing,quantity})=>({productId,printing,quantity}))}};
 }

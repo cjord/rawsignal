@@ -16,6 +16,8 @@ import {createPriceGameImageLoader} from './data/price-game-images';
 import {useAuctionNavigation,useAuctionReveal,useAuctionSound} from './games/useAuctionPresentation';
 import AuctionWinner,{useAuctionWinner} from './games/AuctionWinner';
 import AuctionLobby from './games/AuctionLobby';
+import AuctionHeader from './games/AuctionHeader';
+import {useAuctionAutoAdvance} from './games/useAuctionAutoAdvance';
 import {AuctionBiddingHistory} from './games/AuctionBidHistory';
 
 const sources=allowedRarities.riftbound.map(section=>`/data/${section}.json`);
@@ -30,7 +32,8 @@ export default function RiftboundAuctionHouse(){
  const loader=useRef(createPriceGameImageLoader()),mounted=useRef(true),preparation=useRef<AbortController|null>(null);
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;preparation.current?.abort()}},[]);
  const celebrating=useAuctionWinner(save?.auction??null);
- const reveal=useAuctionReveal(save?.auction??null,!celebrating),audio=useAuctionSound(save?.auction??null,now);
+ const reveal=useAuctionReveal(save?.auction??null,!celebrating),audio=useAuctionSound(save?.auction??null,now,reveal.visible.length);
+ const auto=useAuctionAutoAdvance(save?.auction??null,now,transact);
  const enter=async(kind:AuctionKind)=>{
   if(preparing)return;audio.unlock();setPreparing(true);setImageError('');
   preparation.current?.abort();const controller=new AbortController();preparation.current=controller;
@@ -44,13 +47,13 @@ export default function RiftboundAuctionHouse(){
  useEffect(()=>{const tick=()=>{const time=Date.now();setNow(time);transact(current=>tickAuction(current,time))};const interval=window.setInterval(tick,250);window.addEventListener('visibilitychange',tick);return()=>{clearInterval(interval);window.removeEventListener('visibilitychange',tick)}},[transact]);
  useAuctionNavigation(arena,save?.auction??null,celebrating);
  const ready=status==='success',available=ready&&catalog.filter(card=>card.image.trim()).length>=6;
- return <GamesShell wide={Boolean(save?.auction)}><a className="games-back" href="/games">← Games</a><header className="games-heading"><span className="games-eyebrow">Riftbound · single-auction prototype</span><div className="auction-title-row"><h1>Riftbound Auction House</h1><button type="button" className="game-control auction-mute" disabled={!save&&!error} aria-pressed={audio.sound==='muted'} onClick={audio.toggle}>{audio.sound==='muted'?'Enable Sound':'Mute Sound'}</button></div><p>Buy clues. Lock your bid. Discover the collection—and whether your instincts paid off.</p></header>
+ return <GamesShell wide={Boolean(save?.auction)}><a className="games-back" href="/games">← Games</a><AuctionHeader sound={audio.sound} mute={audio.toggle} disabled={!save&&!error} autoAdvance={auto.enabled} toggleAuto={auto.toggle}/>
   <AuctionSaveFeedback save={save} error={error} reset={reset}/>
   {save&&!save.auction&&<AuctionWallet save={save} catalog={catalog} cards={items} transact={transact} reset={reset} refresh={reload} loading={!ready}/>}
   {status==='loading'&&<p role="status">Loading Market…</p>}
   {(status==='error'||status==='empty')&&<p role="status">Current market prices are unavailable. <button className="game-control" type="button" onClick={reload}>Retry market</button></p>}
   {save&&!save.auction&&<AuctionLobby available={available} preparing={preparing} imageError={imageError} enter={enter} cash={save.wallet.cash}/>}
-  {save?.auction&&<div ref={arena} className="auction-arena" onPointerDownCapture={audio.unlock} onKeyDownCapture={audio.unlock}><AuctionRoundHeader auction={save.auction} now={now}/>{celebrating?<AuctionWinner auction={save.auction}/>:<AuctionRound save={save} now={now} transact={transact} revealDone={reveal.done} visible={reveal.visible}/>} {!celebrating&&<AuctionCollection auction={save.auction} visible={reveal.visible} done={reveal.done} skip={reveal.skip}/>} <AuctionBiddingHistory auction={save.auction}/></div>}
+  {save?.auction&&<div ref={arena} className="auction-arena" onPointerDownCapture={audio.unlock} onKeyDownCapture={audio.unlock}><AuctionRoundHeader auction={save.auction} now={now}/>{celebrating?<AuctionWinner auction={save.auction}/>:<AuctionRound save={save} now={now} transact={transact} autoSeconds={auto.seconds} revealDone={reveal.done} visible={reveal.visible}/>} {!celebrating&&<AuctionCollection auction={save.auction} visible={reveal.visible} done={reveal.done} skip={reveal.skip}/>} <AuctionBiddingHistory auction={save.auction}/></div>}
   <p className="games-note">TCGCSV / TCGplayer Near Mint market pricing. Auction contents/prices freeze on entry; owned inventory is repriced from the current loaded catalog. Price refreshes use existing cached feeds, not real-time sale quotes. Missing prices remain unavailable. Clearing browser storage removes progress. Casual single-player only; local saves are not tamper-proof.</p>
  </GamesShell>;
 }

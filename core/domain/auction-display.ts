@@ -11,6 +11,7 @@ export function auctionRevealQuote(auction:Auction,visible:number[]){
 export function auctionRarity(card:{rarity?:string;section?:string}|null|undefined){
  if(/signature|over.?number/i.test(card?.section??''))return 'premium';
  if(/alt/i.test(card?.section??''))return 'epic';
+ if(/promo/i.test(card?.section??'')||/^promo$/i.test(card?.rarity??''))return 'promo';
  return card?.rarity?.toLowerCase()??'unknown';
 }
 export function auctionMetricTone(value:number|null,kind:'signed'|'cost'|'info'='signed'){

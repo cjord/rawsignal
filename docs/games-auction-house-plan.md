@@ -1,5 +1,34 @@
 # Riftbound Auction House
 
+## Optional auto advance and presentation cues — 2026-10-15
+
+Header controls put Auto Advance beside Mute Sound. It defaults off and persists as
+the browser preference `raw-signal-auction-auto-advance`. Enabled round reviews wait
+20 seconds and show the remaining seconds inside Next Auction Round. Turning it off
+cancels the timer; manual advancement cancels the old review timer, and a guarded
+callback cannot advance another auction/round. Settlement never auto-finishes. The
+review countdown restarts at 20 seconds when enabling or reloading a review; normal
+bidding deadlines remain unchanged and background-tab timer scheduling is browser
+controlled. Countdown rendering does not write game saves or call the network.
+
+Top-Two Valuation replaces Top-Five for new player offers and NPC strategies, at the
+unchanged $35 virtual cost. It gives only the two most valuable copies' combined
+frozen market value, not identities or individual prices. NPC estimation accounts
+for two disclosed copies, rather than treating the subtotal as a price for every
+hidden card. Purchased legacy Top-Five findings keep their original meaning; old
+unpurchased offers are withdrawn and old five-card knowledge suppresses redundant
+new two-card offers.
+
+Tooltip scrolling moves into an inset, keyboard-focusable region with a thin themed
+scrollbar; the outer rounded border stays clear. Immediately previous bid cells
+stretch to match bidder status height. Known promo cards/promo sections have a red
+border in collections and inventory; unrevealed cards remain neutral until known.
+Lock Bid pulses blue only while enabled, respecting reduced motion, and locked copy
+uses Waiting for Bidders. Quiet synthesized flip and investigation cues share the
+existing mute setting and user-gesture audio unlock; hidden tabs stay silent. No
+audio asset requests, new API/DB work, migration, fee changes or lot-generation
+changes are introduced. Release target: staging verification, then production.
+
 ## Paired finding tiles and latest-bid controls — 2026-10-15
 
 Each round groups Your Investigation first (purple tile), then its Public Reveal

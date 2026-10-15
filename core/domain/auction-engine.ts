@@ -55,7 +55,7 @@ export function beginAuction(save:AuctionSave,catalog:AuctionCard[],now:number,p
 export function buyInformation(save:AuctionSave,id:string,now:number):AuctionSave{
  const auction=save.auction;
  if(!auction||auction.stage!=='round'||auction.selected!==null||auction.bought||now>=auction.deadline)return save;
- const option=auction.offers.find(option=>option.id===id);if(!option||save.wallet.cash<option.cost||id==='value-band'||id==='value-band4')return save;
+ const option=auction.offers.find(option=>option.id===id);if(!option||save.wallet.cash<option.cost||id==='value-band'||id==='value-band4'||id==='top5')return save;
  const result=investigate(auction,option);
  const reveals:ClueReveal[]=[...result.priced.filter(slot=>!auction.priced.includes(slot)).map(slot=>({slot,visibility:'price' as const})),...result.known.filter(slot=>!auction.known.includes(slot)&&!result.priced.includes(slot)).map(slot=>({slot,visibility:'identity' as const})),...(result.rarityKnown??[]).filter(slot=>!auction.rarityKnown?.includes(slot)&&!result.known.includes(slot)).map(slot=>({slot,visibility:'rarity' as const}))];
  return {...save,wallet:{...save.wallet,cash:save.wallet.cash-option.cost},auction:{...auction,known:result.known,priced:result.priced,...(result.rarityKnown?{rarityKnown:result.rarityKnown}:{}),...(result.topCardSlot!==undefined?{topCardSlot:result.topCardSlot}:{}),clues:[...auction.clues,{...result.clue,round:auction.round,reveals}],bought:true,spent:auction.spent+option.cost}};

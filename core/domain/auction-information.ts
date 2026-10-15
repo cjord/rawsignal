@@ -4,7 +4,7 @@ import {PARTIAL_INVESTIGATIONS,partialInvestigationSlots,investigatePartial} fro
 import {balancedClue} from './auction-balanced-clues.ts';
 
 // Retain old definitions for active saves and historic NPC clues, never new offers.
-export const RETIRED_INVESTIGATION_IDS=['count','rarity-peek3','rare-mark2','epic-mark2','alt-mark1','rare-identity2','epic-identity2','common3','uncommon3','rare2','epic2','alt1','highest','appraisal','value-band','value-band4'];
+export const RETIRED_INVESTIGATION_IDS=['count','rarity-peek3','rare-mark2','epic-mark2','alt-mark1','rare-identity2','epic-identity2','common3','uncommon3','rare2','epic2','alt1','highest','appraisal','value-band','value-band4','top5'];
 
 export const INVESTIGATIONS:Investigation[]=[
  ...PARTIAL_INVESTIGATIONS,
@@ -26,6 +26,7 @@ export const INVESTIGATIONS:Investigation[]=[
  {id:"highest",label:"Top Card Peek",description:"Reveal the most valuable card identity, without its price.",cost:1200,tier:"strong"},
  {id:"rares",label:"Rare Valuation",description:"Exact combined market value of Rare-rarity copies.",cost:1500,tier:"strong"},
  {id:"share",label:"Top-Three Share",description:"Show the percentage of total value in the three highest-value copies.",cost:1800,tier:"strong"},
+ {id:"top2",label:"Top-Two Valuation",description:"Exact combined market value of the two highest-value copies.",cost:3500,tier:"premium"},
  {id:"top5",label:"Top-Five Valuation",description:"Exact combined market value of the five highest-value copies.",cost:3500,tier:"premium"},
  {id:"identity10",label:"Binder Preview",description:"Reveal up to 10 names and artworks, without prices.",cost:1600,tier:"premium"},
  {id:"appraisal",label:"Collection Appraisal",description:"Show an approximate 80–120% market-value range.",cost:6000,tier:"premium"},
@@ -37,6 +38,7 @@ export const LEGACY_INVESTIGATION_COSTS:Record<string,number>={count:500,sets:50
 const money=(cents:number)=>`$${(cents/100).toFixed(2)}`;
 const sum=(cards:AuctionCard[])=>cards.reduce((value,card)=>value+card.cents,0);
 const tiers=[['basic','basic','targeted'],['basic','targeted','strong'],['targeted','strong','premium'],['targeted','strong','premium']];
+const topCounts:Record<string,number>={top2:2,top5:5};
 export function informationOffers(auction:Auction):Investigation[]{
  const eligible=INVESTIGATIONS.filter(option=>!auction.clues.some(clue=>clue.id===option.id)&&informationUseful(auction,option.id));
  const picked:Investigation[]=[];
@@ -48,6 +50,7 @@ export function informationOffers(auction:Auction):Investigation[]{
 }
 export function informationUseful(auction:Auction,id:string){
  if(RETIRED_INVESTIGATION_IDS.includes(id))return false;
+ if(id==='top2')return !auction.clues.some(clue=>clue.id==='top5');
  if(['common-count','uncommon-count'].includes(id))return !auction.clues.some(clue=>clue.id==='rarities');
  const partialSlots=partialInvestigationSlots(auction,id);if(partialSlots!==null)return partialSlots.length>0;
  const raritySlots=rarityInvestigationSlots(auction,id);if(raritySlots!==null)return raritySlots.length>0;
@@ -77,7 +80,7 @@ export function investigate(auction:Auction,option:Investigation):{known:number[
  if(option.id==='over5'||option.id==='over20')text=`${lot.filter(card=>card.cents>(option.id==='over5'?500:2000)).length} copies.`;
  if(option.id==='bulk')text=money(sum(lot.filter(card=>['common','uncommon'].includes(card.rarity.toLowerCase()))));
  if(option.id==='rares')text=money(sum(lot.filter(card=>card.rarity.toLowerCase()==='rare')));
- if(option.id==='top5')text=money(sum([...lot].sort((a,b)=>b.cents-a.cents).slice(0,5)));
+ if(topCounts[option.id])text=money(sum([...lot].sort((a,b)=>b.cents-a.cents).slice(0,topCounts[option.id])));
  if(option.id==='share')text=`${Math.round(sum([...lot].sort((a,b)=>b.cents-a.cents).slice(0,3))/sum(lot)*100)}% of collection value.`;
  if(option.id==='appraisal')text=`${money(Math.floor(sum(lot)*.8/1000)*1000)}–${money(Math.ceil(sum(lot)*1.2/1000)*1000)} (game appraisal estimate).`;
  if(option.id==='highest'){const index=lot.findIndex(card=>card.cents===Math.max(...lot.map(row=>row.cents)));known.add(index);text=lot[index].name}

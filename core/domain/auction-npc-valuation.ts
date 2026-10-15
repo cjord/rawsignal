@@ -54,10 +54,10 @@ export function npcKnowledgeValue(knowledge:Knowledge){
  if(counted!==null){estimate=counted;certainty=Math.max(certainty,.4)}
  const category=categoryEstimate(knowledge,discount);
  if(category!==null){estimate=category;certainty=Math.max(certainty,.65)}
- const top=knowledge.clues.find(clue=>clue.id==='top5');
+ const top=knowledge.clues.find(clue=>clue.id==='top5')??knowledge.clues.find(clue=>clue.id==='top2');
  if(top){
-  const value=money(top)[0],count=Math.min(5,knowledge.count),prices=knowledge.random.map(card=>card.cents).toSorted((a,b)=>a-b);
-  // The top-five subtotal supplies no identities. Use a conservative lower sample,
+  const value=money(top)[0],count=Math.min(top.id==='top2'?2:5,knowledge.count),prices=knowledge.random.map(card=>card.cents).toSorted((a,b)=>a-b);
+  // The disclosed top-card subtotal supplies no identities. Use a conservative lower sample,
   // not a sample contaminated by chase hits, to estimate the remaining population.
   const remainder=npcConservativeMean(prices.slice(0,Math.max(1,Math.ceil(prices.length*.6))));
   estimate=value+Math.min(remainder,value/count)*Math.max(0,knowledge.count-count)*discount;certainty=Math.max(certainty,.7);

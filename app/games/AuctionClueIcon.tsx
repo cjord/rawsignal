@@ -16,6 +16,7 @@ const paths:Record<string,string>={
  highest:'M3 8l5 4 4-8 4 8 5-4-2 12H5z',
  rares:'M12 3l3 6 6 3-6 3-3 6-3-6-6-3 6-3z',
  share:'M12 3v9h9 M9 3a9 9 0 1 0 12 12',
+ top2:'M5 20V10h5v10 M14 20V3h5v17',
  top5:'M4 20v-5h4v5 M10 20V9h4v11 M16 20V3h4v17',
  appraisal:'M5 3h14v18H5z M8 7h8 M8 12h2 M14 12h2 M8 16h2 M14 16h2',
 };
