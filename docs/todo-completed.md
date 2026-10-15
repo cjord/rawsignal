@@ -9,6 +9,25 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-15 — Investigation rebalance (staging)
+
+Pushed application `172188e`; deployed staging `4d0c9c3e-f64a-4bc3-b22c-43d72b5b854d`.
+Expanded rarity markers, priced scans and identity peeks; Top Card Rarity marks
+location but reveals no new identity/price. Common/Uncommon Count replace their
+small priced scans, Rarity Census suppresses redundant counts, price checks cost
+more and Rare Valuation less. Fixed Collection Value Band replaces new appraisal
+offers in rounds 3–4, with NPC estimates using only disclosed bracket/count data.
+Old offers, purchased clues and locked bids remain compatible; optional local top
+marker survives reload. Existing margins/risk/participation and Chase Scan unchanged.
+
+Full gate passed: 462 node tests / one skipped, 54 browser tests, lint/type check;
+21 existing warnings, none new. Live revised-clue checks and 44 free / 72 paid card
+flows passed, with inventory sales, persistence, settlement, NPC loss sharing and
+reset. Zero browser errors or additional gameplay data calls. Screenshots checked
+in desktop/mobile dark/light. No database migration, ingestion refresh, cron or
+production change; production remains `4e8f2913`. Full costs/effects and compatibility
+notes: `docs/games-auction-house-plan.md`.
+
 ## 2026-10-15 — Compact collection headings and embedded history (staging)
 
 Pushed application `0d8f83e`; deployed staging `0bc4cd7b-1d0c-4448-b08d-6a73408e8a29`.

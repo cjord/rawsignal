@@ -38,6 +38,24 @@ are not added to Known Value. Later identity/public/final reveals retain a small
 badge without changing card dimensions. No extra API calls, database migration or
 scheduled work. GitHub push / staging deployment authorized; production unchanged.
 
+Release: application `172188e` pushed on `feature/set-rarity-heatmap`, deployed to
+staging version `4d0c9c3e-f64a-4bc3-b22c-43d72b5b854d`. Full gate passed: 462 node
+tests / one skipped, 54 Chromium tests, lint/type check, 21 existing warnings and none
+new. Unit coverage includes exact costs/counts, hidden top-card identity/price,
+legacy offered effects/prices, census redundancy, fixed-band boundaries and NPC
+count/band-only knowledge. The bundled-catalog Collector-overpayment guard still
+passes. Browser checks cover expanded scans/markers, whole-lot counts, top marker
+reload persistence, icon colors, both themes and mobile; screenshots reviewed.
+
+Live staging verified all fourteen revised clue price/effect paths (including safe
+zero matches under a browser-only forced offer), no identity/price disclosure from
+the top marker, zero browser errors and eleven initial feeds / zero additional data
+requests. Normal flows also passed: 44 free / 72 paid copies, settlement, paid entry
+charged once, inventory sales, persistence, NPC loss shares and reset, desktop/mobile
+dark/light. Those flows used eleven feeds / eleven on reload, zero extra gameplay
+requests. No database/cron/production changes; production remains `4e8f2913`.
+This verification record is a subsequent documentation-only commit.
+
 ## Compact collection headings and embedded bid history — 2026-10-15
 
 The pre-auction lobby/inventory returns to the centered standard Games page width;

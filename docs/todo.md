@@ -16,7 +16,8 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
   expanded rarity markers / scans / identity peeks, top-card rarity/location only,
   common/uncommon counts, revised clue prices and fixed Collection Value Band in
   rounds 3–4. NPC knowledge uses the same count/band semantics; old offers/results
-  remain compatible. No data/API/DB changes. Staging release details:
+  remain compatible. Pushed `172188e`, staged `4d0c9c3e`; full gate (462 node /
+  54 browser) and live clue/gameplay verification passed. No data/API/DB changes. Staging release details:
   `docs/games-auction-house-plan.md`.
 
 - Production promotion pending user direction for compact Auction House headings,
