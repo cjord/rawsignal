@@ -9,6 +9,27 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-15 — Auction auto advance, sound cues and Top-Two Valuation (production)
+
+Pushed application `1451236`; staging `469c9ca8-db37-4363-bc80-298f93aab7e0`, then
+production `60d8c7a5-7c3b-4719-8e8a-1f9e7f35938a`. Optional header Auto Advance
+defaults off, persists locally and counts down 20 seconds inside Next Auction Round.
+Disabling/manual navigation cancels it; settlement never auto-finishes. Top-Two
+Valuation replaces new Top-Five offers/NPC choices at $35, with legacy purchased
+five-card findings retained. Promo borders are red, prior bid cells match status
+heights, tooltip scrollbars are inset/thin, enabled Lock Bid pulses blue, and waiting
+copy is capitalized. Flip/investigation cues share mute/unlock and hidden-tab silence.
+
+Full gate: 473 node / one skipped, 58 browser, lint/typecheck with no new warnings.
+Tests cover timing, cancellation/manual races, settlement retention, preference
+persistence, sound suppression, top-two semantics and legacy saves, promo/rarity
+borders, tooltip scrolling and responsive themes. Live staging: 44 free / 108 paid
+cards, countdown/cancel and full inventory/game flow; zero browser errors or extra
+gameplay requests. Production assets match the validated build; Cloudflare still
+challenges the automated client on Games routes (403), so production gameplay
+verification remains open. Existing DBs, cron and security rules unchanged. Details:
+`docs/games-auction-house-plan.md`.
+
 ## 2026-10-15 — Paired investigation popups and auction staging promotion (production)
 
 Pushed application `4fee230`; staging `82e7c9ec-4153-4503-9eaa-75f9bf15ffb1`,

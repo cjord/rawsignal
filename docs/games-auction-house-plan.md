@@ -29,6 +29,19 @@ existing mute setting and user-gesture audio unlock; hidden tabs stay silent. No
 audio asset requests, new API/DB work, migration, fee changes or lot-generation
 changes are introduced. Release target: staging verification, then production.
 
+Released application `1451236` to staging `469c9ca8-db37-4363-bc80-298f93aab7e0`,
+then production `60d8c7a5-7c3b-4719-8e8a-1f9e7f35938a`. Full gate passed: 473 node
+tests / one skipped, 58 browser tests, lint/typecheck with 21 existing warnings and
+none new. Live staging passed 44 free / 108 paid cards, the enabled countdown and
+cancellation, matching bid-cell heights, finding popups, inventory/sales, persistence,
+loss shares and reset; both responsive themes, no browser errors, zero extra gameplay
+data calls (11 initial catalog feeds, 11 on deliberate reload). The smoke check now
+waits for page load before deferred artwork, and for the page's display interval to
+refresh after advancing a test clock installed after page entry. Initial loading/test
+timing timeouts did not recur in the completed flow. Production Games routes still
+challenge the automated client (403); published JS/CSS/portrait assets return 200
+and hash-match the validated build. No database, cron or security changes.
+
 ## Paired finding tiles and latest-bid controls — 2026-10-15
 
 Each round groups Your Investigation first (purple tile), then its Public Reveal

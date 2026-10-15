@@ -13,10 +13,11 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 ## Games — price comparison (2026-10-14)
 
 - Production gameplay verification pending Cloudflare testing access: latest Auction
-  House application `4fee230` is deployed to staging `82e7c9ec` and production
-  `174de053`, including the previously staging-only auction improvements. Full gate
-  passed (470 node / 56 browser); live staging verified safe purple/private and
-  blue/public finding popups grouped by round, latest-bid rows, reveal controls,
+  House application `1451236` is deployed to staging `469c9ca8` and production
+  `60d8c7a5`, including optional 20-second auto advance, Top-Two Valuation, flip and
+  investigation cues, promo borders and presentation polish. Full gate passed
+  (473 node / 58 browser); live staging verified countdown/cancellation, safe private
+  and public finding popups grouped by round, latest-bid rows, reveal controls,
   responsive themes, free/paid auctions, persistence and sales with no extra gameplay
   data calls. Production code/styles/assets match the validated build, but Games
   routes challenge the automated client with HTTP 403. No security changes made.
