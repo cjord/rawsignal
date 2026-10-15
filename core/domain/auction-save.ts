@@ -2,6 +2,7 @@ import {initialAuctionSave,type Auction,type AuctionSave} from "./auction-types.
 import {INVESTIGATIONS,LEGACY_INVESTIGATION_COSTS,PREVIOUS_INVESTIGATION_COSTS} from "./auction-information.ts";
 import {AUCTION_NPCS} from './auction-npcs.ts';
 import {NPC_INVESTIGATION_IDS} from './auction-npc-information.ts';
+import {AUCTION_LOT_THEMES} from './auction-lot-themes.ts';
 
 export const AUCTION_STORAGE_KEY='raw-signal-auction-house-v1';
 const record=(value:unknown)=>value!==null&&typeof value==='object'&&!Array.isArray(value);
@@ -14,7 +15,7 @@ function validSlots(value:unknown,length:number):value is number[]{return Array.
 function validNpcs(auction:Auction){
  return Array.isArray(auction.npcs)&&auction.npcs.length===3&&auction.npcs.every(npc=>record(npc)&&AUCTION_NPCS.some(profile=>profile.name===npc.name)&&integer(npc.bid,250000)&&integer(npc.lockAt,Number.MAX_SAFE_INTEGER)&&typeof npc.locked==='boolean'&&validSlots(npc.sample,auction.lot.length)&&validNpcInformation(npc,auction.lot.length))&&new Set(auction.npcs.map(npc=>npc.name)).size===3;
 }
-function validNpcInformation(npc:Auction['npcs'][number],length:number){return (npc.inspected===undefined||validSlots(npc.inspected,length))&&(npc.investigations===undefined||Array.isArray(npc.investigations)&&npc.investigations.length<=4&&new Set(npc.investigations).size===npc.investigations.length&&npc.investigations.every(id=>NPC_INVESTIGATION_IDS.includes(id)))}
+function validNpcInformation(npc:Auction['npcs'][number],length:number){return (npc.identified===undefined||validSlots(npc.identified,length))&&(npc.inspected===undefined||validSlots(npc.inspected,length))&&(npc.investigations===undefined||Array.isArray(npc.investigations)&&npc.investigations.length<=4&&new Set(npc.investigations).size===npc.investigations.length&&npc.investigations.every(id=>NPC_INVESTIGATION_IDS.includes(id)))}
 function validBidNotes(notes:unknown){return notes===undefined||Array.isArray(notes)&&notes.length<=4&&notes.every(note=>record(note)&&text(note.id)&&text(note.label)&&text(note.text,3000))}
 function validBids(bids:unknown){return Array.isArray(bids)&&bids.length<=4&&bids.every(bid=>record(bid)&&text(bid.name)&&integer(bid.cents)&&validBidNotes(bid.notes))}
 function validClues(auction:Auction){
@@ -22,7 +23,8 @@ function validClues(auction:Auction){
 }
 function validRoundMetadata(auction:Auction){return ['round','reveal','result'].includes(auction.stage)&&integer(auction.round,4)&&auction.round>=1&&integer(auction.seed)&&integer(auction.deadline,Number.MAX_SAFE_INTEGER)&&integer(auction.feeBps,10000)&&integer(auction.spent)&&typeof auction.bought==='boolean'&&(auction.selected===null||integer(auction.selected))}
 function validSnapshot(auction:Auction){
- if(!validLot(auction)||!validPublicReveals(auction))return false;
+ if(auction.lotTheme!==undefined&&!AUCTION_LOT_THEMES.some(theme=>theme.id===auction.lotTheme))return false;
+ if(!validLot(auction)||!validPublicReveals(auction)||auction.rarityKnown!==undefined&&!validSlots(auction.rarityKnown,auction.lot.length))return false;
  return Array.isArray(auction.range)&&auction.range.length===2&&auction.range.every(value=>integer(value,1000))&&auction.range[0]<=auction.range[1]&&validSlots(auction.known,auction.lot.length)&&validSlots(auction.priced,auction.lot.length)&&auction.priced.every(slot=>auction.known.includes(slot));
 }
 function validPublicReveals(auction:Auction){return auction.publicReveals===undefined||Array.isArray(auction.publicReveals)&&auction.publicReveals.length<=4&&new Set(auction.publicReveals.map(reveal=>reveal?.round)).size===auction.publicReveals.length&&auction.publicReveals.every(reveal=>record(reveal)&&integer(reveal.round,auction.round)&&reveal.round>=1&&validSlots(reveal.slots,auction.lot.length)&&reveal.slots.length<=3&&Array.isArray(auction.priced)&&reveal.slots.every(slot=>auction.priced.includes(slot)))}

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {prepareAuctionLot} from '../app/data/auction-images.ts';
+import {generateAuctionLot} from '../core/domain/auction-lots.ts';
 const pool=Array.from({length:100},(_,i)=>({productId:i+1,printing:'Normal',name:`Card ${i}`,image:`https://images.example/${i}`,set:'Origins',rarity:i<70?'Common':'Rare',section:'rares',cents:100+i}));
 test('artwork failures beyond four draws are excluded automatically until a valid collection is built',async()=>{
  const failed=new Set(),valid=new Set();let active=0,peak=0,draws=0,loaded=false,rejected=false;
@@ -17,4 +18,12 @@ test('paid preparation rerolls failed URLs and retains its minimum, and free lot
  const lot=await prepareAuctionLot(pool,loader,42,'paid');assert.ok(lot.length>=50&&lot.length<=130);assert.ok(lot.every(card=>!excluded.has(card.image)));
  const small=await prepareAuctionLot(pool.slice(0,6),loader,42);assert.equal(small.length,0); // three failed sources cannot supply six distinct eligible cards
  const healthy={failed:()=>false,exclude:()=>{},load:async()=>true};assert.deepEqual(await prepareAuctionLot(pool.slice(0,5),healthy,42),[]);assert.ok((await prepareAuctionLot(pool.slice(0,12),healthy,42)).length>=25);
+});
+test('artwork retries retain the original generation seed and theme instead of silently switching profiles',async()=>{
+ for(const kind of ['free','paid']){
+  const failed=new Set();let first=true;
+  const loader={failed:src=>failed.has(src),exclude:src=>failed.add(src),load:async()=>{if(first){first=false;return false}return true}};
+  const lot=await prepareAuctionLot(pool,loader,42,kind);assert.equal(failed.size,1);
+  assert.deepEqual(lot,generateAuctionLot(pool.filter(card=>!failed.has(card.image)),42,kind));
+ }
 });

@@ -1,7 +1,9 @@
 import {sampleIndices,type Auction,type AuctionCard,type Clue,type Investigation} from "./auction-types.ts";
 import {RARITY_INVESTIGATIONS,rarityInvestigationSlots} from './auction-rarity-investigations.ts';
+import {PARTIAL_INVESTIGATIONS,partialInvestigationSlots,investigatePartial} from './auction-partial-investigations.ts';
 
 export const INVESTIGATIONS:Investigation[]=[
+ ...PARTIAL_INVESTIGATIONS,
  ...RARITY_INVESTIGATIONS,
  {id:"count",label:"Exact card count",cost:500,tier:"basic"},
  {id:"sets",label:"Set Census",description:"Count copies from each expansion.",cost:200,tier:"basic"},
@@ -35,6 +37,7 @@ export function informationOffers(auction:Auction):Investigation[]{
  return picked;
 }
 function informationUseful(auction:Auction,id:string){
+ const partialSlots=partialInvestigationSlots(auction,id);if(partialSlots!==null)return partialSlots.length>0;
  const raritySlots=rarityInvestigationSlots(auction,id);if(raritySlots!==null)return raritySlots.length>0;
  if(id==='count')return false; // Every copy now has a visible slot; retain old saved clues.
  if(id==='reveal3')return auction.priced.length<auction.lot.length;
@@ -46,7 +49,8 @@ function breakdown(cards:AuctionCard[],key:'set'|'rarity'){
  const groups=new Map<string,number>();for(const card of cards)groups.set(card[key],(groups.get(card[key])??0)+1);
  return [...groups.entries()].map(([name,count])=>`${name}: ${count}`).join(' · ');
 }
-export function investigate(auction:Auction,option:Investigation):{known:number[];priced:number[];clue:Clue}{
+export function investigate(auction:Auction,option:Investigation):{known:number[];priced:number[];rarityKnown?:number[];clue:Clue}{
+ const partial=investigatePartial(auction,option);if(partial)return partial;
  const {lot}=auction,known=new Set(auction.known),priced=new Set(auction.priced);let text='';
  const candidates=rarityInvestigationSlots(auction,option.id);
  if(candidates!==null){

@@ -31,15 +31,14 @@ test('chase-only remaining stock still completes affordable free lots rather tha
  for(let seed=0;seed<50;seed++){const lot=generateAuctionLot(limited,seed);assert.ok(lot.length>=25&&lot.length<=90);assert.ok(lot.every(card=>limited.some(source=>source.productId===card.productId)))}
 });
 
-test('both modes boost personal-clue bids 15 percent only in round one, preserving random participation and cash caps',()=>{
+test('both modes price personal clues without opening or paid price boosts, preserving seeded participation and caps',()=>{
  for(const kind of ['free','paid'])for(let seed=0;seed<20;seed++){
   let save=beginAuction(initialAuctionSave(),pool,1000,pool.slice(0,50),seed,kind),previous;
   for(let round=1;round<=3;round++){
    const auction=save.auction,random=auctionRandom(seed+round*103);
    auction.npcs.forEach((npc,index)=>{
     const knowledge=npcRoundInformation(auction,index,npc.sample,previous?.[index]),mood=auctionNpcMood(seed,npc.name),personality=AUCTION_NPCS.findIndex(profile=>profile.name===npc.name);
-    const confidence=mood.confidence*(kind==='paid'?1.08:1)*(round===1?1.15:1);
-    assert.equal(npc.bid,npcBid(knowledge.prices,auction.range,[],personality,random,auction.feeBps,confidence,mood.participation+(kind==='paid'?.04:0),knowledge.estimate));
+    assert.equal(npc.bid,npcBid(knowledge.prices,auction.range,[],personality,random,auction.feeBps,mood.confidence,mood.participation+(kind==='paid'?.04:0),knowledge.estimate,knowledge.certainty));
     assert.equal(npc.lockAt,auction.deadline-60000+Math.round((.3+random()*.6)*60000));
     assert.ok(npc.bid>=0&&npc.bid<=250000);
    });

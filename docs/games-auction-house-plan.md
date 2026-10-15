@@ -1,5 +1,290 @@
 # Riftbound Auction House
 
+## NPC balance and three new rivals — staging release preparation (2026-10-15)
+
+Removed the 1.15 opening bid multiplier and 1.08 paid-price multiplier. Paid NPCs
+retain their small participation increase, not a higher automatic valuation. Most
+profiles keep resale margins, with smaller routine noise and ±2% auction mood.
+Explicit occasional stretch bids remain: Collector 2.5%, Opportunist 5%, Gambler
+10%, Follower 2%, Playset Builder 1%; other profiles do not use this extra risk roll.
+The Gambler remains the most aggressive. Fee-aware bids still cap at the virtual
+$2,500 budget, not the actual hidden collection value. No perfect-value guardrail
+or reaction to the player's sealed bid is introduced.
+
+The new pure `auction-npc-valuation.ts` boundary accepts only a bidder's priced
+observations, public/random samples, visible copy count and personally acquired
+aggregate/census clues. Unseen stock uses a median-clipped sample mean with an
+information-coverage discount. Targeted hits count individually. Bulk and rare
+totals are disjoint; priced outside copies are counted once. Top-five estimates
+use a conservative lower sample for the remainder instead of extrapolating chase
+hits. Appraisal uses the lower quarter of the provided range, not its near-exact
+midpoint. Census knowledge stratifies estimates by the revealed group counts;
+duplicate density discounts the independence of a tiny sample. Early bids are
+deliberately cautious and may miss hidden chase value; this is not a guarantee that
+the resulting auction difficulty is final. NPC overpayment remains possible.
+
+Ten profiles now form the roster pool; three are still randomly selected per auction:
+
+- **Archivist / Collection Census:** expansion and rarity censuses before bulk
+  valuation/appraisal. Uses the census counts, not knowledge of hidden prices.
+- **Playset Builder / Repeat-Card Specialist:** duplicate checks, identity peeks,
+  rarity census and rare valuation. Identity-only slots are saved separately from
+  priced inspections and never reveal prices to the valuation function.
+- **Skeptic / Cautious Cross-Check:** random scan, bulk/rare totals and appraisal;
+  uncertainty reduces participation as well as the conservative resale margin.
+
+Each new rival has an original 192px WebP portrait, distinct visible strategy and
+theme-aware name color. Generation prompts, asset paths and tool provenance are in
+`docs/auction-npc-artwork.md`. Existing art stays intact. Strength/rarity icon colors,
+centered Skip Reveal, neutral entry captions, five lot themes and playset caps from
+the preceding local follow-ups are included in this release preparation.
+
+NPC information remains free and NPC budgets still reset per auction. Charging
+NPC investigation costs or adding persistent bankrolls was not decided and is not
+silently implemented. NPC-loss sharing is unchanged. Existing frozen saves load;
+current saved bids remain frozen, while subsequent rounds use the revised model.
+The optional validated NPC `identified` slot list is backward compatible. No database
+migration, production change, ingestion job or extra market API call is required.
+
+Offline bundled-catalog audit: 500 seeds per mode, all four potential rounds,
+excluding passes. Collector bids above net resale value fell from approximately
+25% free / 41% paid in deployed-source generation to 0.6% / 0.2% in this version;
+Gambler remains higher at 6% / 3%. First-round overpayment across all profiles is
+about 1.2% free / 1.1% paid. Rosters and generated lots differ between versions;
+these are model-simulation rates, not paired trials, live telemetry, winning-loss
+rates or difficulty guarantees. Realized fees can differ by cents from the audit's
+whole-lot rounded 10% comparison. Tests include a separate 200-seed-per-mode
+Collector regression, information isolation, identity privacy, risk/uncertainty,
+no opening/paid uplift, save compatibility and original asset checks.
+
+Release validation: `npm run check` passed (454 node tests, one skipped, 51 Chromium
+journeys; 21 existing lint warnings, no new warnings). New-rival portrait/strategy
+screenshots were reviewed at desktop/mobile widths in both themes. Authorized
+GitHub push / staging deployment identifiers will follow. Production is out of scope.
+
+## Investigation icon colors and heading spacing — local follow-up
+
+Rarity-targeted scans, markers and identity peeks now use the same icon palette as
+collection rarity borders: common gray, uncommon green, rare blue, epic/alt art
+purple and overnumbered/signature chase gold. Rare Valuation also uses rare blue.
+General investigations use their existing strength tier: basic gray, targeted blue,
+strong purple and premium gold. Random/census clues do not imply a particular hidden
+card rarity; these colors describe the investigation level. Existing labels and
+descriptions remain the non-color cues. The shared icon component keeps the same
+colors in results and bid history without revealing private findings.
+
+Investigate / Investigation Results headings have a 24px gap before their following
+content. No clue pricing, gameplay, save, API or database changes. Not pushed/deployed.
+Validation: `npm run check` passed (450 node tests, one skipped, 50 Chromium journeys;
+21 existing lint warnings, no new warnings). Browser checks exercise every active
+clue's color mapping and heading gap on desktop/mobile in dark/light themes; reviewed
+screenshots. Icon rendering now uses a local glyph variable rather than reassigning
+the component's input ID.
+
+## Reveal heading and entry caption polish — local follow-up
+
+Skip Reveal now occupies the centered column of the same heading row as Collection
+Revealed and the right-aligned card count. It disappears when counting completes;
+the count stays right-aligned. Narrow screens use compact type and a wrapping title
+without moving the button to a separate row. Both entry-button captions explicitly
+have no independent border, corner radius, shadow or background; the accessible
+outer button retains its normal blue hover/focus/pulse treatment. No gameplay,
+prices, save format, API or database changes. Not pushed or deployed.
+
+Regression checks cover centered same-row positioning at desktop/390px/320px in both
+themes, Skip Reveal completion behavior and borderless entry captions on hover.
+`npm run check` passed: 450 node tests (one skipped), 49 Chromium journeys and
+21 existing lint warnings, with no new warnings. Heading screenshots reviewed.
+
+## Future multiplayer — public auctions only (2026-10-15)
+
+Status: future plan, not implemented. The user approved the direction with one
+explicit constraint: multiplayer supports **public auctions only**. No private
+auctions, invite-only rooms, join codes or private-room creation. This supersedes
+the earlier conversational suggestion to prototype invite-code rooms. Private
+investigations and sealed bids remain private information inside a public auction;
+public entry does not mean exposing hidden game state. Keep solo NPC play available.
+
+### Proposed player experience
+
+- A public auction lobby / Quick Join flow under Auction House. List waiting tables
+  and seat availability; joining reserves a seat server-side. An internal table ID
+  or public URL is routing, not an invitation or access code.
+- Start with up to four seats and one complete auction using the existing themed
+  lots, investigations, shared reveals, four-round timing and settlement interface.
+  NPC fill is proposed, not decided; define minimum humans, waiting time and when
+  unfilled seats become NPCs before implementation.
+- Players see names/avatars, connection status and bid-lock status. Other players'
+  bid amounts stay hidden until round resolution; personal clue findings never
+  appear in another player's payload or bid tooltip.
+- Reconnect to the same seat with a secure session credential. Disconnects do not
+  pause the server deadline; a missing bid becomes a pass. Define reservation expiry,
+  abandoned-table cleanup and disconnected-seat handling explicitly. Guests must
+  not be able to take over another player's seat.
+- Recommended first economy: equal starting funds and separate multiplayer balances,
+  not imports from editable solo browser cash/inventory. Multi-auction sessions,
+  selling between auctions, accounts and persistent multiplayer collections follow
+  only after the initial public-auction flow is validated.
+
+### Technical direction and safeguards
+
+Recommended architecture: one Cloudflare Durable Object per public auction table,
+with hibernating WebSockets for action/state updates. The server owns the lot and
+generation seed, frozen price snapshot, private clues, NPC knowledge, balances,
+deadlines and settlement. The browser receives only a player-specific safe view;
+CSS-hidden copies of the full lot or all NPC bids are not acceptable. Reuse pure
+domain utilities and presentation, but split current single-player state into room
+state and per-player state rather than trusting localStorage saves.
+
+Use persisted deadlines and alarms, check deadlines on every action, and make
+settlement/retries idempotent. The browser animates the countdown locally; no
+per-second broadcasts, database writes, polling or price refreshes. Load a shared
+catalog snapshot for generation and freeze auction prices, rather than fetching
+source data per player, bid or round. Persist accepted actions before acknowledging
+them; reconnects receive a current versioned snapshot. Keep market D1 separate from
+live room coordination; any later account/history storage needs an explicit design.
+
+Public matchmaking adds abuse risks beyond the solo prototype: rate-limit table and
+seat creation, authenticate seat actions, validate message size/schema/origin,
+prevent duplicate submissions and bound room lifetime/storage. Public-lobby growth,
+multiple guest seats, collusion and passive NPC-loss payouts need an economy/abuse
+review before launch. Avoid free-form chat in the initial scope; decide nickname
+validation and reporting/moderation before opening public entry.
+
+Cost plan: use event-driven messages, hibernation and automatic expired-table cleanup.
+Measure Worker requests, Durable Object compute/storage, connections and reconnects
+in a load-tested prototype before committing to a monthly cost. No hosting resources,
+bindings, migrations or schedules are authorized by documenting this plan.
+
+### Implementation sequence and remaining decisions
+
+1. Specify the public lobby, seat lifecycle, start rules and guest/account identity.
+2. Extract a server-authoritative multi-player engine and privacy-safe views; test
+   concurrent bids, late actions, duplicate charges, hidden information and recovery.
+3. Build public discovery/join plus a single-auction flow with reconnect support.
+4. Decide and add NPC fill, if wanted; test capacity, cleanup, abuse and actual costs.
+5. Expand to rematches / multi-auction sessions and later account-backed progression.
+
+Still undecided: guest sessions versus accounts, minimum human players/start timeout,
+NPC-fill policy, cross-auction wallet/inventory persistence and NPC-loss sharing in
+mixed tables. Private rooms/codes are excluded, not an open decision. Future deployment
+requires separate authorization and staging/production resource isolation.
+
+Architecture references: [Durable Object WebSockets](https://developers.cloudflare.com/durable-objects/best-practices/websockets/),
+[alarms](https://developers.cloudflare.com/durable-objects/api/alarms/),
+[pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/).
+
+## Personality strategies and themed lots — local follow-up
+
+Seven NPC profiles now have distinct named investigation strategies, displayed below
+their names while bidding. Dealer: bulk-first reseller; Collector: premium specialist;
+Opportunist: targeted scout; Analyst: aggregate valuation; Gambler: chase hunter;
+Bargain Hunter: everyday value; Follower: sample checker. Preferences are seeded
+weighted choices (12/7/4/2 for their ranked preferences, 0.3 for other options), not
+fixed scripts. Round-tier eligibility, useful remaining scan stock and no repeated
+private investigation still apply. Empty/scarce target pools fall back to available
+clues, not omniscient findings. Rosters remain three randomly selected rivals.
+
+NPCs can now choose priced rarity scans in addition to the previous random scan and
+aggregate valuations. Their bid model counts actually inspected copies, estimates
+the unseen remainder from public/random samples only, and uses purchased aggregate
+information when available. A targeted rare/chase hit is not extrapolated across
+every unseen copy. Findings stay private, no current sealed player bid is consulted,
+and existing margins, participation, opening boost, cash cap and free NPC information
+cost rule remain unchanged. Existing locked bids are not rerolled on reload.
+
+Five visible themes replace the old hidden free profiles and generic paid profile:
+
+| Theme | Gameplay bias |
+| --- | --- |
+| Bulk Seller | 85% common/uncommon tier, more repeat attempts |
+| Deck Builder | 50% regular-rare tier, repeats and expansion focus |
+| Trade Binder | Mixed stock, fewer repeat attempts |
+| Set Collector | Strong expansion focus, low repeat rate |
+| Chase Collector | Stronger premium-tier weighting, low repeat rate |
+
+Themes apply to free and paid lots. Paid reduces each theme's bulk and regular-rare
+draw weights by 20%, moving the balance to premium stock. This is not a claim about
+actual decks, competitive demand, pack odds or a guarantee of specific cards/value.
+Deck Builder is explicitly a player-style collection, not a verified playable deck.
+Set focus prefers an eligible expansion with at least twelve unique printings; if
+stock, seeded playset caps or the budget prevent a preferred draw, generation falls
+back safely. Count bands, $2,000 cap, free chase suppression and rarity-scaled playset
+limits stay in force. Themes never alter source prices or printing identities.
+
+Only an optional validated theme ID is added to browser saves. New prepared lots
+retain their generation seed/theme through artwork rerolls; old frozen saves without
+a theme stay unlabelled, rather than inventing a theme from their seed. No database,
+ingestion, API or additional feed calls. Not pushed or deployed.
+
+Validation: `npm run check` passed (450 node tests, one skipped, 49 Chromium
+journeys; 21 existing lint warnings, no new warnings). Dedicated tests cover seeded
+personality preferences, scan-only price changes, hidden-price isolation, theme
+mix/focus differences across 300 seeds per mode, budget/count limits, legacy saves,
+artwork-retry theme consistency and responsive theme/strategy labels. Desktop/mobile
+dark/light screenshots reviewed. Existing Singles/Sealed regressions passed.
+
+## Playsets, partial clues and NPC-note cleanup — local follow-up
+
+Removed the paid-entry caption's independent gold background; it now inherits the
+same button surface as free entry. Shared-public-reveal notes/icons are filtered
+from NPC hover, round-review and history tiles, including legacy public-start notes.
+Stored history and actual NPC knowledge are unchanged; player notes remain intact.
+Empty filtered histories say No Private Clues, not that a bidder knew nothing.
+
+New information-only investigations: Rarity Peek (three random rarity markers, $4),
+Rare Markers (two regular rares, $6), Epic Markers (two regular epics, $10), Alt-Art
+Marker (one, $12), Chase Marker (one overnumber/signature, $18). Cards remain face
+down with only a rarity badge/border; no names, artwork, prices or Known Value change.
+Rare / Epic / Chase Identity Peeks reveal up to two / two / one matching identities
+without prices, costing $12 / $18 / $35. Priced scans remain separate. Partial clues
+exclude already-known information, are useful-stock filtered, and use an optional
+validated rarityKnown slot list. Markers sit after face-up cards, ahead of unknown
+backs. Old saves still load; no schema migration or added data calls.
+
+Collections now normally allow three copies per exact product/printing. A seeded
+fourth-copy permission has rarity-scaled probabilities: common 12%, uncommon 8%,
+rare 3%, epic 1%, alt art 0.3%, overnumbered 0.1%, signature 0.025%. Further copies
+must pass successively five-times-rarer conditional gates, within the existing
+profile maximum. Budget reservation and feasible lot sizes use these actual limits;
+they never silently force extra duplicates to fill a lot. These are game-generation
+rules, not pack odds. Exact printings are kept separate: combining alternate arts
+into gameplay-card playsets needs a verified base-card mapping, not name-only merging.
+Existing frozen auctions remain unchanged.
+
+Real bundled-catalog check, 500 seeds per mode: free common groups >3 copies 110/4532,
+uncommon 63/4471, rare 10/5983; paid common 99/4526, uncommon 13/3413, rare 34/12238.
+No epic/alt/overnumber/signature group exceeded three in this sample. Maximum free
+common stack was five; other observed exceptions were four. Not pushed/deployed.
+
+Validation: `npm run check` passed (445 node tests, one skipped, 48 Chromium
+journeys; 21 existing lint warnings, no new warnings). New tests cover rarity-scaled
+20,000-seed copy-limit monotonicity, real budget/copy constraints, source-order
+independence, marker/identity privacy, useful-stock filtering, saved marker validation,
+legacy/current shared-note filtering and neutral paid-entry caption. Browser marker
+checks and desktop/mobile dark/light screenshots passed; other auction, Singles
+and Sealed regressions remain green.
+
+### Current design review — proposals, not implemented
+
+1. **Economy guardrails first.** Free auctions cost nothing, all losing bidders share
+   NPC losses even when passing, and NPC budgets reset every auction. This permits
+   passive cash farming. Keep the mechanic but consider capped/funded payouts or
+   persistent NPC budgets; requires user approval because it changes the agreed rules.
+2. **Give the bankroll a purpose.** A five-auction challenge with a clear net-worth
+   target, optional higher stakes and a session recap would provide an objective.
+   Currently the $2,000 collection cap and fresh $2,500 NPC cap limit progression.
+3. **Offer meaningful clue choices.** There are now 29 registered investigations
+   (one retired), but only three random offers per round. A structured choice of
+   cheap overview / targeted inspection / valuation would make plans more reliable.
+   Useful-stock filtering also leaks rarity presence through the menu itself;
+   a generic choose-a-rarity scan with transparent empty-result rules could reduce it.
+4. **Personality clue preferences implemented locally** in the follow-up above.
+   A post-auction decision recap remains deferred; private findings remain private.
+5. **Visible themed collections implemented locally** in the follow-up above.
+   Verified deck composition is still deferred: rarity and expansion patterns alone
+   do not prove a competitive deck or synergy.
+
 ## Remove duplicated revealed-collection totals — released 2026-10-14
 
 Collection Revealed no longer repeats Market Value or Net Profit / Loss; those

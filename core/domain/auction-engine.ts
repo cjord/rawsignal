@@ -6,14 +6,16 @@ import {informationOffers,investigate} from "./auction-information.ts";
 import {auctionLossShares,auctionSaleRarity} from './auction-economy.ts';
 import {npcRoundInformation,npcInvestigationNotes} from './auction-npc-information.ts';
 import {auctionSampleValue,revealPublicRound} from './auction-public.ts';
+import {auctionLotTheme} from './auction-lot-themes.ts';
 
-export const AUCTION_OPENING_BID_MULTIPLIER=1.15;
 // This bidder knows only sample prices and a count range, never the full lot or sealed player bid.
-export function npcBid(sample:number[],range:[number,number],_priorBids:number[],personality:number,random:()=>number,feeBps=1000,confidence=1,participation=0,grossEstimate?:number):number{
- const npc=AUCTION_NPCS[personality]??AUCTION_NPCS[0];if(random()>Math.min(1,Math.max(0,npc.participation+participation)))return 0;
+export function npcBid(sample:number[],range:[number,number],_priorBids:number[],personality:number,random:()=>number,feeBps=1000,confidence=1,participation=0,grossEstimate?:number,certainty=1):number{
+ const npc=AUCTION_NPCS[personality]??AUCTION_NPCS[0],caution=npc.name==='The Skeptic'?.35+.65*certainty:1;
+ if(random()>Math.min(1,Math.max(0,(npc.participation+participation)*caution)))return 0;
  const estimate=(grossEstimate??auctionSampleValue(sample)*(range[0]+range[1])/2)*(1-feeBps/10000);
  if(estimate<=0)return 0;
- return Math.max(1,Math.min(250000,Math.round(estimate*npc.margin*confidence*(1-npc.noise+random()*npc.noise*2))));
+ const noise=1-npc.noise+random()*npc.noise*2,stretch=random()<npc.risk?1.08+random()*.1:1;
+ return Math.max(1,Math.min(250000,Math.round(estimate*npc.margin*confidence*noise*stretch)));
 }
 function roundNpcs(auction:Auction,now:number):Npc[]{
  const random=auctionRandom(auction.seed+auction.round*103);
@@ -21,10 +23,10 @@ function roundNpcs(auction:Auction,now:number):Npc[]{
  return roster.map((npc,index)=>{
   const previous=auction.npcs.find(bidder=>bidder.name===npc.name)?.sample??[];
   const sample=[...previous,...sampleIndices(auction.lot.length,Math.max(0,3+auction.round-previous.length),auction.seed+index*67+auction.round,[0,2,...previous])];
-  const knowledge=npcRoundInformation(auction,index,sample,auction.npcs.find(bidder=>bidder.name===npc.name));
+  const knowledge=npcRoundInformation(auction,index,sample,auction.npcs.find(bidder=>bidder.name===npc.name),npc.name);
   const mood=auctionNpcMood(auction.seed,npc.name),personality=AUCTION_NPCS.findIndex(profile=>profile.name===npc.name);
-  const paid=auction.kind==='paid',opening=auction.round===1?AUCTION_OPENING_BID_MULTIPLIER:1;
-  return {name:npc.name,sample,investigations:knowledge.investigations,inspected:knowledge.inspected,bid:npcBid(knowledge.prices,auction.range,[],personality,random,auction.feeBps,mood.confidence*(paid?1.08:1)*opening,mood.participation+(paid?0.04:0),knowledge.estimate),lockAt:now+Math.round((.3+random()*.6)*AUCTION_ROUNDS[auction.round-1].seconds*1000),locked:false};
+  const paid=auction.kind==='paid';
+  return {name:npc.name,sample,investigations:knowledge.investigations,inspected:knowledge.inspected,identified:knowledge.identified,bid:npcBid(knowledge.prices,auction.range,[],personality,random,auction.feeBps,mood.confidence,mood.participation+(paid?0.04:0),knowledge.estimate,knowledge.certainty),lockAt:now+Math.round((.3+random()*.6)*AUCTION_ROUNDS[auction.round-1].seconds*1000),locked:false};
  });
 }
 function openRound(auction:Auction,now:number):Auction{
@@ -36,6 +38,7 @@ export function beginAuction(save:AuctionSave,catalog:AuctionCard[],now:number,p
  if(save.auction||save.wallet.cash<entryFee)return save;
  const lot=(prepared??generateAuctionLot(catalog,seed,kind)).map(card=>({...card})),size=AUCTION_LOT_SIZES[kind];if(lot.length<size.min||lot.length>size.max)return save;
  const auction:Auction={seed,kind,entryFee,stage:'round',round:1,deadline:0,lot,range:[lot.length,lot.length],known:[0,2],priced:[0,2],offers:[],clues:[],bought:false,spent:0,selected:null,npcs:[],bids:[],bidHistory:[],result:null,feeBps:save.wallet.feeBps};
+ auction.lotTheme=auctionLotTheme(seed).id;
  return {...save,wallet:{...save.wallet,cash:save.wallet.cash-entryFee},sequence:save.sequence+1,auction:openRound(auction,now)};
 }
 export function buyInformation(save:AuctionSave,id:string,now:number):AuctionSave{
@@ -43,7 +46,7 @@ export function buyInformation(save:AuctionSave,id:string,now:number):AuctionSav
  if(!auction||auction.stage!=='round'||auction.selected!==null||auction.bought||now>=auction.deadline)return save;
  const option=auction.offers.find(option=>option.id===id);if(!option||save.wallet.cash<option.cost)return save;
  const result=investigate(auction,option);
- return {...save,wallet:{...save.wallet,cash:save.wallet.cash-option.cost},auction:{...auction,known:result.known,priced:result.priced,clues:[...auction.clues,result.clue],bought:true,spent:auction.spent+option.cost}};
+ return {...save,wallet:{...save.wallet,cash:save.wallet.cash-option.cost},auction:{...auction,known:result.known,priced:result.priced,...(result.rarityKnown?{rarityKnown:result.rarityKnown}:{}),clues:[...auction.clues,result.clue],bought:true,spent:auction.spent+option.cost}};
 }
 export function lockBid(save:AuctionSave,cents:number,now:number):AuctionSave{
  const auction=save.auction;

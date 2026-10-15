@@ -19,12 +19,13 @@ export function auctionMetricTone(value:number|null,kind:'signed'|'cost'|'info'=
 }
 export function orderedAuctionSlots(auction:Auction,visible:number[]){
  if(auction.stage==='result'&&visible.length===auction.lot.length)return [...visible].sort((a,b)=>auction.lot[b].cents-auction.lot[a].cents||a-b);
- const known=new Set(visible);return [...visible,...auction.lot.map((_,index)=>index).filter(index=>!known.has(index))];
+ const known=new Set(visible),hidden=auction.lot.map((_,index)=>index).filter(index=>!known.has(index));
+ return [...visible,...hidden.filter(index=>auction.rarityKnown?.includes(index)),...hidden.filter(index=>!auction.rarityKnown?.includes(index))];
 }
 // Old saves with detailed NPC notes must also expose only information TYPES in the UI.
 export function publicAuctionBidNotes(bid:RoundBid){
  if(bid.name==='You')return bid.notes;
- return bid.notes?.map(note=>{
+ return bid.notes?.filter(note=>note.id!=='public-start'&&!(note.id==='reveal3'&&['Public Starting Cards','Shared Public Reveals'].includes(note.label))).map(note=>{
   const starting=note.id==='public-start'||note.id==='reveal3'&&note.label==='Public Starting Cards';
   const legacy=note.id==='legacy-inspection'||note.label==='Private Inspection';
   return {id:note.id,label:starting?'Shared Public Reveals':legacy?'Card Inspection (Legacy)':INVESTIGATIONS.find(option=>option.id===note.id)?.label??'Investigation Unavailable',text:starting?'Used the shared public cards and prices.':'Used this investigation to estimate the collection. Card identities, prices and findings remain private.'};

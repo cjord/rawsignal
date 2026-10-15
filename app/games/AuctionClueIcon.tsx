@@ -1,3 +1,7 @@
+import {INVESTIGATIONS} from '../../core/domain/auction-information';
+
+const tierTones={basic:'common',targeted:'rare',strong:'epic',premium:'premium'} as const;
+const targetTones:Record<string,string>={common:'common',uncommon:'uncommon',rare:'rare',epic:'epic',alt:'epic',chase:'premium'};
 const paths:Record<string,string>={
  count:'M4 4h6v6H4z M14 4h6v6h-6z M4 14h6v6H4z M14 14h6v6h-6z',
  sets:'M5 7V3h14v14 M3 7h14v14H3z',
@@ -16,6 +20,12 @@ const paths:Record<string,string>={
  appraisal:'M5 3h14v18H5z M8 7h8 M8 12h2 M14 12h2 M8 16h2 M14 16h2',
 };
 export default function AuctionClueIcon({id}:{id:string}){
- if(['common3','uncommon3','rare2','epic2','alt1','chase1'].includes(id))id=id==='chase1'?'highest':id==='common3'||id==='uncommon3'?'bulk':'rares';
- return <svg className="auction-clue-icon" data-clue={id} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[id==='public-start'?'reveal3':id==='legacy-inspection'?'identity3':id]??paths.appraisal}/></svg>;
+ const tier=INVESTIGATIONS.find(option=>option.id===id)?.tier;
+ const target=/^(common|uncommon|rare|epic|alt|chase)(?:\d|-)/.exec(id)?.[1];
+ const tone=target?targetTones[target]:id==='rares'?'rare':tier?tierTones[tier]:undefined;
+ let glyph=id;
+ if(id==='rarity-peek3'||id.includes('-mark'))glyph='rarities';
+ if(id.includes('-identity'))glyph='identity3';
+ if(['common3','uncommon3','rare2','epic2','alt1','chase1'].includes(id))glyph=id==='chase1'?'highest':id==='common3'||id==='uncommon3'?'bulk':'rares';
+ return <svg className="auction-clue-icon" data-clue={glyph} data-tone={tone} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[glyph==='public-start'?'reveal3':glyph==='legacy-inspection'?'identity3':glyph]??paths.appraisal}/></svg>;
 }

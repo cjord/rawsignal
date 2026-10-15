@@ -11,13 +11,13 @@ test('NPCs choose named investigations, preserve memory and snapshot only their 
  for(let round=1;round<=4;round++){
   for(const npc of save.auction.npcs){assert.equal(npc.investigations.length,round);assert.ok(NPC_INVESTIGATION_IDS.includes(npc.investigations.at(-1)));assert.notEqual(npcInvestigationName(npc),'Private Inspection')}
   save={...save,auction:{...save.auction,npcs:save.auction.npcs.map(npc=>({...npc,bid:1,locked:true}))}};save=lockBid(save,1,save.auction.deadline-1000);save=tickAuction(save,save.auction.deadline-500);
-  save.auction.npcs.forEach((npc,index)=>{const notes=publicAuctionBidNotes(save.auction.bids[index+1]);assert.equal(notes[1].label,npcInvestigationName(npc));assert.ok(!JSON.stringify(notes).includes('Secret Card'));assert.ok(!JSON.stringify(notes).includes('$'))});
+  save.auction.npcs.forEach((npc,index)=>{const notes=publicAuctionBidNotes(save.auction.bids[index+1]);assert.equal(notes.length,1);assert.equal(notes[0].label,npcInvestigationName(npc));assert.ok(!JSON.stringify(notes).includes('Secret Card'));assert.ok(!JSON.stringify(notes).includes('$'))});
   assert.deepEqual(parseAuctionSave(JSON.stringify(save)),save);
   if(round<4)save=nextAuctionRound(save,save.auction.deadline+1);
  }
 });
 test('unseen prices outside the chosen aggregate and personal samples do not influence NPC estimates',()=>{
- const auction=beginAuction(initialAuctionSave(),pool,1000,undefined,42).auction,sample=[1,3,4,5],previous={investigations:['reveal3'],inspected:[]};
+ const auction=beginAuction(initialAuctionSave(),pool,1000,undefined,42).auction,sample=[1,3,4,5],previous={name:'The Dealer',investigations:['reveal3'],inspected:[]};
  const info=npcRoundInformation(auction,0,sample,previous);assert.equal(info.investigations.at(-1),'bulk');
  const known=new Set([0,2,...sample]),hidden=auction.lot.findIndex((card,index)=>!known.has(index)&&card.rarity==='Rare');assert.ok(hidden>=0);
  const changed={...auction,lot:auction.lot.map((card,index)=>index===hidden?{...card,cents:999999}:card)};

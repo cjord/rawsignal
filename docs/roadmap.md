@@ -10,6 +10,17 @@ without re-deriving them. Update or remove entries as they land. The signal-mode
 `docs/todo.md` §P (open steps, priorities, scheduled tasks) and `docs/todo-completed.md`
 (shipped steps P1–P7 with build notes), with run evidence in `docs/backtests.md`.
 
+## Auction House multiplayer — FUTURE (2026-10-15)
+
+Multiplayer will support **public auctions only**, with public discovery / Quick Join.
+Private rooms, invite-only auctions and join codes are excluded. Keep solo NPC play.
+The proposed first version uses server-authoritative four-seat tables, private clues
+and sealed bids, reconnect support and a separate multiplayer economy. Guest/account
+identity, minimum humans/start timing, NPC fill and persistence remain undecided.
+Detailed architecture, safeguards, cost-validation and implementation stages are in
+`docs/games-auction-house-plan.md` §Future multiplayer; tracked in `docs/todo.md`.
+This is planning only, not authorization to provision or deploy multiplayer hosting.
+
 ## 1. D1 backfill and cutover — DONE (production live 2026-08-28+)
 
 Production (`raw-signal` @ rawsignal.cards, minutely guarded cron) serves catalog,
