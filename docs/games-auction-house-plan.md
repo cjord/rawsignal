@@ -1,6 +1,6 @@
 # Riftbound Auction House
 
-## Free chase balance, opening bids and full-width layout — local, 2026-10-14
+## Free chase balance, opening bids and full-width layout — released 2026-10-14
 
 Free draws retain 80% of initially selected overnumbered copies and 50% of signatures.
 Rejected copies reroll into eligible non-chase stock (same candidate group first,
@@ -26,7 +26,7 @@ were unchanged. These figures describe the game generator, not real market odds.
 
 Auction House alone opts into the full browser width with existing 24px desktop /
 16px mobile gutters; Games and Price Showdown retain their current maximum width.
-No extra API requests, database work, save-format change, push or deployment.
+No extra API requests, database work or save-format change.
 
 Validation: `npm run check` passed with 438 node tests, one skipped, 47 Chromium
 journeys and no new lint warnings (21 existing). Added distribution/stock-exhaustion
@@ -34,6 +34,18 @@ regressions, exact seeded clue-based round-one boost and unchanged later-round b
 checks for both modes, and full-width/gutter assertions in desktop/mobile journeys.
 Auction screenshots reviewed in dark/light at 1440px and 390px; existing Singles
 and Sealed browser journeys also passed.
+
+Application commit `1a18fbc` pushed on `feature/set-rarity-heatmap` and deployed
+to staging `3e587bd2-9772-443d-a2f7-a2be4956b4fe`, then production
+`903c395c-6c51-44a2-9693-742b994041d1`. Live staging verified full browser width,
+53-card free / 64-card paid auctions, settlement, paid fee, random collections,
+inventory sales, persistence, reset, NPC loss sharing and dark/light desktop/mobile
+layouts. Zero browser errors and no additional gameplay pricing calls (11 initial
+feeds plus 11 on reload). Production deployment succeeded; its game bundle and CSS
+return 200 and match the validated build hashes. Live production gameplay remains
+blocked by Cloudflare HTTP 403 (`Cf-Mitigated: challenge`). No security-rule changes,
+migrations, ingestion jobs or database mutations were performed. Existing staging
+no-cron and production guarded minutely-cron policies are unchanged.
 
 ## Collection sizes and settlement navigation — released 2026-10-14
 
