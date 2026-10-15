@@ -1,6 +1,6 @@
 # Riftbound Auction House
 
-## Remove duplicated revealed-collection totals — local, 2026-10-14
+## Remove duplicated revealed-collection totals — released 2026-10-14
 
 Collection Revealed no longer repeats Market Value or Net Profit / Loss; those
 running/final metrics remain in Auction Settled. Its explanation toggletip moves
@@ -8,7 +8,7 @@ to that settlement section beside count progress. Skip Reveal remains a separate
 right-aligned control while counting. Active Mystery Collection still shows Known
 Value and the individual-price/aggregate-clue explanation. Individual card prices,
 counting, final value sorting and all shared-round/NPC/investigation changes below
-are retained. No pricing, save-format, API or database changes; not deployed.
+are retained. No pricing, save-format, API or database changes.
 
 Final validation: `npm run check` passed (441 node tests, one skipped, 47 Chromium
 journeys; 21 existing lint warnings). Regressions cover no duplicate completed
@@ -18,7 +18,20 @@ The initial run caught ambiguous metric lookups when the tooltip lived inside a
 metric tile; it now sits outside the metric grid beside count progress, and the
 complete gate was rebuilt/rerun successfully on that final layout.
 
-## Shared round clues, investigations and calmer NPCs — local, 2026-10-14
+Application commit `2a3f8da` pushed on `feature/set-rarity-heatmap`, then deployed
+to staging `1be620f0-5fd7-4437-a6fc-96db623ac650` and production
+`e587217f-bbc0-4343-8e48-37e1589e2058`. Live staging passed 53-card free / 122-card
+paid auctions, settlement, inventory sales, persistence, reset, NPC loss sharing,
+compact artwork and dark/light desktop/mobile layouts; zero browser errors and
+zero extra gameplay pricing calls (11 initial feeds plus 11 on reload).
+Production bundle and CSS return 200 with exact validated build hashes; gameplay
+verification remains blocked by Cloudflare HTTP 403 (`Cf-Mitigated: challenge`).
+No security changes, migrations, database mutations or ingestion jobs were performed;
+staging remains cron-less and production retains its guarded minutely schedule.
+Start a new auction for the new offer/balancing rules; saved offered prices and
+already-generated current-round bids remain intact.
+
+## Shared round clues, investigations and calmer NPCs — released 2026-10-14
 
 Each round now includes a free public price reveal shared with every bidder: the
 two shuffled starting cards in round one, then 1–3 newly public slots per round.
@@ -60,7 +73,8 @@ After counting, NPC Loss Shared expands vertically rather than popping in, with 
 static reduced-motion alternative. Only once every card is counted does the revealed
 collection sort by market value descending (stable slot ties); counting order and
 frozen indices are unchanged. Entry artwork is now a compact side thumbnail rather
-than a large banner. No additional data calls, D1 work or migrations. Not deployed.
+than a large banner. No additional data calls, D1 work or migrations. Deployed with
+the collection cleanup release recorded above.
 
 Validation: final `npm run check` passed (441 node tests, one skipped, 47 Chromium
 journeys; 21 existing lint warnings, no new warnings). Added shared-round continuity,

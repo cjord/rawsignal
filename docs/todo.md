@@ -12,17 +12,12 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
-- Local revealed-collection cleanup: remove duplicate market/net totals after
-  settlement, move the explanatory tooltip into Auction Settled, retain Skip Reveal
-  separately and Known Value during active bidding. Included with the local shared
-  round / investigation / NPC work below; not pushed/deployed.
-
-- Local auction round-information/balance update: shared free public price reveals
-  every round, six targeted rarity scans, revised investigation labels/descriptions/
-  prices with saved-offer compatibility, moderated NPC outlier estimates and narrower
-  personalities. Negative fee amounts, expanding loss-share results, compact entry
-  thumbnails and final value-descending collection order. No extra pricing calls
-  or database changes; not pushed/deployed. Rules/costs/calibration in the auction plan.
+- Auction House production browser verification remains pending Cloudflare's
+  managed challenge (403). Shared-round reveals, revised/rarity investigations,
+  calmer NPCs, compact artwork and collection/settlement cleanup shipped from
+  `2a3f8da`: staging `1be620f0`, production `e587217f`. Full gate and live staging
+  passed; production bundle/CSS match the validated build. No security changes.
+  Shipped notes: `docs/todo-completed.md`; rules/costs: `docs/games-auction-house-plan.md`.
 
 - Released Auction compact-grid/settlement follow-up: auto-fill collection columns with a
   140px tile cap, bid-control and participant separators, six settlement metrics

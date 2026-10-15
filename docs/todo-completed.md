@@ -9,6 +9,24 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-14 — Auction shared reveals, investigations and collection cleanup
+
+Application `2a3f8da` pushed and deployed to staging `1be620f0` and production
+`e587217f`. Shared priced cards each round; six rarity scans; revised names,
+descriptions and fees with saved-offer compatibility; outlier-moderated NPC
+estimation and narrower personalities. Negative cost display, expanding loss
+sharing, compact entry artwork, value-descending final card order, and no duplicate
+collection totals (explanation moved into Auction Settled). Details, full version
+IDs and calibration: `docs/games-auction-house-plan.md`.
+
+Full gate: 441 node tests passed, one skipped, 47 Chromium journeys. Live staging:
+53-card free / 122-card paid auctions, inventory sales/persistence/reset, loss
+sharing, dark/light desktop/mobile, zero browser errors or extra gameplay pricing
+calls. Production bundle/CSS hash-match the validated build; automated gameplay
+still receives the Cloudflare challenge (403). No security changes, migrations,
+database writes or ingestion runs. New auctions use updated rules; frozen current
+rounds and previously offered saved prices remain compatible.
+
 ## 2026-10-14 — Riftbound Auction House production release
 
 Published pushed source `c983e21` to staging `28235f76` and production `04c63e07`.
