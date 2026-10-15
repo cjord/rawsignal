@@ -23,6 +23,20 @@ No additional API calls, database reads/writes, migration, scheduled job or prod
 deployment is needed. Prices still freeze on entry. Deployment target: staging only;
 production promotion remains a separate user decision.
 
+Release: application `a67e785` pushed on `feature/set-rarity-heatmap`, then deployed
+to staging version `c16d9d67-82ed-4e29-8c40-b10831b236a0`. Final full gate passed:
+455 node tests (one skipped), 53 Chromium tests, lint/type check, with 21 existing
+warnings and none new. Browser tests cover four-round cumulative findings, private
+identity-only prices, larger opening reveals, flips/pop effects and reduced motion,
+reload persistence and desktop/390px/320px dark/light layout; screenshots reviewed.
+Live staging checks passed with 62 free / 55 paid copies, public information in
+Investigation only, centered Known Value, paid entry charged once, settlement,
+inventory sales, NPC loss sharing, reset and reload persistence. Zero browser errors,
+eleven initial feed requests / eleven on reload, zero further gameplay data requests.
+The live helper needed to scroll entry artwork into view before awaiting lazy images;
+the scroll-aware retry passed. No database/cron changes. Production unchanged at
+`4e8f2913`. This verification record is a subsequent docs-only commit.
+
 ## Settlement layout and collection hover — staged 2026-10-15
 
 Finish & Manage Inventory sits top-right on the Auction Settled heading row, including

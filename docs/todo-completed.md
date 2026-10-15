@@ -9,6 +9,24 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-15 — Investigation memory and opening reveals (staging)
+
+Pushed application `a67e785` on `feature/set-rarity-heatmap`; deployed staging
+`c16d9d67-82ed-4e29-8c40-b10831b236a0`. Investigation / Investigation Results now
+contains every public round reveal and all purchased clues, plus private revealed
+cards with unknown prices kept unknown. New auctions reveal `ceil(copies * 5%) + 1`
+opening cards, occasionally one or two extra; later rounds add 1–3 public cards.
+Round-start public panels pop in, cards flip, and Known Value is centered and larger.
+Reduced motion, legacy saves (including next-round continuation), NPC knowledge
+boundaries and individually priced-only sums are preserved.
+
+Final gate: 455 node tests passed / one skipped, 53 browser tests, lint/type check;
+21 existing warnings, none new. Live staging passed free/paid entry, cumulative
+information, settlement, inventory sales, NPC loss sharing, reset and persistence;
+zero browser errors and no additional gameplay requests beyond existing feed loads.
+Desktop/mobile dark/light checks passed. No migrations, refresh jobs or cron changes;
+production unchanged at `4e8f2913`. Details: `docs/games-auction-house-plan.md`.
+
 ## 2026-10-15 — Settlement layout and rarity hover (staging)
 
 Pushed application `bf79148` on `feature/set-rarity-heatmap`; deployed staging

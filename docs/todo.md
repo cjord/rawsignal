@@ -16,7 +16,9 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
   cumulative public cards/prices and private clues in Investigation / Investigation
   Results, `ceil(5% of copies) + 1` opening cards with occasional 0–2 extras,
   round-start pop/flip feedback and centered larger Known Value. Existing saves
-  retained; no additional data calls or database work. Staging release details:
+  retained; no additional data calls or database work. Pushed `a67e785`, staging
+  `c16d9d67`; full gate (455 node / 53 browser) and live staging verification passed.
+  Production remains `4e8f2913`. Staging release details:
   `docs/games-auction-house-plan.md`.
 
 - Production promotion pending user direction for settlement polish: finish button in the heading row, winner-line
