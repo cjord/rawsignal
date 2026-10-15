@@ -27,6 +27,21 @@ labels/dialogs, artwork keeps its natural ratio, and rarity-hover behavior is re
 No auction economics, NPC strategy, save-format, data calls, database or cron changes.
 Target: GitHub push and staging deployment only; production remains a separate decision.
 
+Released application `0d8f83e` on `feature/set-rarity-heatmap` to staging version
+`0bc4cd7b-1d0c-4448-b08d-6a73408e8a29`. Full gate passed: 455 node tests / one
+skipped, 53 Chromium tests, lint/type check, 21 pre-existing warnings and none new.
+Screenshots reviewed for desktop/390px/320px dark/light heading alignment. Browser
+tests check centered lobby vs full-width active play, cumulative summaries, uniform
+card sizes, public markers surviving settlement without marking private-only cards,
+counting Total Value parity and the embedded matrix across rounds.
+
+Live staging passed 33-card free / 96-card paid entry, compact summary/public markers,
+fixed card sizes, settlement/Total Value, embedded history and private-clue-type
+tooltips, persistence, inventory sales, NPC loss sharing and reset. Zero browser
+errors; eleven initial feeds / eleven on reload and zero further gameplay requests.
+Staging remains no-cron; no migrations or ingestion refresh. Production unchanged at
+`4e8f2913`. This release record is a subsequent documentation-only commit.
+
 ## Investigation memory and opening reveals — 2026-10-15
 
 The Investigation tile owns cumulative shared public information and purchased clues.

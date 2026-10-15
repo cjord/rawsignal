@@ -15,7 +15,8 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 - Production promotion pending user direction for compact Auction House headings,
   centered lobby / full-width active auctions, running Total Value, concise reveal
   summaries, public-eye markers with uniformly sized cards and embedded bid history.
-  No gameplay rules or data calls changed. Staging release details:
+  No gameplay rules or data calls changed. Pushed `0d8f83e`, staged `0bc4cd7b`;
+  full gate (455 node / 53 browser) and live verification passed. Staging release details:
   `docs/games-auction-house-plan.md`.
 
 - Production promotion pending user direction for Investigation memory/opening reveals:

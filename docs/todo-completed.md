@@ -9,6 +9,23 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-15 — Compact collection headings and embedded history (staging)
+
+Pushed application `0d8f83e`; deployed staging `0bc4cd7b-1d0c-4448-b08d-6a73408e8a29`.
+Centered lobby restored; active auctions remain full-width. Collection headings show
+centered Known Value / counting Total Value alongside title and copy count. Skip
+Reveal remains centered below. Shared information and investigation findings use
+concise cumulative summaries, with public-eye markers on the uniformly sized cards
+instead of repeating full revealed-card lists. Between-round / settled tiles embed
+the four-round history matrix; no separate history tile or empty active-round table.
+
+Full gate passed: 455 node tests / one skipped, 53 browser tests, lint/type check,
+21 existing warnings and none new. Desktop/390px/320px dark/light screenshots checked.
+Live staging passed free/paid entry, summaries/public markers, Total Value parity,
+embedded history, inventory sales, persistence, NPC loss shares and reset. Zero
+browser errors or additional gameplay data requests. No DB/cron/economy/save changes;
+production remains `4e8f2913`. Details: `docs/games-auction-house-plan.md`.
+
 ## 2026-10-15 — Investigation memory and opening reveals (staging)
 
 Pushed application `a67e785` on `feature/set-rarity-heatmap`; deployed staging
