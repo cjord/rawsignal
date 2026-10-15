@@ -12,38 +12,15 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
-- Auction economy/lobby follow-up: rarity-group inventory selling with confirmation,
-  NPC winner losses shared among the other three bidders, accessible timing tooltip,
-  clearer lobby facts and theme-aware wallet/lobby accents. Validating for staging
-  and production; rules and backwards-compatible save behavior are documented in
-  `docs/games-auction-house-plan.md`. No new API or database activity.
-
-- Auction House single-auction prototype deployed and verified on staging
-  (2026-10-14); production publication remains pending. Browser-saved cash/inventory, current-market holdings,
-  configurable 10% selling fee, sealed NPC bidding and investigations. Boundaries
-  and deferred phases: `docs/games-auction-house-plan.md`.
-  Follow-up release includes full collection slots, reference card backs, sequential
-  reveal, 60-second pulsing rounds, sound/mute, clue icons, portraits and bid history.
-  Random lots and three-of-seven NPC personalities are deployed and verified on
-  staging (2026-10-14, application `f234786`, version `3e534e78`). Production remains
-  pending. No additional gameplay pricing/database calls are required.
-  New review polish: participant-colored names, round-column bid history with
-  clue snapshots/popups, full-width results, winner pause and player-win confetti.
-  Validated with 415 unit tests and 41 browser checks; deployed and verified on
-  staging (application `8d29a28`, version `35f8b249`, 2026-10-14).
-  Review NPC balance after player testing. The privacy correction now keeps NPC
-  sample identities/prices private and bases estimates on personal accumulated
-  inspection only; no other bidders' price inputs. Equal-height investigation
-  panels, aligned bid controls, neutral zero metrics, rarity-matched inventory and
-  centered dialogs are deployed and verified on staging (application `842cfe7`,
-  version `e100bb10`, 2026-10-14). Full gate: 419 unit tests and 42 browser checks.
-  Settlement-count follow-up: skeleton metrics update with revealed collection
-  totals, vertically stacked investigation choices, and separate previous-bid
-  tiles beside each participant in rounds 2–4. No added data calls or writes;
-  deployed and verified on staging (application `a4d835a`, version `1d84c0b6`,
-  2026-10-14). Full gate: 420 unit tests passed, one skipped, 43 browser checks.
-  Live 104-card auction verified settlement, inventory/sale/reset and zero extra
-  gameplay pricing calls. Production unchanged. See the auction plan for details.
+- Auction House is deployed to staging and production from `c983e21` (2026-10-14).
+  Shipped implementation and economy/lobby changes moved to `docs/todo-completed.md`;
+  detailed decisions and staged release history remain in `docs/games-auction-house-plan.md`.
+  Follow-up: production browser verification is blocked by Cloudflare's managed
+  challenge (HTTP 403, `Cf-Mitigated: challenge`); the new game bundle and artwork
+  return 200. Retest after the existing testing-IP exception is reviewed. No security
+  rules were changed. Staging live flow and the full release gate passed.
+  Review NPC balance and cash inflation from loss-sharing after player testing;
+  persistent NPC wallets and multi-auction sessions remain deferred.
 
 - Riftbound Price Showdown is released and verified in production (2026-10-14).
   Shipped features and validation moved to `docs/todo-completed.md`; plan and cost

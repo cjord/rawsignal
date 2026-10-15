@@ -9,6 +9,40 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-14 — Riftbound Auction House production release
+
+Published pushed source `c983e21` to staging `28235f76` and production `04c63e07`.
+Full gate: 423 node tests passed, one skipped, 45 Chromium journeys; no new lint
+warnings. An initial run exposed an old hover assertion comparing against an
+animating button; it now resolves the fixed blue token, and the complete rerun passed.
+
+- Single-auction game with random verified-image collections, three-of-seven NPC
+  personalities, four one-minute rounds, personal private NPC samples, paid clues,
+  sealed bids, sound/mute, rarity borders, winner pause/confetti and bid-note matrix.
+- Browser-saved cash/inventory, live catalog valuation, configurable 10% fee,
+  centered reset/sale confirmations, skeleton-to-running settlement totals and
+  separate previous-round bid tiles in rounds 2–4.
+- Sell All controls by owned priced rarity group; exact copy/proceeds confirmation,
+  separate printing identities and retention of unpriced/other-rarity holdings.
+- NPC winner losses after fees split exactly among all other bidders (passes
+  included); seeded cent remainder, one-time player cash credit, result breakdown.
+  NPC shares are displayed but NPC wallets are not persisted; old results are not
+  retroactively paid. Player losses do not trigger this rule.
+- Readable capitalized lobby facts, accessible timer/preparation tooltip, green
+  cash/blue inventory and next-collection accents across dark/light desktop/mobile.
+- Live staging passed a 58-card auction, current inventory/sale/reset, rarity sale,
+  NPC loss-sharing, new collection, both-theme responsive layouts, zero browser
+  errors and zero additional gameplay pricing calls (11 initial feeds + 11 reload).
+  A helper initially checked lobby facts before hydration; waiting for the lobby
+  fixed verification without an application change.
+- Production deployment succeeded with its custom domain, guard cron, bindings,
+  variables and secrets preserved. New artwork and exact game bundle return 200,
+  including the new feature strings. Full production browser verification remains
+  blocked by Cloudflare HTTP 403 (`Cf-Mitigated: challenge`); not claimed as passed.
+  No WAF changes, migrations, database refreshes or new upstream spending.
+
+Plan and staged release history: `docs/games-auction-house-plan.md`.
+
 ## 2026-10-14 — Riftbound Price Showdown
 
 Published already-pushed source `f72c22c` to production Worker version `6e7e8e08`.
