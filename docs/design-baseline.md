@@ -101,6 +101,11 @@ Defined in `app/styles/tokens.css` (dimensions/motion/stacking) and `app/globals
   `--hover-lift` and `--popover-lift` are pinned to 0 and stay that way.
 - Press feedback (`:active`) may compress ≤1% scale; selected-state emphasis (e.g. the
   view-toggle's active icon) is allowed — the ban is on *hover* movement.
+- **Narrow hover-color exception (2026-10-15, user-requested):** Auction House
+  collection-card borders and hover rings follow the card's revealed rarity instead
+  of the usual blue. Unrevealed/unmarked backs stay neutral so hover cannot leak
+  hidden rarity. Keyboard focus stays blue. This does not change inventory, other
+  tiles, buttons, leaderboards or the flat/no-hover-movement rule.
 - **Deliberate exception (2026-08-27, user-requested):** the detail-hero card art tilts
   toward the pointer (rotateX/Y ≤ ~6°) as an interactive flourish. Mouse pointers tilt on
   hover; touch (added 2026-09-01, user-requested) tilts only after a ~220ms hold on the

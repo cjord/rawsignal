@@ -33,16 +33,15 @@ export function AuctionRoundHeader({auction,now}:{auction:Auction;now:number}){
 export default function AuctionRound({save,now,transact,revealDone=true,visible=save.auction!.lot.map((_,index)=>index)}:Props){
  const auction=save.auction!;
  return <div className={`auction-round-panel${auction.stage==='round'?'':' is-results'}`}>
-  {auction.stage==='round'?<RoundControls key={auction.round} save={save} now={now} transact={transact}/>:<section className="detail-section auction-results" id={auction.stage==='result'?'auction-settled':undefined}><h2>{auction.stage==='result'?'Auction Settled':'Round Bids'}</h2>
-   {auction.stage==='reveal'?<><p className="auction-no-buyout">No Early Buyout</p><p className="games-note">The buyout threshold wasn’t met. Another round gives you a fresh chance to win.</p><AuctionRoundBids auction={auction}/><button className="game-control auction-finish auction-next-round" type="button" onClick={()=>transact(current=>nextAuctionRound(current,Date.now()))}>Next Auction Round</button></>:<AuctionOutcome save={save} transact={transact} revealDone={revealDone} visible={visible}/>}
+  {auction.stage==='round'?<RoundControls key={auction.round} save={save} now={now} transact={transact}/>:<section className="detail-section auction-results" id={auction.stage==='result'?'auction-settled':undefined}><div className="auction-results-heading"><h2>{auction.stage==='result'?'Auction Settled':'Round Bids'}</h2>{auction.stage==='result'&&<button className={`game-control${revealDone?' auction-finish':''}`} disabled={!revealDone} type="button" onClick={()=>transact(finishAuction)}>Finish &amp; Manage Inventory</button>}</div>
+   {auction.stage==='reveal'?<><p className="auction-no-buyout">No Early Buyout</p><p className="games-note">The buyout threshold wasn’t met. Another round gives you a fresh chance to win.</p><AuctionRoundBids auction={auction}/><button className="game-control auction-finish auction-next-round" type="button" onClick={()=>transact(current=>nextAuctionRound(current,Date.now()))}>Next Auction Round</button></>:<AuctionOutcome save={save} revealDone={revealDone} visible={visible}/>}
   </section>}
  </div>;
 }
-function AuctionOutcome({save,transact,revealDone=true,visible=[]}:Omit<Props,'now'>){
+function AuctionOutcome({save,revealDone=true,visible=[]}:Pick<Props,'save'|'revealDone'|'visible'>){
  const result=save.auction!.result!,won=result.winner==='You';
- return <><div className="auction-settled-winner" role="status">{result.winner?<><AuctionBidder name={result.winner}/><span>won{result.buyout?' by early buyout':''} for {auctionUsd(result.bid)}.</span></>:'No positive bids: this collection was not sold.'}</div>
+ return <><div className="auction-settled-winner" role="status">{result.winner&&<AuctionBidder name={result.winner}/>}<span>{result.winner?`won${result.buyout?' by early buyout':''} for ${auctionUsd(result.bid)}.`:'No positive bids: this collection was not sold.'} <InfoHint label="Collection value explanation">Market value uses frozen auction prices and adds up as cards flip. Winner net deducts selling fees and the winning bid; when you win, it also deducts your investigation spend and entry fee. Your Auction Result includes your own costs and any NPC loss share.</InfoHint></span></div>
   <AuctionResultMetrics auction={save.auction!} visible={visible} done={revealDone}/>
   {won&&<p className="games-note">The cards you won have been added to your inventory. Market values can change daily—sell whenever you’re ready between auctions.</p>}
-  <div className="auction-finish-actions"><button className={`game-control${revealDone?' auction-finish':''}`} disabled={!revealDone} type="button" onClick={()=>transact(finishAuction)}>Finish &amp; Manage Inventory</button></div>
  </>;
 }

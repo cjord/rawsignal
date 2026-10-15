@@ -1,5 +1,29 @@
 # Riftbound Auction House
 
+## Settlement layout and collection hover — staging preparation (2026-10-15)
+
+Finish & Manage Inventory sits top-right on the Auction Settled heading row, including
+compact phone layouts. It remains disabled until reveal/counting completes, then
+retains the blue next-step pulse. Removed the visible Collection Count Complete line;
+the temporary counting-progress message and metric skeletons remain while needed.
+The collection-value tooltip now follows the winner / winning-price sentence and
+also remains available for the no-sale case.
+
+Collection headings show the number and Cards label on one baseline, with compact
+type on phones so centered Skip Reveal still fits. Collection-card hover borders and
+rings follow revealed rarity, a deliberately narrow exception recorded in
+`docs/design-baseline.md`. Unmarked hidden cards remain neutral; keyboard focus
+remains blue. Inventory and other site hover styles are unchanged. Removed the
+separator rules between bidder rows; the single divider between bid entry and the
+bidder list stays, along with participant tile borders/lock feedback.
+
+No pricing, NPC behavior, save, API or database changes. Focused browser checks passed
+desktop/390px/320px dark/light header/count layouts, all rarity hover colors,
+hidden-card privacy, tooltip placement, completion gating and bidder separators.
+Full release gate passed: 454 node tests (one skipped), 52 Chromium journeys,
+21 existing lint warnings and no new warnings. Screenshots reviewed. Authorized
+GitHub push / staging deployment and live verification pending.
+
 ## NPC balance and three new rivals — production 2026-10-15
 
 Production promotion: the same staging-tested application `cace4c2` (already on

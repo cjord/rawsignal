@@ -12,6 +12,26 @@ async function fixtures(page:Page){
 }
 const saved=(page:Page)=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)!),key);
 
+test('settlement heading actions, inline count and collection-only rarity hover remain usable across screen sizes',async({page},testInfo)=>{
+ await fixtures(page);await page.clock.pauseAt(new Date('2026-10-14T12:00:05Z'));
+ const bands=[['Common','commons'],['Uncommon','uncommons'],['Rare','rares'],['Epic','epics'],['Epic','alt-arts'],['Epic','overnumbered'],['Epic','signatures']];
+ const cards=Array.from({length:56},(_,index)=>({...rows[index%rows.length],productId:990000+index,name:`Collection Card ${index}`,image:`https://images.example/collection/${index}.svg`,rarity:bands[index%bands.length][0],section:bands[index%bands.length][1],marketPrice:1+index/100}));
+ await page.route('**/data/*.json',route=>route.fulfill({contentType:'application/json',body:JSON.stringify(cards)}));await page.goto('/games/riftbound-auction');await page.getByRole('button',{name:'Enter Free Auction',exact:true}).click();await expect(page.getByLabel('Bid (virtual USD)')).toBeVisible();
+ await page.evaluate(({key,cards})=>{const state=JSON.parse(localStorage.getItem(key)!);state.auction.lot=cards.map(row=>({productId:row.productId,name:row.name,image:row.image,set:row.set,rarity:row.rarity,section:row.section,printing:row.printing,cents:Math.round(row.marketPrice*100)}));state.auction.range=[cards.length,cards.length];state.auction.npcs=state.auction.npcs.map((npc:object)=>({...npc,bid:100,locked:true}));state.revision++;const raw=JSON.stringify(state);localStorage.setItem(key,raw);dispatchEvent(new StorageEvent('storage',{key,newValue:raw}))},{key,cards});
+ const unknown=page.locator('.auction-card.is-hidden:not([data-rarity])').first();await unknown.hover();await expect(unknown).toHaveCSS('box-shadow','none');await expect(unknown).not.toHaveAttribute('data-rarity');
+ await expect(page.locator('.auction-bidding hr')).toHaveCount(1);expect(await page.locator('.auction-npcs li').evaluateAll(elements=>elements.every(element=>getComputedStyle(element,'::after').content==='none'))).toBe(true);
+ await page.getByLabel('Bid (virtual USD)').fill('10');await page.getByLabel('Bid (virtual USD)').press('Enter');await page.clock.runFor(250);await page.clock.runFor(1600);await expect(page.getByRole('heading',{name:'Auction Settled',exact:true})).toBeVisible();
+ const finish=page.locator('.auction-results-heading').getByRole('button',{name:'Finish & Manage Inventory',exact:true});await expect(finish).toBeDisabled();await expect(page.locator('.auction-settled-winner')).toContainText('won by early buyout for $10.00.');await expect(page.locator('.auction-settled-winner').getByRole('button',{name:'Collection value explanation'})).toBeVisible();
+ await page.getByRole('button',{name:'Skip Reveal'}).click();await expect(finish).toBeEnabled();await expect(page.getByText('Collection Count Complete',{exact:true})).toHaveCount(0);await expect(page.getByText(/Counting Collection/)).toHaveCount(0);await page.emulateMedia({reducedMotion:'reduce'});
+ for(const width of [1440,390,320])for(const theme of ['dark','light']){
+  await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+  const alignment=await page.locator('.auction-results-heading').evaluate(element=>{const title=element.querySelector('h2')!.getBoundingClientRect(),button=element.querySelector('button')!.getBoundingClientRect(),row=element.getBoundingClientRect();return {difference:Math.abs(title.y+title.height/2-button.y-button.height/2),right:Math.abs(row.right-button.right)}});expect(alignment.difference).toBeLessThan(1);expect(alignment.right).toBeLessThan(1);
+  const inline=await page.locator('.auction-copy-count').evaluate(element=>{const range=document.createRange();range.selectNodeContents(element.firstChild!);const number=range.getBoundingClientRect(),label=element.querySelector('small')!.getBoundingClientRect();return label.left>=number.right&&label.top<number.bottom});expect(inline).toBe(true);
+  for(const rarity of ['common','uncommon','rare','epic','premium']){const card=page.locator(`button.auction-card[data-rarity="${rarity}"]`).first();const border=await card.evaluate(element=>getComputedStyle(element).borderTopColor);await card.hover();await expect(card).toHaveCSS('border-top-color',border);const shadow=await card.evaluate(element=>getComputedStyle(element).boxShadow);expect(shadow).toContain(border)}
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.locator('.auction-results').screenshot({path:testInfo.outputPath(`settlement-header-${width}-${theme}.png`)});await page.locator('.auction-collection-heading').screenshot({path:testInfo.outputPath(`inline-count-${width}-${theme}.png`)});
+ }
+});
+
 test('new rivals have original portraits, distinct visible strategies and resumable seats',async({page},testInfo)=>{
  await fixtures(page);await page.route('**/data/*.json',route=>route.fulfill({contentType:'application/json',body:JSON.stringify(rows)}));await page.goto('/games/riftbound-auction');await page.getByRole('button',{name:'Enter Free Auction',exact:true}).click();await expect(page.getByLabel('Bid (virtual USD)')).toBeVisible();
  const profiles=AUCTION_NPCS.filter(npc=>['The Archivist','The Playset Builder','The Skeptic'].includes(npc.name));
@@ -142,7 +162,7 @@ test('auction purchase, sealed lock, settlement, persisted live inventory, sale,
  await page.clock.runFor(3500);await page.clock.runFor(2000);
  await expect(page.getByRole('heading',{name:'Auction Settled'})).toBeVisible();await finishReveal(page);await page.clock.runFor(5000);await expect(page.locator('.auction-card.is-hidden')).toHaveCount(0);
  const result=await saved(page);expect(result.auction.result.winner).toBe('You');expect(result.wallet.cash).toBe(0);
- await expect(page.getByText(/The cards you won have been added to your inventory/)).toBeVisible();const finish=await page.locator('.auction-finish-actions').evaluate(element=>({right:element.getBoundingClientRect().right,button:element.querySelector('button')!.getBoundingClientRect().right}));expect(Math.abs(finish.right-finish.button)).toBeLessThan(1);
+ await expect(page.getByText(/The cards you won have been added to your inventory/)).toBeVisible();const finish=await page.locator('.auction-results-heading').evaluate(element=>({right:element.getBoundingClientRect().right,button:element.querySelector('button')!.getBoundingClientRect().right}));expect(Math.abs(finish.right-finish.button)).toBeLessThan(1);
  expect(result.wallet.inventory.reduce((sum:number,row:{quantity:number})=>sum+row.quantity,0)).toBe(copies);
  expect(result.wallet.inventory.every((row:Record<string,unknown>)=>Object.keys(row).sort().join(',')==='printing,productId,quantity')).toBe(true);
  await expect(page.locator('.auction-card')).toHaveCount(copies);expect(requests).toBe(11);
@@ -181,7 +201,7 @@ test('auction layouts and artwork are usable in both themes at desktop and mobil
   expect(layout.left).toBe(0);expect(layout.width).toBe(width);expect(layout.padding).toBeGreaterThanOrEqual(16);
   const cards=await page.locator('.auction-collection-grid > .auction-card').evaluateAll(elements=>elements.map(element=>{const rect=element.getBoundingClientRect();return {width:rect.width,top:rect.top}}));
   expect(Math.max(...cards.map(card=>card.width))).toBeLessThanOrEqual(140);expect(cards.filter(card=>card.top===cards[0].top).length).toBeGreaterThanOrEqual(width===1440?9:2);
-  await expect(page.locator('.auction-bid-divider')).toBeVisible();await expect(page.locator('.auction-bid-divider')).toHaveCSS('border-top-width','1px');expect(await page.locator('.auction-npcs li').first().evaluate(element=>getComputedStyle(element,'::after').height)).toBe('1px');
+  await expect(page.locator('.auction-bid-divider')).toHaveCount(1);await expect(page.locator('.auction-bid-divider')).toBeVisible();await expect(page.locator('.auction-bid-divider')).toHaveCSS('border-top-width','1px');expect(await page.locator('.auction-npcs li').first().evaluate(element=>getComputedStyle(element,'::after').content)).toBe('none');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.getByRole('button',{name:/Inspect Auction Card/}).first().click();await expect(page.getByRole('dialog')).toBeVisible();await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.screenshot({path:testInfo.outputPath(`auction-${width}-${theme}.png`),fullPage:true});
