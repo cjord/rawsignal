@@ -1,10 +1,10 @@
-import {generateAuctionLot} from '../../core/domain/auction-lots.ts';
+import {AUCTION_LOT_SIZES,generateAuctionLot} from '../../core/domain/auction-lots.ts';
 import type {AuctionCard,AuctionKind} from '../../core/domain/auction-types';
 import type {PriceGameImageLoader} from './price-game-images';
 
 export async function prepareAuctionLot(catalog:AuctionCard[],loader:PriceGameImageLoader,seed:number,kind:AuctionKind='free',signal?:AbortSignal):Promise<AuctionCard[]>{
  let pool=catalog.filter(card=>card.image.trim()&&!loader.failed(card.image)),attempt=0;
- const verified=new Set<string>(),minimum=kind==='paid'?128:6;
+ const verified=new Set<string>(),minimum=AUCTION_LOT_SIZES[kind].min;
  while(pool.length>=6&&!signal?.aborted){
   const lot=generateAuctionLot(pool,seed+attempt++,kind);
   if(lot.length<minimum)return [];

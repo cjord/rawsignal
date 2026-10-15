@@ -1,6 +1,6 @@
 import {AUCTION_ROUNDS,AUCTION_PAID_ENTRY,auctionRandom,sampleIndices,type Auction,type AuctionCard,type AuctionSave,type AuctionKind,type Npc,type RoundBid} from "./auction-types.ts";
 import {addInventory,inventoryQuote} from "./auction-market.ts";
-import {generateAuctionLot} from './auction-lots.ts';
+import {AUCTION_LOT_SIZES,generateAuctionLot} from './auction-lots.ts';
 import {AUCTION_NPCS,auctionNpcRoster,auctionNpcMood} from './auction-npcs.ts';
 import {informationOffers,investigate} from "./auction-information.ts";
 import {auctionLossShares,auctionSaleRarity} from './auction-economy.ts';
@@ -35,7 +35,7 @@ function openRound(auction:Auction,now:number):Auction{
 export function beginAuction(save:AuctionSave,catalog:AuctionCard[],now:number,prepared?:AuctionCard[],seed=7411+save.sequence*137,kind:AuctionKind='free'):AuctionSave{
  const entryFee=kind==='paid'?AUCTION_PAID_ENTRY:0;
  if(save.auction||save.wallet.cash<entryFee)return save;
- const lot=(prepared??generateAuctionLot(catalog,seed,kind)).map(card=>({...card}));if(lot.length<(kind==='paid'?128:6))return save;
+ const lot=(prepared??generateAuctionLot(catalog,seed,kind)).map(card=>({...card})),size=AUCTION_LOT_SIZES[kind];if(lot.length<size.min||lot.length>size.max)return save;
  const auction:Auction={seed,kind,entryFee,stage:'round',round:1,deadline:0,lot,range:[lot.length,lot.length],known:[0,2],priced:[0,2],offers:[],clues:[],bought:false,spent:0,selected:null,npcs:[],bids:[],bidHistory:[],result:null,feeBps:save.wallet.feeBps};
  return {...save,wallet:{...save.wallet,cash:save.wallet.cash-entryFee},sequence:save.sequence+1,auction:openRound(auction,now)};
 }

@@ -12,6 +12,13 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
+- Local Auction House follow-up: free 25–90 / paid 50–130 random copies,
+  shared size validation/copy, stronger matching blue entry pulses, and automatic
+  scroll to Auction Settled after the winner announcement (not on each counted card).
+  Legacy saved lots remain intact. Not pushed/deployed. Results simplification is
+  a recommendation only: remove redundant Gross Market Spread, pending user choice.
+  Details and unchanged cost boundaries: `docs/games-auction-house-plan.md`.
+
 - Auction entry/inventory polish: automatic failed-artwork exclusion/reroll, text-only
   starting state, generated free/paid entry art, explicit rarity/Sell All controls,
   right-aligned finish and actual named NPC investigations with redacted findings.

@@ -1,7 +1,13 @@
 "use client";
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useRef,useState,type RefObject} from 'react';
 import type {Auction} from '../../core/domain/auction-types';
 import {usePreference} from '../state/usePreference';
+
+export function useAuctionNavigation(arena:RefObject<HTMLDivElement|null>,auction:Auction|null,celebrating:boolean){
+ const seed=auction?.seed,round=auction?.round,stage=auction?.stage;
+ useEffect(()=>{arena.current?.scrollIntoView({behavior:'instant',block:'start'})},[arena,seed,round]);
+ useEffect(()=>{if(stage==='result'&&!celebrating)arena.current?.querySelector('#auction-settled')?.scrollIntoView({behavior:'instant',block:'start'})},[arena,seed,stage,celebrating]);
+}
 
 export function useAuctionReveal(auction:Auction|null,start=true){
  const [progress,setProgress]=useState<{seed:number;count:number}|null>(null);

@@ -1,5 +1,36 @@
 # Riftbound Auction House
 
+## Collection sizes and settlement navigation — local follow-up, 2026-10-14
+
+New free auctions draw 25–90 copies inclusively; paid auctions draw 50–130 (revised
+by user request before release). A shared
+size contract drives generation, artwork preparation, entry validation and lobby copy.
+Free composition profiles retain their different rarity/repeat weights but no longer
+dictate separate size bands. Paid rarity weights, $50 fee, personal-clue NPC valuation,
+copy caps and the $2,000 collection-value cap are unchanged. Healthy catalog draws use
+uniform seeded counts; limited stock/budget may reduce the target within the permitted
+band, never below it. Existing saved auctions retain their frozen contents, including
+legacy sizes outside the new bands. No additional pricing calls, D1 work or migration.
+
+Both enabled entry tiles use an identical, stronger blue border/halo pulse visible
+around their artwork; reduced motion keeps a static highlight. After the winner
+announcement, both buyouts and final-round settlements scroll the Auction Settled tile
+below the sticky header. Counting/reveal updates do not continually steal the scroll.
+
+Results simplification recommendation awaiting a user choice: remove Gross Market
+Spread first, since market value and fee-adjusted profit/loss already explain it.
+No results metrics have been removed in this follow-up. This revision is local only;
+the staging release below remains unchanged until a push/deploy is requested.
+
+Validation: `npm run check` passed (435 node tests, one skipped, 47 Chromium
+journeys; existing 21 lint warnings, no new warnings). Focused auction suite: 14/14.
+Coverage includes all inclusive counts across 2,000 seeds per mode, real bundled
+catalog budgets, out-of-range entry rejection, saved legacy sizes, failed-artwork
+rerolls, matching entry pulses/reduced motion and buyout/final-round scroll position.
+Dark/light desktop/mobile lobby/results screenshots reviewed. An initial full run
+hit the preceding focused suite's leftover server lock; after that process exited,
+the complete gate passed without editing generated tool state.
+
 ## Entry reliability, inventory controls and named NPC clues — 2026-10-14
 
 Artwork eligibility no longer stops after four draws. Every failed URL is excluded, successful probes are reused, and a new seeded collection is built automatically until valid stock is found or eligible stock is genuinely exhausted. Work stays six-image concurrent, cancellation-aware and browser/CDN-backed; no upstream pricing calls or availability writes. Both modes now reserve the real cheapest remaining copy capacity. Free lots can use a smaller feasible healthy pool; paid lots retain the 128-copy minimum. A true service/stock outage stops safely with a temporary-unavailability message and no charge, rather than fabricating artwork or looping forever. Ordinary rejected cards never surface the old retry message.

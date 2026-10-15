@@ -12,7 +12,7 @@ test('NPC loss is conserved in cents across all other bidders including passes; 
  for(const [winner,net] of [['You',-101],['The Dealer',0],['The Dealer',101],[null,-101]])assert.deepEqual(auctionLossShares(winner,net,bids,1),[]);
 });
 test('NPC compensation settles once, survives reload, and never retroactively credits old results',()=>{
- let save=beginAuction(initialAuctionSave(),[card],1000,Array.from({length:6},()=>({...card})),42);
+ let save=beginAuction(initialAuctionSave(),[card],1000,Array.from({length:25},()=>({...card})),42);
  save={...save,auction:{...save.auction,selected:0,npcs:save.auction.npcs.map((npc,index)=>({...npc,bid:index===0?10000:1,locked:true}))}};
  save=tickAuction(save,1100);const result=save.auction.result,credit=result.lossShares.find(row=>row.name==='You').cents;
  assert.ok(result.net<0);assert.equal(save.wallet.cash,250000+credit);assert.equal(result.lossShares.reduce((sum,row)=>sum+row.cents,0),-result.net);assert.deepEqual(save.wallet.inventory,[]);

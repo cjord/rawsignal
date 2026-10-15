@@ -13,7 +13,7 @@ import {auctionCatalog} from '../core/domain/auction-market';
 import {beginAuction,tickAuction} from '../core/domain/auction-engine';
 import {prepareAuctionLot} from './data/auction-images';
 import {createPriceGameImageLoader} from './data/price-game-images';
-import {useAuctionReveal,useAuctionSound} from './games/useAuctionPresentation';
+import {useAuctionNavigation,useAuctionReveal,useAuctionSound} from './games/useAuctionPresentation';
 import AuctionBidHistory from './games/AuctionBidHistory';
 import AuctionWinner,{useAuctionWinner} from './games/AuctionWinner';
 import AuctionLobby from './games/AuctionLobby';
@@ -42,7 +42,7 @@ export default function RiftboundAuctionHouse(){
   else setImageError('Auctions are temporarily unavailable. Your balance has not changed. Refresh the market to check availability.');
  };
  useEffect(()=>{const tick=()=>{const time=Date.now();setNow(time);transact(current=>tickAuction(current,time))};const interval=window.setInterval(tick,250);window.addEventListener('visibilitychange',tick);return()=>{clearInterval(interval);window.removeEventListener('visibilitychange',tick)}},[transact]);
- useEffect(()=>{arena.current?.scrollIntoView({behavior:'instant',block:'start'})},[save?.auction?.seed,save?.auction?.round]);
+ useAuctionNavigation(arena,save?.auction??null,celebrating);
  const ready=status==='success',available=ready&&catalog.filter(card=>card.image.trim()).length>=6;
  return <GamesShell><a className="games-back" href="/games">← Games</a><header className="games-heading"><span className="games-eyebrow">Riftbound · single-auction prototype</span><div className="auction-title-row"><h1>Riftbound Auction House</h1><button type="button" className="game-control auction-mute" disabled={!save&&!error} aria-pressed={audio.sound==='muted'} onClick={audio.toggle}>{audio.sound==='muted'?'Enable Sound':'Mute Sound'}</button></div><p>Buy clues. Lock your bid. Discover the collection—and whether your instincts paid off.</p></header>
   <AuctionSaveFeedback save={save} error={error} reset={reset}/>

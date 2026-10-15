@@ -11,14 +11,24 @@ import {allowedRarities} from '../core/market-state.ts';
 import {parseCards} from '../core/domain/contracts.ts';
 import {auctionCatalog} from '../core/domain/auction-market.ts';
 const pool=Array.from({length:150},(_,i)=>({productId:i+1,printing:'Normal',name:`Card ${i}`,image:`https://image.example/${i}`,set:'Origins',rarity:i<100?'Common':i<130?'Rare':'Epic',section:'rares',cents:100+i}));
+
+test('new lot sizes cover inclusive bounds, reject out-of-range preparation and preserve legacy frozen sizes',()=>{
+ for(const [kind,min,max] of [['free',25,90],['paid',50,130]]){
+  const counts=new Set();for(let seed=0;seed<2000;seed++)counts.add(generateAuctionLot(pool,seed,kind).length);
+  assert.equal(Math.min(...counts),min);assert.equal(Math.max(...counts),max);assert.equal(counts.size,max-min+1);
+  for(const length of [min-1,max+1]){const save=initialAuctionSave();assert.equal(beginAuction(save,pool,1000,Array.from({length},(_,i)=>pool[i%pool.length]),42,kind),save)}
+ }
+ const legacy=beginAuction(initialAuctionSave(),pool,1000,undefined,42,'paid');legacy.auction.lot=Array.from({length:160},(_,i)=>({...pool[i%pool.length]}));legacy.auction.range=[160,160];
+ assert.deepEqual(parseAuctionSave(JSON.stringify(legacy)),legacy);
+});
 test('real bundled catalog paid lots reserve sufficient stock and budget to reach the promised size',()=>{
  const catalog=auctionCatalog(allowedRarities.riftbound.flatMap(section=>parseCards(JSON.parse(readFileSync(new URL(`../public/data/${section}.json`,import.meta.url),'utf8')))));
- for(let seed=0;seed<100;seed++){const lot=generateAuctionLot(catalog,seed,'paid');assert.ok(lot.length>=128&&lot.length<=160,`seed ${seed}: ${lot.length}`);assert.ok(lot.reduce((sum,card)=>sum+card.cents,0)<=200000)}
+ for(let seed=0;seed<100;seed++)for(const [kind,min,max] of [['free',25,90],['paid',50,130]]){const lot=generateAuctionLot(catalog,seed,kind);assert.ok(lot.length>=min&&lot.length<=max,`${kind} seed ${seed}: ${lot.length}`);assert.ok(lot.reduce((sum,card)=>sum+card.cents,0)<=200000)}
 });
 test('paid lots are larger and favor higher rarity across seeds without changing source prices or free lots',()=>{
  let freePremium=0,paidPremium=0,freeCount=0,paidCount=0;
- for(let seed=0;seed<100;seed++){const free=generateAuctionLot(pool,seed),paid=generateAuctionLot(pool,seed,'paid');assert.ok(paid.length>=128&&paid.length<=160);assert.ok(paid.length>free.length);assert.deepEqual(paid,generateAuctionLot([...pool].reverse(),seed,'paid'));freeCount+=free.length;paidCount+=paid.length;freePremium+=free.filter(card=>card.rarity==='Epic').length;paidPremium+=paid.filter(card=>card.rarity==='Epic').length;assert.ok(paid.every(card=>card.cents===pool[card.productId-1].cents))}
- assert.ok(paidPremium/paidCount>freePremium/freeCount*2);
+ for(let seed=0;seed<100;seed++){const free=generateAuctionLot(pool,seed),paid=generateAuctionLot(pool,seed,'paid');assert.ok(free.length>=25&&free.length<=90);assert.ok(paid.length>=50&&paid.length<=130);assert.ok(paid.length>=free.length);assert.deepEqual(paid,generateAuctionLot([...pool].reverse(),seed,'paid'));freeCount+=free.length;paidCount+=paid.length;freePremium+=free.filter(card=>card.rarity==='Epic').length;paidPremium+=paid.filter(card=>card.rarity==='Epic').length;assert.ok(paid.every(card=>card.cents===pool[card.productId-1].cents))}
+ assert.ok(paidPremium/paidCount>freePremium/freeCount*1.5);
 });
 test('paid entry is affordable, charged once at successful entry, persisted, and included in player outcome',()=>{
  const initial=initialAuctionSave(),poor={...initial,wallet:{...initial.wallet,cash:4999}};assert.equal(beginAuction(poor,pool,1000,undefined,42,'paid'),poor);assert.equal(beginAuction(initial,pool,1000,[],42,'paid'),initial);
@@ -26,7 +36,7 @@ test('paid entry is affordable, charged once at successful entry, persisted, and
  save={...save,auction:{...save.auction,selected:100000,npcs:save.auction.npcs.map(npc=>({...npc,bid:1,locked:true}))}};save=tickAuction(save,1100);assert.equal(save.wallet.cash,145000);const result=save.auction.result;assert.equal(result.net,result.value-result.fee-result.bid-result.playerExpenses-5000);assert.equal(auctionRevealQuote(save.auction,save.auction.lot.map((_,i)=>i)).net,result.net);assert.equal(tickAuction(parseAuctionSave(JSON.stringify(save)),999999).wallet.cash,145000);
 });
 test('paid NPC competition still uses private samples and never changes with the sealed player bid',()=>{
- const lot=generateAuctionLot(pool,42,'paid'),free=beginAuction(initialAuctionSave(),pool,1000,lot,42),paid=beginAuction(initialAuctionSave(),pool,1000,lot,42,'paid');
+ const lot=generateAuctionLot(pool,42,'paid').slice(0,50),free=beginAuction(initialAuctionSave(),pool,1000,lot,42),paid=beginAuction(initialAuctionSave(),pool,1000,lot,42,'paid');
  paid.auction.npcs.forEach((npc,index)=>{assert.deepEqual(npc.sample,free.auction.npcs[index].sample);assert.ok(npc.bid>=free.auction.npcs[index].bid)});
  assert.deepEqual(lockBid(paid,1,1100).auction.npcs.map(npc=>npc.bid),lockBid(paid,200000,1100).auction.npcs.map(npc=>npc.bid));
 });

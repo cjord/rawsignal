@@ -32,7 +32,7 @@ export function AuctionRoundHeader({auction,now}:{auction:Auction;now:number}){
 export default function AuctionRound({save,now,transact,revealDone=true,visible=save.auction!.lot.map((_,index)=>index)}:Props){
  const auction=save.auction!;
  return <div className={`auction-round-panel${auction.stage==='round'?'':' is-results'}`}>
-  {auction.stage==='round'?<RoundControls key={auction.round} save={save} now={now} transact={transact}/>:<section className="detail-section auction-results"><h2>{auction.stage==='result'?'Auction Settled':'Round Bids'}</h2>
+  {auction.stage==='round'?<RoundControls key={auction.round} save={save} now={now} transact={transact}/>:<section className="detail-section auction-results" id={auction.stage==='result'?'auction-settled':undefined}><h2>{auction.stage==='result'?'Auction Settled':'Round Bids'}</h2>
    {auction.stage==='reveal'?<><p className="auction-no-buyout">No Early Buyout</p><p className="games-note">The buyout threshold wasn’t met. Another round gives you a fresh chance to win.</p><AuctionRoundBids auction={auction}/><button className="game-control auction-finish auction-next-round" type="button" onClick={()=>transact(current=>nextAuctionRound(current,Date.now()))}>Next Auction Round</button></>:<AuctionOutcome save={save} transact={transact} revealDone={revealDone} visible={visible}/>}
   </section>}
  </div>;
