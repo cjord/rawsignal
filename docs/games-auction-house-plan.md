@@ -1,5 +1,28 @@
 # Riftbound Auction House
 
+## Compact collections and consolidated settlement — 2026-10-14
+
+Collection grids now use auto-filled columns with 120px target minimum (100px on
+phones) and a 140px card-tile cap, rather than stretching six cards across the full
+window. More cards fit as width increases; natural artwork proportions, names,
+inspection dialogs, rarity borders, reveal order and internal scroll remain intact.
+Bid controls and every bidder entry have subtle token-colored horizontal separators.
+
+Removed Gross Market Spread from settlement. Both modes show six metrics: Collection
+Market Value, Selling Fee, Winner Net Profit / Loss, Your Investigation Spend,
+Auction Entry Fee and Your Auction Result. Free entry is explicitly $0 and neutral,
+so it also has an even six-tile layout; paid entry remains $50. Counting skeletons,
+fee rounding, running reveal totals and NPC loss sharing are unchanged.
+The round header says Auction Finished after settlement (including buyouts and
+no-sale results), retains Bids Revealed only between unfinished rounds, and keeps
+the countdown while bidding. No auction economy, save-format, API or database changes.
+
+Validation: `npm run check` passed (438 node tests, one skipped, 47 Chromium
+journeys; 21 existing lint warnings, no new warnings). Browser assertions cover
+140px maximum cards, at least nine desktop / two mobile columns, bid separators,
+six metrics in free/paid settlements and the finished status. Dark/light screenshots
+reviewed at 1440px and 390px; Singles and Sealed regression journeys also passed.
+
 ## Free chase balance, opening bids and full-width layout — released 2026-10-14
 
 Free draws retain 80% of initially selected overnumbered copies and 50% of signatures.
@@ -64,9 +87,8 @@ around their artwork; reduced motion keeps a static highlight. After the winner
 announcement, both buyouts and final-round settlements scroll the Auction Settled tile
 below the sticky header. Counting/reveal updates do not continually steal the scroll.
 
-Results simplification recommendation awaiting a user choice: remove Gross Market
-Spread first, since market value and fee-adjusted profit/loss already explain it.
-No results metrics have been removed in this follow-up.
+Results simplification was initially deferred at this release. Gross Market Spread
+is removed in the compact-settlement follow-up above, after user approval.
 
 Validation: `npm run check` passed (435 node tests, one skipped, 47 Chromium
 journeys; existing 21 lint warnings, no new warnings). Focused auction suite: 14/14.

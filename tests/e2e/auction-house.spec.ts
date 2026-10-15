@@ -12,6 +12,7 @@ async function fixtures(page:Page){
 const saved=(page:Page)=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)!),key);
 async function finishReveal(page:Page){const skip=page.getByRole('button',{name:'Skip Reveal'});if(await skip.count())await skip.click();await expect(page.getByRole('button',{name:'Finish & manage inventory'})).toBeEnabled()}
 async function expectSettledPosition(page:Page){const top=await page.locator('#auction-settled').evaluate(element=>element.getBoundingClientRect().top);expect(top).toBeGreaterThanOrEqual(124);expect(top).toBeLessThanOrEqual(126)}
+async function expectConsolidatedResults(page:Page){await expect(page.getByRole('timer')).toHaveText('Auction Finished');await expect(page.locator('.auction-result-metrics > div')).toHaveCount(6);await expect(page.getByText('Gross Market Spread',{exact:true})).toHaveCount(0)}
 
 test('entry artwork loads and broken card artwork rerolls automatically with text-only starting status',async({page})=>{
  await fixtures(page);const cards=Array.from({length:90},(_,index)=>({...rows[index%24],productId:980000+index,name:`Entry Card ${index}`,image:`https://images.example/entry/${index}.svg`,marketPrice:1+index/10}));
@@ -29,7 +30,7 @@ test('paid entry charges $50 once after artwork checks, offers larger collection
  for(const width of [1440,390])for(const theme of ['dark','light']){await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:testInfo.outputPath(`paid-auction-${width}-${theme}.png`),fullPage:true,animations:'disabled'})}
  await page.reload();await expect(page.getByRole('heading',{name:/Place Your Bid/})).toBeVisible();expect((await saved(page)).wallet.cash).toBe(245000);
  await page.evaluate(key=>{const state=JSON.parse(localStorage.getItem(key)!);state.auction.npcs=state.auction.npcs.map((npc:object)=>({...npc,bid:100,locked:true}));state.revision++;const raw=JSON.stringify(state);localStorage.setItem(key,raw);dispatchEvent(new StorageEvent('storage',{key,newValue:raw}))},key);
- await page.getByLabel('Bid (virtual USD)').fill('2450');await page.getByLabel('Bid (virtual USD)').press('Enter');await page.clock.runFor(250);await page.clock.runFor(2000);await expect(page.getByRole('heading',{name:'Auction Settled'})).toBeVisible();state=await saved(page);expect(state.wallet.cash).toBe(0);await expect(page.locator('.auction-result-metrics > div').filter({hasText:'Auction Entry Fee'})).toContainText('$50.00');expect(requests).toBe(22);
+ await page.getByLabel('Bid (virtual USD)').fill('2450');await page.getByLabel('Bid (virtual USD)').press('Enter');await page.clock.runFor(250);await page.clock.runFor(2000);await expect(page.getByRole('heading',{name:'Auction Settled'})).toBeVisible();await expectConsolidatedResults(page);state=await saved(page);expect(state.wallet.cash).toBe(0);await expect(page.locator('.auction-result-metrics > div').filter({hasText:'Auction Entry Fee'})).toContainText('$50.00');expect(requests).toBe(22);
 });
 
 test('rarity inventory sales confirm precise proceeds and lobby facts and timing tooltip work across themes',async({page},testInfo)=>{
@@ -67,7 +68,7 @@ test('settlement skeletons count alongside revealed cards and previous bids stay
   if(round<4){await expect(page.getByRole('heading',{name:'Round Bids',exact:true})).toBeVisible();await expect(page.getByText('Round Leader',{exact:true})).toHaveCount(0);const next=page.getByRole('button',{name:'Next Auction Round',exact:true});await expect(next).toHaveCSS('animation-name','auction-next-step');await page.emulateMedia({reducedMotion:'reduce'});await expect(next).toHaveCSS('animation-name','none');await page.emulateMedia({reducedMotion:'no-preference'});await next.click()}
  }
  await expect(page.getByRole('heading',{name:'Winner Announced'})).toBeVisible();await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight));await page.clock.runFor(1600);await expect(page.getByRole('heading',{name:'Auction Settled'})).toBeVisible();await expectSettledPosition(page);
- await expect(page.locator('.auction-value-skeleton')).toHaveCount(6);await expect(page.getByRole('button',{name:'Finish & manage inventory'})).toBeDisabled();
+ await expectConsolidatedResults(page);await expect(page.locator('.auction-value-skeleton')).toHaveCount(6);await expect(page.getByRole('button',{name:'Finish & manage inventory'})).toBeDisabled();
  await page.clock.runFor(340);await expect(page.locator('.auction-value-skeleton')).toHaveCount(0);await expect(page.locator('.auction-result-metrics')).toHaveAttribute('aria-busy','true');
  const progress=await page.evaluate(()=>({market:document.querySelector('.auction-result-metrics dd')!.textContent,collection:document.querySelector('.auction-known-value strong')!.textContent}));expect(progress.market).toBe(progress.collection);
  const state=await saved(page);expect(progress.market).not.toBe(`$${(state.auction.result.value/100).toFixed(2)}`);
@@ -129,6 +130,9 @@ test('auction layouts and artwork are usable in both themes at desktop and mobil
   await expect(page.locator('.auction-offers button')).toHaveCount(3);
   const layout=await page.locator('main.games-page').evaluate(element=>{const rect=element.getBoundingClientRect(),style=getComputedStyle(element);return {left:rect.left,width:rect.width,padding:parseFloat(style.paddingLeft)}});
   expect(layout.left).toBe(0);expect(layout.width).toBe(width);expect(layout.padding).toBeGreaterThanOrEqual(16);
+  const cards=await page.locator('.auction-collection-grid > .auction-card').evaluateAll(elements=>elements.map(element=>{const rect=element.getBoundingClientRect();return {width:rect.width,top:rect.top}}));
+  expect(Math.max(...cards.map(card=>card.width))).toBeLessThanOrEqual(140);expect(cards.filter(card=>card.top===cards[0].top).length).toBeGreaterThanOrEqual(width===1440?9:2);
+  await expect(page.locator('.auction-bid-divider')).toBeVisible();await expect(page.locator('.auction-bid-divider')).toHaveCSS('border-top-width','1px');expect(await page.locator('.auction-npcs li').first().evaluate(element=>getComputedStyle(element,'::after').height)).toBe('1px');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.getByRole('button',{name:/Inspect Auction Card/}).first().click();await expect(page.getByRole('dialog')).toBeVisible();await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.screenshot({path:testInfo.outputPath(`auction-${width}-${theme}.png`),fullPage:true});

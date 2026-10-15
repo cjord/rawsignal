@@ -12,6 +12,12 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
+- Auction compact-grid/settlement follow-up: auto-fill collection columns with a
+  140px tile cap, bid-control and participant separators, six settlement metrics
+  in both modes (Gross Market Spread removed, free entry explicitly $0), and
+  Auction Finished header after settlement. No pricing, save or database changes.
+  Release verification pending; details: `docs/games-auction-house-plan.md`.
+
 - Released Auction House balance/layout: free overnumbers/signatures retained at
   80%/50% of selected draws (replacement goes to non-chase stock); unchanged paid
   generation. Both modes use 15% stronger clue-based opening bids only, with the
@@ -31,8 +37,8 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
   47 browser checks. Live staging passed (47-card free / 105-card paid); production
   bundle/CSS match the validated build, but page/gameplay checks still receive
   Cloudflare's managed challenge (403). No security, migration or ingestion changes.
-  Results simplification remains a recommendation only: remove redundant Gross
-  Market Spread, pending user choice.
+  Gross Market Spread removal was subsequently approved and is included in the
+  compact-settlement follow-up above.
   Details and unchanged cost boundaries: `docs/games-auction-house-plan.md`.
 
 - Auction entry/inventory polish: automatic failed-artwork exclusion/reroll, text-only

@@ -19,13 +19,14 @@ function RoundControls({save,now,transact}:Props){
   <AuctionInvestigate save={save} now={now} transact={transact}/>
   <section className="detail-section auction-bidding" id="auction-bidding"><div className="auction-bidding-heading"><h2>{locked?'Bid Locked':'Place Your Bid'} <InfoHint label="Bidding rules">Each round is a new total bid, not an added payment. Locking is irreversible. Unsubmitted bids become $0 at the deadline.</InfoHint></h2><div className="auction-balance"><small>Available Balance</small><strong>{auctionUsd(save.wallet.cash)}</strong></div></div>
    {locked?<p className="auction-locked-amount">{auctionUsd(auction.selected!)} · waiting for bidders</p>:<form className="auction-bid-form" onSubmit={event=>{event.preventDefault();if(!expired&&valid&&Number.isSafeInteger(cents)&&cents<=save.wallet.cash)lock(cents)}}><label>Bid (virtual USD)<input inputMode="decimal" type="text" value={bid} disabled={expired} onChange={event=>setBid(event.target.value)}/></label><button className="game-control" type="submit" disabled={expired||!valid||!Number.isSafeInteger(cents)||cents>save.wallet.cash}>Lock Bid</button><button className="game-control" type="button" disabled={expired} onClick={()=>lock(0)}>Pass ($0)</button></form>}
+   <hr className="auction-bid-divider"/>
    <AuctionBidders auction={auction}/>
   </section>
  </>;
 }
 export function AuctionRoundHeader({auction,now}:{auction:Auction;now:number}){
  const seconds=Math.min(60,Math.max(0,Math.ceil((auction.deadline-now)/1000)));
- return <div className="detail-section auction-round-header"><div className="auction-round-heading"><strong>Round {auction.round} / 4</strong><span className={`auction-timer${auction.stage==='round'&&seconds<=10?' is-urgent':''}`} role="timer" aria-live="off">{auction.stage==='round'?`${seconds}s`:'Bids Revealed'}</span></div>
+ return <div className="detail-section auction-round-header"><div className="auction-round-heading"><strong>Round {auction.round} / 4</strong><span className={`auction-timer${auction.stage==='round'&&seconds<=10?' is-urgent':''}`} role="timer" aria-live="off">{auction.stage==='round'?`${seconds}s`:auction.stage==='result'?'Auction Finished':'Bids Revealed'}</span></div>
   <p className="games-note">{auction.round<4?`Buyout: top bid must be ${AUCTION_ROUNDS[auction.round-1].threshold}% above second place, with at least two positive bids.`:'Final round: highest positive bid wins; seeded priority breaks ties. All passes mean no sale.'}</p>
  </div>;
 }
