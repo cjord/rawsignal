@@ -34,6 +34,26 @@ tooltip. Known/Total Value, card count, public/top markers and fixed card dimens
 remain unchanged. No extra pricing requests, database migration or scheduled work.
 Release scope: GitHub and staging only; production requires separate authorization.
 
+Release: application `366498b` pushed on `feature/set-rarity-heatmap`, then deployed
+to staging version `6caa9d71-74bf-4c31-823f-3e914ebec0f3`. Full gate passed: 465 node
+tests / one skipped, 55 Chromium tests, lint/type check, 21 existing warnings and no
+new warnings. Unit tests cover shared winner/ranking tie order, pass behavior,
+theme names, wide-band boundaries and round-four-only purchase enforcement. Browser
+tests cover compact cell dimensions, placement/accessible labels in every completed
+round, header alignment at desktop/390px/320px dark/light, larger history title,
+Deck Builder collection/revealed titles, and accessible description tooltips;
+screenshots reviewed.
+
+Live staging passed profile/theme controls, a forced close-bid round in browser-local
+state (rank labels, centered status, top-right next action), compact settled history,
+68-card free / 61-card paid entry, inventory sales, persistence, NPC loss shares and
+reset. Separate browser-only checks passed fourteen investigation paths including
+the round-four wide band. Zero browser errors and no extra gameplay data requests;
+normal flows loaded eleven initial feeds / eleven on reload, investigation checks
+eleven initial feeds only. No migrations, ingestion refresh, cron or production
+changes; production remains `4e8f2913`. Verification notes are a subsequent docs-only
+commit.
+
 ## Investigation rebalance — 2026-10-15
 
 Approved by the user, including marking the top card’s location while revealing only

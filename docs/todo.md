@@ -16,7 +16,8 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
   History, larger history heading, centered no-buyout status with top-right next
   action, collection-theme titles and profile/theme tooltips. Collection Value Band
   widens to three ranges and is round-4-only; old purchased results retained and old
-  unpurchased offers withdrawn safely. No extra data calls/DB work. Release details:
+  unpurchased offers withdrawn safely. Pushed `366498b`, staged `6caa9d71`; full gate
+  (465 node / 55 browser) and live verification passed. No extra data calls/DB work. Release details:
   `docs/games-auction-house-plan.md`.
 
 - Production promotion pending user direction for the approved investigation rebalance:

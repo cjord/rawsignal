@@ -9,6 +9,25 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-15 — Compact ranked auction review and tooltips (staging)
+
+Pushed application `366498b`; deployed staging `6caa9d71-74bf-4c31-823f-3e914ebec0f3`.
+Round Bids / Bid History use compact cells with shared seeded 1st–4th rankings and a
+larger history heading. No Early Buyout is centered with explanation tooltip; Next
+Auction Round is top-right. Bidder strategies move into detailed accessible profile
+tooltips, and theme-based collection headings replace the separate theme box, e.g.
+Deck Builder's Collection / Deck Builder's Collection Revealed. Value Band widens
+to $0–250 / $250–1,000 / $1,000–2,000 and is round-four-only; older purchased results
+are preserved while obsolete unpurchased offers are withdrawn without charge.
+
+Full gate passed: 465 node tests / one skipped, 55 browser tests, lint/type check;
+21 existing warnings and none new. Live staging passed forced close-round rankings,
+header alignment, profiles, compact history, 68 free / 61 paid cards, sales,
+persistence, NPC loss shares and reset. Fourteen live clue paths also passed. No
+browser errors or additional gameplay data requests; desktop/mobile dark/light
+screenshots checked. No DB/cron/production changes; production remains `4e8f2913`.
+Details: `docs/games-auction-house-plan.md`.
+
 ## 2026-10-15 — Investigation rebalance (staging)
 
 Pushed application `172188e`; deployed staging `4d0c9c3e-f64a-4bc3-b22c-43d72b5b854d`.
