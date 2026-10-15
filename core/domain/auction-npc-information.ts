@@ -4,7 +4,7 @@ import {publicAuctionSlots} from './auction-public.ts';
 import {AUCTION_NPCS,auctionNpcRoster} from './auction-npcs.ts';
 import {npcKnowledgeValue} from './auction-npc-valuation.ts';
 
-export const NPC_INVESTIGATION_IDS=['reveal3','bulk','rares','top5','appraisal','common3','uncommon3','rare2','epic2','alt1','chase1','sets','rarities','duplicates','identity3','common-count','uncommon-count','rare8','epic5','alt3','value-band'];
+export const NPC_INVESTIGATION_IDS=['reveal3','bulk','rares','top5','appraisal','common3','uncommon3','rare2','epic2','alt1','chase1','sets','rarities','duplicates','identity3','common-count','uncommon-count','rare8','epic5','alt3','value-band','value-band4'];
 export function npcInvestigationName(npc:Npc){return INVESTIGATIONS.find(option=>option.id===npc.investigations?.at(-1))?.label??'Card Inspection (Legacy)'}
 export function npcInvestigationNotes(npc:Npc):Clue[]{
  const id=npc.investigations?.at(-1);
@@ -28,7 +28,7 @@ export function npcRoundInformation(auction:Auction,index:number,sample:number[]
  const result=chosen?investigate(personal,chosen):null;
  const inspected=result?.priced??previous?.inspected??[],identified=result?.known??known,slots=[...new Set([...priced,...inspected])];
  const randomSlots=[...new Set([...publicAuctionSlots(auction),...sample])];
- const valuationClues=investigations.filter(id=>['bulk','rares','top5','appraisal','value-band','common-count','uncommon-count','sets','rarities','duplicates'].includes(id)).map(id=>investigate(personal,INVESTIGATIONS.find(option=>option.id===id)!).clue);
+ const valuationClues=investigations.filter(id=>['bulk','rares','top5','appraisal','value-band','value-band4','common-count','uncommon-count','sets','rarities','duplicates'].includes(id)).map(id=>investigate(personal,INVESTIGATIONS.find(option=>option.id===id)!).clue);
  const value=npcKnowledgeValue({count:auction.lot.length,observed:slots.map(index=>auction.lot[index]),random:randomSlots.map(index=>auction.lot[index]),clues:valuationClues});
  return {investigations,inspected,identified,prices:slots.map(index=>auction.lot[index].cents),...value};
 }

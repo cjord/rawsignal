@@ -2,11 +2,11 @@ import {auctionRandom,type AuctionCard,type AuctionKind} from './auction-types.t
 
 // Game-generation themes, not real deck lists, pull rates or guaranteed contents.
 export const AUCTION_LOT_THEMES=[
- {id:'bulk-seller',name:'Bulk Seller',description:'A stock clear-out leaning toward commons and uncommons, with occasional higher-rarity cards.',bulk:.85,rare:.13,repeat:.65,copyCap:8,setFocus:0},
- {id:'deck-builder',name:'Deck Builder',description:'A player-style collection favoring regular rares and repeated copies. Not a verified competitive deck.',bulk:.42,rare:.5,repeat:.65,copyCap:4,setFocus:.65},
- {id:'trade-binder',name:'Trade Binder',description:'A varied mix of everyday cards, regular rares and a few premium treatments.',bulk:.6,rare:.3,repeat:.25,copyCap:4,setFocus:0},
- {id:'set-collector',name:'Set Collector',description:'A broad binder leaning toward one expansion and fewer repeated printings.',bulk:.38,rare:.42,repeat:.08,copyCap:3,setFocus:.85},
- {id:'chase-collector',name:'Chase Collector',description:'A showcase-style binder with a stronger premium-treatment bias. Valuable hits are not guaranteed.',bulk:.25,rare:.4,repeat:.12,copyCap:3,setFocus:0},
+ {id:'bulk-seller',name:'Bulk Seller',collectionName:"Bulk Seller's Collection",description:'A stock clear-out leaning toward commons and uncommons, with occasional higher-rarity cards.',bulk:.85,rare:.13,repeat:.65,copyCap:8,setFocus:0},
+ {id:'deck-builder',name:'Deck Builder',collectionName:"Deck Builder's Collection",description:'A player-style collection favoring regular rares and repeated copies. Not a verified competitive deck.',bulk:.42,rare:.5,repeat:.65,copyCap:4,setFocus:.65},
+ {id:'trade-binder',name:'Trade Binder',collectionName:'Trade Binder Collection',description:'A varied mix of everyday cards, regular rares and a few premium treatments.',bulk:.6,rare:.3,repeat:.25,copyCap:4,setFocus:0},
+ {id:'set-collector',name:'Set Collector',collectionName:"Set Collector's Collection",description:'A broad binder leaning toward one expansion and fewer repeated printings.',bulk:.38,rare:.42,repeat:.08,copyCap:3,setFocus:.85},
+ {id:'chase-collector',name:'Chase Collector',collectionName:"Chase Collector's Collection",description:'A showcase-style binder with a stronger premium-treatment bias. Valuable hits are not guaranteed.',bulk:.25,rare:.4,repeat:.12,copyCap:3,setFocus:0},
 ] as const;
 export function auctionLotTheme(seed:number){const random=auctionRandom(seed+401);random();random();return AUCTION_LOT_THEMES[Math.floor(random()*AUCTION_LOT_THEMES.length)]}
 export function auctionThemeProfile(seed:number,kind:AuctionKind){

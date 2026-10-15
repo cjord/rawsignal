@@ -4,7 +4,7 @@ import {PARTIAL_INVESTIGATIONS,partialInvestigationSlots,investigatePartial} fro
 import {balancedClue} from './auction-balanced-clues.ts';
 
 // Retain old definitions for active saves and historic NPC clues, never new offers.
-export const RETIRED_INVESTIGATION_IDS=['count','rarity-peek3','rare-mark2','epic-mark2','alt-mark1','rare-identity2','epic-identity2','common3','uncommon3','rare2','epic2','alt1','highest','appraisal'];
+export const RETIRED_INVESTIGATION_IDS=['count','rarity-peek3','rare-mark2','epic-mark2','alt-mark1','rare-identity2','epic-identity2','common3','uncommon3','rare2','epic2','alt1','highest','appraisal','value-band'];
 
 export const INVESTIGATIONS:Investigation[]=[
  ...PARTIAL_INVESTIGATIONS,
@@ -18,6 +18,7 @@ export const INVESTIGATIONS:Investigation[]=[
  {id:'uncommon-count',label:'Uncommon Count',description:'Count every uncommon copy in the lot. No identities or prices.',cost:300,tier:'basic'},
  {id:'highest-rarity',label:'Top Card Rarity',description:'Mark the most valuable card’s location and rarity. No name, artwork or price.',cost:800,tier:'targeted'},
  {id:'value-band',label:'Collection Value Band',description:'Show a broad fixed bracket for total market value, before fees. Available in rounds 3–4.',cost:3000,tier:'premium'},
+ {id:'value-band4',label:'Collection Value Band',description:'Show a wide fixed bracket for total market value, before fees. Available only in round 4.',cost:3000,tier:'premium'},
  {id:"reveal3",label:"Random Price Scan",description:"Reveal up to 3 unpriced copies and their prices.",cost:1200,tier:"targeted"},
  {id:"identity3",label:"Identity Peek",description:"Reveal up to 3 names and artworks, without prices.",cost:600,tier:"targeted"},
  {id:"bulk",label:"Bulk Valuation",description:"Exact combined market value of common and uncommon copies.",cost:1500,tier:"targeted"},
@@ -47,7 +48,7 @@ export function informationOffers(auction:Auction):Investigation[]{
 }
 export function informationUseful(auction:Auction,id:string){
  if(RETIRED_INVESTIGATION_IDS.includes(id))return false;
- if(id==='value-band')return auction.round>=3;
+ if(id==='value-band4')return auction.round===4;
  if(['common-count','uncommon-count'].includes(id))return !auction.clues.some(clue=>clue.id==='rarities');
  const partialSlots=partialInvestigationSlots(auction,id);if(partialSlots!==null)return partialSlots.length>0;
  const raritySlots=rarityInvestigationSlots(auction,id);if(raritySlots!==null)return raritySlots.length>0;

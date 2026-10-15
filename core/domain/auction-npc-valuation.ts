@@ -64,7 +64,11 @@ export function npcKnowledgeValue(knowledge:Knowledge){
  }
  const appraisal=knowledge.clues.find(clue=>clue.id==='appraisal');
  if(appraisal){const [low,high]=money(appraisal);estimate=low+(high-low)*.25;certainty=.85}
- const band=knowledge.clues.find(clue=>clue.id==='value-band');
- if(band){const [low,high]=money(band);estimate=high===undefined?low:low+(high-low)*.25;certainty=.65}
+ const band=knowledge.clues.find(clue=>clue.id==='value-band4')??knowledge.clues.find(clue=>clue.id==='value-band');
+ if(band){
+  const [low,high]=money(band),upper=high===undefined?Math.max(estimate,low):low+(high-low)*.25;
+  estimate=band.id==='value-band4'?Math.max(low,Math.min(estimate,upper)):upper;
+  certainty=band.id==='value-band4'?Math.max(certainty,.5):.65;
+ }
  return {estimate:Math.max(observed,estimate),certainty};
 }

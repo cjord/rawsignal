@@ -7,6 +7,7 @@ import {auctionLossShares,auctionSaleRarity} from './auction-economy.ts';
 import {npcRoundInformation,npcInvestigationNotes} from './auction-npc-information.ts';
 import {auctionSampleValue,publicAuctionSlots,revealPublicRound} from './auction-public.ts';
 import {auctionLotTheme} from './auction-lot-themes.ts';
+import {rankAuctionBids} from './auction-ranking.ts';
 
 // This bidder knows only sample prices and a count range, never the full lot or sealed player bid.
 export function npcBid(sample:number[],range:[number,number],_priorBids:number[],personality:number,random:()=>number,feeBps=1000,confidence=1,participation=0,grossEstimate?:number,certainty=1):number{
@@ -44,7 +45,7 @@ export function beginAuction(save:AuctionSave,catalog:AuctionCard[],now:number,p
 export function buyInformation(save:AuctionSave,id:string,now:number):AuctionSave{
  const auction=save.auction;
  if(!auction||auction.stage!=='round'||auction.selected!==null||auction.bought||now>=auction.deadline)return save;
- const option=auction.offers.find(option=>option.id===id);if(!option||save.wallet.cash<option.cost)return save;
+ const option=auction.offers.find(option=>option.id===id);if(!option||save.wallet.cash<option.cost||id==='value-band'||id==='value-band4'&&auction.round!==4)return save;
  const result=investigate(auction,option);
  return {...save,wallet:{...save.wallet,cash:save.wallet.cash-option.cost},auction:{...auction,known:result.known,priced:result.priced,...(result.rarityKnown?{rarityKnown:result.rarityKnown}:{}),...(result.topCardSlot!==undefined?{topCardSlot:result.topCardSlot}:{}),clues:[...auction.clues,result.clue],bought:true,spent:auction.spent+option.cost}};
 }
@@ -55,8 +56,7 @@ export function lockBid(save:AuctionSave,cents:number,now:number):AuctionSave{
  return {...save,auction:{...auction,selected:cents,npcs:auction.npcs.map(npc=>({...npc,lockAt:npc.locked?npc.lockAt:Math.min(npc.lockAt,now+500+Math.round(random()*2500))}))}};
 }
 export function auctionWinner(bids:RoundBid[],round:number,seed:number):{winner:RoundBid|null;buyout:boolean}{
- const priority=['You',...bids.map(bid=>bid.name).filter(name=>name!=='You').sort()],offset=seed%4;
- const positives=bids.filter(bid=>bid.cents>0).sort((a,b)=>b.cents-a.cents||((priority.indexOf(a.name)+offset)%4)-((priority.indexOf(b.name)+offset)%4));
+ const positives=rankAuctionBids(bids,seed).filter(bid=>bid.cents>0);
  const buyout=round<4&&positives.length>=2&&positives[0].cents*100>=positives[1].cents*(100+AUCTION_ROUNDS[round-1].threshold);
  return {winner:round===4||buyout?positives[0]??null:null,buyout};
 }

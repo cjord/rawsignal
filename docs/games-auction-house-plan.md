@@ -1,5 +1,39 @@
 # Riftbound Auction House
 
+## Compact ranked review and theme/profile tooltips — 2026-10-15
+
+Collection Value Band is now $0–under $250, $250–under $1,000 or $1,000–$2,000
+inclusive (legacy lots above the cap retain the $2,000+ fallback), at the unchanged
+$30 virtual price and **round 4 only** for players and NPCs. The new `value-band4`
+identifier preserves already purchased older band results and historical NPC clues.
+Unpurchased old band offers are withdrawn on loading; the purchase handler also
+rejects the retired clue and early new-band purchases without charging cash.
+NPCs bound their existing estimate by the disclosed range’s lower bound and lower
+quarter rather than jumping automatically to that quarter. This reduces information
+without inducing high bids; no hidden prices are used and personality risk/margins
+are unchanged.
+
+Round Bids and final Bid History share condensed ~64px cells, smaller icons and a
+maximum 1100px matrix width; the history title is 24px. Each completed bid has a
+1st/2nd/3rd/4th placement; unplayed cells stay placeholders. Rankings and winners use
+one shared seeded tie comparator. Passes receive a placement but never a winning
+highlight when no positive bids exist. Matrices remain horizontally scrollable on
+phones, with keyboard/touch private-clue-type tooltips retained.
+
+The Round Bids header has title left, No Early Buyout centered, and the pulsing Next
+Auction Round button top-right. Buyout explanation and tie/pass rules live in a
+tooltip. Place Your Bid no longer prints strategy descriptions below bidder names;
+NPC names have richer hover descriptions plus accessible profile info controls,
+covering strategy, favored clue types and limited knowledge, not actual private finds.
+
+Collection headings use their lot theme: e.g. Deck Builder's Collection / Deck
+Builder's Collection Revealed. Other themes use their respective collection names;
+unthemed legacy lots retain generic headings. The separate theme description box is
+removed; its warning, description and paid-weighting disclosure live in the title
+tooltip. Known/Total Value, card count, public/top markers and fixed card dimensions
+remain unchanged. No extra pricing requests, database migration or scheduled work.
+Release scope: GitHub and staging only; production requires separate authorization.
+
 ## Investigation rebalance — 2026-10-15
 
 Approved by the user, including marking the top card’s location while revealing only

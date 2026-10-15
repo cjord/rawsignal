@@ -14,7 +14,7 @@ const option=id=>INVESTIGATIONS.find(option=>option.id===id);
 const fresh=()=>beginAuction(initialAuctionSave(),pool,1000,pool,42);
 
 test('approved investigation prices, enlarged scans and marker limits match the balance',()=>{
- for(const [id,cost] of [['rarity-peek8',400],['rare-mark8',600],['epic-mark5',1000],['alt-mark3',1200],['highest-rarity',800],['common-count',200],['uncommon-count',300],['rare8',1500],['epic5',2000],['alt3',3000],['over5',1500],['over20',2500],['rares',1500],['rarities',1200],['value-band',3000],['chase1',6500]])assert.equal(option(id).cost,cost,id);
+ for(const [id,cost] of [['rarity-peek8',400],['rare-mark8',600],['epic-mark5',1000],['alt-mark3',1200],['highest-rarity',800],['common-count',200],['uncommon-count',300],['rare8',1500],['epic5',2000],['alt3',3000],['over5',1500],['over20',2500],['rares',1500],['rarities',1200],['value-band4',3000],['chase1',6500]])assert.equal(option(id).cost,cost,id);
  const auction={...fresh().auction,known:[],priced:[]};
  for(const [id,count] of [['rarity-peek8',8],['rare-mark8',8],['epic-mark5',5],['alt-mark3',3]]){
   const result=investigate(auction,option(id));assert.equal(result.rarityKnown.length,count);assert.deepEqual(result.known,[]);assert.deepEqual(result.priced,[]);assert.ok(!result.clue.text.includes('Secret'));
@@ -42,20 +42,23 @@ test('top-card rarity marks its precise location without revealing identity/artw
  const unmarked=structuredClone(bought);unmarked.auction.rarityKnown=[];assert.throws(()=>parseAuctionSave(JSON.stringify(unmarked)));
 });
 
-test('value bands have fixed boundaries, preserve same-band uncertainty and are offered only in rounds three/four',()=>{
- for(const [value,low,high] of [[0,0,50],[4999,0,50],[5000,50,100],[10000,100,250],[25000,250,500],[50000,500,1000],[100000,1000,2000],[200000,1000,2000]]){
+test('wide value bands have fixed boundaries, preserve uncertainty and are available only in round four',()=>{
+ for(const [value,low,high] of [[0,0,250],[24999,0,250],[25000,250,1000],[99999,250,1000],[100000,1000,2000],[200000,1000,2000]]){
   const text=auctionValueBand(value);assert.ok(text.includes(`$${low.toFixed(2)}`)&&text.includes(`$${high.toFixed(2)}`));assert.match(text,/before fees/);
  }
  assert.equal(auctionValueBand(30000),auctionValueBand(45000));assert.match(auctionValueBand(200001),/\$2000.00\+/);
- for(let round=1;round<=4;round++)assert.equal(informationUseful({...fresh().auction,round},'value-band'),round>=3);
- const observed=pool.slice(0,2),clues=[{id:'value-band',label:'Collection Value Band',text:auctionValueBand(30000)}];
- const valuation=npcKnowledgeValue({count:50,observed,random:observed,clues});assert.equal(valuation.estimate,31250);assert.equal(valuation.certainty,.65);
+ for(let round=1;round<=4;round++)assert.equal(informationUseful({...fresh().auction,round},'value-band4'),round===4);
+ const observed=pool.slice(0,2),clues=[{id:'value-band4',label:'Collection Value Band',text:auctionValueBand(30000)}];
+ const valuation=npcKnowledgeValue({count:50,observed,random:observed,clues});assert.equal(valuation.estimate,25000);assert.equal(valuation.certainty,.5);
+ const old=fresh();old.auction.offers=[option('value-band')];assert.equal(parseAuctionSave(JSON.stringify(old)).auction.offers.length,0);assert.equal(buyInformation(old,'value-band',1100),old);
+ for(const round of [1,2,3]){const early=fresh();early.auction.round=round;early.auction.offers=[option('value-band4')];assert.equal(buyInformation(early,'value-band4',1100),early)}
+ const legacy=investigate(fresh().auction,option('value-band'));assert.match(legacy.clue.text,/\$250.00–under \$500.00/);
  assert.ok(Number.isFinite(npcKnowledgeValue({count:350,observed:[],random:[],clues:[{...clues[0],text:auctionValueBand(250000)}]}).estimate));
 });
 
 test('new offers retire obsolete clues, exclude exhausted scans and avoid redundant census counts',()=>{
  for(let seed=0;seed<80;seed++)for(let round=1;round<=4;round++){
-  const auction={...fresh().auction,seed,round};for(const offer of informationOffers(auction)){assert.ok(!RETIRED_INVESTIGATION_IDS.includes(offer.id));if(offer.id==='value-band')assert.ok(round>=3)}
+  const auction={...fresh().auction,seed,round};for(const offer of informationOffers(auction)){assert.ok(!RETIRED_INVESTIGATION_IDS.includes(offer.id));if(offer.id==='value-band4')assert.equal(round,4)}
  }
  const exhausted={...fresh().auction,known:pool.map((_,i)=>i),priced:pool.map((_,i)=>i)};
  for(const id of ['rare8','epic5','alt3','chase1','rare-mark8'])assert.equal(informationUseful(exhausted,id),false);

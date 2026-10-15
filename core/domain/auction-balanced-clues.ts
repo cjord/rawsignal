@@ -1,5 +1,5 @@
 import type {Auction,Investigation} from './auction-types.ts';
-import {auctionValueBand} from './auction-value-band.ts';
+import {auctionValueBand,legacyAuctionValueBand} from './auction-value-band.ts';
 import {auctionRarityLabel} from './auction-copy-policy.ts';
 
 export function balancedClue(auction:Auction,option:Investigation){
@@ -12,7 +12,10 @@ export function balancedClue(auction:Auction,option:Investigation){
  if(option.id==='common-count'||option.id==='uncommon-count'){
   const rarity=option.id==='common-count'?'common':'uncommon';
   text=`${auction.lot.filter(card=>card.rarity.toLowerCase()===rarity).length} ${rarity} copies.`;
- }else if(option.id==='value-band')text=auctionValueBand(auction.lot.reduce((sum,card)=>sum+card.cents,0));
+ }else if(option.id==='value-band'||option.id==='value-band4'){
+  const value=auction.lot.reduce((sum,card)=>sum+card.cents,0);
+  text=option.id==='value-band4'?auctionValueBand(value):legacyAuctionValueBand(value);
+ }
  else return null;
  return {...base,clue:{id:option.id,label:option.label,text}};
 }
