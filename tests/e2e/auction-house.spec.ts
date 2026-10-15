@@ -10,7 +10,7 @@ async function fixtures(page:Page){
  await page.clock.install({time:new Date('2026-10-14T12:00:00Z')});
 }
 const saved=(page:Page)=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)!),key);
-async function finishReveal(page:Page){const skip=page.getByRole('button',{name:'Skip Reveal'});if(await skip.count())await skip.click();await expect(page.getByRole('button',{name:'Finish & manage inventory'})).toBeEnabled()}
+async function finishReveal(page:Page){const skip=page.getByRole('button',{name:'Skip Reveal'});if(await skip.count())await skip.click();await expect(page.getByRole('button',{name:'Finish & manage inventory'})).toBeEnabled();const prices=await page.locator('.auction-collection-grid > button > strong').allTextContents();const values=prices.map(price=>Number(price.replace(/[^0-9.]/g,'')));expect(values.every((value,index)=>index===0||values[index-1]>=value)).toBe(true)}
 async function expectSettledPosition(page:Page){const top=await page.locator('#auction-settled').evaluate(element=>element.getBoundingClientRect().top);expect(top).toBeGreaterThanOrEqual(124);expect(top).toBeLessThanOrEqual(126)}
 async function expectConsolidatedResults(page:Page){await expect(page.getByRole('timer')).toHaveText('Auction Finished');await expect(page.locator('.auction-result-metrics > div')).toHaveCount(6);await expect(page.getByText('Gross Market Spread',{exact:true})).toHaveCount(0)}
 
@@ -30,7 +30,7 @@ test('paid entry charges $50 once after artwork checks, offers larger collection
  for(const width of [1440,390])for(const theme of ['dark','light']){await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:testInfo.outputPath(`paid-auction-${width}-${theme}.png`),fullPage:true,animations:'disabled'})}
  await page.reload();await expect(page.getByRole('heading',{name:/Place Your Bid/})).toBeVisible();expect((await saved(page)).wallet.cash).toBe(245000);
  await page.evaluate(key=>{const state=JSON.parse(localStorage.getItem(key)!);state.auction.npcs=state.auction.npcs.map((npc:object)=>({...npc,bid:100,locked:true}));state.revision++;const raw=JSON.stringify(state);localStorage.setItem(key,raw);dispatchEvent(new StorageEvent('storage',{key,newValue:raw}))},key);
- await page.getByLabel('Bid (virtual USD)').fill('2450');await page.getByLabel('Bid (virtual USD)').press('Enter');await page.clock.runFor(250);await page.clock.runFor(2000);await expect(page.getByRole('heading',{name:'Auction Settled'})).toBeVisible();await expectConsolidatedResults(page);state=await saved(page);expect(state.wallet.cash).toBe(0);await expect(page.locator('.auction-result-metrics > div').filter({hasText:'Auction Entry Fee'})).toContainText('$50.00');expect(requests).toBe(22);
+ await page.getByLabel('Bid (virtual USD)').fill('2450');await page.getByLabel('Bid (virtual USD)').press('Enter');await page.clock.runFor(250);await page.clock.runFor(2000);await expect(page.getByRole('heading',{name:'Auction Settled'})).toBeVisible();await expectConsolidatedResults(page);state=await saved(page);expect(state.wallet.cash).toBe(0);await expect(page.locator('.auction-result-metrics > div').filter({hasText:'Auction Entry Fee'})).toContainText('-$50.00');await expect(page.locator('.auction-result-metrics > div').filter({hasText:'Selling Fee'}).locator('dd')).toHaveText(/^-/);expect(requests).toBe(22);
 });
 
 test('rarity inventory sales confirm precise proceeds and lobby facts and timing tooltip work across themes',async({page},testInfo)=>{
@@ -50,7 +50,7 @@ test('NPC overpayment shares its loss, credits once, and shows the player net re
  await page.evaluate(key=>{const state=JSON.parse(localStorage.getItem(key)!);state.auction.npcs=state.auction.npcs.map((npc:object,index:number)=>({...npc,bid:index===0?250000:1,locked:true}));state.revision++;const raw=JSON.stringify(state);localStorage.setItem(key,raw);dispatchEvent(new StorageEvent('storage',{key,newValue:raw}))},key);
  await page.getByRole('button',{name:'Pass ($0)'}).click();await page.clock.runFor(250);await page.clock.runFor(1800);await finishReveal(page);
  const state=await saved(page),result=state.auction.result,share=result.lossShares.find((row:{name:string})=>row.name==='You').cents;expect(result.net).toBeLessThan(0);expect(result.lossShares.reduce((sum:number,row:{cents:number})=>sum+row.cents,0)).toBe(-result.net);expect(state.wallet.cash).toBe(250000-result.playerExpenses+share);expect(state.wallet.inventory).toHaveLength(0);
- await expect(page.getByRole('heading',{name:'NPC Loss Shared'})).toBeVisible();await expect(page.locator('.auction-loss-shares li')).toHaveCount(3);await expect(page.locator('.auction-result-metrics > div').filter({hasText:'Your Auction Result'})).toContainText(new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format((share-result.playerExpenses)/100));
+ await expect(page.getByRole('heading',{name:'NPC Loss Shared'})).toBeVisible();await expect(page.locator('.auction-loss-shares li')).toHaveCount(3);await expect(page.locator('.auction-result-metrics > div').filter({hasText:'Your Auction Result'})).toContainText(new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format((share-result.playerExpenses)/100));await expect(page.locator('.auction-loss-expand')).toHaveCSS('animation-name','auction-loss-expand');await page.emulateMedia({reducedMotion:'reduce'});await expect(page.locator('.auction-loss-expand')).toHaveCSS('animation-name','none');
  await page.reload();await expect(page.getByRole('heading',{name:'Auction Settled'})).toBeVisible();await finishReveal(page);expect((await saved(page)).wallet.cash).toBe(state.wallet.cash);await page.getByRole('button',{name:'Finish & manage inventory'}).click();expect((await saved(page)).wallet.cash).toBe(state.wallet.cash);
 });
 
@@ -59,6 +59,7 @@ test('settlement skeletons count alongside revealed cards and previous bids stay
  await page.goto('/games/riftbound-auction');await page.getByRole('button',{name:'Enter free auction'}).click();await expect(page.getByRole('heading',{name:/Place Your Bid/})).toBeVisible();
  const boxes=await page.locator('.auction-offers button').evaluateAll(elements=>elements.map(element=>element.getBoundingClientRect().toJSON()));expect(boxes[1].top).toBeGreaterThanOrEqual(boxes[0].bottom);expect(boxes[2].top).toBeGreaterThanOrEqual(boxes[1].bottom);
  for(let round=1;round<=4;round++){
+  await expect(page.locator('.auction-shared-reveal')).toContainText(`Round ${round} Shared Reveal`);
   await expect(page.locator('.auction-previous-bids')).toHaveCount(round===1?0:4);
   await expect(page.locator('.auction-previous-bids > small')).toHaveCount(0);await expect(page.locator('.auction-previous-bids .is-round-leader')).toHaveCount(round-1);
   await expect(page.locator('.auction-prior-bid')).toHaveCount((round-1)*4);await expect(page.getByText('Previous Bids',{exact:true})).toHaveCount(0);
@@ -70,7 +71,8 @@ test('settlement skeletons count alongside revealed cards and previous bids stay
  await expect(page.getByRole('heading',{name:'Winner Announced'})).toBeVisible();await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight));await page.clock.runFor(1600);await expect(page.getByRole('heading',{name:'Auction Settled'})).toBeVisible();await expectSettledPosition(page);
  await expectConsolidatedResults(page);await expect(page.locator('.auction-value-skeleton')).toHaveCount(6);await expect(page.getByRole('button',{name:'Finish & manage inventory'})).toBeDisabled();
  await page.clock.runFor(340);await expect(page.locator('.auction-value-skeleton')).toHaveCount(0);await expect(page.locator('.auction-result-metrics')).toHaveAttribute('aria-busy','true');
- const progress=await page.evaluate(()=>({market:document.querySelector('.auction-result-metrics dd')!.textContent,collection:document.querySelector('.auction-known-value strong')!.textContent}));expect(progress.market).toBe(progress.collection);
+ const progress=await page.evaluate(()=>({market:document.querySelector('.auction-result-metrics dd')!.textContent,collection:new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format([...document.querySelectorAll('.auction-collection-grid > button > strong')].reduce((sum,element)=>sum+Math.round(Number(element.textContent!.replace(/[^0-9.]/g,''))*100),0)/100)}));expect(progress.market).toBe(progress.collection);
+ await expect(page.locator('.auction-collection .auction-known-value')).toHaveCount(0);await expect(page.locator('.auction-collection')).not.toContainText('Net Profit / Loss');await expect(page.locator('.auction-collection').getByRole('button',{name:'Collection value explanation'})).toHaveCount(0);await page.locator('.auction-results').getByRole('button',{name:'Collection value explanation'}).click();await expect(page.getByRole('tooltip')).toContainText('frozen auction prices');await page.keyboard.press('Escape');
  const state=await saved(page);expect(progress.market).not.toBe(`$${(state.auction.result.value/100).toFixed(2)}`);
  await page.getByRole('button',{name:'Skip Reveal'}).click();await expect(page.locator('.auction-result-metrics')).toHaveAttribute('aria-busy','false');await expect(page.getByRole('button',{name:'Finish & manage inventory'})).toBeEnabled();
  await expect(page.locator('.auction-result-metrics > div').filter({hasText:'Collection Market Value'})).toContainText(new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(state.auction.result.value/100));
@@ -126,6 +128,7 @@ test('auction layouts and artwork are usable in both themes at desktop and mobil
   const tile=page.getByRole('link',{name:/Riftbound Auction House/});await expect(tile.locator('.game-tile-art')).toHaveClass(/is-loaded/);
   await page.screenshot({path:testInfo.outputPath(`auction-tile-${width}-${theme}.png`),fullPage:true});await tile.click();
   await expect(page.getByRole('button',{name:'Enter free auction'})).toBeEnabled();await page.evaluate(theme=>{document.documentElement.dataset.theme=theme},theme);
+  expect(await page.locator('.auction-entry-card img').first().evaluate(element=>element.getBoundingClientRect().width)).toBeLessThanOrEqual(180);
   await page.getByRole('button',{name:'Enter free auction'}).click();
   await expect(page.locator('.auction-offers button')).toHaveCount(3);
   const layout=await page.locator('main.games-page').evaluate(element=>{const rect=element.getBoundingClientRect(),style=getComputedStyle(element);return {left:rect.left,width:rect.width,padding:parseFloat(style.paddingLeft)}});
@@ -178,7 +181,7 @@ test('mute persists, countdown warns, Enter locks and reduced motion reveals imm
  await page.clock.runFor(3500);await page.clock.runFor(2000);await expect(page.getByRole('heading',{name:'Auction Settled'})).toBeVisible();
  await expect(page.locator('.auction-card.is-hidden')).toHaveCount(0);await expect(page.getByRole('button',{name:'Skip Reveal'})).toHaveCount(0);
  await expect(page.locator('.auction-bid-history .auction-history-cell[data-completed="true"]')).toHaveCount(4);
- const state=await saved(page);await expect(page.locator('.auction-known-value')).toContainText(`$${(state.auction.result.value/100).toFixed(2)}`);
+ const state=await saved(page);await expect(page.locator('.auction-result-metrics > div').filter({hasText:'Collection Market Value'}).locator('dd')).toHaveText(new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(state.auction.result.value/100));await expect(page.locator('.auction-collection .auction-known-value')).toHaveCount(0);
  await page.reload();await expect(page.getByRole('button',{name:'Enable Sound'})).toHaveAttribute('aria-pressed','true');
  await page.getByRole('button',{name:'Enable Sound'}).click();await page.reload();await expect(page.getByRole('button',{name:'Mute Sound'})).toBeVisible();
  await page.evaluate(()=>{const Native=window.AudioContext;window.AudioContext=class extends Native{constructor(){super();document.documentElement.dataset.auctionAudio='ready'}}});

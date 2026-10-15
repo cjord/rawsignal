@@ -1,5 +1,76 @@
 # Riftbound Auction House
 
+## Remove duplicated revealed-collection totals — local, 2026-10-14
+
+Collection Revealed no longer repeats Market Value or Net Profit / Loss; those
+running/final metrics remain in Auction Settled. Its explanation toggletip moves
+to that settlement section beside count progress. Skip Reveal remains a separate,
+right-aligned control while counting. Active Mystery Collection still shows Known
+Value and the individual-price/aggregate-clue explanation. Individual card prices,
+counting, final value sorting and all shared-round/NPC/investigation changes below
+are retained. No pricing, save-format, API or database changes; not deployed.
+
+Final validation: `npm run check` passed (441 node tests, one skipped, 47 Chromium
+journeys; 21 existing lint warnings). Regressions cover no duplicate completed
+collection totals, moved accessible tooltip, retained Skip Reveal and running totals
+matching revealed card prices. Desktop/mobile, dark/light screenshots reviewed.
+The initial run caught ambiguous metric lookups when the tooltip lived inside a
+metric tile; it now sits outside the metric grid beside count progress, and the
+complete gate was rebuilt/rerun successfully on that final layout.
+
+## Shared round clues, investigations and calmer NPCs — local, 2026-10-14
+
+Each round now includes a free public price reveal shared with every bidder: the
+two shuffled starting cards in round one, then 1–3 newly public slots per round.
+Reveals persist in an optional round/slot log, are shown in the collection pane,
+and enter all NPCs' knowledge before bids are generated. They never spend the
+player's one paid investigation. Private player scans are not passed to NPCs.
+Old saves without the log remain readable; future rounds begin the public log.
+
+NPC analysis found that a small sample containing one expensive chase was being
+extrapolated over the entire lot, amplified by broad personality margins, noise,
+the opening boost and paid modifier. New estimates blend 35% observed mean,
+45% mean clipped at three times the observed lower median, and 20% lower median.
+The shared sample contributes 25% of the general per-card anchor, personal known
+cards 75%. Purchased aggregate clues remain exact for their own disclosed scope;
+unseen remainder estimates are moderated, never replaced with actual hidden value.
+Personal margins narrow from 0.58–1.08 to 0.80–0.98, random noise from 4–16% to
+3–8%, and mood confidence from ±6% to ±3%. Participation and cash cap are unchanged;
+the existing 15% opening/8% paid modifiers still apply. Different private clues
+can legitimately produce different bids; opponents do not target the player's bid.
+
+Calibration (1,000 matched seeds, same 50-card chase-heavy lot worth $1,438.57):
+mean positive openings free $717.59 → $330.54; paid $756.74 → $354.46. Participation
+counts were unchanged. A more aggressively clipped draft was rejected because it
+treated genuine observed chase cards too much like bulk. These are game-balancing
+measurements on one fixed collection, not expected returns or universal bid targets.
+
+Investigation descriptions now state exactly what is revealed. Virtual costs:
+Set Census $2, Duplicate Check $3, Rarity Census $4, $5 Price Check / Identity Peek
+$6, Common Scan $8, Uncommon Scan / $20 Price Check $10, Random Price Scan /
+Top Card Peek $12, Bulk Valuation $15, Binder Preview $16, Top-Three Share $18,
+Rare Scan / Rare Valuation $20, Epic Scan $30, Top-Five Valuation $35, Alt-Art
+Scan $45, Collection Appraisal $60, Chase Scan $65. New scans reveal up to three
+commons/uncommons, two rares/regular epics, or one alt art/chase (overnumber/signature),
+with prices. Empty/exhausted rarity scans are excluded from offers. Previous two
+price schedules and already-offered labels/prices remain accepted in saved games.
+
+Selling/investigation/entry costs display negative amounts (zero stays neutral).
+After counting, NPC Loss Shared expands vertically rather than popping in, with a
+static reduced-motion alternative. Only once every card is counted does the revealed
+collection sort by market value descending (stable slot ties); counting order and
+frozen indices are unchanged. Entry artwork is now a compact side thumbnail rather
+than a large banner. No additional data calls, D1 work or migrations. Not deployed.
+
+Validation: final `npm run check` passed (441 node tests, one skipped, 47 Chromium
+journeys; 21 existing lint warnings, no new warnings). Added shared-round continuity,
+no-charge/persistence, rarity-only/exhausted scans, robust sample and legacy-price
+regressions. Browser checks cover shared announcements each round, negative fees,
+descending completed-card prices, smaller artwork and expanding/static-reduced-motion
+loss sharing. Desktop/mobile and dark/light screenshots reviewed; existing Singles
+and Sealed journeys passed. An earlier gate also passed before final calibration;
+the final gate rebuilt and rechecked the exact final application state.
+
 ## Compact collections and consolidated settlement — 2026-10-14
 
 Collection grids now use auto-filled columns with 120px target minimum (100px on

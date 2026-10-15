@@ -1,5 +1,5 @@
 import {initialAuctionSave,type Auction,type AuctionSave} from "./auction-types.ts";
-import {INVESTIGATIONS,LEGACY_INVESTIGATION_COSTS} from "./auction-information.ts";
+import {INVESTIGATIONS,LEGACY_INVESTIGATION_COSTS,PREVIOUS_INVESTIGATION_COSTS} from "./auction-information.ts";
 import {AUCTION_NPCS} from './auction-npcs.ts';
 import {NPC_INVESTIGATION_IDS} from './auction-npc-information.ts';
 
@@ -18,13 +18,14 @@ function validNpcInformation(npc:Auction['npcs'][number],length:number){return (
 function validBidNotes(notes:unknown){return notes===undefined||Array.isArray(notes)&&notes.length<=4&&notes.every(note=>record(note)&&text(note.id)&&text(note.label)&&text(note.text,3000))}
 function validBids(bids:unknown){return Array.isArray(bids)&&bids.length<=4&&bids.every(bid=>record(bid)&&text(bid.name)&&integer(bid.cents)&&validBidNotes(bid.notes))}
 function validClues(auction:Auction){
- return Array.isArray(auction.offers)&&auction.offers.length<=3&&auction.offers.every(option=>record(option)&&INVESTIGATIONS.some(known=>known.id===option.id&&(known.cost===option.cost||LEGACY_INVESTIGATION_COSTS[option.id]===option.cost)&&known.tier===option.tier)&&text(option.label))&&Array.isArray(auction.clues)&&auction.clues.length<=4&&auction.clues.every(clue=>record(clue)&&text(clue.id)&&text(clue.label)&&text(clue.text,3000));
+ return Array.isArray(auction.offers)&&auction.offers.length<=3&&auction.offers.every(option=>record(option)&&INVESTIGATIONS.some(known=>known.id===option.id&&(known.cost===option.cost||LEGACY_INVESTIGATION_COSTS[option.id]===option.cost||PREVIOUS_INVESTIGATION_COSTS[option.id]===option.cost)&&known.tier===option.tier)&&text(option.label)&&(option.description===undefined||text(option.description,500)))&&Array.isArray(auction.clues)&&auction.clues.length<=4&&auction.clues.every(clue=>record(clue)&&text(clue.id)&&text(clue.label)&&text(clue.text,3000));
 }
 function validRoundMetadata(auction:Auction){return ['round','reveal','result'].includes(auction.stage)&&integer(auction.round,4)&&auction.round>=1&&integer(auction.seed)&&integer(auction.deadline,Number.MAX_SAFE_INTEGER)&&integer(auction.feeBps,10000)&&integer(auction.spent)&&typeof auction.bought==='boolean'&&(auction.selected===null||integer(auction.selected))}
 function validSnapshot(auction:Auction){
- if(!validLot(auction))return false;
+ if(!validLot(auction)||!validPublicReveals(auction))return false;
  return Array.isArray(auction.range)&&auction.range.length===2&&auction.range.every(value=>integer(value,1000))&&auction.range[0]<=auction.range[1]&&validSlots(auction.known,auction.lot.length)&&validSlots(auction.priced,auction.lot.length)&&auction.priced.every(slot=>auction.known.includes(slot));
 }
+function validPublicReveals(auction:Auction){return auction.publicReveals===undefined||Array.isArray(auction.publicReveals)&&auction.publicReveals.length<=4&&new Set(auction.publicReveals.map(reveal=>reveal?.round)).size===auction.publicReveals.length&&auction.publicReveals.every(reveal=>record(reveal)&&integer(reveal.round,auction.round)&&reveal.round>=1&&validSlots(reveal.slots,auction.lot.length)&&reveal.slots.length<=3&&Array.isArray(auction.priced)&&reveal.slots.every(slot=>auction.priced.includes(slot)))}
 function validResult(auction:Auction){
  if(auction.stage!=='result')return auction.result===null;
  const result=auction.result;return !!result&&record(result)&&(result.winner===null||result.winner==='You'||AUCTION_NPCS.some(profile=>profile.name===result.winner))&&integer(result.bid)&&integer(result.value)&&integer(result.fee)&&typeof result.net==='number'&&Number.isSafeInteger(result.net)&&Math.abs(result.net)<=1e12&&integer(result.playerExpenses)&&typeof result.buyout==='boolean'&&validLossShares(result.lossShares);

@@ -25,7 +25,7 @@ test('unseen prices outside the chosen aggregate and personal samples do not inf
 });
 test('future opponents and legacy notes expose safe names without revealing results or invalid saved knowledge',()=>{
  const note={id:'top5',label:'Secret Card $900',text:'$900 and Secret Card'};
- assert.equal(publicAuctionBidNotes({name:'Another Player',cents:1,notes:[note]})[0].label,"Top 5 copies' combined value");
+ assert.equal(publicAuctionBidNotes({name:'Another Player',cents:1,notes:[note]})[0].label,'Top-Five Valuation');
  assert.ok(!JSON.stringify(publicAuctionBidNotes({name:'Another Player',cents:1,notes:[note]})).includes('$900'));
  assert.equal(publicAuctionBidNotes({name:'The Dealer',cents:1,notes:[{id:'identity3',label:'Private Inspection',text:'secret'}]})[0].label,'Card Inspection (Legacy)');
  const save=beginAuction(initialAuctionSave(),pool,1000);save.auction.npcs[0].inspected=[999999];assert.throws(()=>parseAuctionSave(JSON.stringify(save)));

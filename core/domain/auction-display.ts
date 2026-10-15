@@ -18,6 +18,7 @@ export function auctionMetricTone(value:number|null,kind:'signed'|'cost'|'info'=
  return kind==='cost'?'is-cost':kind==='info'?'is-info':value>0?'is-gain':'is-loss';
 }
 export function orderedAuctionSlots(auction:Auction,visible:number[]){
+ if(auction.stage==='result'&&visible.length===auction.lot.length)return [...visible].sort((a,b)=>auction.lot[b].cents-auction.lot[a].cents||a-b);
  const known=new Set(visible);return [...visible,...auction.lot.map((_,index)=>index).filter(index=>!known.has(index))];
 }
 // Old saves with detailed NPC notes must also expose only information TYPES in the UI.
@@ -26,6 +27,6 @@ export function publicAuctionBidNotes(bid:RoundBid){
  return bid.notes?.map(note=>{
   const starting=note.id==='public-start'||note.id==='reveal3'&&note.label==='Public Starting Cards';
   const legacy=note.id==='legacy-inspection'||note.label==='Private Inspection';
-  return {id:note.id,label:starting?'Public Starting Cards':legacy?'Card Inspection (Legacy)':INVESTIGATIONS.find(option=>option.id===note.id)?.label??'Investigation Unavailable',text:starting?'Used the publicly revealed starting cards.':'Used this investigation to estimate the collection. Card identities, prices and findings remain private.'};
+  return {id:note.id,label:starting?'Shared Public Reveals':legacy?'Card Inspection (Legacy)':INVESTIGATIONS.find(option=>option.id===note.id)?.label??'Investigation Unavailable',text:starting?'Used the shared public cards and prices.':'Used this investigation to estimate the collection. Card identities, prices and findings remain private.'};
  });
 }

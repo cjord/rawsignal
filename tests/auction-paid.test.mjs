@@ -41,7 +41,7 @@ test('paid NPC competition still uses private samples and never changes with the
  assert.deepEqual(lockBid(paid,1,1100).auction.npcs.map(npc=>npc.bid),lockBid(paid,200000,1100).auction.npcs.map(npc=>npc.bid));
 });
 test('new investigation prices reflect power while existing version-one offers retain old prices',()=>{
- const cost=id=>INVESTIGATIONS.find(option=>option.id===id).cost;assert.ok(cost('identity3')<cost('reveal3'));assert.ok(cost('identity10')<cost('top5'));assert.ok(cost('sets')<cost('appraisal'));assert.equal(cost('appraisal'),10000);
- const legacy=beginAuction(initialAuctionSave(),pool,1000);delete legacy.auction.kind;delete legacy.auction.entryFee;legacy.auction.offers=legacy.auction.offers.map(offer=>({...offer,cost:LEGACY_INVESTIGATION_COSTS[offer.id]}));assert.deepEqual(parseAuctionSave(JSON.stringify(legacy)),legacy);
+ const cost=id=>INVESTIGATIONS.find(option=>option.id===id).cost;assert.ok(cost('identity3')<cost('reveal3'));assert.ok(cost('identity10')<cost('top5'));assert.ok(cost('sets')<cost('appraisal'));assert.equal(cost('appraisal'),6000);
+ const legacy=beginAuction(initialAuctionSave(),pool,1000);delete legacy.auction.kind;delete legacy.auction.entryFee;legacy.auction.offers=INVESTIGATIONS.filter(offer=>['sets','reveal3','rares'].includes(offer.id)).map(offer=>({...offer,cost:LEGACY_INVESTIGATION_COSTS[offer.id]}));assert.deepEqual(parseAuctionSave(JSON.stringify(legacy)),legacy);
  const invalid=structuredClone(legacy);invalid.auction.offers[0].cost=123456;assert.throws(()=>parseAuctionSave(JSON.stringify(invalid)));
 });

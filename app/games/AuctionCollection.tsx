@@ -7,16 +7,16 @@ import AuctionDialog from './AuctionDialog';
 import {auctionUsd} from './AuctionWallet';
 import {knownValue} from '../../core/domain/auction-information';
 import type {Auction} from '../../core/domain/auction-types';
-import {auctionRarity,orderedAuctionSlots,auctionRevealQuote} from '../../core/domain/auction-display';
+import {auctionRarity,orderedAuctionSlots} from '../../core/domain/auction-display';
 
 export default function AuctionCollection({auction,visible,done,skip}:{auction:Auction;visible:number[];done:boolean;skip:()=>void}){
  const [inspected,setInspected]=useState<number|null>(null),complete=auction.stage==='result';
  const selected=inspected===null?null:auction.lot[inspected],priceKnown=complete||inspected!==null&&auction.priced.includes(inspected);
- const quote=auctionRevealQuote(auction,visible),value=complete?quote.value:knownValue(auction);
- const result=auction.result,net=quote.net;
  return <section className="detail-section auction-collection">
   <div className="auction-collection-heading"><h2>{complete?'Collection Revealed':'Mystery Collection'}</h2><strong className="auction-copy-count">{auction.lot.length}<small>Cards</small></strong></div>
-  <p className="auction-known-value">{complete?'Market Value':'Known Value'}: <strong>{auctionUsd(value)}</strong> <InfoHint label="Collection value explanation">{complete?'The frozen auction market value adds up as cards flip. Net profit includes selling fees, the winning bid and the winner’s investigation spend and entry fee.':'Only individually revealed prices; aggregate clues are separate and never counted twice.'}</InfoHint>{complete&&result?.winner&&<> · Net Profit / Loss: <strong className={net>=0?'up':'down'}>{auctionUsd(net)}</strong></>}{complete&&!done&&<button className="game-control" type="button" onClick={skip}>Skip Reveal</button>}</p>
+  {!complete&&auction.publicReveals?.length&&<p className="auction-shared-reveal" role="status">Round {auction.round} Shared Reveal · {auction.publicReveals.at(-1)!.slots.length} cards and prices visible to every bidder. Public reveals carry into later rounds.</p>}
+  {!complete&&<p className="auction-known-value">Known Value: <strong>{auctionUsd(knownValue(auction))}</strong> <InfoHint label="Collection value explanation">Only individually revealed prices; aggregate clues are separate and never counted twice.</InfoHint></p>}
+  {complete&&!done&&<div className="auction-reveal-controls"><button className="game-control" type="button" onClick={skip}>Skip Reveal</button></div>}
   <div className="auction-collection-grid">{orderedAuctionSlots(auction,visible).map(index=>{const card=auction.lot[index];
    if(!visible.includes(index))return <div className="auction-card is-hidden" key={index} aria-label={`Unrevealed card ${index+1}`}><span className="auction-back-art"><img src="/images/games/riftbound-card-back.webp" alt=""/><b aria-hidden="true">?</b></span></div>;
    const priced=complete||auction.priced.includes(index),rarity=auctionRarity(card);

@@ -5,15 +5,13 @@ import {AUCTION_NPCS,auctionNpcRoster,auctionNpcMood} from './auction-npcs.ts';
 import {informationOffers,investigate} from "./auction-information.ts";
 import {auctionLossShares,auctionSaleRarity} from './auction-economy.ts';
 import {npcRoundInformation,npcInvestigationNotes} from './auction-npc-information.ts';
+import {auctionSampleValue,revealPublicRound} from './auction-public.ts';
 
 export const AUCTION_OPENING_BID_MULTIPLIER=1.15;
 // This bidder knows only sample prices and a count range, never the full lot or sealed player bid.
 export function npcBid(sample:number[],range:[number,number],_priorBids:number[],personality:number,random:()=>number,feeBps=1000,confidence=1,participation=0,grossEstimate?:number):number{
  const npc=AUCTION_NPCS[personality]??AUCTION_NPCS[0];if(random()>Math.min(1,Math.max(0,npc.participation+participation)))return 0;
- const ordered=[...sample].sort((a,b)=>a-b),middle=Math.floor(ordered.length/2);
- const median=ordered.length?(ordered[middle]+ordered[Math.max(0,middle-(ordered.length%2===0?1:0))])/2:0;
- const sampleAverage=sample.reduce((sum,price)=>sum+price,0)/Math.max(1,sample.length);
- const estimate=(grossEstimate??(sampleAverage*.6+median*.4)*(range[0]+range[1])/2)*(1-feeBps/10000);
+ const estimate=(grossEstimate??auctionSampleValue(sample)*(range[0]+range[1])/2)*(1-feeBps/10000);
  if(estimate<=0)return 0;
  return Math.max(1,Math.min(250000,Math.round(estimate*npc.margin*confidence*(1-npc.noise+random()*npc.noise*2))));
 }
@@ -30,7 +28,7 @@ function roundNpcs(auction:Auction,now:number):Npc[]{
  });
 }
 function openRound(auction:Auction,now:number):Auction{
- const next={...auction,stage:'round' as const,deadline:now+AUCTION_ROUNDS[auction.round-1].seconds*1000,bought:false,selected:null,bids:[]};
+ const next=revealPublicRound({...auction,stage:'round' as const,deadline:now+AUCTION_ROUNDS[auction.round-1].seconds*1000,bought:false,selected:null,bids:[]});
  next.offers=informationOffers(next);next.npcs=roundNpcs(next,now);return next;
 }
 export function beginAuction(save:AuctionSave,catalog:AuctionCard[],now:number,prepared?:AuctionCard[],seed=7411+save.sequence*137,kind:AuctionKind='free'):AuctionSave{

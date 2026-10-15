@@ -12,6 +12,18 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
+- Local revealed-collection cleanup: remove duplicate market/net totals after
+  settlement, move the explanatory tooltip into Auction Settled, retain Skip Reveal
+  separately and Known Value during active bidding. Included with the local shared
+  round / investigation / NPC work below; not pushed/deployed.
+
+- Local auction round-information/balance update: shared free public price reveals
+  every round, six targeted rarity scans, revised investigation labels/descriptions/
+  prices with saved-offer compatibility, moderated NPC outlier estimates and narrower
+  personalities. Negative fee amounts, expanding loss-share results, compact entry
+  thumbnails and final value-descending collection order. No extra pricing calls
+  or database changes; not pushed/deployed. Rules/costs/calibration in the auction plan.
+
 - Released Auction compact-grid/settlement follow-up: auto-fill collection columns with a
   140px tile cap, bid-control and participant separators, six settlement metrics
   in both modes (Gross Market Spread removed, free entry explicitly $0), and
