@@ -15,7 +15,11 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 - Auction entry/inventory polish: automatic failed-artwork exclusion/reroll, text-only
   starting state, generated free/paid entry art, explicit rarity/Sell All controls,
   right-aligned finish and actual named NPC investigations with redacted findings.
-  In staging validation, together with the previously local compact-bid/pulse updates.
+  Deployed and verified on staging from `8a6826e`, version `32799d2a` (2026-10-14),
+  together with the previously local compact-bid/pulse updates. Full gate: 434 node
+  tests passed, one skipped, 47 browser checks. Live 36-card free / 145-card paid
+  auctions passed with no extra gameplay pricing calls or browser errors. Production
+  unchanged (`04c63e07`); promotion remains pending user request.
   Details: `docs/games-auction-house-plan.md`; art prompts: `docs/auction-entry-artwork.md`.
 
 - Paid-auction/round-control follow-up: $50 entry, larger premium-weighted lots,
