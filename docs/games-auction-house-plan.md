@@ -1,5 +1,27 @@
 # Riftbound Auction House
 
+## Paired finding tiles and latest-bid controls — 2026-10-15
+
+Each round groups Your Investigation first (purple tile), then its Public Reveal
+(blue tile), newest round first. Both tiles support hover, keyboard focus and tap
+popups with Escape/outside dismissal. Public popups list that round's shared cards
+and prices. New private results store only newly disclosed slot indices and their
+knowledge level: rarity-only never reveals names/art/prices; identity-only never
+reveals prices; priced scans use frozen lot prices. Aggregate clues show their exact
+stored result, and legacy purchases keep their text without inventing card details.
+The same popup behavior is shared with completed bid-history notes.
+
+Place Your Bid shows exactly the immediately preceding round's bid beside each
+bidder, retaining its winner highlight. The full four-round matrix remains below
+the collection. No Early Buyout grows to 24px on desktop and 14px on phones. Skip
+Reveal sits immediately right of Total Value, on the same row; on phones that pair
+gets its own centered header row so the title and card count retain enough space.
+
+No pricing calls, DB operations, migrations or fee/bidding-balance changes are added
+by this UI update. Release sequence: validate and push, stage and verify, then deploy
+the same application build to production. This production promotion also includes
+the preceding staging-only auction work documented below.
+
 ## Round information and more active rivals — 2026-10-15
 
 Collection Value Band is withdrawn from all new player/NPC choices, including round

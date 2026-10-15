@@ -95,3 +95,13 @@ test('private findings persist their purchase round, reject invalid round tags a
  for(const round of [0,2,5,'1']){const invalid=structuredClone(bought);invalid.auction.clues[0].round=round;assert.throws(()=>parseAuctionSave(JSON.stringify(invalid)))}
  const legacy=structuredClone(bought);legacy.auction.clues=[{id:'value-band4',label:'Collection Value Band',text:auctionValueBand(30000)}];assert.deepEqual(parseAuctionSave(JSON.stringify(legacy)),legacy);
 });
+
+test('finding popups persist only newly disclosed slots and the allowed knowledge level, not duplicate price values',()=>{
+ for(const [id,visibility] of [['reveal3','price'],['identity3','identity'],['rare-mark8','rarity']]){
+  const save=fresh();save.auction.offers=[option(id)];const bought=buyInformation(save,id,1100),reveals=bought.auction.clues[0].reveals;
+  assert.ok(reveals.length>0);assert.ok(reveals.every(reveal=>reveal.visibility===visibility));assert.ok(reveals.every(reveal=>Object.keys(reveal).sort().join(',')==='slot,visibility'));
+  assert.ok(reveals.every(reveal=>visibility==='price'?!save.auction.priced.includes(reveal.slot):visibility==='identity'?!save.auction.known.includes(reveal.slot):!save.auction.rarityKnown?.includes(reveal.slot)));
+  assert.deepEqual(parseAuctionSave(JSON.stringify(bought)),bought);
+  for(const invalidReveal of [{slot:-1,visibility},{slot:999,visibility},{slot:1,visibility:'secret'}]){const invalid=structuredClone(bought);invalid.auction.clues[0].reveals=[invalidReveal];assert.throws(()=>parseAuctionSave(JSON.stringify(invalid)))}
+ }
+});

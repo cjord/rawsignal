@@ -10,8 +10,12 @@ export default function AuctionBidders({auction}:{auction:Auction}){
  const bidders=[{name:'You',locked:auction.selected!==null},...auction.npcs];
  return <ul className="auction-npcs">{bidders.map(bidder=><li key={bidder.name} className={bidder.locked?'is-locked':''}>
   <div className="auction-bid-status"><BidderIdentity name={bidder.name}/><span className="auction-lock-status">{bidder.locked?'Locked':'Considering…'}</span></div>
-  {auction.round>1&&<div className="auction-previous-bids" role="group" aria-label={`${bidder.name} previous round bids`}>{Array.from({length:auction.round-1},(_,index)=>{const bids=auction.bidHistory[index],bid=bids?.find(bid=>bid.name===bidder.name),leader=bids?auctionWinner(bids,4,auction.seed).winner?.name:null;return <span key={index} role="group" className={`auction-prior-bid${leader===bidder.name?' is-round-leader':''}`} aria-label={`${bidder.name}, round ${index+1}${leader===bidder.name?', winning bid':''}`}><small>Round {index+1}</small><strong>{bid?auctionUsd(bid.cents):'N/A'}</strong></span>})}</div>}
+  {auction.round>1&&<PreviousBid auction={auction} name={bidder.name}/>}
  </li>)}</ul>;
+}
+function PreviousBid({auction,name}:{auction:Auction;name:string}){
+ const round=auction.round-1,bids=auction.bidHistory[round-1],bid=bids?.find(bid=>bid.name===name),leader=bids?auctionWinner(bids,4,auction.seed).winner?.name:null;
+ return <div className="auction-previous-bids" role="group" aria-label={`${name} previous round bid`}><span role="group" className={`auction-prior-bid${leader===name?' is-round-leader':''}`} aria-label={`${name}, round ${round}${leader===name?', winning bid':''}`}><small>Round {round}</small><strong>{bid?auctionUsd(bid.cents):'N/A'}</strong></span></div>;
 }
 function BidderIdentity({name}:{name:string}){
  const profile=AUCTION_NPCS.find(npc=>npc.name===name);

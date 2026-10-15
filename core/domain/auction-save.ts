@@ -17,8 +17,11 @@ function validNpcs(auction:Auction){
 }
 function validNpcInformation(npc:Auction['npcs'][number],length:number){return (npc.identified===undefined||validSlots(npc.identified,length))&&(npc.inspected===undefined||validSlots(npc.inspected,length))&&(npc.investigations===undefined||Array.isArray(npc.investigations)&&npc.investigations.length<=4&&new Set(npc.investigations).size===npc.investigations.length&&npc.investigations.every(id=>NPC_INVESTIGATION_IDS.includes(id)))}
 function validClue(value:unknown){
- const clue=value as {id?:unknown;label?:unknown;text?:unknown;round?:unknown};
- return record(value)&&text(clue.id)&&text(clue.label)&&text(clue.text,3000)&&(clue.round===undefined||integer(clue.round,4)&&clue.round>=1);
+ const clue=value as {id?:unknown;label?:unknown;text?:unknown;round?:unknown;reveals?:unknown};
+ return record(value)&&text(clue.id)&&text(clue.label)&&text(clue.text,3000)&&(clue.round===undefined||integer(clue.round,4)&&clue.round>=1)&&validClueReveals(clue.reveals);
+}
+function validClueReveals(value:unknown){
+ return value===undefined||Array.isArray(value)&&value.length<=350&&new Set(value.map(reveal=>reveal?.slot)).size===value.length&&value.every(reveal=>record(reveal)&&integer(reveal.slot,349)&&['rarity','identity','price'].includes(reveal.visibility));
 }
 function validBidNotes(notes:unknown){return notes===undefined||Array.isArray(notes)&&notes.length<=4&&notes.every(validClue)}
 function validBids(bids:unknown){return Array.isArray(bids)&&bids.length<=4&&bids.every(bid=>record(bid)&&text(bid.name)&&integer(bid.cents)&&validBidNotes(bid.notes))}

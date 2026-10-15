@@ -5,8 +5,9 @@ import {auctionUsd} from './AuctionWallet';
 import {buyInformation} from '../../core/domain/auction-engine';
 import type {Auction,AuctionSave,Clue} from '../../core/domain/auction-types';
 import {publicAuctionSlots} from '../../core/domain/auction-public';
-function ClueResults({clues}:{clues:Clue[]}){
- return <div className="auction-clues"><ul>{clues.map(clue=><li key={clue.id}><b><AuctionClueIcon id={clue.id}/>{clue.label}</b><span>{clue.text}</span></li>)}</ul></div>;
+import AuctionFindingTile from './AuctionFindingTile';
+function ClueResults({clues,auction,round}:{clues:Clue[];auction:Auction;round:number}){
+ return <div className="auction-clues"><ul>{clues.map(clue=><li key={clue.id}><AuctionFindingTile auction={auction} round={round} clue={clue}/></li>)}</ul></div>;
 }
 export default function AuctionInvestigate({save,now,transact}:{save:AuctionSave;now:number;transact:(update:(save:AuctionSave)=>AuctionSave)=>void}){
  const auction=save.auction!;
@@ -23,8 +24,8 @@ function PublicInformation({auction}:{auction:Auction}){
   const reveal=reveals.find(reveal=>reveal.round===round);
   const clues=auction.clues.filter(clue=>(clue.round??legacyClueRound(auction,clue))===round);
   return <section className={`auction-investigation-round${round===auction.round?' is-new':''}`} key={round} aria-label={`Round ${round} investigation information`}><h3>Round {round}</h3>
-   {reveal&&<div className="auction-shared-reveal"><h4>Public Reveal — {reveal.slots.length} cards with prices</h4>{round===auction.round&&<span className="auction-public-announcement" role="status">Round {round}: {reveal.slots.length} public cards revealed.</span>}</div>}
-   {!!clues.length&&<div className="auction-investigation-results"><h4>Your Investigation</h4><ClueResults clues={clues}/></div>}
+   {!!clues.length&&<div className="auction-investigation-results"><ClueResults clues={clues} auction={auction} round={round}/></div>}
+   {reveal&&<><AuctionFindingTile auction={auction} round={round} slots={reveal.slots}/>{round===auction.round&&<span className="auction-public-announcement" role="status">Round {round}: {reveal.slots.length} public cards revealed.</span>}</>}
   </section>;
  })}</div>;
 }
