@@ -15,8 +15,12 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 - Paid-auction/round-control follow-up: $50 entry, larger premium-weighted lots,
   slightly stronger clue-based NPC competition, balanced investigation prices,
   pulsing capitalized entry buttons, compact previous bids with green round leaders,
-  bordered round/timer row and no entry skeleton/Jump to Bid. Staging release in
-  validation; production remains on `04c63e07`. Rules in the auction plan.
+  bordered round/timer row and no entry skeleton/Jump to Bid. Deployed and verified
+  on staging from `9da396a`, version `54eb3aa1` (2026-10-14); production remains on
+  `04c63e07`, promotion pending user request. Full gate: 428 node tests passed,
+  one skipped, 46 browser checks. Live 73-card free / 136-card paid auctions passed
+  with no additional gameplay pricing calls. Rules and artwork-abort notes in the
+  auction plan.
 
 - Auction House is deployed to staging and production from `c983e21` (2026-10-14).
   Shipped implementation and economy/lobby changes moved to `docs/todo-completed.md`;
