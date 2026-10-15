@@ -1,11 +1,10 @@
-import {INVESTIGATIONS,investigate} from './auction-information.ts';
+import {INVESTIGATIONS,investigate,informationUseful} from './auction-information.ts';
 import {auctionRandom,type Auction,type Npc,type Clue,type Investigation} from './auction-types.ts';
 import {publicAuctionSlots} from './auction-public.ts';
 import {AUCTION_NPCS,auctionNpcRoster} from './auction-npcs.ts';
-import {rarityInvestigationSlots} from './auction-rarity-investigations.ts';
 import {npcKnowledgeValue} from './auction-npc-valuation.ts';
 
-export const NPC_INVESTIGATION_IDS=['reveal3','bulk','rares','top5','appraisal','common3','uncommon3','rare2','epic2','alt1','chase1','sets','rarities','duplicates','identity3'];
+export const NPC_INVESTIGATION_IDS=['reveal3','bulk','rares','top5','appraisal','common3','uncommon3','rare2','epic2','alt1','chase1','sets','rarities','duplicates','identity3','common-count','uncommon-count','rare8','epic5','alt3','value-band'];
 export function npcInvestigationName(npc:Npc){return INVESTIGATIONS.find(option=>option.id===npc.investigations?.at(-1))?.label??'Card Inspection (Legacy)'}
 export function npcInvestigationNotes(npc:Npc):Clue[]{
  const id=npc.investigations?.at(-1);
@@ -18,23 +17,18 @@ export function chooseNpcInvestigation(choices:Investigation[],name:string,seed:
  let roll=auctionRandom(seed)()*weights.reduce((sum,weight)=>sum+weight,0);
  return choices.find((_,index)=>{roll-=weights[index];return roll<0});
 }
-function npcClueAvailable(auction:Auction,id:string){
- const slots=rarityInvestigationSlots(auction,id);
- if(slots!==null)return slots.length>0;
- if(id==='identity3')return auction.known.length<auction.lot.length;
- return id!=='reveal3'||auction.priced.length<auction.lot.length;
-}
 export function npcRoundInformation(auction:Auction,index:number,sample:number[],previous?:Npc,name=previous?.name??auctionNpcRoster(auction.seed)[index].name){
  const history=previous?.investigations??[],rank=auction.round===1?'targeted':auction.round===2?'strong':'premium';
  const ranks=['basic','targeted','strong','premium'];
  const priced=[...new Set([...publicAuctionSlots(auction),...sample,...(previous?.inspected??[])])],known=[...new Set([...priced,...(previous?.identified??[])])],personal={...auction,known,priced};
- const choices=INVESTIGATIONS.filter(option=>NPC_INVESTIGATION_IDS.includes(option.id)&&!history.includes(option.id)&&ranks.indexOf(option.tier)<=ranks.indexOf(rank)&&npcClueAvailable(personal,option.id));
+ const personalClues={...personal,clues:history.map(id=>({id,label:id,text:''}))};
+ const choices=INVESTIGATIONS.filter(option=>NPC_INVESTIGATION_IDS.includes(option.id)&&!history.includes(option.id)&&ranks.indexOf(option.tier)<=ranks.indexOf(rank)&&informationUseful(personalClues,option.id));
  const chosen=chooseNpcInvestigation(choices,name,auction.seed+index*191+auction.round*43);
  const investigations=chosen?[...history,chosen.id]:history;
  const result=chosen?investigate(personal,chosen):null;
  const inspected=result?.priced??previous?.inspected??[],identified=result?.known??known,slots=[...new Set([...priced,...inspected])];
  const randomSlots=[...new Set([...publicAuctionSlots(auction),...sample])];
- const valuationClues=investigations.filter(id=>['bulk','rares','top5','appraisal','sets','rarities','duplicates'].includes(id)).map(id=>investigate(personal,INVESTIGATIONS.find(option=>option.id===id)!).clue);
+ const valuationClues=investigations.filter(id=>['bulk','rares','top5','appraisal','value-band','common-count','uncommon-count','sets','rarities','duplicates'].includes(id)).map(id=>investigate(personal,INVESTIGATIONS.find(option=>option.id===id)!).clue);
  const value=npcKnowledgeValue({count:auction.lot.length,observed:slots.map(index=>auction.lot[index]),random:randomSlots.map(index=>auction.lot[index]),clues:valuationClues});
  return {investigations,inspected,identified,prices:slots.map(index=>auction.lot[index].cents),...value};
 }

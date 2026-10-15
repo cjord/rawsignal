@@ -35,7 +35,7 @@ test('NPC rarity scans learn only inspected prices and do not extrapolate a targ
  let matched;
  for(let seed=0;seed<100;seed++){
   const next={...auction,seed},info=npcRoundInformation(next,0,[1,3,4,5],undefined,'The Opportunist');
-  if(info.investigations.at(-1)==='rare2'){matched={next,info};break}
+  if(info.investigations.at(-1)==='rare8'){matched={next,info};break}
  }
  assert.ok(matched);const {next,info}=matched;
  const observed=new Set([...publicAuctionSlots(next),1,3,4,5]),scanned=info.inspected.find(slot=>!observed.has(slot));assert.ok(scanned!==undefined);

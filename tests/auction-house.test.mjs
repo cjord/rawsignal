@@ -3,7 +3,7 @@ import test from 'node:test';
 import {initialAuctionSave,holdingKey} from '../core/domain/auction-types.ts';
 import {auctionCatalog,prototypeLot,inventoryQuote} from '../core/domain/auction-market.ts';
 import {beginAuction,buyInformation,lockBid,tickAuction,nextAuctionRound,finishAuction,auctionWinner,npcBid,sellInventory,changeAuctionFee} from '../core/domain/auction-engine.ts';
-import {INVESTIGATIONS,investigate,knownValue} from '../core/domain/auction-information.ts';
+import {INVESTIGATIONS,investigate,knownValue,RETIRED_INVESTIGATION_IDS} from '../core/domain/auction-information.ts';
 import {parseAuctionSave} from '../core/domain/auction-save.ts';
 const cards=Array.from({length:24},(_,index)=>({productId:index+1,printing:'Normal',name:`Card ${index+1}`,image:`https://images.example/${index}.jpg`,game:'riftbound',set:'Origins',rarity:index<12?'Common':'Rare',section:'rares',marketPrice:index+1}));
 const catalog=auctionCatalog(cards),start=()=>beginAuction(initialAuctionSave(),catalog,1000,prototypeLot(catalog));
@@ -36,7 +36,7 @@ test('identity-only and aggregate investigations never leak or double-count know
  const aggregate=investigate(auction,INVESTIGATIONS.find(option=>option.id==='top5'));assert.equal(knownValue({...auction,...aggregate}),before);
  const expected=auction.priced.length+3,priced=investigate(auction,INVESTIGATIONS.find(option=>option.id==='reveal3'));assert.equal(priced.priced.length,expected);
  auction={...auction,known:priced.known,priced:priced.priced};assert.equal(new Set(auction.priced).size,expected);
- assert.equal(INVESTIGATIONS.length,29);
+ assert.equal(INVESTIGATIONS.filter(option=>!RETIRED_INVESTIGATION_IDS.includes(option.id)).length,28);
 });
 test('bid lock is irreversible, cents-valid and affordable; NPC acceleration changes timing only',()=>{
  const save=start(),before=save.auction.npcs.map(npc=>npc.bid),locked=lockBid(save,10000,1100);

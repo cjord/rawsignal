@@ -11,7 +11,7 @@ export type Investigation={id:string;label:string;description?:string;cost:numbe
 export type Clue={id:string;label:string;text:string};
 export type RoundBid={name:string;cents:number;notes?:Clue[]};
 export type AuctionResult={winner:string|null;bid:number;value:number;fee:number;net:number;playerExpenses:number;buyout:boolean;lossShares?:{name:string;cents:number}[]};
-export type Auction={seed:number;lotTheme?:string;publicReveals?:PublicReveal[];rarityKnown?:number[];stage:"round"|"reveal"|"result";round:number;deadline:number;lot:AuctionCard[];range:[number,number];known:number[];priced:number[];offers:Investigation[];clues:Clue[];bought:boolean;spent:number;selected:number|null;npcs:Npc[];bids:RoundBid[];bidHistory:RoundBid[][];result:AuctionResult|null;feeBps:number;kind?:AuctionKind;entryFee?:number};
+export type Auction={seed:number;lotTheme?:string;publicReveals?:PublicReveal[];rarityKnown?:number[];topCardSlot?:number;stage:"round"|"reveal"|"result";round:number;deadline:number;lot:AuctionCard[];range:[number,number];known:number[];priced:number[];offers:Investigation[];clues:Clue[];bought:boolean;spent:number;selected:number|null;npcs:Npc[];bids:RoundBid[];bidHistory:RoundBid[][];result:AuctionResult|null;feeBps:number;kind?:AuctionKind;entryFee?:number};
 export type AuctionSave={version:1;revision:number;sequence:number;wallet:Wallet;auction:Auction|null};
 export type PublicReveal={round:number;slots:number[]};
 export const holdingKey=(card:Pick<Holding,"productId"|"printing">)=>`${card.productId}:${card.printing}`;

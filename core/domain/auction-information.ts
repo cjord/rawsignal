@@ -1,21 +1,29 @@
 import {sampleIndices,type Auction,type AuctionCard,type Clue,type Investigation} from "./auction-types.ts";
 import {RARITY_INVESTIGATIONS,rarityInvestigationSlots} from './auction-rarity-investigations.ts';
 import {PARTIAL_INVESTIGATIONS,partialInvestigationSlots,investigatePartial} from './auction-partial-investigations.ts';
+import {balancedClue} from './auction-balanced-clues.ts';
+
+// Retain old definitions for active saves and historic NPC clues, never new offers.
+export const RETIRED_INVESTIGATION_IDS=['count','rarity-peek3','rare-mark2','epic-mark2','alt-mark1','rare-identity2','epic-identity2','common3','uncommon3','rare2','epic2','alt1','highest','appraisal'];
 
 export const INVESTIGATIONS:Investigation[]=[
  ...PARTIAL_INVESTIGATIONS,
  ...RARITY_INVESTIGATIONS,
  {id:"count",label:"Exact card count",cost:500,tier:"basic"},
  {id:"sets",label:"Set Census",description:"Count copies from each expansion.",cost:200,tier:"basic"},
- {id:"rarities",label:"Rarity Census",description:"Count copies in each rarity.",cost:400,tier:"basic"},
+ {id:"rarities",label:"Rarity Census",description:"Count copies in each rarity.",cost:1200,tier:"basic"},
  {id:"duplicates",label:"Duplicate Check",description:"Count repeated copies, not unique cards.",cost:300,tier:"basic"},
- {id:"over5",label:"$5 Price Check",description:"Count copies with market value above $5.",cost:600,tier:"basic"},
+ {id:"over5",label:"$5 Price Check",description:"Count copies with market value above $5.",cost:1500,tier:"basic"},
+ {id:'common-count',label:'Common Count',description:'Count every common copy in the lot. No identities or prices.',cost:200,tier:'basic'},
+ {id:'uncommon-count',label:'Uncommon Count',description:'Count every uncommon copy in the lot. No identities or prices.',cost:300,tier:'basic'},
+ {id:'highest-rarity',label:'Top Card Rarity',description:'Mark the most valuable card’s location and rarity. No name, artwork or price.',cost:800,tier:'targeted'},
+ {id:'value-band',label:'Collection Value Band',description:'Show a broad fixed bracket for total market value, before fees. Available in rounds 3–4.',cost:3000,tier:'premium'},
  {id:"reveal3",label:"Random Price Scan",description:"Reveal up to 3 unpriced copies and their prices.",cost:1200,tier:"targeted"},
  {id:"identity3",label:"Identity Peek",description:"Reveal up to 3 names and artworks, without prices.",cost:600,tier:"targeted"},
  {id:"bulk",label:"Bulk Valuation",description:"Exact combined market value of common and uncommon copies.",cost:1500,tier:"targeted"},
- {id:"over20",label:"$20 Price Check",description:"Count copies with market value above $20.",cost:1000,tier:"targeted"},
+ {id:"over20",label:"$20 Price Check",description:"Count copies with market value above $20.",cost:2500,tier:"targeted"},
  {id:"highest",label:"Top Card Peek",description:"Reveal the most valuable card identity, without its price.",cost:1200,tier:"strong"},
- {id:"rares",label:"Rare Valuation",description:"Exact combined market value of Rare-rarity copies.",cost:2000,tier:"strong"},
+ {id:"rares",label:"Rare Valuation",description:"Exact combined market value of Rare-rarity copies.",cost:1500,tier:"strong"},
  {id:"share",label:"Top-Three Share",description:"Show the percentage of total value in the three highest-value copies.",cost:1800,tier:"strong"},
  {id:"top5",label:"Top-Five Valuation",description:"Exact combined market value of the five highest-value copies.",cost:3500,tier:"premium"},
  {id:"identity10",label:"Binder Preview",description:"Reveal up to 10 names and artworks, without prices.",cost:1600,tier:"premium"},
@@ -23,6 +31,7 @@ export const INVESTIGATIONS:Investigation[]=[
 ];
 // Active version-1 saves retain their already-offered prices; new rounds use current prices.
 export const PREVIOUS_INVESTIGATION_COSTS:Record<string,number>={count:500,sets:300,rarities:800,duplicates:500,over5:1200,reveal3:2500,identity3:1000,bulk:2500,over20:2000,highest:1500,rares:3500,share:3000,top5:5000,identity10:2500,appraisal:10000};
+export const PRE_BALANCE_INVESTIGATION_COSTS:Record<string,number>={rarities:400,over5:600,over20:1000,rares:2000};
 export const LEGACY_INVESTIGATION_COSTS:Record<string,number>={count:500,sets:500,rarities:1000,duplicates:1000,over5:1500,reveal3:2000,identity3:2000,bulk:1500,over20:2500,highest:4000,rares:4000,share:3000,top5:6000,identity10:4500,appraisal:7500};
 const money=(cents:number)=>`$${(cents/100).toFixed(2)}`;
 const sum=(cards:AuctionCard[])=>cards.reduce((value,card)=>value+card.cents,0);
@@ -36,25 +45,27 @@ export function informationOffers(auction:Auction):Investigation[]{
  }
  return picked;
 }
-function informationUseful(auction:Auction,id:string){
+export function informationUseful(auction:Auction,id:string){
+ if(RETIRED_INVESTIGATION_IDS.includes(id))return false;
+ if(id==='value-band')return auction.round>=3;
+ if(['common-count','uncommon-count'].includes(id))return !auction.clues.some(clue=>clue.id==='rarities');
  const partialSlots=partialInvestigationSlots(auction,id);if(partialSlots!==null)return partialSlots.length>0;
  const raritySlots=rarityInvestigationSlots(auction,id);if(raritySlots!==null)return raritySlots.length>0;
- if(id==='count')return false; // Every copy now has a visible slot; retain old saved clues.
  if(id==='reveal3')return auction.priced.length<auction.lot.length;
  if(id.startsWith('identity'))return auction.known.length<auction.lot.length;
- if(id==='highest'){const maximum=Math.max(...auction.lot.map(card=>card.cents));return !auction.known.some(index=>auction.lot[index].cents===maximum)}
  return true;
 }
 function breakdown(cards:AuctionCard[],key:'set'|'rarity'){
  const groups=new Map<string,number>();for(const card of cards)groups.set(card[key],(groups.get(card[key])??0)+1);
  return [...groups.entries()].map(([name,count])=>`${name}: ${count}`).join(' · ');
 }
-export function investigate(auction:Auction,option:Investigation):{known:number[];priced:number[];rarityKnown?:number[];clue:Clue}{
+export function investigate(auction:Auction,option:Investigation):{known:number[];priced:number[];rarityKnown?:number[];topCardSlot?:number;clue:Clue}{
  const partial=investigatePartial(auction,option);if(partial)return partial;
+ const balanced=balancedClue(auction,option);if(balanced)return balanced;
  const {lot}=auction,known=new Set(auction.known),priced=new Set(auction.priced);let text='';
  const candidates=rarityInvestigationSlots(auction,option.id);
  if(candidates!==null){
-  const count=option.id.endsWith('3')?3:option.id.endsWith('2')?2:1;
+  const count=Number(/\d+$/.exec(option.id)?.[0]??1);
   const indices=sampleIndices(candidates.length,count,auction.seed+auction.round*47).map(index=>candidates[index]);
   for(const index of indices){known.add(index);priced.add(index)}
   text=`${indices.length} copies revealed with prices.`;

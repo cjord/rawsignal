@@ -1,5 +1,43 @@
 # Riftbound Auction House
 
+## Investigation rebalance — 2026-10-15
+
+Approved by the user, including marking the top card’s location while revealing only
+its rarity. New options remain one private purchase per round, with up-to counts and
+no offers for exhausted scans. All prices below are virtual USD.
+
+| Option | New effect / cost |
+|---|---|
+| Rarity Peek | Up to 8 random rarity markers, $4 |
+| Rare / Epic / Alt-Art Markers | Up to 8 / 5 / 3 copies, $6 / $10 / $12 |
+| Top Card Rarity | Mark the most valuable copy’s location and rarity, $8; no new identity or price |
+| Common / Uncommon Count | Total category count, $2 / $3; no new identities or prices |
+| Rare / Epic / Alt-Art Scan | Up to 8 / 5 / 3 priced identities, $15 / $20 / $30 |
+| Rare / Epic Identity Peek | Up to 5 / 3 identities without prices; unchanged $12 / $18 |
+| $5 / $20 Price Check | Unchanged count-only effect, increased to $15 / $25 |
+| Rare Valuation | Unchanged exact category subtotal, reduced to $15 |
+| Rarity Census | Increased to $12; suppresses subsequent Common/Uncommon Count offers |
+| Collection Value Band | $30, rounds 3–4 only; replaces the centered 80–120% appraisal |
+
+Fixed market-value brackets: $0–under $50, $50–under $100, $100–under $250,
+$250–under $500, $500–under $1,000, $1,000–$2,000 inclusive. A legacy lot above
+the current generation cap gets an open-ended $2,000+ band. Bands never disclose a
+range centered on the exact value. NPCs use the lower quarter of a disclosed finite
+band (or the lower bound for an open band), still applying the configured selling
+fee and personality margin. New common/uncommon counts inform estimates using only
+personally observed prices and category counts; no unseen prices enter valuation.
+NPC strategies favor the equivalent current clues; participation/margins/risk stay
+unchanged. Chase Scan remains one priced chase at $65 for this balance pass.
+
+Changed-effect clues have distinct identifiers. Old offers, clues and already locked
+bids retain their meaning/prices; retired definitions stay loadable but are excluded
+from new offers. Historic $4 census / $6 and $10 price checks / $20 Rare Valuation
+offers remain valid. Optional browser-save `topCardSlot` persists the private marker;
+its range and rarity marker are validated. Unrevealed top cards stay face-down and
+are not added to Known Value. Later identity/public/final reveals retain a small Top
+badge without changing card dimensions. No extra API calls, database migration or
+scheduled work. GitHub push / staging deployment authorized; production unchanged.
+
 ## Compact collection headings and embedded bid history — 2026-10-15
 
 The pre-auction lobby/inventory returns to the centered standard Games page width;

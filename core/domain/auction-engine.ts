@@ -46,7 +46,7 @@ export function buyInformation(save:AuctionSave,id:string,now:number):AuctionSav
  if(!auction||auction.stage!=='round'||auction.selected!==null||auction.bought||now>=auction.deadline)return save;
  const option=auction.offers.find(option=>option.id===id);if(!option||save.wallet.cash<option.cost)return save;
  const result=investigate(auction,option);
- return {...save,wallet:{...save.wallet,cash:save.wallet.cash-option.cost},auction:{...auction,known:result.known,priced:result.priced,...(result.rarityKnown?{rarityKnown:result.rarityKnown}:{}),clues:[...auction.clues,result.clue],bought:true,spent:auction.spent+option.cost}};
+ return {...save,wallet:{...save.wallet,cash:save.wallet.cash-option.cost},auction:{...auction,known:result.known,priced:result.priced,...(result.rarityKnown?{rarityKnown:result.rarityKnown}:{}),...(result.topCardSlot!==undefined?{topCardSlot:result.topCardSlot}:{}),clues:[...auction.clues,result.clue],bought:true,spent:auction.spent+option.cost}};
 }
 export function lockBid(save:AuctionSave,cents:number,now:number):AuctionSave{
  const auction=save.auction;

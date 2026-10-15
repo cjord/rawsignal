@@ -24,8 +24,10 @@ export default function AuctionClueIcon({id}:{id:string}){
  const target=/^(common|uncommon|rare|epic|alt|chase)(?:\d|-)/.exec(id)?.[1];
  const tone=target?targetTones[target]:id==='rares'?'rare':tier?tierTones[tier]:undefined;
  let glyph=id;
- if(id==='rarity-peek3'||id.includes('-mark'))glyph='rarities';
+ if(id.startsWith('rarity-peek')||id.includes('-mark'))glyph='rarities';
+ if(id.endsWith('-count'))glyph='count';
+ if(id==='highest-rarity')glyph='highest';
  if(id.includes('-identity'))glyph='identity3';
- if(['common3','uncommon3','rare2','epic2','alt1','chase1'].includes(id))glyph=id==='chase1'?'highest':id==='common3'||id==='uncommon3'?'bulk':'rares';
+ if(/^(common|uncommon|rare|epic|alt|chase)\d+$/.test(id))glyph=id==='chase1'?'highest':id==='common3'||id==='uncommon3'?'bulk':'rares';
  return <svg className="auction-clue-icon" data-clue={glyph} data-tone={tone} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[glyph==='public-start'?'reveal3':glyph==='legacy-inspection'?'identity3':glyph]??paths.appraisal}/></svg>;
 }

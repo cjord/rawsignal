@@ -12,6 +12,13 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
+- Production promotion pending user direction for the approved investigation rebalance:
+  expanded rarity markers / scans / identity peeks, top-card rarity/location only,
+  common/uncommon counts, revised clue prices and fixed Collection Value Band in
+  rounds 3–4. NPC knowledge uses the same count/band semantics; old offers/results
+  remain compatible. No data/API/DB changes. Staging release details:
+  `docs/games-auction-house-plan.md`.
+
 - Production promotion pending user direction for compact Auction House headings,
   centered lobby / full-width active auctions, running Total Value, concise reveal
   summaries, public-eye markers with uniformly sized cards and embedded bid history.

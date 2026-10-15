@@ -2,6 +2,12 @@ import {sampleIndices,type Auction,type Investigation} from './auction-types.ts'
 import {auctionRarityBand} from './auction-copy-policy.ts';
 
 const specs=[
+ {id:'rarity-peek8',label:'Rarity Peek',description:'Mark the rarity of up to 8 random hidden copies. No names, artwork or prices.',cost:400,tier:'basic',mode:'rarity',band:'any',count:8},
+ {id:'rare-mark8',label:'Rare Markers',description:'Mark up to 8 regular rare copies. No names, artwork or prices.',cost:600,tier:'basic',mode:'rarity',band:'rare',count:8},
+ {id:'epic-mark5',label:'Epic Markers',description:'Mark up to 5 regular epic copies. No names, artwork or prices.',cost:1000,tier:'targeted',mode:'rarity',band:'epic',count:5},
+ {id:'alt-mark3',label:'Alt-Art Markers',description:'Mark up to 3 alt-art copies. No names, artwork or prices.',cost:1200,tier:'targeted',mode:'rarity',band:'alt',count:3},
+ {id:'rare-identity5',label:'Rare Identity Peek',description:'Reveal up to 5 regular rare names and artworks, without prices.',cost:1200,tier:'targeted',mode:'identity',band:'rare',count:5},
+ {id:'epic-identity3',label:'Epic Identity Peek',description:'Reveal up to 3 regular epic names and artworks, without prices.',cost:1800,tier:'strong',mode:'identity',band:'epic',count:3},
  {id:'rarity-peek3',label:'Rarity Peek',description:'Mark the rarity of up to 3 random hidden copies. No names, artwork or prices.',cost:400,tier:'basic',mode:'rarity',band:'any',count:3},
  {id:'rare-mark2',label:'Rare Markers',description:'Locate up to 2 regular rare copies. Cards stay face down; no identities or prices.',cost:600,tier:'basic',mode:'rarity',band:'rare',count:2},
  {id:'epic-mark2',label:'Epic Markers',description:'Locate up to 2 regular epic copies. Cards stay face down; no identities or prices.',cost:1000,tier:'targeted',mode:'rarity',band:'epic',count:2},
