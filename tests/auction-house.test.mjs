@@ -34,8 +34,8 @@ test('identity-only and aggregate investigations never leak or double-count know
  const highest=investigate(auction,INVESTIGATIONS.find(option=>option.id==='highest'));
  assert.deepEqual(highest.priced,auction.priced);assert.equal(knownValue({...auction,...highest}),before);
  const aggregate=investigate(auction,INVESTIGATIONS.find(option=>option.id==='top5'));assert.equal(knownValue({...auction,...aggregate}),before);
- const priced=investigate(auction,INVESTIGATIONS.find(option=>option.id==='reveal3'));assert.equal(priced.priced.length,5);
- auction={...auction,known:priced.known,priced:priced.priced};assert.equal(new Set(auction.priced).size,5);
+ const expected=auction.priced.length+3,priced=investigate(auction,INVESTIGATIONS.find(option=>option.id==='reveal3'));assert.equal(priced.priced.length,expected);
+ auction={...auction,known:priced.known,priced:priced.priced};assert.equal(new Set(auction.priced).size,expected);
  assert.equal(INVESTIGATIONS.length,29);
 });
 test('bid lock is irreversible, cents-valid and affordable; NPC acceleration changes timing only',()=>{

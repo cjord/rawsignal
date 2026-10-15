@@ -5,6 +5,7 @@ import {initialAuctionSave} from '../core/domain/auction-types.ts';
 import {npcRoundInformation,npcInvestigationName,NPC_INVESTIGATION_IDS} from '../core/domain/auction-npc-information.ts';
 import {publicAuctionBidNotes} from '../core/domain/auction-display.ts';
 import {parseAuctionSave} from '../core/domain/auction-save.ts';
+import {publicAuctionSlots} from '../core/domain/auction-public.ts';
 const pool=Array.from({length:60},(_,i)=>({productId:i+1,printing:'Normal',name:`Secret Card ${i}`,image:`https://images.example/${i}`,set:'Origins',rarity:i<30?'Common':'Rare',section:'rares',cents:100+i*10}));
 test('NPCs choose named investigations, preserve memory and snapshot only their investigation names',()=>{
  let save=beginAuction(initialAuctionSave(),pool,1000,undefined,42);
@@ -19,7 +20,7 @@ test('NPCs choose named investigations, preserve memory and snapshot only their 
 test('unseen prices outside the chosen aggregate and personal samples do not influence NPC estimates',()=>{
  const auction=beginAuction(initialAuctionSave(),pool,1000,undefined,42).auction,sample=[1,3,4,5],previous={name:'The Dealer',investigations:['reveal3'],inspected:[]};
  const info=npcRoundInformation(auction,0,sample,previous);assert.equal(info.investigations.at(-1),'bulk');
- const known=new Set([0,2,...sample]),hidden=auction.lot.findIndex((card,index)=>!known.has(index)&&card.rarity==='Rare');assert.ok(hidden>=0);
+ const known=new Set([...publicAuctionSlots(auction),...sample]),hidden=auction.lot.findIndex((card,index)=>!known.has(index)&&card.rarity==='Rare');assert.ok(hidden>=0);
  const changed={...auction,lot:auction.lot.map((card,index)=>index===hidden?{...card,cents:999999}:card)};
  assert.equal(npcRoundInformation(changed,0,sample,previous).estimate,info.estimate);
 });

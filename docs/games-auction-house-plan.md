@@ -1,5 +1,28 @@
 # Riftbound Auction House
 
+## Investigation memory and opening reveals — 2026-10-15
+
+The Investigation tile owns cumulative shared public information and purchased clues.
+After purchase its heading remains Investigation Results. Public round panels stay
+expanded and list each revealed card/printing/price; every private clue and private
+revealed identity remains visible across rounds, with unknown prices kept unknown.
+Public panels pop in and newly public cards flip in the collection; reduced motion
+disables both effects. Known Value is larger and centered above the collection theme,
+still counting distinct individually priced slots only (never aggregate clues).
+
+New auctions start with `ceil(copies * 0.05) + 1` random public priced cards. A seeded
+roll adds zero cards 60% of the time, one 20%, or two 20%; later rounds retain 1–3
+new public slots, shared by player and NPCs without charge. Opening reveals are not
+the old fixed slots 0 and 2; those slots remain the fallback for legacy saves without
+public-reveal metadata. Existing auctions keep their saved opening reveal. Validation
+accepts the bounded larger first reveal without relaxing later rounds or losing old
+saves. NPC samples exclude actual public slots rather than assuming slots 0/2, and
+the existing no-hidden-value-peeking tests remain in force.
+
+No additional API calls, database reads/writes, migration, scheduled job or production
+deployment is needed. Prices still freeze on entry. Deployment target: staging only;
+production promotion remains a separate user decision.
+
 ## Settlement layout and collection hover — staged 2026-10-15
 
 Finish & Manage Inventory sits top-right on the Auction Settled heading row, including

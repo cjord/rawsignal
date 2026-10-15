@@ -9,6 +9,7 @@ import {auctionRarityBand} from '../core/domain/auction-copy-policy.ts';
 import {beginAuction} from '../core/domain/auction-engine.ts';
 import {initialAuctionSave} from '../core/domain/auction-types.ts';
 import {parseAuctionSave} from '../core/domain/auction-save.ts';
+import {publicAuctionSlots} from '../core/domain/auction-public.ts';
 
 const tiers=[['Common','commons'],['Uncommon','uncommons'],['Rare','rares'],['Epic','epics'],['Epic','alt-arts'],['Epic','overnumbered'],['Epic','signatures']];
 const pool=['Origins','Spiritforged','Unleashed'].flatMap((set,s)=>tiers.flatMap(([rarity,section],t)=>Array.from({length:30},(_,i)=>({productId:1+s*210+t*30+i,printing:'Normal',name:`Card ${s}-${t}-${i}`,image:`https://image.example/${s}-${t}-${i}`,set,rarity,section,cents:100}))));
@@ -37,7 +38,7 @@ test('NPC rarity scans learn only inspected prices and do not extrapolate a targ
   if(info.investigations.at(-1)==='rare2'){matched={next,info};break}
  }
  assert.ok(matched);const {next,info}=matched;
- const scanned=info.inspected.find(slot=>![0,1,2,3,4,5].includes(slot));assert.ok(scanned!==undefined);
+ const observed=new Set([...publicAuctionSlots(next),1,3,4,5]),scanned=info.inspected.find(slot=>!observed.has(slot));assert.ok(scanned!==undefined);
  const changed={...next,lot:next.lot.map((card,index)=>index===scanned?{...card,cents:card.cents+10000}:card)};
  const increased=npcRoundInformation(changed,0,[1,3,4,5],undefined,'The Opportunist');
  assert.equal(increased.estimate-info.estimate,10000);

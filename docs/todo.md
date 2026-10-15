@@ -12,6 +12,13 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
+- Production promotion pending user direction for Investigation memory/opening reveals:
+  cumulative public cards/prices and private clues in Investigation / Investigation
+  Results, `ceil(5% of copies) + 1` opening cards with occasional 0–2 extras,
+  round-start pop/flip feedback and centered larger Known Value. Existing saves
+  retained; no additional data calls or database work. Staging release details:
+  `docs/games-auction-house-plan.md`.
+
 - Production promotion pending user direction for settlement polish: finish button in the heading row, winner-line
   value tooltip, no completed-count line, inline card count, collection-only rarity
   hover rings and no separators between bidders. Counting/disabled-state safety and

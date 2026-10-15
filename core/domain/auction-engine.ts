@@ -5,7 +5,7 @@ import {AUCTION_NPCS,auctionNpcRoster,auctionNpcMood} from './auction-npcs.ts';
 import {informationOffers,investigate} from "./auction-information.ts";
 import {auctionLossShares,auctionSaleRarity} from './auction-economy.ts';
 import {npcRoundInformation,npcInvestigationNotes} from './auction-npc-information.ts';
-import {auctionSampleValue,revealPublicRound} from './auction-public.ts';
+import {auctionSampleValue,publicAuctionSlots,revealPublicRound} from './auction-public.ts';
 import {auctionLotTheme} from './auction-lot-themes.ts';
 
 // This bidder knows only sample prices and a count range, never the full lot or sealed player bid.
@@ -22,7 +22,7 @@ function roundNpcs(auction:Auction,now:number):Npc[]{
  const roster=auction.npcs.length?auction.npcs.map(npc=>AUCTION_NPCS.find(profile=>profile.name===npc.name)!):auctionNpcRoster(auction.seed);
  return roster.map((npc,index)=>{
   const previous=auction.npcs.find(bidder=>bidder.name===npc.name)?.sample??[];
-  const sample=[...previous,...sampleIndices(auction.lot.length,Math.max(0,3+auction.round-previous.length),auction.seed+index*67+auction.round,[0,2,...previous])];
+  const sample=[...previous,...sampleIndices(auction.lot.length,Math.max(0,3+auction.round-previous.length),auction.seed+index*67+auction.round,[...publicAuctionSlots(auction),...previous])];
   const knowledge=npcRoundInformation(auction,index,sample,auction.npcs.find(bidder=>bidder.name===npc.name),npc.name);
   const mood=auctionNpcMood(auction.seed,npc.name),personality=AUCTION_NPCS.findIndex(profile=>profile.name===npc.name);
   const paid=auction.kind==='paid';
@@ -37,7 +37,7 @@ export function beginAuction(save:AuctionSave,catalog:AuctionCard[],now:number,p
  const entryFee=kind==='paid'?AUCTION_PAID_ENTRY:0;
  if(save.auction||save.wallet.cash<entryFee)return save;
  const lot=(prepared??generateAuctionLot(catalog,seed,kind)).map(card=>({...card})),size=AUCTION_LOT_SIZES[kind];if(lot.length<size.min||lot.length>size.max)return save;
- const auction:Auction={seed,kind,entryFee,stage:'round',round:1,deadline:0,lot,range:[lot.length,lot.length],known:[0,2],priced:[0,2],offers:[],clues:[],bought:false,spent:0,selected:null,npcs:[],bids:[],bidHistory:[],result:null,feeBps:save.wallet.feeBps};
+ const auction:Auction={seed,kind,entryFee,stage:'round',round:1,deadline:0,lot,range:[lot.length,lot.length],known:[],priced:[],offers:[],clues:[],bought:false,spent:0,selected:null,npcs:[],bids:[],bidHistory:[],result:null,feeBps:save.wallet.feeBps};
  auction.lotTheme=auctionLotTheme(seed).id;
  return {...save,wallet:{...save.wallet,cash:save.wallet.cash-entryFee},sequence:save.sequence+1,auction:openRound(auction,now)};
 }

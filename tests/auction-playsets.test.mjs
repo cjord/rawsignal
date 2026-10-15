@@ -36,7 +36,7 @@ test('rarity markers expose no identities or prices; targeted identity peeks exp
   else{assert.deepEqual(result.known,auction.known);assert.ok(result.rarityKnown.length>0);assert.ok(!result.clue.text.includes('Card'));}
  }
  const option=INVESTIGATIONS.find(option=>option.id==='rarity-peek3');const bought=buyInformation({...save,auction:{...auction,offers:[option]}},option.id,1100);
- assert.deepEqual(parseAuctionSave(JSON.stringify(bought)),bought);assert.equal(bought.wallet.cash,250000-option.cost);assert.deepEqual(orderedAuctionSlots(bought.auction,bought.auction.known).slice(2,5),[...bought.auction.rarityKnown].sort((a,b)=>a-b));
+ assert.deepEqual(parseAuctionSave(JSON.stringify(bought)),bought);assert.equal(bought.wallet.cash,250000-option.cost);assert.deepEqual(orderedAuctionSlots(bought.auction,bought.auction.known).slice(bought.auction.known.length,bought.auction.known.length+3),[...bought.auction.rarityKnown].sort((a,b)=>a-b));
  const invalid=structuredClone(bought);invalid.auction.rarityKnown=[99999];assert.throws(()=>parseAuctionSave(JSON.stringify(invalid)));
  assert.ok(informationOffers({...auction,known:pool.map((_,i)=>i)}).every(offer=>!offer.id.includes('mark')&&!offer.id.includes('identity')&&offer.id!=='rarity-peek3'));
 });

@@ -12,6 +12,32 @@ async function fixtures(page:Page){
 }
 const saved=(page:Page)=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)!),key);
 
+test('investigation retains public and private findings across rounds with opening flips and centered known value',async({page},testInfo)=>{
+ await fixtures(page);await page.clock.pauseAt(new Date('2026-10-14T12:00:05Z'));let requests=0;
+ await page.route('**/data/*.json',route=>{requests++;return route.fulfill({contentType:'application/json',body:JSON.stringify(rows)})});
+ await page.goto('/games/riftbound-auction');await page.getByRole('button',{name:'Enter Free Auction',exact:true}).click();await expect(page.locator('.auction-investigate > h2')).toHaveText(/Investigation/);
+ const opening=await saved(page),base=Math.ceil(opening.auction.lot.length*.05)+1;expect(opening.auction.known.length).toBeGreaterThanOrEqual(base);expect(opening.auction.known.length).toBeLessThanOrEqual(base+2);
+ const initialRequests=requests,clues:string[]=[];
+ for(let round=1;round<=4;round++){
+  const before=await saved(page),panel=page.locator('.auction-investigate');await expect(panel.locator('.auction-shared-reveal')).toHaveCount(round);await expect(page.locator('.auction-collection .auction-shared-reveal')).toHaveCount(0);
+  await expect(panel.locator('.auction-shared-reveal.is-new')).toContainText(`Round ${round} Shared Reveal`);await expect(panel.locator('.auction-shared-reveal.is-new')).toHaveCSS('animation-name','auction-public-pop');
+  const shared=before.auction.publicReveals.at(-1);for(const slot of shared.slots){const card=before.auction.lot[slot];await expect(panel.locator('.auction-shared-reveal').last()).toContainText(card.name)}
+  await expect(page.locator('.auction-collection button.is-flipping')).toHaveCount(shared.slots.length);
+  const id=round===1?'identity3':round===2?'reveal3':round===3?'bulk':'appraisal',option=INVESTIGATIONS.find(option=>option.id===id)!;
+  await page.evaluate(({key,option})=>{const state=JSON.parse(localStorage.getItem(key)!);state.auction.offers=[option];state.revision++;const raw=JSON.stringify(state);localStorage.setItem(key,raw);dispatchEvent(new StorageEvent('storage',{key,newValue:raw}))},{key,option});
+  await panel.locator('.auction-offers button').click();await expect(panel.getByRole('heading',{name:/Investigation Results/})).toBeVisible();const after=await saved(page);clues.push(after.auction.clues.at(-1).label);await expect(panel.locator('.auction-clues li')).toHaveCount(round);for(const clue of clues)await expect(panel.locator('.auction-clues')).toContainText(clue);
+  const publicSlots=new Set(after.auction.publicReveals.flatMap((reveal:{slots:number[]})=>reveal.slots));for(const slot of after.auction.known.filter((slot:number)=>!publicSlots.has(slot))){const card=after.auction.lot[slot];await expect(panel.locator('.auction-private-cards')).toContainText(card.name)}
+  const expected=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(after.auction.priced.reduce((sum:number,slot:number)=>sum+after.auction.lot[slot].cents,0)/100);await expect(page.locator('.auction-known-value strong')).toHaveText(expected);
+  if(round===2){
+   for(const width of [1440,390,320])for(const theme of ['dark','light']){await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);const centered=await page.locator('.auction-known-value').evaluate(element=>{const box=element.getBoundingClientRect(),amount=element.querySelector('strong')!.getBoundingClientRect();return {align:getComputedStyle(element).textAlign,size:parseFloat(getComputedStyle(element.querySelector('strong')!).fontSize),delta:Math.abs(box.x+box.width/2-amount.x-amount.width/2)}});expect(centered.align).toBe('center');expect(centered.size).toBeGreaterThanOrEqual(24);expect(centered.delta).toBeLessThan(1);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await panel.screenshot({path:testInfo.outputPath(`investigation-memory-${width}-${theme}.png`)});await page.locator('.auction-collection').screenshot({path:testInfo.outputPath(`known-value-${width}-${theme}.png`)})}
+   await page.emulateMedia({reducedMotion:'reduce'});await expect(panel.locator('.auction-shared-reveal.is-new')).toHaveCSS('animation-name','none');await expect(page.locator('.auction-collection button.is-flipping').first()).toHaveCSS('animation-name','none');await page.emulateMedia({reducedMotion:'no-preference'});
+  }
+  if(round===4)break;
+  await page.evaluate(key=>{const state=JSON.parse(localStorage.getItem(key)!);state.auction.npcs=state.auction.npcs.map((npc:object)=>({...npc,bid:100,locked:true}));state.revision++;const raw=JSON.stringify(state);localStorage.setItem(key,raw);dispatchEvent(new StorageEvent('storage',{key,newValue:raw}))},key);await page.getByRole('button',{name:'Pass ($0)',exact:true}).click();await page.clock.runFor(250);await page.getByRole('button',{name:'Next Auction Round',exact:true}).click();
+ }
+ expect(requests).toBe(initialRequests);const beforeReload=await saved(page);await page.reload();await expect(page.locator('.auction-investigate .auction-shared-reveal')).toHaveCount(4);await expect(page.locator('.auction-clues li')).toHaveCount(4);expect((await saved(page)).wallet).toEqual(beforeReload.wallet);
+});
+
 test('settlement heading actions, inline count and collection-only rarity hover remain usable across screen sizes',async({page},testInfo)=>{
  await fixtures(page);await page.clock.pauseAt(new Date('2026-10-14T12:00:05Z'));
  const bands=[['Common','commons'],['Uncommon','uncommons'],['Rare','rares'],['Epic','epics'],['Epic','alt-arts'],['Epic','overnumbered'],['Epic','signatures']];
@@ -124,7 +150,7 @@ test('settlement skeletons count alongside revealed cards and previous bids stay
  await page.goto('/games/riftbound-auction');await page.getByRole('button',{name:'Enter free auction'}).click();await expect(page.getByRole('heading',{name:/Place Your Bid/})).toBeVisible();
  const boxes=await page.locator('.auction-offers button').evaluateAll(elements=>elements.map(element=>element.getBoundingClientRect().toJSON()));expect(boxes[1].top).toBeGreaterThanOrEqual(boxes[0].bottom);expect(boxes[2].top).toBeGreaterThanOrEqual(boxes[1].bottom);
  for(let round=1;round<=4;round++){
-  await expect(page.locator('.auction-shared-reveal')).toContainText(`Round ${round} Shared Reveal`);
+  await expect(page.locator('.auction-investigate .auction-shared-reveal').last()).toContainText(`Round ${round} Shared Reveal`);
   await expect(page.locator('.auction-previous-bids')).toHaveCount(round===1?0:4);
   await expect(page.locator('.auction-previous-bids > small')).toHaveCount(0);await expect(page.locator('.auction-previous-bids .is-round-leader')).toHaveCount(round-1);
   await expect(page.locator('.auction-prior-bid')).toHaveCount((round-1)*4);await expect(page.getByText('Previous Bids',{exact:true})).toHaveCount(0);
@@ -152,7 +178,7 @@ test('auction purchase, sealed lock, settlement, persisted live inventory, sale,
  await page.getByRole('button',{name:'Enter free auction'}).click();await expect(page.getByRole('heading',{name:/Place Your Bid/})).toBeVisible();
  const initial=await saved(page),copies=initial.auction.lot.length;
  await expect(page.locator('.auction-npcs')).not.toContainText('$');await expect(page.locator('.auction-card')).toHaveCount(copies);
- await expect(page.locator('.auction-card.is-hidden')).toHaveCount(copies-2);await expect(page.locator('.auction-net-worth')).toHaveCount(0);
+ await expect(page.locator('.auction-card.is-hidden')).toHaveCount(copies-initial.auction.known.length);await expect(page.locator('.auction-net-worth')).toHaveCount(0);
  await expect(page.locator('.auction-offers .auction-clue-icon')).toHaveCount(3);
  const option=page.locator('.auction-offers button').first();await option.click();
  const afterBuy=await saved(page);expect(afterBuy.wallet.cash).toBe(250000-afterBuy.auction.spent);
