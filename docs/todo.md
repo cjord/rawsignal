@@ -12,11 +12,16 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
-- Local Auction House follow-up: free 25–90 / paid 50–130 random copies,
+- Released Auction House follow-up: free 25–90 / paid 50–130 random copies,
   shared size validation/copy, stronger matching blue entry pulses, and automatic
   scroll to Auction Settled after the winner announcement (not on each counted card).
-  Legacy saved lots remain intact. Not pushed/deployed. Results simplification is
-  a recommendation only: remove redundant Gross Market Spread, pending user choice.
+  Legacy saved lots remain intact. Pushed `00a4ff1`, deployed staging `a855b6be`
+  and production `0a179746`. Full gate: 435 node tests passed, one skipped,
+  47 browser checks. Live staging passed (47-card free / 105-card paid); production
+  bundle/CSS match the validated build, but page/gameplay checks still receive
+  Cloudflare's managed challenge (403). No security, migration or ingestion changes.
+  Results simplification remains a recommendation only: remove redundant Gross
+  Market Spread, pending user choice.
   Details and unchanged cost boundaries: `docs/games-auction-house-plan.md`.
 
 - Auction entry/inventory polish: automatic failed-artwork exclusion/reroll, text-only

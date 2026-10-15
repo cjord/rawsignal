@@ -1,6 +1,6 @@
 # Riftbound Auction House
 
-## Collection sizes and settlement navigation — local follow-up, 2026-10-14
+## Collection sizes and settlement navigation — released 2026-10-14
 
 New free auctions draw 25–90 copies inclusively; paid auctions draw 50–130 (revised
 by user request before release). A shared
@@ -19,8 +19,7 @@ below the sticky header. Counting/reveal updates do not continually steal the sc
 
 Results simplification recommendation awaiting a user choice: remove Gross Market
 Spread first, since market value and fee-adjusted profit/loss already explain it.
-No results metrics have been removed in this follow-up. This revision is local only;
-the staging release below remains unchanged until a push/deploy is requested.
+No results metrics have been removed in this follow-up.
 
 Validation: `npm run check` passed (435 node tests, one skipped, 47 Chromium
 journeys; existing 21 lint warnings, no new warnings). Focused auction suite: 14/14.
@@ -30,6 +29,18 @@ rerolls, matching entry pulses/reduced motion and buyout/final-round scroll posi
 Dark/light desktop/mobile lobby/results screenshots reviewed. An initial full run
 hit the preceding focused suite's leftover server lock; after that process exited,
 the complete gate passed without editing generated tool state.
+
+Pushed application commit `00a4ff1` on `feature/set-rarity-heatmap`, then deployed
+staging version `a855b6be-6704-472b-8b49-f2447fe0d2e5` and production version
+`0a179746-da2f-485f-b532-75b49511aaa0`. Live staging passed with 47-card free and
+105-card paid lots, settlement, inventory sales, persistence, reset, NPC loss sharing,
+and dark/light desktop/mobile layouts. Eleven initial catalog feeds plus eleven
+on reload, zero additional gameplay pricing requests and zero browser errors.
+Production deployment succeeded; the game bundle and CSS return 200 and match the
+validated build hashes, and both entry images return 200. Production page/gameplay
+verification remains blocked by Cloudflare HTTP 403 (`Cf-Mitigated: challenge`).
+No security changes, migrations, ingestion jobs or database writes were performed;
+staging remains cron-less and production retains its guarded minutely schedule.
 
 ## Entry reliability, inventory controls and named NPC clues — 2026-10-14
 
