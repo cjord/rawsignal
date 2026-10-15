@@ -5,9 +5,9 @@ import TopBar from "./TopBar";
 import SiteFooter from "./SiteFooter";
 import {parseStrictness,STRICTNESS_KEY,usePreference} from "./state/usePreference";
 
-export function GamesShell({children}:{children:ReactNode}){
+export function GamesShell({children,wide=false}:{children:ReactNode;wide?:boolean}){
  const [strictness,setStrictness]=usePreference(STRICTNESS_KEY,parseStrictness,"balanced");
- return <><TopBar active="games" strictness={strictness} onStrictness={setStrictness}/><main className="games-page">{children}</main><SiteFooter/></>;
+ return <><TopBar active="games" strictness={strictness} onStrictness={setStrictness}/><main className={`games-page${wide?' games-page-wide':''}`}>{children}</main><SiteFooter/></>;
 }
 export default function GamesView(){
  return <GamesShell><header className="games-heading"><span className="games-eyebrow">Play the market</span><h1>Games</h1><p>A little instinct. A little market knowledge. Put yours to the test.</p></header>

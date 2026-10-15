@@ -6,6 +6,7 @@ import {informationOffers,investigate} from "./auction-information.ts";
 import {auctionLossShares,auctionSaleRarity} from './auction-economy.ts';
 import {npcRoundInformation,npcInvestigationNotes} from './auction-npc-information.ts';
 
+export const AUCTION_OPENING_BID_MULTIPLIER=1.15;
 // This bidder knows only sample prices and a count range, never the full lot or sealed player bid.
 export function npcBid(sample:number[],range:[number,number],_priorBids:number[],personality:number,random:()=>number,feeBps=1000,confidence=1,participation=0,grossEstimate?:number):number{
  const npc=AUCTION_NPCS[personality]??AUCTION_NPCS[0];if(random()>Math.min(1,Math.max(0,npc.participation+participation)))return 0;
@@ -24,8 +25,8 @@ function roundNpcs(auction:Auction,now:number):Npc[]{
   const sample=[...previous,...sampleIndices(auction.lot.length,Math.max(0,3+auction.round-previous.length),auction.seed+index*67+auction.round,[0,2,...previous])];
   const knowledge=npcRoundInformation(auction,index,sample,auction.npcs.find(bidder=>bidder.name===npc.name));
   const mood=auctionNpcMood(auction.seed,npc.name),personality=AUCTION_NPCS.findIndex(profile=>profile.name===npc.name);
-  const paid=auction.kind==='paid';
-  return {name:npc.name,sample,investigations:knowledge.investigations,inspected:knowledge.inspected,bid:npcBid(knowledge.prices,auction.range,[],personality,random,auction.feeBps,mood.confidence*(paid?1.08:1),mood.participation+(paid?0.04:0),knowledge.estimate),lockAt:now+Math.round((.3+random()*.6)*AUCTION_ROUNDS[auction.round-1].seconds*1000),locked:false};
+  const paid=auction.kind==='paid',opening=auction.round===1?AUCTION_OPENING_BID_MULTIPLIER:1;
+  return {name:npc.name,sample,investigations:knowledge.investigations,inspected:knowledge.inspected,bid:npcBid(knowledge.prices,auction.range,[],personality,random,auction.feeBps,mood.confidence*(paid?1.08:1)*opening,mood.participation+(paid?0.04:0),knowledge.estimate),lockAt:now+Math.round((.3+random()*.6)*AUCTION_ROUNDS[auction.round-1].seconds*1000),locked:false};
  });
 }
 function openRound(auction:Auction,now:number):Auction{

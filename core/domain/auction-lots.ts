@@ -14,6 +14,19 @@ function cardTier(card:AuctionCard){
  return /^(common|uncommon)$/i.test(card.rarity)?0:/^rare$/i.test(card.rarity)?1:2;
 }
 export const PAID_AUCTION_PROFILE={name:'Premium Collection',...AUCTION_LOT_SIZES.paid,bulk:.25,rare:.45,repeat:.35,copyCap:8};
+function freeChaseRetention(card:AuctionCard){
+ if(/signature/i.test(`${card.section} ${card.rarity}`))return .5;
+ return /over.?number/i.test(`${card.section} ${card.rarity}`)?0.8:1;
+}
+function selectLotCard(choices:AuctionCard[],eligible:()=>AuctionCard[],kind:AuctionKind,random:()=>number){
+ const drawn=choices[Math.floor(random()*choices.length)];
+ if(kind==='paid')return drawn;
+ const retention=freeChaseRetention(drawn);
+ if(retention===1||random()<retention)return drawn;
+ // Rejected chase copies move to non-chase stock, not another scarce treatment.
+ const preferred=choices.filter(card=>freeChaseRetention(card)===1),fallback=preferred.length?preferred:eligible().filter(card=>freeChaseRetention(card)===1);
+ return fallback.length?fallback[Math.floor(random()*fallback.length)]:drawn;
+}
 function minimumLotBudget(cheapest:AuctionCard[],copies:Map<string,number>,needed:number,cap:number){
  let value=0,ceiling=0;
  for(const card of cheapest){const take=Math.min(needed,cap-(copies.get(holdingKey(card))??0));value+=take*card.cents;if(take)ceiling=card.cents;needed-=take;if(!needed)break}
@@ -42,7 +55,7 @@ export function generateAuctionLot(catalog:AuctionCard[],seed:number,kind:Auctio
   const repeats=candidates.filter(card=>copies.has(holdingKey(card)));
   const choices=repeats.length&&random()<profile.repeat?repeats:candidates;
   if(!choices.length){const fallback=pool.filter(eligible);if(!fallback.length)break;choices.push(...fallback)}
-  const card=choices[Math.floor(random()*choices.length)];lot.push({...card});value+=card.cents;copies.set(holdingKey(card),(copies.get(holdingKey(card))??0)+1);
+  const card=selectLotCard(choices,()=>pool.filter(eligible),kind,random);lot.push({...card});value+=card.cents;copies.set(holdingKey(card),(copies.get(holdingKey(card))??0)+1);
  }
  // A shuffled slot order keeps starting reveals from favoring the source's catalog order.
  for(let index=lot.length-1;index>0;index--){const other=Math.floor(random()*(index+1));[lot[index],lot[other]]=[lot[other],lot[index]]}

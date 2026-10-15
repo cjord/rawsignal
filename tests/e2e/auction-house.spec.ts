@@ -127,6 +127,8 @@ test('auction layouts and artwork are usable in both themes at desktop and mobil
   await expect(page.getByRole('button',{name:'Enter free auction'})).toBeEnabled();await page.evaluate(theme=>{document.documentElement.dataset.theme=theme},theme);
   await page.getByRole('button',{name:'Enter free auction'}).click();
   await expect(page.locator('.auction-offers button')).toHaveCount(3);
+  const layout=await page.locator('main.games-page').evaluate(element=>{const rect=element.getBoundingClientRect(),style=getComputedStyle(element);return {left:rect.left,width:rect.width,padding:parseFloat(style.paddingLeft)}});
+  expect(layout.left).toBe(0);expect(layout.width).toBe(width);expect(layout.padding).toBeGreaterThanOrEqual(16);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.getByRole('button',{name:/Inspect Auction Card/}).first().click();await expect(page.getByRole('dialog')).toBeVisible();await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.screenshot({path:testInfo.outputPath(`auction-${width}-${theme}.png`),fullPage:true});

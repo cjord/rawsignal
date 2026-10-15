@@ -12,6 +12,13 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
+- Local Auction House balance/layout: free overnumbers/signatures retained at
+  80%/50% of selected draws (replacement goes to non-chase stock); unchanged paid
+  generation. Both modes use 15% stronger clue-based opening bids only, with the
+  same cap/participation/buyout rules. Auction House uses full browser width with
+  normal gutters; other game pages stay constrained. No extra pricing/database
+  calls. Not pushed/deployed. Measurements: `docs/games-auction-house-plan.md`.
+
 - Released Auction House follow-up: free 25–90 / paid 50–130 random copies,
   shared size validation/copy, stronger matching blue entry pulses, and automatic
   scroll to Auction Settled after the winner announcement (not on each counted card).

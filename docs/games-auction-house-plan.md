@@ -1,5 +1,40 @@
 # Riftbound Auction House
 
+## Free chase balance, opening bids and full-width layout — local, 2026-10-14
+
+Free draws retain 80% of initially selected overnumbered copies and 50% of signatures.
+Rejected copies reroll into eligible non-chase stock (same candidate group first,
+otherwise other affordable stock), not into another scarce treatment. If only chase
+stock remains, retain the draw rather than inventing cards or admitting a short lot.
+Copy caps, real-stock budget reservation, 25–90 / 50–130 sizes and artwork checks remain.
+Paid generation is unchanged. These are game-balancing rules, not real pull rates.
+
+NPCs apply a 1.15 opening-round multiplier to their own personal-clue valuation in
+both auction types, on top of the existing paid modifier. Rounds 2–4, random
+participation/personalities, the $2,500 cap and the actual buyout thresholds are
+unchanged. No hidden-value access or reaction to the player's sealed bid is added.
+This makes first-round buyouts more expensive, not impossible. Existing active
+auctions retain frozen cards and already-generated bids; new rounds use current rules.
+
+Before/after real bundled catalog comparison (1,000 matching seeds per mode): free
+overnumbered copies 1,210 → 922 (~24% fewer), signatures 406 → 203 (50% fewer), total
+57,603 copies unchanged. Paid 90,131 copies / 3,871 overnumbered / 994 signatures
+unchanged. With the same fixed 50-card lot and matched seeds, mean positive opening
+bids rose from $644.15 to $717.59 free and $680.60 to $756.74 paid; saturation at the
+cash cap makes the observed average increase smaller than 15%. Participation counts
+were unchanged. These figures describe the game generator, not real market odds.
+
+Auction House alone opts into the full browser width with existing 24px desktop /
+16px mobile gutters; Games and Price Showdown retain their current maximum width.
+No extra API requests, database work, save-format change, push or deployment.
+
+Validation: `npm run check` passed with 438 node tests, one skipped, 47 Chromium
+journeys and no new lint warnings (21 existing). Added distribution/stock-exhaustion
+regressions, exact seeded clue-based round-one boost and unchanged later-round bid
+checks for both modes, and full-width/gutter assertions in desktop/mobile journeys.
+Auction screenshots reviewed in dark/light at 1440px and 390px; existing Singles
+and Sealed browser journeys also passed.
+
 ## Collection sizes and settlement navigation — released 2026-10-14
 
 New free auctions draw 25–90 copies inclusively; paid auctions draw 50–130 (revised
