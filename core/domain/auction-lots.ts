@@ -18,17 +18,24 @@ function minimumLotBudget(cheapest:AuctionCard[],copies:Map<string,number>,neede
  for(const card of cheapest){const take=Math.min(needed,cap-(copies.get(holdingKey(card))??0));value+=take*card.cents;if(take)ceiling=card.cents;needed-=take;if(!needed)break}
  return {value:needed?Infinity:value,ceiling};
 }
+function affordableLotCount(cheapest:AuctionCard[],cap:number){
+ let count=0,remaining=200000;
+ for(const card of cheapest){const take=Math.min(cap,Math.floor(remaining/card.cents));count+=take;remaining-=take*card.cents;if(take<cap)break}
+ return count;
+}
 export function generateAuctionLot(catalog:AuctionCard[],seed:number,kind:AuctionKind='free'):AuctionCard[]{
  const pool=[...new Map(catalog.filter(card=>card.image.trim()&&card.cents>0&&Number.isSafeInteger(card.cents)).map(card=>[holdingKey(card),card])).values()].sort((a,b)=>holdingKey(a).localeCompare(holdingKey(b)));
  if(pool.length<6)return [];
- const random=auctionRandom(seed),profile=kind==='paid'?PAID_AUCTION_PROFILE:auctionLotProfile(seed),target=profile.min+Math.floor(random()*(profile.max-profile.min+1));
- const tiers=[0,1,2].map(tier=>pool.filter(card=>cardTier(card)===tier)),copies=new Map<string,number>(),lot:AuctionCard[]=[],cheapestPool=[...pool].sort((a,b)=>a.cents-b.cents);
- const cheapest=Math.min(...pool.map(card=>card.cents));let value=0;
+ const random=auctionRandom(seed),profile=kind==='paid'?PAID_AUCTION_PROFILE:auctionLotProfile(seed),cheapestPool=[...pool].sort((a,b)=>a.cents-b.cents);
+ const target=Math.min(profile.min+Math.floor(random()*(profile.max-profile.min+1)),affordableLotCount(cheapestPool,profile.copyCap));
+ if(target<(kind==='paid'?128:6))return [];
+ const tiers=[0,1,2].map(tier=>pool.filter(card=>cardTier(card)===tier)),copies=new Map<string,number>(),lot:AuctionCard[]=[];
+ let value=0;
  for(let slot=0;slot<target;slot++){
   const roll=random(),tier=roll<profile.bulk?0:roll<profile.bulk+profile.rare?1:2;
-  const floor=kind==='paid'?minimumLotBudget(cheapestPool,copies,target-slot,profile.copyCap):null;
+  const floor=minimumLotBudget(cheapestPool,copies,target-slot,profile.copyCap);
   // Replacing the most expensive reserved copy keeps enough real stock/budget for every remaining slot.
-  const remaining=floor?200000-value-floor.value+floor.ceiling:200000-value-cheapest*(target-slot-1);
+  const remaining=200000-value-floor.value+floor.ceiling;
   const eligible=(card:AuctionCard)=>(copies.get(holdingKey(card))??0)<profile.copyCap&&card.cents<=remaining;
   const candidates=(tiers[tier].length?tiers[tier]:pool).filter(eligible);
   const repeats=candidates.filter(card=>copies.has(holdingKey(card)));

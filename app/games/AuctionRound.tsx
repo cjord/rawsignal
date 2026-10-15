@@ -33,7 +33,7 @@ export default function AuctionRound({save,now,transact,revealDone=true,visible=
  const auction=save.auction!;
  return <div className={`auction-round-panel${auction.stage==='round'?'':' is-results'}`}>
   {auction.stage==='round'?<RoundControls key={auction.round} save={save} now={now} transact={transact}/>:<section className="detail-section auction-results"><h2>{auction.stage==='result'?'Auction Settled':'Round Bids'}</h2>
-   {auction.stage==='reveal'?<><p className="auction-no-buyout">No Early Buyout</p><p className="games-note">The buyout threshold wasn’t met. Another round gives you a fresh chance to win.</p><AuctionRoundBids auction={auction}/><button className="game-control" type="button" onClick={()=>transact(current=>nextAuctionRound(current,Date.now()))}>Next auction round</button></>:<AuctionOutcome save={save} transact={transact} revealDone={revealDone} visible={visible}/>}
+   {auction.stage==='reveal'?<><p className="auction-no-buyout">No Early Buyout</p><p className="games-note">The buyout threshold wasn’t met. Another round gives you a fresh chance to win.</p><AuctionRoundBids auction={auction}/><button className="game-control auction-finish auction-next-round" type="button" onClick={()=>transact(current=>nextAuctionRound(current,Date.now()))}>Next Auction Round</button></>:<AuctionOutcome save={save} transact={transact} revealDone={revealDone} visible={visible}/>}
   </section>}
  </div>;
 }
@@ -41,7 +41,7 @@ function AuctionOutcome({save,transact,revealDone=true,visible=[]}:Omit<Props,'n
  const result=save.auction!.result!,won=result.winner==='You';
  return <><div className="auction-settled-winner" role="status">{result.winner?<><AuctionBidder name={result.winner}/><span>won{result.buyout?' by early buyout':''} for {auctionUsd(result.bid)}.</span></>:'No positive bids: this collection was not sold.'}</div>
   <AuctionResultMetrics auction={save.auction!} visible={visible} done={revealDone}/>
-  {won&&<p className="games-note">The collection is now in your inventory. Its current market value may change; selling is optional.</p>}
-  <button className={`game-control${revealDone?' auction-finish':''}`} disabled={!revealDone} type="button" onClick={()=>transact(finishAuction)}>Finish &amp; manage inventory</button>
+  {won&&<p className="games-note">The cards you won have been added to your inventory. Market values can change daily—sell whenever you’re ready between auctions.</p>}
+  <div className="auction-finish-actions"><button className={`game-control${revealDone?' auction-finish':''}`} disabled={!revealDone} type="button" onClick={()=>transact(finishAuction)}>Finish &amp; Manage Inventory</button></div>
  </>;
 }

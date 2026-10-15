@@ -4,14 +4,15 @@ import {generateAuctionLot} from './auction-lots.ts';
 import {AUCTION_NPCS,auctionNpcRoster,auctionNpcMood} from './auction-npcs.ts';
 import {informationOffers,investigate} from "./auction-information.ts";
 import {auctionLossShares,auctionSaleRarity} from './auction-economy.ts';
+import {npcRoundInformation,npcInvestigationNotes} from './auction-npc-information.ts';
 
 // This bidder knows only sample prices and a count range, never the full lot or sealed player bid.
-export function npcBid(sample:number[],range:[number,number],_priorBids:number[],personality:number,random:()=>number,feeBps=1000,confidence=1,participation=0):number{
+export function npcBid(sample:number[],range:[number,number],_priorBids:number[],personality:number,random:()=>number,feeBps=1000,confidence=1,participation=0,grossEstimate?:number):number{
  const npc=AUCTION_NPCS[personality]??AUCTION_NPCS[0];if(random()>Math.min(1,Math.max(0,npc.participation+participation)))return 0;
  const ordered=[...sample].sort((a,b)=>a-b),middle=Math.floor(ordered.length/2);
  const median=ordered.length?(ordered[middle]+ordered[Math.max(0,middle-(ordered.length%2===0?1:0))])/2:0;
  const sampleAverage=sample.reduce((sum,price)=>sum+price,0)/Math.max(1,sample.length);
- const estimate=(sampleAverage*.6+median*.4)*(range[0]+range[1])/2*(1-feeBps/10000);
+ const estimate=(grossEstimate??(sampleAverage*.6+median*.4)*(range[0]+range[1])/2)*(1-feeBps/10000);
  if(estimate<=0)return 0;
  return Math.max(1,Math.min(250000,Math.round(estimate*npc.margin*confidence*(1-npc.noise+random()*npc.noise*2))));
 }
@@ -21,10 +22,10 @@ function roundNpcs(auction:Auction,now:number):Npc[]{
  return roster.map((npc,index)=>{
   const previous=auction.npcs.find(bidder=>bidder.name===npc.name)?.sample??[];
   const sample=[...previous,...sampleIndices(auction.lot.length,Math.max(0,3+auction.round-previous.length),auction.seed+index*67+auction.round,[0,2,...previous])];
-  const prices=[...[0,2].map(slot=>auction.lot[slot].cents),...sample.map(slot=>auction.lot[slot].cents)];
+  const knowledge=npcRoundInformation(auction,index,sample,auction.npcs.find(bidder=>bidder.name===npc.name));
   const mood=auctionNpcMood(auction.seed,npc.name),personality=AUCTION_NPCS.findIndex(profile=>profile.name===npc.name);
   const paid=auction.kind==='paid';
-  return {name:npc.name,sample,bid:npcBid(prices,auction.range,[],personality,random,auction.feeBps,mood.confidence*(paid?1.08:1),mood.participation+(paid?.04:0)),lockAt:now+Math.round((.3+random()*.6)*AUCTION_ROUNDS[auction.round-1].seconds*1000),locked:false};
+  return {name:npc.name,sample,investigations:knowledge.investigations,inspected:knowledge.inspected,bid:npcBid(knowledge.prices,auction.range,[],personality,random,auction.feeBps,mood.confidence*(paid?1.08:1),mood.participation+(paid?0.04:0),knowledge.estimate),lockAt:now+Math.round((.3+random()*.6)*AUCTION_ROUNDS[auction.round-1].seconds*1000),locked:false};
  });
 }
 function openRound(auction:Auction,now:number):Auction{
@@ -58,7 +59,7 @@ export function auctionWinner(bids:RoundBid[],round:number,seed:number):{winner:
  return {winner:round===4||buyout?positives[0]??null:null,buyout};
 }
 function resolveRound(save:AuctionSave,auction:Auction):AuctionSave{
- const bids:RoundBid[]=[{name:'You',cents:auction.selected??0,notes:auction.clues.map(clue=>({...clue}))},...auction.npcs.map(npc=>({name:npc.name,cents:npc.bid,notes:[{id:'reveal3',label:'Public Starting Cards',text:'Used the publicly revealed starting cards.'},{id:'identity3',label:'Private Inspection',text:'Used personally inspected card information to estimate the collection. Exact identities, prices and estimates remain private.'}]}))];
+ const bids:RoundBid[]=[{name:'You',cents:auction.selected??0,notes:auction.clues.map(clue=>({...clue}))},...auction.npcs.map(npc=>({name:npc.name,cents:npc.bid,notes:npcInvestigationNotes(npc)}))];
  const {winner,buyout}=auctionWinner(bids,auction.round,auction.seed);
  if(!winner&&auction.round<4)return {...save,auction:{...auction,stage:'reveal',bids,bidHistory:[...auction.bidHistory,bids]}};
  const value=auction.lot.reduce((sum,card)=>sum+card.cents,0),fee=value-inventoryQuote(addInventory([],auction.lot),auction.lot,auction.feeBps).net,won=winner?.name==='You';

@@ -12,6 +12,12 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
+- Auction entry/inventory polish: automatic failed-artwork exclusion/reroll, text-only
+  starting state, generated free/paid entry art, explicit rarity/Sell All controls,
+  right-aligned finish and actual named NPC investigations with redacted findings.
+  In staging validation, together with the previously local compact-bid/pulse updates.
+  Details: `docs/games-auction-house-plan.md`; art prompts: `docs/auction-entry-artwork.md`.
+
 - Paid-auction/round-control follow-up: $50 entry, larger premium-weighted lots,
   slightly stronger clue-based NPC competition, balanced investigation prices,
   pulsing capitalized entry buttons, compact previous bids with green round leaders,

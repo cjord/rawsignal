@@ -16,5 +16,5 @@ const paths:Record<string,string>={
  appraisal:'M5 3h14v18H5z M8 7h8 M8 12h2 M14 12h2 M8 16h2 M14 16h2',
 };
 export default function AuctionClueIcon({id}:{id:string}){
- return <svg className="auction-clue-icon" data-clue={id} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[id]??paths.appraisal}/></svg>;
+ return <svg className="auction-clue-icon" data-clue={id} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[id==='public-start'?'reveal3':id==='legacy-inspection'?'identity3':id]??paths.appraisal}/></svg>;
 }

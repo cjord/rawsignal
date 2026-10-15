@@ -1,5 +1,6 @@
 import type {Auction,RoundBid} from './auction-types.ts';
 import {addInventory,inventoryQuote} from './auction-market.ts';
+import {INVESTIGATIONS} from './auction-information.ts';
 export function auctionRevealQuote(auction:Auction,visible:number[]){
  const cards=[...new Set(visible)].map(index=>auction.lot[index]);
  const value=cards.reduce((sum,card)=>sum+card.cents,0);
@@ -22,5 +23,9 @@ export function orderedAuctionSlots(auction:Auction,visible:number[]){
 // Old saves with detailed NPC notes must also expose only information TYPES in the UI.
 export function publicAuctionBidNotes(bid:RoundBid){
  if(bid.name==='You')return bid.notes;
- return bid.notes?.map(note=>({id:note.id,label:note.id==='reveal3'?'Public Starting Cards':'Private Inspection',text:note.id==='reveal3'?'Used the publicly revealed starting cards.':'Used personally inspected card information to estimate the collection. Exact identities, prices and estimates remain private.'}));
+ return bid.notes?.map(note=>{
+  const starting=note.id==='public-start'||note.id==='reveal3'&&note.label==='Public Starting Cards';
+  const legacy=note.id==='legacy-inspection'||note.label==='Private Inspection';
+  return {id:note.id,label:starting?'Public Starting Cards':legacy?'Card Inspection (Legacy)':INVESTIGATIONS.find(option=>option.id===note.id)?.label??'Investigation Unavailable',text:starting?'Used the publicly revealed starting cards.':'Used this investigation to estimate the collection. Card identities, prices and findings remain private.'};
+ });
 }

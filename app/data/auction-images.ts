@@ -1,14 +1,22 @@
-import {generateAuctionLot} from '../../core/domain/auction-lots';
+import {generateAuctionLot} from '../../core/domain/auction-lots.ts';
 import type {AuctionCard,AuctionKind} from '../../core/domain/auction-types';
 import type {PriceGameImageLoader} from './price-game-images';
 
-export async function prepareAuctionLot(catalog:AuctionCard[],loader:PriceGameImageLoader,seed:number,kind:AuctionKind='free'):Promise<AuctionCard[]>{
- for(let attempt=0;attempt<4;attempt++){
-  const lot=generateAuctionLot(catalog.filter(card=>!loader.failed(card.image)),seed,kind);
-  if(lot.length<(kind==='paid'?128:6))return [];
-  const urls=[...new Set(lot.map(card=>card.image))];
-  for(let offset=0;offset<urls.length;offset+=6)await Promise.all(urls.slice(offset,offset+6).map(src=>loader.load(src)));
-  if(lot.every(card=>!loader.failed(card.image)))return lot;
+export async function prepareAuctionLot(catalog:AuctionCard[],loader:PriceGameImageLoader,seed:number,kind:AuctionKind='free',signal?:AbortSignal):Promise<AuctionCard[]>{
+ let pool=catalog.filter(card=>card.image.trim()&&!loader.failed(card.image)),attempt=0;
+ const verified=new Set<string>(),minimum=kind==='paid'?128:6;
+ while(pool.length>=6&&!signal?.aborted){
+  const lot=generateAuctionLot(pool,seed+attempt++,kind);
+  if(lot.length<minimum)return [];
+  const urls=[...new Set(lot.map(card=>card.image))].filter(src=>!verified.has(src));
+  for(let offset=0;offset<urls.length;offset+=6){
+   if(signal?.aborted)return [];
+   await Promise.all(urls.slice(offset,offset+6).map(async src=>{if(await loader.load(src))verified.add(src);else loader.exclude(src)}));
+  }
+  if(lot.every(card=>verified.has(card.image)))return signal?.aborted?[]:lot;
+  // Every unsuccessful pass removes at least one failed URL, so retries terminate
+  // only on genuinely exhausted stock, never an arbitrary four-draw limit.
+  pool=pool.filter(card=>!loader.failed(card.image));
  }
  return [];
 }

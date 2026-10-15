@@ -1,6 +1,7 @@
 import {initialAuctionSave,type Auction,type AuctionSave} from "./auction-types.ts";
 import {INVESTIGATIONS,LEGACY_INVESTIGATION_COSTS} from "./auction-information.ts";
 import {AUCTION_NPCS} from './auction-npcs.ts';
+import {NPC_INVESTIGATION_IDS} from './auction-npc-information.ts';
 
 export const AUCTION_STORAGE_KEY='raw-signal-auction-house-v1';
 const record=(value:unknown)=>value!==null&&typeof value==='object'&&!Array.isArray(value);
@@ -11,8 +12,9 @@ function validLot(auction:Auction){
 }
 function validSlots(value:unknown,length:number):value is number[]{return Array.isArray(value)&&value.length<=length&&new Set(value).size===value.length&&value.every(index=>integer(index,length-1))}
 function validNpcs(auction:Auction){
- return Array.isArray(auction.npcs)&&auction.npcs.length===3&&auction.npcs.every(npc=>record(npc)&&AUCTION_NPCS.some(profile=>profile.name===npc.name)&&integer(npc.bid,250000)&&integer(npc.lockAt,Number.MAX_SAFE_INTEGER)&&typeof npc.locked==='boolean'&&validSlots(npc.sample,auction.lot.length))&&new Set(auction.npcs.map(npc=>npc.name)).size===3;
+ return Array.isArray(auction.npcs)&&auction.npcs.length===3&&auction.npcs.every(npc=>record(npc)&&AUCTION_NPCS.some(profile=>profile.name===npc.name)&&integer(npc.bid,250000)&&integer(npc.lockAt,Number.MAX_SAFE_INTEGER)&&typeof npc.locked==='boolean'&&validSlots(npc.sample,auction.lot.length)&&validNpcInformation(npc,auction.lot.length))&&new Set(auction.npcs.map(npc=>npc.name)).size===3;
 }
+function validNpcInformation(npc:Auction['npcs'][number],length:number){return (npc.inspected===undefined||validSlots(npc.inspected,length))&&(npc.investigations===undefined||Array.isArray(npc.investigations)&&npc.investigations.length<=4&&new Set(npc.investigations).size===npc.investigations.length&&npc.investigations.every(id=>NPC_INVESTIGATION_IDS.includes(id)))}
 function validBidNotes(notes:unknown){return notes===undefined||Array.isArray(notes)&&notes.length<=4&&notes.every(note=>record(note)&&text(note.id)&&text(note.label)&&text(note.text,3000))}
 function validBids(bids:unknown){return Array.isArray(bids)&&bids.length<=4&&bids.every(bid=>record(bid)&&text(bid.name)&&integer(bid.cents)&&validBidNotes(bid.notes))}
 function validClues(auction:Auction){
