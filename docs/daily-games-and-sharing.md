@@ -115,15 +115,42 @@ deletion is introduced; revisit retention if growth warrants it.
 
 ## Release
 
-Local complete gate passed: 522 node tests passed (one skipped), 71 Chromium
+Local complete gate passed: 528 node tests passed (one skipped), 71 Chromium
 journeys passed, production build/lint/typecheck passed; 21 existing complexity
 warnings and none introduced. Tests cover both modes, persistence, empty/expired
 snapshots, share validation/spoiler-free text, fixed rival identities, archive
 read-only behavior, copied-result viewing without save mutation, and the full
 five-auction sale/reward flow. Desktop/mobile dark/light result pages reviewed.
 
-Push validated source, deploy staging first, then apply migrations 0022 and 0023 to
-staging and warm both daily endpoints. Production is unchanged; its migrations
-remain pending until an explicit production release. Verify real manifests, both
-Showdown modes, all five auction outcomes/auto-sales, receipt reconstruction, share
-copy/view, archive non-mutation, existing practice games, and mobile/light/dark UI.
+Application `4529fae` and artwork hardening `b1c22de` are pushed on
+`feature/set-rarity-heatmap`. Staging version
+`e5b2db5e-e726-4670-b942-e886b9d6498a` is deployed at
+<https://raw-signal-staging.raw-signal-watch.workers.dev/games>.
+Migrations 0022 and 0023 were applied after the initial staging deployment and
+verified; each game has one stored snapshot for 2026-10-16. Production remains on
+`7a4cbb6` / `c076ac77`; its two migrations remain pending explicit authorization.
+
+Live staging passed all ten Normal and ten Hard Showdown rounds, frozen choices,
+share previews/result viewing without save mutation, all five auction receipts,
+automatic sales, exact reconstructed ending cash and reward credited once. The
+auction settlement diagnostic forced affordable NPC bids only inside its isolated
+test browser to exercise all five wins; no server/game balance data was modified.
+All four Games tile images and five rich-result card images loaded. Desktop/phone,
+dark/light screenshots reviewed; no browser errors. The complete gate also covers
+normal games, Singles/Sealed, filters, history, EV and heatmaps.
+
+### Approved staging-only artwork repair
+
+The first live lineup exposed product 709749 (Mind Rune (Vendetta)) returning CDN
+403, not a usable photo. After explicit user approval, the original two Oct-16
+staging snapshot rows were saved to the ignored local recovery file
+`backups/daily-games-20261016/original-staging-lineups.json`, alongside a D1 recovery
+bookmark. After the fix deploy, exactly those two date-keyed rows were deleted and
+regenerated through the shared checks. Both endpoints returned 200; first creation
+took 2.34 seconds (Showdown) and 2.90 seconds (auction). No other dates, production
+records, normal wallets or inventory were touched. Originals remain recoverable.
+
+Staging attempts started before this one-time repair hold the old browser-local
+manifest and must restart to use the replacement. Reset **daily progress only**:
+do not clear the normal auction save, cash or inventory. Future days initialize
+with the checks automatically; ordinary deployments never regenerate stored days.

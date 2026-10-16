@@ -12,18 +12,23 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
-- **Daily result sharing + daily Showdown (2026-10-16), staging release in progress:**
+- **Daily result sharing + daily Showdown (2026-10-16), staging verified; production pending:**
   spoiler-free emoji/text previews and compact self-reported results links; auction
   links reconstruct five outcomes, spend/fees/profit/reward and top five won cards.
   Daily Showdown has 10 Normal and 10 Hard rounds, independent once/day browser
   attempts, shared frozen UTC snapshots, reload/resume and results grids. Both daily
   games have Games tiles. No per-share records/writes or per-round calls. New
-  migration 0023 joins pending 0022; apply only to staging for this release.
+  migrations 0022 and 0023 are applied on staging only. Application `b1c22de`,
+  staging `e5b2db5e`; production remains `7a4cbb6` / `c076ac77`.
   Historical manifest requests read existing rows only, never regenerate old days.
-  Implementation, options, integrity limitations and costs:
+  Shared first-use CDN artwork checks exclude broken images before publication;
+  today's two staging lineups were backed up and repaired with user approval.
+  Complete gate: 528 node tests passed (one skipped), 71 browser checks; live
+  10+10 Showdown rounds, five auction settlements/sales/reward, shares and artwork
+  passed with no browser errors. Implementation, options, limitations and costs:
   [Daily games and sharing](daily-games-and-sharing.md).
 
-- **Auction progress/challenge changes local (2026-10-16), release pending:**
+- **Auction progress/challenge changes staged (2026-10-16), production pending:**
   retained canceled-intro drafts, random investigation menus that allow zero-hit
   results, guaranteed eligible Follow-Up, Count/Locate/Value grouping, three/four
   round NPC investigation schedules and browser-local normal-play statistics.
@@ -32,17 +37,18 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
   resume until midnight, expire without reward if unfinished. Leaving or failing
   a required entry ends the run. Normal reset preserves the daily attempt.
   Shared date-keyed frozen lineup uses `/api/auction/daily`; migration **0022**
-  is pending in staging/production. No new cron or upstream calls. Browser-level
-  limit is bypassable until accounts; no secure leaderboard implied. Complete
-  gate and live staging snapshot verification are release prerequisites. See
+  is applied in staging and pending in production. No new cron, paid provider or
+  per-round calls; bounded CDN artwork checks run on shared initialization only.
+  Browser-level limit is bypassable until accounts; no secure leaderboard implied.
+  Complete gate and live staging snapshot verification passed. See
   `docs/games-auction-house-plan.md` for definitions, costs and deployment order.
   Local full gate passed: 516 node tests passed (one skipped), 68 browser journeys,
   build/lint/typecheck; no new warnings. Daily challenge, statistics and
   investigation screens reviewed in dark/light at phone and desktop widths.
 
 
-- Guide/entry presentation and collection expansion implemented locally (2026-10-16),
-  not pushed or deployed. Seven colored collection types, clue icons, larger guide
+- Guide/entry presentation and collection expansion staged (2026-10-16),
+  included in `4529fae` and staging `e5b2db5e`. Seven colored collection types, clue icons, larger guide
   text and clearer rival descriptions. Store Clear-Out favors 71–90 free / 106–130
   paid copies; Curated Binder caps printings at two copies. Existing global size
   limits and requested aggregate rarity targets remain; calibration accounts for
@@ -52,7 +58,8 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
   lot. No new pricing/API/D1 calls; up to ten cacheable decorative image URLs.
   Details and design alternatives: `docs/games-auction-house-plan.md`.
   Full gate passed: 508 node tests (one skipped), 65 browser journeys, build,
-  lint/typecheck; no new warnings. Desktop/mobile dark/light reviewed. Local only.
+  lint/typecheck; no new warnings. Desktop/mobile dark/light reviewed. Superseded
+  by the complete 528-node / 71-browser release gate above; production pending.
 
 - **Release 2026-10-16:** app `7a4cbb6` pushed and deployed to staging `ab294936`,
   then production `c076ac77` after staging passed. Includes all pending auction

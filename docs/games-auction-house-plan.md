@@ -6,7 +6,8 @@ Newer decisions supersede earlier menu/access notes below. Application `4529fae`
 was pushed and deployed to staging, including the guide/theme/intro changes.
 Migrations 0022 and 0023 are applied on staging only. Live validation identified
 missing CDN artwork in the new daily Showdown snapshot; shared first-use artwork
-preflight and an explicitly approved staging-only lineup repair are in progress.
+preflight shipped in `b1c22de`, staging `e5b2db5e`. The explicitly approved
+staging-only Oct-16 lineup repair is complete, with original rows backed up.
 Production is unchanged. Current sharing/archive/artwork/cost contract:
 [`daily-games-and-sharing.md`](daily-games-and-sharing.md).
 
@@ -17,8 +18,11 @@ screenshots reviewed for daily entry, statistics, investigations and shared game
 surfaces. SQLite tests cover immutable shared snapshots, publication readiness and
 concurrent first-visitor insertion; browser tests cover the complete five-auction
 run, reload/resume, automatic sales, one-time reward, expiry and attempt-preserving
-normal reset. Final live staging validation remains pending; production migration
-and deployment require separate authorization.
+normal reset. Final full gate passed 528 node tests (one skipped) and 71 browser
+journeys. Live staging passed both ten-round Showdown modes, all five auction
+settlements/auto-sales, exact reward/receipt reconstruction, rich sharing and
+loaded artwork, with no browser errors; desktop/mobile dark/light reviewed.
+Production migration and deployment require separate authorization.
 
 - Intro Cancel/Escape keeps a per-entry-type seed and frozen preparation stock in
   the versioned browser save, so a later catalog refresh cannot reroll that draft.
