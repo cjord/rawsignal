@@ -12,7 +12,8 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
-- Approved auction rebalance implemented locally (2026-10-16), not pushed/deployed:
+- Auction rebalance is on staging (2026-10-16), **production promotion pending**:
+  application `2c97ad6`, staging `8860d6eb`; production remains `1451236`. Includes
   versioned cheaper/expanded investigations, $8 selectable follow-up, round-4
   Top-Two ($75 free / $125 paid), and uncapped NPC bids. New auctions blend a
   cautious public-catalog rarity/theme expectation into opening estimates, tapering
@@ -26,13 +27,16 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
   allow rare large outliers. Paid's average passive rebate is below its entry fee.
   Do not silently change payout rules. Details: `docs/games-auction-house-plan.md`.
   Full local gate passed: 495 node tests (one skipped), 59 browser checks, build,
-  lint and typecheck; no new lint warnings. Still awaiting push/deploy authorization.
+  lint and typecheck; no new lint warnings. Live staging free/paid flows, exact
+  model/offer parity, persistence and responsive themes passed, zero extra gameplay
+  data calls or browser errors. No migration/ingestion/security changes. Release
+  record: `docs/games-auction-house-plan.md` (staging only).
 
-- Local-only auction composition update (2026-10-15): remove the $2,000 lot cap;
+- Auction composition update (implemented 2026-10-15, staging 2026-10-16): remove the $2,000 lot cap;
   target free Epic/Alt Art 8%/5% and paid 12%/8%, paid Signature 0.5%, taking the
   increase from Common. Retain themes, copy limits, source prices and old saves.
   2,000-seed production-snapshot simulation: free 7.81%/5.09%, paid 11.76%/7.97%,
-  paid Signature 0.51%. No push/deploy authorized yet. The accompanying investigation
+  paid Signature 0.51%. Included in staging `2c97ad6`; production still pending. The accompanying investigation
   proposal (cheaper expanded scans, consolidated audits, follow-up inspections and
   round-4 higher-cost Top-Two) is now implemented above, along with removing the
   old NPC bid limit. Full details and

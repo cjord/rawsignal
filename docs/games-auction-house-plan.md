@@ -1,8 +1,23 @@
 # Riftbound Auction House
 
-## Cautious openings and fading speculation — local, 2026-10-16
+## Cautious openings and fading speculation — staging, 2026-10-16
 
-User-approved follow-up to the initial prior trial below; **not pushed or deployed**.
+Pushed application `2c97ad6` on `feature/set-rarity-heatmap`, then deployed staging
+`8860d6eb-58e6-4419-aa91-32c4a2691c40`. **Production is unchanged** (application
+`1451236`). Includes the preceding approved composition and investigation rebalance.
+Staging retains its existing database, no cron and no production routes. No migration,
+ingestion, secret or security-rule changes.
+
+Live staging returned HTTP 200. Free (45 cards, all four rounds) and paid (85 cards,
+opening round) bids exactly matched the local evidence/speculation/social model;
+new offers matched local definitions, paid entry charged once, private investigation,
+settlement, reload persistence and desktop/phone dark/light checks passed. Eleven
+initial catalog requests per fresh context and zero extra gameplay data calls; no
+browser errors. An initial paid reload check used an overly exact accessible-heading
+selector; the corrected test-only selector passed on the complete rerun without
+application changes. Production was neither deployed nor tested in this release.
+
+User-approved follow-up to the initial prior trial below.
 Target roughly $100 free / $300 paid median NPC opening bids, not fixed bid floors,
 ceilings or guaranteed per-auction values. Preserve the approved investigations,
 uncapped lots/bids, fee rules, personalities, source prices and 2× highest-rival
@@ -66,7 +81,8 @@ private-information boundaries and legacy persistence. Full `npm run check` pass
 typecheck; 21 existing lint warnings, none new. Browser checks include desktop/
 phone and dark/light auction flows plus Singles/Sealed regressions. The local test
 database still logs existing missing-history-column fallback diagnostics; all
-checks passed without applying a migration. Nothing has been pushed or deployed.
+checks passed without applying a migration. Deployment and live verification are
+recorded above; production promotion remains pending explicit authorization.
 
 ## Approved investigations and initial NPC prior trial — local, 2026-10-16
 
@@ -74,8 +90,8 @@ The investigation changes below remain current. Its opening weights and simulati
 numbers are a **superseded local trial**, retained for comparison; the follow-up
 above is the active policy.
 
-Implemented after user approval; **not pushed or deployed**. The preceding uncapped
-rarity-composition work is retained. Changed investigation effects have new IDs;
+Implemented after user approval and included in the staging release above. The
+preceding uncapped rarity-composition work is retained. Changed effects have new IDs;
 old purchased results, old already-offered prices/effects and locked NPC bids keep
 their meaning. New menus use the following choices (virtual USD, up-to counts):
 
@@ -184,11 +200,12 @@ explicit paid/free final valuation costs, uncapped bid persistence/settlement,
 catalog-only prior construction, final-round disclosed evidence and unchanged
 sealed-bid privacy. Desktop/phone dark/light follow-up screenshots were reviewed;
 the action keeps the site's control sizing and a two-column label/price layout.
-No push, deployment, migration or production/staging mutation was performed.
+That initial local validation performed no push, deployment or database mutation;
+the subsequent staging-only release is recorded above.
 
-## Uncapped rarity composition — local only, 2026-10-15
+## Uncapped rarity composition — implemented 2026-10-15, staged 2026-10-16
 
-Implemented at the user's request; **not committed, pushed or deployed**. New lots
+Implemented at the user's request; included in staging application `2c97ad6`. New lots
 have no $2,000 gross-value ceiling or price-based affordability filter. Selection
 uses explicit mutually exclusive rarity/treatment bands, then the existing theme's
 set focus and repeat preference. Seeded playset limits, artwork eligibility, real
