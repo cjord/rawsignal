@@ -1,6 +1,7 @@
 import type {AuctionCard,Clue} from './auction-types.ts';
 import {applyNpcMarketPrior,type NpcValuationKnowledge} from './auction-npc-prior.ts';
 import {auctionReferencePrice} from './auction-market-prior.ts';
+import {npcCategoryFacts} from './auction-npc-category-value.ts';
 
 // Inputs contain only information actually available to this bidder, never the lot.
 type Knowledge=NpcValuationKnowledge;
@@ -17,14 +18,11 @@ function censusEstimate(knowledge:Knowledge,clue:Clue,discount:number){
  },0);
 }
 function categoryEstimate(knowledge:Knowledge,discount:number){
- const categories=knowledge.clues.filter(clue=>['bulk','rares'].includes(clue.id));
- if(!categories.length)return null;
- const includes=(card:AuctionCard)=>categories.some(clue=>clue.id==='bulk'?/^(common|uncommon)$/i.test(card.rarity):/^rare$/i.test(card.rarity));
- const exact=categories.reduce((total,clue)=>total+money(clue)[0],0),outside=knowledge.observed.filter(card=>!includes(card));
+ const facts=npcCategoryFacts(knowledge);if(!facts)return null;
  // Zero-valued category samples preserve their observed population share. Their
  // aggregate is already counted; do not price them again as unknown stock.
- const mean=npcConservativeMean(knowledge.random.map(card=>includes(card)?0:card.cents));
- return exact+sum(outside)+mean*Math.max(0,knowledge.count-knowledge.observed.length)*discount;
+ const mean=npcConservativeMean(knowledge.random.map(card=>facts.includes(card)?0:card.cents));
+ return facts.floor+mean*Math.max(0,knowledge.count-knowledge.observed.length)*discount;
 }
 function countEstimate(knowledge:Knowledge,discount:number){
  const counts=knowledge.clues.filter(clue=>['common-count','uncommon-count'].includes(clue.id));

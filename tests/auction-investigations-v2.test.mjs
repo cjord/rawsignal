@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {beginAuction,buyInformation,nextAuctionRound} from '../core/domain/auction-engine.ts';
 import {initialAuctionSave} from '../core/domain/auction-types.ts';
-import {INVESTIGATIONS,informationOffers,informationUseful,investigate,knownValue} from '../core/domain/auction-information.ts';
-import {followUpSlots,rebalancedCost,REBALANCED_INVESTIGATIONS,valuationClues} from '../core/domain/auction-investigations-v2.ts';
+import {INVESTIGATIONS,CURRENT_INVESTIGATIONS,informationOffers,informationUseful,investigate,knownValue} from '../core/domain/auction-information.ts';
+import {followUpSlots,rebalancedCost,valuationClues} from '../core/domain/auction-investigations-v2.ts';
 import {auctionRarityBand} from '../core/domain/auction-copy-policy.ts';
 import {parseAuctionSave} from '../core/domain/auction-save.ts';
 
@@ -70,7 +70,7 @@ test('round-four Top-Two uses explicit free/paid prices, suppresses already know
 });
 
 test('new menus exclude retired definitions but allow zero-information choices while historic offers remain buyable',()=>{
- const ids=new Set(REBALANCED_INVESTIGATIONS.map(row=>row.id));
+ const ids=new Set(CURRENT_INVESTIGATIONS.map(row=>row.id));
  for(let seed=0;seed<100;seed++)for(let round=1;round<=4;round++){
   const offers=informationOffers({...fresh().auction,seed,round});assert.equal(new Set(offers.map(row=>row.id)).size,offers.length);assert.ok(offers.every(row=>ids.has(row.id)));
   assert.ok(offers.filter(row=>row.id==='top2-final').every(()=>round===4));

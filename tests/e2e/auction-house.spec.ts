@@ -89,6 +89,25 @@ test('NPC history reveals actual price/identity/rarity findings only after settl
  await page.reload();await page.clock.runFor(1900);await page.getByRole('heading',{name:'Auction Settled',exact:true}).waitFor();await finishReveal(page);await tile.focus();await expect(page.locator('.auction-clue-cards li')).toHaveCount(3);await page.keyboard.press('Escape');await page.setViewportSize({width:390,height:1000});await tile.tap();await expect(page.locator('.auction-clue-cards')).toBeVisible();
 });
 
+test('settled player history shows one round-specific investigation, including cumulative saved history',async({page},testInfo)=>{
+ await fixtures(page);await page.emulateMedia({reducedMotion:'reduce'});await page.clock.pauseAt(new Date('2026-10-14T12:00:05Z'));await page.route('**/data/*.json',route=>route.fulfill({contentType:'application/json',body:JSON.stringify(rows)}));await page.goto('/games/riftbound-auction');await startAuction(page);await expect(page.getByLabel('Bid (virtual USD)')).toBeVisible();
+ await page.evaluate(({key,options})=>{
+  const state=JSON.parse(localStorage.getItem(key)!),first={id:options[0].id,label:options[0].label,text:'10 rarity markers.',round:1},second={id:options[1].id,label:options[1].label,text:'$123.00',round:2};
+  const value=state.auction.lot.reduce((sum:number,card:{cents:number})=>sum+card.cents,0),fee=value*.1;
+  Object.assign(state.auction,{stage:'result',round:3,clues:[first,second],bidHistory:[[{name:'You',cents:100,notes:[first]}],[{name:'You',cents:200,notes:[first,second]}],[{name:'You',cents:300,notes:[first,second]}]],result:{winner:'You',bid:300,value,fee,net:value-fee-300,playerExpenses:0,buyout:true}});
+  state.revision++;const raw=JSON.stringify(state);localStorage.setItem(key,raw);dispatchEvent(new StorageEvent('storage',{key,newValue:raw}));
+ },{key,options:['core-mark10','alt-value-v3'].map(id=>INVESTIGATIONS.find(option=>option.id===id)!)});
+ await page.clock.runFor(2000);await finishReveal(page);
+ const cells=page.locator('.auction-history-table tbody tr').first().locator('td');
+ await expect(cells.nth(0).locator('.auction-clue-icon')).toHaveCount(1);await expect(cells.nth(1).locator('.auction-clue-icon')).toHaveCount(1);await expect(cells.nth(2)).toContainText('No Private Clues');
+ for(const width of [1440,390])for(const theme of ['dark','light']){
+  await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+  await cells.nth(1).getByRole('button').click();await expect(page.getByRole('tooltip')).toContainText('Alt-Art Valuation');await expect(page.getByRole('tooltip')).not.toContainText('Rarity Markers');await page.keyboard.press('Escape');
+  await page.locator('.auction-bid-history').screenshot({path:testInfo.outputPath(`history-per-round-${width}-${theme}.png`),animations:'disabled'});
+ }
+ await page.reload();await page.clock.runFor(2000);await finishReveal(page);await expect(cells.nth(1).locator('.auction-clue-icon')).toHaveCount(1);
+});
+
 test('versioned investigations support a private marked-card follow-up and explicit paid final valuation price',async({page},testInfo)=>{
  await fixtures(page);await page.clock.pauseAt(new Date('2026-10-14T12:00:05Z'));let requests=0;
  await page.route('**/data/*.json',route=>{requests++;return route.fulfill({contentType:'application/json',body:JSON.stringify(rows)})});

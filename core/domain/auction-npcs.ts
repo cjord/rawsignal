@@ -1,16 +1,7 @@
 import {auctionRandom,sampleIndices} from './auction-types.ts';
-import type {AuctionKind} from './auction-types.ts';
-
-// Broader private random samples help cautious rivals cross-check their focused
-// investigations. Targets depend on profile/kind/round, never hidden card values.
-export function auctionNpcSampleTarget(name:string,kind:AuctionKind,round:number){
- const weaker=['The Dealer','The Collector','The Opportunist','The Bargain Hunter','The Follower','The Skeptic'].includes(name);
- const bonus=weaker?(kind==='paid'?1+2*(round-1):Math.max(0,round-1)):0;
- return 3+round+bonus;
-}
 
 export const AUCTION_NPCS=[
- {name:'The Dealer',participation:.97,margin:.84,noise:.03,risk:0,portrait:'dealer',strategy:'Bulk-First Reseller',cluePriority:['bulk','rares','top2','common-count'],description:'Checks bulk value first, then regular rares and overall resale value.'},
+ {name:'The Dealer',participation:.97,margin:.84,noise:.03,risk:0,portrait:'dealer',strategy:'Bulk-First Reseller',cluePriority:['bulk','rares','top2','common-count'],description:'Checks ordinary Common-through-Epic stock first, then Alt-Art value and premium exposure.'},
  {name:'The Collector',participation:.98,margin:.9,noise:.03,risk:.025,portrait:'collector',strategy:'Premium Specialist',cluePriority:['rare8','alt3','chase1','top2'],description:'Inspects premium cards but keeps a resale margin; occasionally stretches for a promising lot.'},
  {name:'The Opportunist',participation:.95,margin:.88,noise:.04,risk:.05,portrait:'opportunist',strategy:'Targeted Scout',cluePriority:['rare8','epic5','top2','reveal3'],description:'Targets rare and epic copies, with an occasional speculative bid.'},
  {name:'The Analyst',participation:.99,margin:.88,noise:.02,risk:0,portrait:'dealer',strategy:'Aggregate Valuation',cluePriority:['rares','bulk','rarities','top2'],description:'Favors category totals and a conservative cross-check of premium stock.'},

@@ -18,9 +18,9 @@ const specs=[
  ['chase-identity-v2','Chase Identity Peek',2500,'premium','identity','chase',1],
  ['chase-scan-v2','Chase Scan',4500,'premium','price','chase',1],
 ] as const;
-const descriptions={rarity:'rarity markers. No names, artwork or prices.',identity:'names and artworks, without prices.',price:'cards with identities and prices.'};
+const descriptions={rarity:'rarity and location only; no names, artwork or prices.',identity:'names and artwork, without prices.',price:'names, artwork and prices.'};
 export const REBALANCED_INVESTIGATIONS:Investigation[]=[
- ...specs.map(([id,label,cost,tier,mode,,count])=>({id,label,cost,tier,description:`Reveal up to ${count} ${descriptions[mode]}`})),
+ ...specs.map(([id,label,cost,tier,mode,band,count])=>({id,label,cost,tier,description:`Reveal up to ${count} ${band==='any'?'random copies':band==='chase'?'OVERNUMBERED or SIGNATURE copies':`${band==='alt'?'ALT-ART':band.toUpperCase()} copies`}: ${descriptions[mode]}`})),
  {id:'lot-audit',label:'Lot Audit',cost:400,tier:'basic',description:'Count sets, duplicate copies, commons and uncommons. Mark one hidden card’s rarity.'},
  {id:'rarities-v2',label:'Rarity Census',cost:1200,tier:'basic',description:'Count every rarity and premium treatment separately, without identities or prices.'},
  {id:'bulk-v2',label:'Bulk Valuation',cost:500,tier:'targeted',description:'Exact combined market value of common and uncommon copies.'},
@@ -93,7 +93,7 @@ export function rebalancedResult(auction:Auction,option:Investigation,targetSlot
 // Translate only facts actually disclosed by the versioned clue, never hidden prices.
 export function valuationClues(clues:Clue[]):Clue[]{
  return clues.flatMap(clue=>{
-  if(clue.id==='lot-audit')return ['common','uncommon','duplicates'].map((kind,index)=>({...clue,id:['common-count','uncommon-count','duplicates'][index],text:`${new RegExp(`${kind==='duplicates'?'Duplicate':kind==='common'?'Common':'Uncommon'} copies: (\\d+)`).exec(clue.text)?.[1]??0} copies.`}));
+  if(clue.id==='lot-audit'||clue.id==='lot-audit-v3')return ['common','uncommon','duplicates'].map((kind,index)=>({...clue,id:['common-count','uncommon-count','duplicates'][index],text:`${new RegExp(`${kind==='duplicates'?'Duplicate':kind==='common'?'Common':'Uncommon'} copies: (\\d+)`).exec(clue.text)?.[1]??0} copies.`}));
   const aliases:Record<string,string>={'bulk-v2':'bulk','rares-v2':'rares','top2-final':'top2'};
   return [{...clue,id:aliases[clue.id]??clue.id}];
  });

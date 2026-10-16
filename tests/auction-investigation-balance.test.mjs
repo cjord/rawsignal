@@ -82,7 +82,7 @@ test('NPC count investigations do not learn unseen prices or reuse the player’
  let matched;
  for(let seed=0;seed<100;seed++){
   const auction={...fresh().auction,seed,clues:[{id:'rarities',label:'Player secret',text:'Secret'}]},info=npcRoundInformation(auction,0,[],undefined,'The Bargain Hunter');
-  if(info.investigations.at(-1)==='lot-audit'){matched={auction,info};break}
+  if(info.investigations.at(-1)==='lot-audit-v3'){matched={auction,info};break}
  }
  assert.ok(matched);const {auction,info}=matched,hidden=auction.lot.findIndex((card,i)=>!info.inspected.includes(i)&&card.rarity==='Rare');assert.ok(hidden>=0);
  const changed={...auction,lot:auction.lot.map((card,i)=>i===hidden?{...card,cents:999999}:card)};

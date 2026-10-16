@@ -12,6 +12,25 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
+- **Investigation revision + removal of NPC automatic samples (2026-10-16), staging release preparation:**
+  grouped Chase / Special census, combined markers/identity peeks, $8 ordinary
+  Common-through-Epic Bulk Valuation, $10 Alt-Art Valuation, stronger $4 Lot Audit,
+  explicit target/visibility descriptions and shared guide definitions. Player bid
+  history shows only that round's investigation, including legacy cumulative saves.
+  NPCs receive no automatic private cards; only public/selected/retained disclosures
+  plus the existing prior/public bids. Exact category totals cannot be discounted
+  below their disclosed evidence floor. Tests/audit:
+  [Investigation revision](auction-investigations-2026-10-16.md).
+  Opening medians stay similar but NPC winner losses increase; review human play
+  before further balance changes. User authorized GitHub push and staging only;
+  no new data calls or D1
+  migration. Existing daily snapshots and normal saves remain intact.
+
+- [ ] **Personality-specific NPC insights (proposal only):** pilot one capped,
+  seeded, non-priced bonus for Collector/Playset Builder; record source/round and
+  disclose earned details at settlement. Do not restore generic free priced
+  samples. [Roster proposals, information limits and test gates](auction-npc-personality-information-plan.md).
+
 - **Released to staging and production (2026-10-16), source `0ff7aaa`:** accepted free and
   stronger paid NPC balance alongside the lobby, statistics and inspection
   fixes. Final speculation weights are 14/11/8.5/6% free and 20/18/15/12% paid;

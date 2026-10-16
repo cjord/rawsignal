@@ -10,7 +10,6 @@ import {readFileSync} from 'node:fs';
 import {allowedRarities} from '../core/market-state.ts';
 import {parseCards} from '../core/domain/contracts.ts';
 import {auctionCatalog} from '../core/domain/auction-market.ts';
-import {auctionNpcSampleTarget} from '../core/domain/auction-npcs.ts';
 const pool=Array.from({length:150},(_,i)=>({productId:i+1,printing:'Normal',name:`Card ${i}`,image:`https://image.example/${i}`,set:'Origins',rarity:i<100?'Common':i<130?'Rare':'Epic',section:'rares',cents:100+i}));
 
 test('new lot sizes cover inclusive bounds, reject out-of-range preparation and preserve legacy frozen sizes',()=>{
@@ -38,7 +37,7 @@ test('paid entry is affordable, charged once at successful entry, persisted, and
 });
 test('paid NPC competition still uses private samples and never changes with the sealed player bid',()=>{
  const lot=generateAuctionLot(pool,42,'paid').slice(0,50),free=beginAuction(initialAuctionSave(),pool,1000,lot,42),paid=beginAuction(initialAuctionSave(),pool,1000,lot,42,'paid');
- paid.auction.npcs.forEach((npc,index)=>{const previous=free.auction.npcs[index].sample;assert.deepEqual(npc.sample.slice(0,previous.length),previous);assert.equal(npc.sample.length,auctionNpcSampleTarget(npc.name,'paid',1));assert.ok(Number.isSafeInteger(npc.bid)&&npc.bid>=0)});
+ paid.auction.npcs.forEach((npc,index)=>{assert.deepEqual(npc.sample,[]);assert.deepEqual(free.auction.npcs[index].sample,[]);assert.ok(Number.isSafeInteger(npc.bid)&&npc.bid>=0)});
  assert.deepEqual(lockBid(paid,1,1100).auction.npcs.map(npc=>npc.bid),lockBid(paid,200000,1100).auction.npcs.map(npc=>npc.bid));
 });
 test('new investigation prices reflect power while existing version-one offers retain old prices',()=>{

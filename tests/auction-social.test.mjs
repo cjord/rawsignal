@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {npcBid,beginAuction,nextAuctionRound,lockBid} from '../core/domain/auction-engine.ts';
-import {AUCTION_NPCS,auctionNpcSampleTarget} from '../core/domain/auction-npcs.ts';
+import {AUCTION_NPCS} from '../core/domain/auction-npcs.ts';
 import {auctionRandom,initialAuctionSave} from '../core/domain/auction-types.ts';
 
 test('rivals usually bid, with occasional personality-specific passes rather than forced participation',()=>{
@@ -27,14 +27,6 @@ test('prior public interest sometimes nudges bids in either direction, stays bou
    if(high>personal)influenced++;else unchanged++;
   }
   assert.ok(influenced>15&&unchanged>15);
- }
-});
-
-test('weaker profiles receive broader private samples with extra paid-auction coverage',()=>{
- const weaker=['The Dealer','The Collector','The Opportunist','The Bargain Hunter','The Follower','The Skeptic'];
- for(const npc of AUCTION_NPCS)for(const kind of ['free','paid']){
-  const expected=weaker.includes(npc.name)?kind==='paid'?[5,8,11,14]:[4,6,8,10]:[4,5,6,7];
-  assert.deepEqual([1,2,3,4].map(round=>auctionNpcSampleTarget(npc.name,kind,round)),expected);
  }
 });
 

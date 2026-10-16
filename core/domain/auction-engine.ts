@@ -1,17 +1,18 @@
-import {AUCTION_ROUNDS,AUCTION_PAID_ENTRY,auctionRandom,sampleIndices,type Auction,type AuctionCard,type AuctionSave,type AuctionKind,type Npc,type RoundBid} from "./auction-types.ts";
+import {AUCTION_ROUNDS,AUCTION_PAID_ENTRY,auctionRandom,type Auction,type AuctionCard,type AuctionSave,type AuctionKind,type Npc,type RoundBid} from "./auction-types.ts";
 import {addInventory,inventoryQuote} from "./auction-market.ts";
 import {AUCTION_LOT_SIZES,generateAuctionLot} from './auction-lots.ts';
-import {AUCTION_NPCS,auctionNpcRoster,auctionNpcMood,auctionNpcAmbition,auctionNpcSampleTarget} from './auction-npcs.ts';
+import {AUCTION_NPCS,auctionNpcRoster,auctionNpcMood,auctionNpcAmbition} from './auction-npcs.ts';
 import {informationOffers,investigate} from "./auction-information.ts";
 import {auctionLossShares,auctionSaleRarity} from './auction-economy.ts';
 import {npcRoundInformation,npcInvestigationNotes} from './auction-npc-information.ts';
-import {auctionSampleValue,publicAuctionSlots,revealPublicRound} from './auction-public.ts';
+import {auctionSampleValue,revealPublicRound} from './auction-public.ts';
 import {auctionLotTheme} from './auction-lot-themes.ts';
 import {rankAuctionBids} from './auction-ranking.ts';
 import {followUpSlots} from './auction-investigations-v2.ts';
 import {auctionMarketPrior} from './auction-market-prior.ts';
 import {auctionClueReveals} from './auction-clue-reveals.ts';
 import {recordAuctionStart,recordAuctionResult} from './auction-statistics.ts';
+import {auctionRoundBid} from './auction-display.ts';
 
 // Only completed public bids may influence an estimate; current sealed bids are never inputs.
 export function npcBid(sample:number[],range:[number,number],priorBids:number[],personality:number,random:()=>number,feeBps=1000,confidence=1,participation=0,grossEstimate?:number,certainty=1,round=2):number{
@@ -39,9 +40,8 @@ function roundNpcs(auction:Auction,now:number):Npc[]{
  const random=auctionRandom(auction.seed+auction.round*103);
  const roster=auction.npcs.length?auction.npcs.map(npc=>AUCTION_NPCS.find(profile=>profile.name===npc.name)!):auctionNpcRoster(auction.seed,auction.rivals);
  return roster.map((npc,index)=>{
-  const previous=auction.npcs.find(bidder=>bidder.name===npc.name)?.sample??[];
-  const target=auctionNpcSampleTarget(npc.name,auction.kind??'free',auction.round);
-  const sample=[...previous,...sampleIndices(auction.lot.length,Math.max(0,target-previous.length),auction.seed+index*67+auction.round,[...publicAuctionSlots(auction),...previous])];
+  // Kept as an empty compatibility field in saves; no automatic private cards.
+  const sample:number[]=[];
   const knowledge=npcRoundInformation(auction,index,sample,auction.npcs.find(bidder=>bidder.name===npc.name),npc.name);
   const mood=auctionNpcMood(auction.seed,npc.name),personality=AUCTION_NPCS.findIndex(profile=>profile.name===npc.name);
   const paid=auction.kind==='paid';
@@ -86,7 +86,8 @@ export function auctionWinner(bids:RoundBid[],round:number,seed:number):{winner:
  return {winner:round===4||buyout?positives[0]??null:null,buyout};
 }
 function resolveRound(save:AuctionSave,auction:Auction):AuctionSave{
- const bids:RoundBid[]=[{name:'You',cents:auction.selected??0,notes:auction.clues.map(clue=>({...clue}))},...auction.npcs.map(npc=>({name:npc.name,cents:npc.bid,notes:npcInvestigationNotes(npc,auction.round)}))];
+ const player=auctionRoundBid(auction,{name:'You',cents:auction.selected??0,notes:auction.clues.map(clue=>({...clue}))},auction.round);
+ const bids:RoundBid[]=[player,...auction.npcs.map(npc=>({name:npc.name,cents:npc.bid,notes:npcInvestigationNotes(npc,auction.round)}))];
  const {winner,buyout}=auctionWinner(bids,auction.round,auction.seed);
  if(!winner&&auction.round<4)return {...save,auction:{...auction,stage:'reveal',bids,bidHistory:[...auction.bidHistory,bids]}};
  const value=auction.lot.reduce((sum,card)=>sum+card.cents,0),fee=value-inventoryQuote(addInventory([],auction.lot),auction.lot,auction.feeBps).net,won=winner?.name==='You';

@@ -38,3 +38,9 @@ export function publicAuctionBidNotes(bid:RoundBid,settled=false){
   return {id:note.id,label:starting?'Shared Public Reveals':legacy?'Card Inspection (Legacy)':INVESTIGATIONS.find(option=>option.id===note.id)?.label??'Investigation Unavailable',text:starting?'Used the shared public cards and prices.':'Used this investigation to estimate the collection. Card identities, prices and findings remain private.'};
  });
 }
+// Older player history snapshots stored every clue so far. Preserve saves while
+// displaying only this round's facts; untagged legacy clues use first appearance.
+export function auctionRoundBid(auction:Auction,bid:RoundBid,round:number):RoundBid{
+ const earlier=new Set(auction.bidHistory.slice(0,round-1).flatMap(bids=>bids.find(row=>row.name===bid.name)?.notes?.map(note=>note.id)??[]));
+ return {...bid,notes:bid.notes?.filter(note=>note.round===undefined?!earlier.has(note.id):note.round===round)};
+}
