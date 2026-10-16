@@ -3,7 +3,7 @@
 import {useState} from 'react';
 import DeferredImage from '../DeferredImage';
 import InfoHint from '../InfoHint';
-import AuctionDialog from './AuctionDialog';
+import AuctionCardInspection from './AuctionCardInspection';
 import {auctionUsd} from './AuctionWallet';
 import {knownValue} from '../../core/domain/auction-information';
 import type {Auction} from '../../core/domain/auction-types';
@@ -33,7 +33,7 @@ export default function AuctionCollection({auction,visible,done,skip,choose}:{au
     {auction.topCardSlot===index&&<span className="auction-top-marker" role="img" aria-label="Top card" title="Most valuable card in this collection">Top</span>}
    </button>;
   })}</div>
-  {selected&&<AuctionDialog title={selected.name} onClose={()=>setInspected(null)} dismissOnOutside><div className="auction-inspection" data-rarity={auctionRarity(selected)} data-value-effect={auctionValueEffect(selected.cents,priceKnown)}><DeferredImage className="auction-inspect-art" src={selected.image} alt={selected.name}/><p>{selected.printing} · {selected.set}</p><strong>{priceKnown?auctionUsd(selected.cents):'Price Unknown'}</strong></div></AuctionDialog>}
+  {selected&&<AuctionCardInspection card={selected} priceKnown={priceKnown} close={()=>setInspected(null)}/>}
  </section>;
 }
 function HiddenCard({auction,index,choose}:{auction:Auction;index:number;choose?:()=>void}){

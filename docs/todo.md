@@ -12,6 +12,14 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
+- **Showcase drag-first follow-up (2026-10-16):** retain the 20-card total cap,
+  allow duplicate printings, individual-copy inventory tiles, indexed drag reorder,
+  solid full-tile drag preview, compact touch-only buttons plus keyboard movement,
+  value-tinted showcase panels and shared card-inspection tilt. No additional data
+  calls or migrations. Release to staging first, then promote the same validated
+  build to production after live staging passes; do not repeat production suites.
+  See [showcase rules](auction-showcase-and-delayed.md).
+
 - **Showcase + delayed investigation (2026-10-16), staging verified:** $15
   half-weight Delayed Gratification in rounds 1–2, reveal two of top five unpriced
   cards two rounds later; Bilgewater/Piltover naming, fixed 10% future fees,

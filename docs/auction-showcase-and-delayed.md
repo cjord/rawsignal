@@ -51,10 +51,14 @@ with an accessible action label; Leave Auction has a red border and is rightmost
 `/games/riftbound-auction/showcase` is linked from the normal auction lobby.
 Show auction statistics above the display. Editing has inventory and showcase
 side by side on desktop, stacked on mobile, with the existing faded scrolling
-catalog artwork behind both. Native drag/drop is optional: explicit Add/Return
-and reorder arrow buttons support keyboard and touch.
+catalog artwork behind both. Desktop uses drag/drop with a full, opaque tile
+preview. Small/coarse-pointer screens retain compact Add/Return and reorder
+buttons. Keyboard users select with Space, focus a destination and press Enter;
+Escape cancels. Inventory displays individual copies, in batches of 100 to avoid
+rendering an unbounded collection. Each moved copy disappears from that side.
 
-There are 20 **distinct printing** slots, one physical owned copy per slot. Move
+There are 20 slots, one physical owned copy per slot; duplicates are allowed,
+including 20 copies of the same printing. Move
 one copy out of sellable inventory when adding. A second copy of that printing
 can remain sellable, but the reserved copy cannot be sold by Sell All, rarity or
 individual sales. Return it to inventory before selling. Moving/reordering does
@@ -90,7 +94,7 @@ does not enter the normal showcase. No migrations or extra ingestion work.
 
 Tests cover delayed eligibility/weight/timing, early ending, seeded selection,
 NPC disclosure timing, per-round history, copy conservation/protected sales,
-20-printing cap, reorder/reload, share Unicode/privacy/frozen values/malformed
+20-card cap including duplicates, indexed reorder/reload, share Unicode/privacy/frozen values/malformed
 inputs, fixed future fees, hidden-value independence, sound boundaries, drag/touch
 controls, colors, urgent header, intro audio and reduced motion. Complete release
 gate and live staging verification are required before handing off.
@@ -108,3 +112,14 @@ inventory; desktop/mobile and dark/light layouts. Both auction houses matched NP
 calculations in all four rounds and passed settlement/reload/leave with no extra
 gameplay data calls or browser errors. Only isolated virtual browser saves were
 used. No migrations, snapshots replaced or production changes.
+
+## Follow-up: duplicate collections and drag-first editing
+
+Showcase panel tint follows its known total market value: green below $500,
+blue from $500, purple from $2,500 and gold from $10,000. These are visual game
+thresholds, not market classifications. Missing values stay explicitly unpriced
+and are excluded from the known subtotal. Shared snapshots use their frozen values.
+Individual reserved slots stay separate through ordering, returning, saving and
+sharing even when their printings match. Existing links and saves remain valid.
+Inspection popups reuse the detail-page tilt hook, including touch-hold support;
+reduced motion keeps the image flat. No extra data calls, storage or migration.

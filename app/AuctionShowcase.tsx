@@ -12,12 +12,9 @@ import AuctionStatistics from './games/AuctionStatistics';
 import AuctionBackdrop from './games/AuctionBackdrop';
 import AuctionShowcaseEditor from './games/AuctionShowcaseEditor';
 import AuctionShowcaseShare from './games/AuctionShowcaseShare';
-import AuctionDialog from './games/AuctionDialog';
-import DeferredImage from './DeferredImage';
-import {auctionRarity} from '../core/domain/auction-display';
+import AuctionCardInspection from './games/AuctionCardInspection';
 import AuctionShowcaseGallery from './games/AuctionShowcaseGallery';
 import AuctionShowcaseControls from './games/AuctionShowcaseControls';
-import {auctionUsd} from './games/AuctionWallet';
 
 const sources=allowedRarities.riftbound.map(section=>`/data/${section}.json`);
 function ShowcasePending({error}:{error:string|null}){return error?<p role="alert">{error} Return to Auction House to review your saved game. Nothing has been overwritten.</p>:<p role="status">Loading Showcase…</p>;}
@@ -33,6 +30,6 @@ export default function AuctionShowcase(){
    {!shared&&save&&<AuctionShowcaseControls save={save} error={error} editing={editing} loaded={status==='success'} toggle={()=>setEditing(value=>!value)} share={()=>setSharing(auctionProfileSnapshot(save,catalog))}/>}
    <AuctionStatistics shared={Boolean(shared)} save={shared?{...initialAuctionSave(),statistics:shared.stats}:save!}/>
    {editing&&canEdit&&save?<><section className="detail-section"><label className="auction-profile-name">Display Name (optional)<input maxLength={40} value={save.profileName??''} onChange={event=>{const name=event.target.value;transact(current=>({...current,profileName:name}))}}/></label><p className="games-note">Public only when you share a snapshot. No accounts or verified identities yet.</p></section><AuctionShowcaseEditor save={save} catalog={catalog} transact={transact}/></>:<AuctionShowcaseGallery cards={cards} shared={Boolean(shared)} inspect={setInspect}/>}
-  </>}{status==='error'&&<p role="status">Current catalog unavailable. Card artwork and current prices may be unavailable.</p>}{sharing&&<AuctionShowcaseShare snapshot={sharing} close={()=>setSharing(null)}/>} {inspect&&<AuctionDialog title={inspect.name} onClose={()=>setInspect(null)} dismissOnOutside><div className="auction-inspection" data-rarity={auctionRarity(inspect)}><DeferredImage src={inspect.image} alt={inspect.name}/><p>{inspect.printing} · {inspect.set}</p><strong>{inspect.cents?auctionUsd(inspect.cents):'Price Unavailable'}</strong></div></AuctionDialog>}
+  </>}{status==='error'&&<p role="status">Current catalog unavailable. Card artwork and current prices may be unavailable.</p>}{sharing&&<AuctionShowcaseShare snapshot={sharing} close={()=>setSharing(null)}/>} {inspect&&<AuctionCardInspection card={inspect} close={()=>setInspect(null)}/>}
  </div></GamesShell>;
 }

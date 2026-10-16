@@ -11,7 +11,7 @@ export function auctionProfileSnapshot(save:AuctionSave,catalog:AuctionCard[],at
 const safeString=(value:unknown,max:number):value is string=>typeof value==='string'&&value.length<=max;
 export function validProfileSnapshot(value:unknown):value is AuctionProfileShare{
  const row=value as AuctionProfileShare;if(!row||row.v!==1||!safeString(row.at,30)||!Number.isFinite(Date.parse(row.at))||!safeString(row.name,40)||!validAuctionStatistics(row.stats)||!Array.isArray(row.cards)||row.cards.length>20)return false;
- return new Set(row.cards.map(card=>Array.isArray(card)?`${card[0]}:${card[1]}`:'')).size===row.cards.length&&row.cards.every(card=>Array.isArray(card)&&card.length===7&&Number.isSafeInteger(card[0])&&card[0]>0&&safeString(card[1],80)&&safeString(card[2],300)&&safeString(card[3],300)&&safeString(card[4],80)&&safeString(card[5],100)&&(card[6]===null||Number.isSafeInteger(card[6])&&card[6]>0));
+ return row.cards.every(card=>Array.isArray(card)&&card.length===7&&Number.isSafeInteger(card[0])&&card[0]>0&&safeString(card[1],80)&&safeString(card[2],300)&&safeString(card[3],300)&&safeString(card[4],80)&&safeString(card[5],100)&&(card[6]===null||Number.isSafeInteger(card[6])&&card[6]>0));
 }
 export function encodeProfileSnapshot(snapshot:AuctionProfileShare){
  if(!validProfileSnapshot(snapshot))throw new Error('Invalid showcase snapshot');
