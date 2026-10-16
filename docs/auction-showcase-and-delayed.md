@@ -123,3 +123,19 @@ Individual reserved slots stay separate through ordering, returning, saving and
 sharing even when their printings match. Existing links and saves remain valid.
 Inspection popups reuse the detail-page tilt hook, including touch-hold support;
 reduced motion keeps the image flat. No extra data calls, storage or migration.
+
+Follow-up release source `1f02ae2` passed the complete gate: 554 node tests,
+one skipped, 80 Chromium checks, build/lint/typecheck and no new warnings.
+Staging `c018fc59-b655-4bef-b317-d3b718a98989` passed live checks with actual
+catalog artwork and isolated browser-only holdings: duplicate drag and reorder,
+individual inventory removal, protected sales/return, frozen duplicate sharing,
+popup tilt, desktop/mobile and both themes, with no browser errors or extra
+gameplay data calls. Both auction houses also passed all four rounds, model
+parity, settlement, reload and leave.
+
+After staging passed, the exact same build was promoted to production
+`3d07744d-ff46-4b6e-8b0a-a7ac5633a87a`. Per the user's request, production
+suites were not repeated. A single availability GET to the production showcase
+route received the existing Cloudflare 403 challenge, not application content;
+no WAF/security changes or alternate verification bypass were attempted. No
+migrations, ingestion runs, snapshot replacement or server-side data mutation.

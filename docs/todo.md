@@ -12,12 +12,15 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
-- **Showcase drag-first follow-up (2026-10-16):** retain the 20-card total cap,
+- **Showcase drag-first follow-up (2026-10-16), released to both environments:** retain the 20-card total cap,
   allow duplicate printings, individual-copy inventory tiles, indexed drag reorder,
   solid full-tile drag preview, compact touch-only buttons plus keyboard movement,
   value-tinted showcase panels and shared card-inspection tilt. No additional data
-  calls or migrations. Release to staging first, then promote the same validated
-  build to production after live staging passes; do not repeat production suites.
+  calls or migrations. Source `1f02ae2` passed 554 node tests (one skipped) and
+  80 browser checks. Live staging `c018fc59` passed duplicate drag/reorder, protected
+  sales, snapshots, tilt and all four rounds of both auction types. Promoted the
+  same build to production `3d07744d`; no repeat production suite, as requested.
+  A single production availability request met the existing Cloudflare challenge.
   See [showcase rules](auction-showcase-and-delayed.md).
 
 - **Showcase + delayed investigation (2026-10-16), staging verified:** $15
