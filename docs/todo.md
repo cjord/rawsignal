@@ -12,7 +12,7 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
-- **Investigation revision + removal of NPC automatic samples (2026-10-16), staging release preparation:**
+- **Investigation revision + removal of NPC automatic samples (2026-10-16), staging verified:**
   grouped Chase / Special census, combined markers/identity peeks, $8 ordinary
   Common-through-Epic Bulk Valuation, $10 Alt-Art Valuation, stronger $4 Lot Audit,
   explicit target/visibility descriptions and shared guide definitions. Player bid
@@ -22,7 +22,11 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
   below their disclosed evidence floor. Tests/audit:
   [Investigation revision](auction-investigations-2026-10-16.md).
   Opening medians stay similar but NPC winner losses increase; review human play
-  before further balance changes. User authorized GitHub push and staging only;
+  before further balance changes. Source `a7b29e2` pushed; staging version
+  `1056c0d3-bdb6-4580-8272-e6e9af5266fa` verified in free/paid auctions, all four
+  rounds, settlement/reload/leave, both screen sizes/themes, no extra gameplay
+  data calls. Full gate: 537 node tests and 73 Chromium checks passed.
+  Production remains on `0ff7aaa`. User authorized GitHub push and staging only;
   no new data calls or D1
   migration. Existing daily snapshots and normal saves remain intact.
 

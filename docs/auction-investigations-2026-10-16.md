@@ -1,6 +1,6 @@
 # Investigation revision and NPC information boundary — 2026-10-16
 
-Prepared for the user-authorized staging release; production remains unchanged.
+Released to staging from source `a7b29e2`; production remains unchanged.
 Supersedes the earlier automatic
 private-sample policy in the published balance notes. Current speculation, social
 influence, rarity budgets, fees and buyout thresholds are otherwise unchanged.
@@ -125,3 +125,17 @@ widths in dark/light themes. Staging release verification is recorded separately
 
 Future personality-specific information bonuses are planned, not implemented:
 [proposal and test gates](auction-npc-personality-information-plan.md).
+
+## Staging release verification
+
+2026-10-16: pushed `a7b29e2` to `feature/set-rarity-heatmap`, then deployed staging
+version `1056c0d3-bdb6-4580-8272-e6e9af5266fa`. The repeated complete release gate
+passed (537 node tests, one skipped; 73 Chromium checks; build/lint/types). An initial
+sandbox-only temporary-file rename permission error was resolved by running the
+same check with the required filesystem access; no application change was needed.
+
+Live staging verification passed: guide with 22 active investigations/12 rivals
+and zero market calls; actual free/paid entry, model parity in all four rounds,
+empty automatic samples, settlement, reload, leave, mobile/desktop and both themes.
+No browser errors or extra gameplay data calls after the initial catalog load.
+No migrations, ingestion runs, daily-snapshot replacement or production deployment.
