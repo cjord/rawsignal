@@ -57,7 +57,7 @@ test('Lot Audit reports repeated printing counts with identity-only representati
 });
 
 test('new menus retire superseded options, name scan rarities explicitly, and preserve saved offered rules',()=>{
- assert.equal(CURRENT_INVESTIGATIONS.length,23);
+ assert.equal(CURRENT_INVESTIGATIONS.length,24);
  for(let seed=0;seed<50;seed++)assert.ok(informationOffers({...hidden(),seed}).every(row=>!RETIRED_V2_INVESTIGATIONS.includes(row.id)));
  for(const [id,word] of [['rare12','12 RARE'],['epic6','6 EPIC'],['alt4','4 ALT-ART']])assert.ok(option(id).description.includes(word));
  for(const id of [...RETIRED_V2_INVESTIGATIONS,...CURRENT_INVESTIGATIONS.map(row=>row.id)]){const save=fresh();save.auction.offers=[option(id)];assert.deepEqual(parseAuctionSave(JSON.stringify(save)),save);}

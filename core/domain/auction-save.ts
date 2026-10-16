@@ -1,4 +1,6 @@
-import {initialAuctionSave,type Auction,type AuctionSave,type DailyAuctionManifest} from "./auction-types.ts";
+import {initialAuctionSave,type Auction,type AuctionSave,type DailyAuctionManifest,type Clue} from "./auction-types.ts";
+import {validShowcase} from './auction-showcase.ts';
+import {validDelayedClue} from './auction-delayed.ts';
 import {INVESTIGATIONS,LEGACY_INVESTIGATION_COSTS,PREVIOUS_INVESTIGATION_COSTS,PRE_BALANCE_INVESTIGATION_COSTS} from "./auction-information.ts";
 import {AUCTION_NPCS} from './auction-npcs.ts';
 import {NPC_INVESTIGATION_IDS} from './auction-npc-information.ts';
@@ -23,7 +25,7 @@ function validNpcs(auction:Auction){
 function validNpcInformation(npc:Auction['npcs'][number],length:number){return (npc.identified===undefined||validSlots(npc.identified,length))&&(npc.inspected===undefined||validSlots(npc.inspected,length))&&(npc.rarityKnown===undefined||validSlots(npc.rarityKnown,length))&&(npc.findings===undefined||Array.isArray(npc.findings)&&npc.findings.length<=4&&npc.findings.every(validClue))&&(npc.investigations===undefined||Array.isArray(npc.investigations)&&npc.investigations.length<=4&&new Set(npc.investigations).size===npc.investigations.length&&npc.investigations.every(id=>NPC_INVESTIGATION_IDS.includes(id)))}
 function validClue(value:unknown){
  const clue=value as {id?:unknown;label?:unknown;text?:unknown;round?:unknown;reveals?:unknown};
- return record(value)&&text(clue.id)&&text(clue.label)&&text(clue.text,3000)&&(clue.round===undefined||integer(clue.round,4)&&clue.round>=1)&&validClueReveals(clue.reveals);
+ return record(value)&&text(clue.id)&&text(clue.label)&&text(clue.text,3000)&&(clue.round===undefined||integer(clue.round,4)&&clue.round>=1)&&validClueReveals(clue.reveals)&&validDelayedClue(value as Clue);
 }
 function validClueReveals(value:unknown){
  return value===undefined||Array.isArray(value)&&value.length<=350&&new Set(value.map(reveal=>reveal?.slot)).size===value.length&&value.every(reveal=>record(reveal)&&integer(reveal.slot,349)&&['rarity','identity','price'].includes(reveal.visibility));
@@ -62,6 +64,11 @@ function validAuction(value:unknown):value is Auction{
 }
 function validAuctionEntry(auction:Auction){return auction.kind===undefined&&auction.entryFee===undefined||auction.kind==='free'&&auction.entryFee===0||auction.kind==='paid'&&auction.entryFee===5000}
 function validPendingInspection(auction:Auction){return auction.pendingFollowUp===undefined||auction.pendingFollowUp===true&&auction.stage==='round'&&auction.bought&&auction.clues.some(clue=>clue.id==='follow-up-v4'&&clue.round===auction.round)&&followUpSlots(auction).length>0;}
+function validProfile(save:AuctionSave){return (save.showcase===undefined||validShowcase(save.showcase))&&(save.profileName===undefined||text(save.profileName,40));}
+function validateProfile(save:AuctionSave){
+ if(save.statistics!==undefined&&!validAuctionStatistics(save.statistics))throw new Error('Saved statistics are invalid.');
+ if(!validProfile(save))throw new Error('Saved showcase is invalid.');
+}
 export function parseAuctionSave(raw:string|null):AuctionSave{
  if(raw===null)return initialAuctionSave();
  if(raw.length>4e6)throw new Error('Saved game is too large. Reset to start again.');
@@ -70,7 +77,7 @@ export function parseAuctionSave(raw:string|null):AuctionSave{
  const inventory=value.wallet.inventory;
  if(!Array.isArray(inventory)||inventory.length>10000||!inventory.every(row=>record(row)&&integer(row.productId)&&row.productId>0&&text(row.printing,80)&&integer(row.quantity,1000000)&&row.quantity>0))throw new Error('Saved inventory is invalid. Reset to start again.');
  if(value.auction!==null&&!validAuction(value.auction))throw new Error('Saved auction is invalid. Reset to start again.');
- if(value.statistics!==undefined&&!validAuctionStatistics(value.statistics))throw new Error('Saved statistics are invalid.');
+ validateProfile(value);
  if(value.auction?.statisticsTracked&&!value.statistics)throw new Error('Missing auction statistics.');
  if(value.drafts!==undefined&&!validDrafts(value))throw new Error('Saved auction preparation is invalid.');
  if(value.daily!==undefined&&!validDailyProgress(value))throw new Error('Saved daily challenge is invalid.');

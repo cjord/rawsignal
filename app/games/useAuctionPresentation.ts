@@ -2,7 +2,7 @@
 import {useEffect,useRef,useState,type RefObject} from 'react';
 import type {Auction} from '../../core/domain/auction-types';
 import {usePreference} from '../state/usePreference';
-import {playAuctionSound} from './auction-sound';
+import {playAuctionSound,type AuctionSoundCue} from './auction-sound';
 import {auctionSoundState,auctionSoundEvents} from './auction-sound-events';
 
 export function useAuctionNavigation(arena:RefObject<HTMLDivElement|null>,auction:Auction|null,celebrating:boolean){
@@ -48,5 +48,5 @@ export function useAuctionSound(auction:Auction|null,now:number,visibleCount=0){
   if(auction.stage==='round'&&!tick&&seconds<59)return;
   playAuctionSound(context.current,sound==='on',tick?'tick':'round');
  },[auction,now,sound]);
- return {sound,unlock,toggle:()=>{unlock();setSound(sound==='on'?'muted':'on')}};
+ return {sound,unlock,cue:(cue:AuctionSoundCue)=>playAuctionSound(context.current,sound==='on',cue),toggle:()=>{unlock();setSound(sound==='on'?'muted':'on')}};
 }

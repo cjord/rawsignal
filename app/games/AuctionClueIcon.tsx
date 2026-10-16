@@ -33,6 +33,6 @@ export default function AuctionClueIcon({id}:{id:string}){
  if(/^identity\d+$/.test(id))glyph='identity3';
  const aliases:Record<string,string>={'core-mark10':'rarities','core-identity10':'identity3','lot-audit-v3':'duplicates','rarities-v3':'rarities','bulk-core-v3':'bulk','alt-value-v3':'rares','lot-audit':'count','rarities-v2':'rarities','bulk-v2':'bulk','rares-v2':'rares','highest-rarity-v2':'highest','over5-mark':'over5','over20-mark':'over20',concentration:'share','top2-final':'top2','follow-up':'reveal3','chase-scan-v2':'highest','chase-mark-v2':'rarities'};
  const current:Record<string,string>={'price-small4':'reveal3','price-large7':'reveal3','chase-identity-v4':'identity3','chase-scan-v4':'highest','rarities-v4':'rarities','top-three-peek':'top2','follow-up-v4':'reveal3'};
- glyph=current[id]??aliases[id]??glyph;
+ glyph=id==='delayed-gratification'?'top2':current[id]??aliases[id]??glyph;
  return <svg className="auction-clue-icon" data-clue={glyph} data-tone={tone} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[glyph==='public-start'?'reveal3':glyph==='legacy-inspection'?'identity3':glyph]??paths.appraisal}/></svg>;
 }

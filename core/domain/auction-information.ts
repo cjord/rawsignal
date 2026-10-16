@@ -1,4 +1,5 @@
-import {sampleIndices,type Auction,type AuctionCard,type Clue,type Investigation} from "./auction-types.ts";
+import {sampleIndices,auctionRandom,type Auction,type AuctionCard,type Clue,type Investigation} from "./auction-types.ts";
+import {DELAYED_INVESTIGATION,delayedResult} from './auction-delayed.ts';
 import {RARITY_INVESTIGATIONS,rarityInvestigationSlots} from './auction-rarity-investigations.ts';
 import {PARTIAL_INVESTIGATIONS,partialInvestigationSlots,investigatePartial} from './auction-partial-investigations.ts';
 import {balancedClue} from './auction-balanced-clues.ts';
@@ -11,6 +12,7 @@ export const RETIRED_INVESTIGATION_IDS=['count','rarity-peek3','rare-mark2','epi
  'rarity-peek8','rare-mark8','epic-mark5','alt-mark3','rare-identity5','epic-identity3','chase-mark1','chase-identity1','rare8','epic5','alt3','chase1','sets','rarities','duplicates','common-count','uncommon-count','highest-rarity','reveal3','identity3','identity10','bulk','rares','over5','over20','share','top2',...RETIRED_V2_INVESTIGATIONS,...RETIRED_V3_INVESTIGATIONS];
 
 export const INVESTIGATIONS:Investigation[]=[
+ DELAYED_INVESTIGATION,
  ...SCAN_INVESTIGATIONS,
  ...REVISED_INVESTIGATIONS,
  ...REBALANCED_INVESTIGATIONS,
@@ -47,13 +49,17 @@ const sum=(cards:AuctionCard[])=>cards.reduce((value,card)=>value+card.cents,0);
 const topCounts:Record<string,number>={top2:2,top5:5};
 export function informationOffers(auction:Auction):Investigation[]{
  // Menu eligibility uses public rules only. A targeted option can return zero matches.
- const eligible=INVESTIGATIONS.filter(option=>!RETIRED_INVESTIGATION_IDS.includes(option.id)&&option.id!=='follow-up-v4'&&(option.id!=='top-three-peek'||auction.round===4)&&!auction.clues.some(clue=>clue.id===option.id));
+ const eligible=INVESTIGATIONS.filter(option=>!RETIRED_INVESTIGATION_IDS.includes(option.id)&&option.id!=='follow-up-v4'&&(option.id!=='top-three-peek'||auction.round===4)&&(option.id!=='delayed-gratification'||auction.round<=2)&&!auction.clues.some(clue=>clue.id===option.id));
  const basics=eligible.filter(option=>option.tier==='basic');
  const first=basics[sampleIndices(basics.length,1,auction.seed+auction.round*31)[0]];
  const remaining=eligible.filter(option=>option!==first);
- const picked=[...(first?[first]:[]),...sampleIndices(remaining.length,first?2:3,auction.seed+auction.round*79).map(index=>remaining[index])];
+ const picked=[...(first?[first]:[]),...weightedInformationSample(remaining,first?2:3,auction.seed+auction.round*79)];
  if(followUpSlots(auction).length&&!auction.clues.some(clue=>['follow-up','follow-up-v4'].includes(clue.id)))picked.push(INVESTIGATIONS.find(option=>option.id==='follow-up-v4')!);
  return picked.map(option=>({...option,description:investigationDescription(option.description??''),cost:rebalancedCost(option,auction)}));
+}
+function weightedInformationSample(options:Investigation[],count:number,seed:number){
+ const random=auctionRandom(seed);
+ return options.map(option=>({option,key:-Math.log(Math.max(Number.EPSILON,random()))/(option.id==='delayed-gratification'?.5:1)})).sort((a,b)=>a.key-b.key).slice(0,count).map(row=>row.option);
 }
 export function informationUseful(auction:Auction,id:string){
  if(RETIRED_INVESTIGATION_IDS.includes(id))return false;
@@ -73,6 +79,7 @@ function breakdown(cards:AuctionCard[],key:'set'|'rarity'){
  return [...groups.entries()].map(([name,count])=>`${name}: ${count}`).join(' · ');
 }
 export function investigate(auction:Auction,option:Investigation,targetSlot?:number):{known:number[];priced:number[];rarityKnown?:number[];topCardSlot?:number;clue:Clue}{
+ if(option.id==='delayed-gratification')return delayedResult(auction);
  return scanResult(auction,option,targetSlot)??revisedResult(auction,option)??rebalancedResult(auction,option,targetSlot)??investigateLegacy(auction,option);
 }
 function investigateLegacy(auction:Auction,option:Investigation):{known:number[];priced:number[];rarityKnown?:number[];topCardSlot?:number;clue:Clue}{

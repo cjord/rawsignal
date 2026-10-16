@@ -26,8 +26,8 @@ function RoundControls({save,now,transact}:Props){
 }
 export function AuctionRoundHeader({auction,now}:{auction:Auction;now:number}){
  const seconds=Math.min(60,Math.max(0,Math.ceil((auction.deadline-now)/1000)));
- return <div className="detail-section auction-round-header"><div className="auction-round-heading"><strong>Round {auction.round} / 4</strong><span className={`auction-timer${auction.stage==='round'&&seconds<=10?' is-urgent':''}`} role="timer" aria-live="off">{auction.stage==='round'?`${seconds}s`:auction.stage==='result'?'Auction Finished':'Bids Revealed'}</span></div>
-  <p className="games-note">{auction.round<4?`Buyout: top bid must be ${AUCTION_ROUNDS[auction.round-1].threshold}% above second place, with at least two positive bids.`:'Final round: highest positive bid wins; seeded priority breaks ties. All passes mean no sale.'}</p>
+ const urgent=auction.stage==='round'&&seconds<=10;
+ return <div className={`detail-section auction-round-header${urgent?' is-urgent':''}`}><div className="auction-round-heading"><div className="auction-round-title"><strong>Round {auction.round} / 4</strong><span className="auction-buyout-rule">{auction.round<4?`Buyouts occur at ${AUCTION_ROUNDS[auction.round-1].threshold}% above second place this round`:'Final Round — Highest Bid Wins'} <InfoHint label="Buyout threshold details">The top bid must be at least the stated percentage above second place, with at least two positive bids. Round 4 has no early buyout. Ties use seeded priority; all passes mean no sale.</InfoHint></span></div><span className={`auction-timer${urgent?' is-urgent':''}`} role="timer" aria-live="off">{auction.stage==='round'?`${seconds}s`:auction.stage==='result'?'Auction Finished':'Bids Revealed'}</span></div>
  </div>;
 }
 export default function AuctionRound({save,now,transact,autoSeconds=null,revealDone=true,visible=save.auction!.lot.map((_,index)=>index),dailyMode=false}:Props){

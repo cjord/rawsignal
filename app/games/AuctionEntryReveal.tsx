@@ -6,11 +6,15 @@ import type {AuctionCard} from '../../core/domain/auction-types';
 import {AUCTION_INTRO_MS,type AuctionEntry} from './useAuctionEntry';
 import AuctionBidder from './AuctionBidder';
 import AuctionBackdrop from './AuctionBackdrop';
+import type {AuctionSoundCue} from './auction-sound';
+import {auctionHouseName} from '../../core/domain/auction-houses';
 
-export default function AuctionEntryReveal({entry,catalog,cancel,skip}:{entry:AuctionEntry;catalog:AuctionCard[];cancel:()=>void;skip:()=>void}){
+export default function AuctionEntryReveal({entry,catalog,cancel,skip,cue}:{entry:AuctionEntry;catalog:AuctionCard[];cancel:()=>void;skip:()=>void;cue:(cue:AuctionSoundCue)=>void}){
  const dialog=useRef<HTMLDialogElement>(null),[ticks,setElapsed]=useState(0);
  const reduced=typeof window!=='undefined'&&window.matchMedia('(prefers-reduced-motion: reduce)').matches,elapsed=reduced?AUCTION_INTRO_MS:ticks;
  const theme=auctionLotTheme(entry.seed),rivals=auctionNpcRoster(entry.seed,entry.rivals),settled=elapsed>=1600;
+ const played=useRef(0);
+ useEffect(()=>{const locks=[1600,2400,3050,3700].filter(time=>elapsed>=time).length;if(locks>played.current){cue(locks===1?'collection':'opponent');played.current=locks}},[elapsed,cue]);
  useEffect(()=>{
   dialog.current?.showModal();const started=Date.now(),timer=window.setInterval(()=>setElapsed(Date.now()-started),100);
   return()=>window.clearInterval(timer);
@@ -18,7 +22,7 @@ export default function AuctionEntryReveal({entry,catalog,cancel,skip}:{entry:Au
  const visibleTheme=settled?theme:AUCTION_LOT_THEMES[Math.floor(elapsed/110)%AUCTION_LOT_THEMES.length];
  return <dialog ref={dialog} className="auction-entry-stage" aria-labelledby="auction-entry-title" onCancel={event=>{event.preventDefault();cancel()}}>
   <AuctionBackdrop catalog={catalog} seed={entry.seed}/>
-  <section className="auction-entry-briefing"><div className="auction-entry-top"><span className="games-eyebrow">{entry.kind==='paid'?'Paid Auction':'Free Auction'} · Preparing Your Table</span><button className="game-control" type="button" onClick={cancel}>Cancel</button></div>
+  <section className="auction-entry-briefing"><div className="auction-entry-top"><span className="games-eyebrow">{auctionHouseName(entry.kind)} · Preparing Your Table</span><button className="game-control" type="button" onClick={cancel}>Cancel</button></div>
    <h2 id="auction-entry-title">Your Next Auction</h2><p className="auction-entry-status" role="status">Starting Auction… {elapsed>=AUCTION_INTRO_MS?'Checking card artwork…':elapsed>=3700?'Your table is ready. Take a look before bidding starts.':settled?'Meeting your rivals.':'Finding your collection.'}</p>
    <div className={`auction-entry-theme${settled?' is-locked':''}`}><small>Collection</small><strong data-collection-theme={visibleTheme.id} aria-hidden="true">{visibleTheme.collectionName}</strong><span className="sr-only" aria-live="polite">{settled?theme.collectionName:'Selecting collection type'}</span></div>
    <div className="auction-entry-rivals" aria-label="Your opponents">{rivals.map((npc,index)=>{

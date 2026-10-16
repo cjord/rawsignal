@@ -14,6 +14,7 @@ import {auctionClueReveals} from './auction-clue-reveals.ts';
 import {recordAuctionStart,recordAuctionResult} from './auction-statistics.ts';
 import {auctionRoundBid} from './auction-display.ts';
 import {pendingInspectionResult,settlePendingFollowUp} from './auction-follow-up.ts';
+import {matureDelayedInformation} from './auction-delayed.ts';
 
 // Only completed public bids may influence an estimate; current sealed bids are never inputs.
 export function npcBid(sample:number[],range:[number,number],priorBids:number[],personality:number,random:()=>number,feeBps=1000,confidence=1,participation=0,grossEstimate?:number,certainty=1,round=2):number{
@@ -51,27 +52,31 @@ function roundNpcs(auction:Auction,now:number):Npc[]{
  });
 }
 function openRound(auction:Auction,now:number):Auction{
- const next=revealPublicRound({...auction,stage:'round' as const,deadline:now+AUCTION_ROUNDS[auction.round-1].seconds*1000,bought:false,selected:null,bids:[]});
+ const next=matureDelayedInformation(revealPublicRound({...auction,stage:'round' as const,deadline:now+AUCTION_ROUNDS[auction.round-1].seconds*1000,bought:false,selected:null,bids:[]}));
  next.offers=informationOffers(next);next.npcs=roundNpcs(next,now);return next;
 }
 export function beginAuction(save:AuctionSave,catalog:AuctionCard[],now:number,prepared?:AuctionCard[],seed=7411+save.sequence*137,kind:AuctionKind='free'):AuctionSave{
  const entryFee=kind==='paid'?AUCTION_PAID_ENTRY:0;
  if(save.auction||save.wallet.cash<entryFee)return save;
  const lot=(prepared??generateAuctionLot(catalog,seed,kind)).map(card=>({...card})),size=AUCTION_LOT_SIZES[kind];if(lot.length<size.min||lot.length>size.max)return save;
- const auction:Auction={seed,kind,entryFee,stage:'round',round:1,deadline:0,lot,range:[lot.length,lot.length],known:[],priced:[],offers:[],clues:[],bought:false,spent:0,selected:null,npcs:[],bids:[],bidHistory:[],result:null,feeBps:save.wallet.feeBps};
+ const auction:Auction={seed,kind,entryFee,stage:'round',round:1,deadline:0,lot,range:[lot.length,lot.length],known:[],priced:[],offers:[],clues:[],bought:false,spent:0,selected:null,npcs:[],bids:[],bidHistory:[],result:null,feeBps:1000};
  auction.lotTheme=auctionLotTheme(seed).id;
  if(save.drafts?.[kind]?.rivals)auction.rivals=[...save.drafts[kind]!.rivals!];
  auction.marketPrior=save.drafts?.[kind]?.marketPrior??auctionMarketPrior(catalog,seed,kind);
  const drafts={...save.drafts};delete drafts[kind];
  return {...save,drafts,statistics:recordAuctionStart(save,entryFee),wallet:{...save.wallet,cash:save.wallet.cash-entryFee},sequence:save.sequence+1,auction:openRound({...auction,statisticsTracked:true,npcInvestigationSchedule:true},now)};
 }
+function permittedInvestigation(auction:Auction,id:string,targetSlot?:number){
+ if(id==='follow-up')return targetSlot!==undefined&&followUpSlots(auction).includes(targetSlot);
+ if(id==='follow-up-v4')return followUpSlots(auction).length>0;
+ if(id==='delayed-gratification')return auction.round<=2;
+ return !['top2-final','top-three-peek'].includes(id)||auction.round===4;
+}
 export function buyInformation(save:AuctionSave,id:string,now:number,targetSlot?:number):AuctionSave{
  const auction=save.auction;
  if(!auction||auction.stage!=='round'||auction.selected!==null||auction.bought||now>=auction.deadline)return save;
  const option=auction.offers.find(option=>option.id===id);if(!option||save.wallet.cash<option.cost||id==='value-band'||id==='value-band4'||id==='top5')return save;
- if(id==='follow-up'&&(targetSlot===undefined||!followUpSlots(auction).includes(targetSlot)))return save;
- if(id==='follow-up-v4'&&!followUpSlots(auction).length)return save;
- if(['top2-final','top-three-peek'].includes(id)&&auction.round!==4)return save;
+ if(!permittedInvestigation(auction,id,targetSlot))return save;
  const result=id==='follow-up-v4'?pendingInspectionResult(auction,option):investigate(auction,option,targetSlot);
  const reveals=auctionClueReveals(auction,result);
  return {...save,...(auction.statisticsTracked?{statistics:{...save.statistics!,investigations:save.statistics!.investigations+option.cost}}:{}),wallet:{...save.wallet,cash:save.wallet.cash-option.cost},auction:{...auction,known:result.known,priced:result.priced,...('rarityKnown' in result&&result.rarityKnown?{rarityKnown:result.rarityKnown}:{}),...('topCardSlot' in result&&result.topCardSlot!==undefined?{topCardSlot:result.topCardSlot}:{}),...(id==='follow-up-v4'?{pendingFollowUp:true as const}:{}),clues:[...auction.clues,{...result.clue,round:auction.round,reveals}],bought:true,spent:auction.spent+option.cost}};
@@ -125,7 +130,7 @@ export function changeAuctionFee(save:AuctionSave,bps:number):AuctionSave{
 }
 export function sellInventory(save:AuctionSave,catalog:AuctionCard[],key?:string,rarity?:string):AuctionSave{
  if(save.auction)return save;
- const quote=inventoryQuote(save.wallet.inventory,catalog,save.wallet.feeBps),sold=quote.rows.filter(row=>row.net!==null&&(!key||`${row.holding.productId}:${row.holding.printing}`===key)&&(!rarity||row.card&&auctionSaleRarity(row.card)===rarity));
+ const quote=inventoryQuote(save.wallet.inventory,catalog,1000),sold=quote.rows.filter(row=>row.net!==null&&(!key||`${row.holding.productId}:${row.holding.printing}`===key)&&(!rarity||row.card&&auctionSaleRarity(row.card)===rarity));
  if(!sold.length)return save;
  const identities=new Set(sold.map(row=>row.holding));
  return {...save,wallet:{...save.wallet,cash:save.wallet.cash+sold.reduce((sum,row)=>sum+row.net!,0),inventory:save.wallet.inventory.filter(row=>!identities.has(row))}};

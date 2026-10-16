@@ -199,6 +199,34 @@ html[data-theme="light"] .auction-bidder[data-bidder="The Analyst"]{--bidder-col
 .auction-inspection-prompt{padding:12px;border:1px solid var(--purple);border-radius:var(--control-radius);color:var(--text);background:color-mix(in srgb,var(--purple) 8%,var(--surface));font-size:var(--text-sm);line-height:1.6}
 .auction-card[data-follow-up]{cursor:pointer;outline:2px solid var(--purple);outline-offset:2px;box-shadow:0 0 12px color-mix(in srgb,var(--purple) 35%,transparent)}
 .auction-card[data-follow-up]:hover{outline-width:3px}
+.auction-header-controls .auction-leave{border-color:var(--tone-down)}
+.auction-header-controls .auction-leave:hover{border-color:var(--tone-down);background:color-mix(in srgb,var(--tone-down) 10%,var(--control))}
+.auction-mute{display:inline-grid;place-items:center;min-width:var(--control-height)}
+.auction-round-title{display:flex;align-items:center;gap:22px;min-width:0}
+.auction-buyout-rule{font:400 var(--text-sm)/1.6 var(--font-sans);color:var(--gray)}
+.auction-round-header.is-urgent{border-color:var(--tone-down);background:color-mix(in srgb,var(--tone-down) 12%,var(--surface));animation:auction-urgent-panel 1s ease-in-out infinite}
+@keyframes auction-urgent-panel{50%{background:color-mix(in srgb,var(--tone-down) 23%,var(--surface));box-shadow:0 0 18px color-mix(in srgb,var(--tone-down) 18%,transparent)}}
+.auction-investigate{border-color:color-mix(in srgb,var(--purple) 30%,var(--line));background:linear-gradient(135deg,color-mix(in srgb,var(--purple) 5%,var(--surface)),var(--surface))}
+.auction-bidding{border-color:color-mix(in srgb,var(--blue) 30%,var(--line));background:linear-gradient(135deg,color-mix(in srgb,var(--blue) 5%,var(--surface)),var(--surface))}
+.auction-results{border-color:color-mix(in srgb,var(--tone-up) 25%,var(--line));background:linear-gradient(135deg,color-mix(in srgb,var(--tone-up) 4%,var(--surface)),var(--surface))}
+.auction-collection[data-collection-color]{--collection-accent:var(--gray);border-color:color-mix(in srgb,var(--collection-accent) 35%,var(--line));background:linear-gradient(135deg,color-mix(in srgb,var(--collection-accent) 6%,var(--surface)),var(--surface))}
+.auction-collection[data-collection-color="deck-builder"],.auction-collection[data-collection-color="store-clearout"]{--collection-accent:var(--blue)}
+.auction-collection[data-collection-color="trade-binder"]{--collection-accent:var(--tone-up)}
+.auction-collection[data-collection-color="set-collector"],.auction-collection[data-collection-color="curated-binder"]{--collection-accent:var(--purple)}
+.auction-collection[data-collection-color="chase-collector"]{--collection-accent:var(--tone-favorite)}
+.auction-known-sale-value{text-align:center;color:var(--gray);font-size:var(--text-sm);margin:0 0 18px}.auction-known-sale-value strong{color:var(--tone-up);font-family:var(--font-mono)}
+.auction-card[data-sparkle]::after{content:"✦";pointer-events:none;position:absolute;z-index:3;top:25%;left:20%;font-size:2rem;color:var(--tone-favorite);text-shadow:34px 20px 0 var(--text),52px -18px 0 var(--tone-favorite),10px 65px 0 var(--text);opacity:0;animation:auction-sparkle 1.2s ease-out both}
+@keyframes auction-sparkle{0%{opacity:0;transform:scale(.3) rotate(-25deg)}25%{opacity:1;transform:scale(1.15) rotate(5deg)}100%{opacity:0;transform:scale(.7) rotate(35deg)}}
+.auction-showcase-scene{position:relative;isolation:isolate}
+.auction-showcase-editor{display:grid;grid-template-columns:1fr 1fr;gap:20px}.auction-showcase-editor>section{min-width:0;background:color-mix(in srgb,var(--surface) 94%,transparent)}
+.auction-showcase-editor-list{max-height:720px;overflow:auto;display:grid;gap:12px;padding:4px 12px 4px 4px;scrollbar-gutter:stable}
+.auction-showcase-editor-card{display:flex;align-items:center;gap:12px;padding:12px;cursor:grab;min-width:0}
+.auction-showcase-editor-card>.deferred-image{width:65px;aspect-ratio:5/7;flex-shrink:0}
+.auction-showcase-editor-card>div{display:grid;gap:8px;min-width:0}.auction-showcase-editor-card b{overflow-wrap:anywhere}.auction-showcase-editor-card small{color:var(--gray);font-size:var(--text-xs)}.auction-showcase-editor-card .game-control{font-size:var(--text-xs);padding:8px}
+.auction-showcase-reorder{display:flex;gap:8px}.auction-showcase-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:14px;padding:4px}.auction-showcase-grid .auction-card{max-width:160px}
+.auction-profile-name{display:grid;gap:10px;max-width:400px}.auction-profile-name input{min-height:var(--control-height);padding:10px 12px;box-sizing:border-box;background:var(--control);color:var(--text);border:1px solid var(--line);border-radius:var(--control-radius);font:inherit}.auction-profile-name input:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+@media(max-width:800px){.auction-round-title{align-items:flex-start;flex-direction:column;gap:8px}.auction-showcase-editor{grid-template-columns:1fr}.auction-showcase-editor-list{max-height:450px}}
+@media(prefers-reduced-motion:reduce){.auction-round-header.is-urgent,.auction-card[data-sparkle]::after{animation:none}}
 .auction-entry-fee{font-style:normal;white-space:nowrap;color:color-mix(in srgb,var(--tone-warn) 70%,var(--text))}
 .games-daily-directory{margin-top:36px}.game-daily-tile{border-color:color-mix(in srgb,var(--purple) 40%,var(--line))}.game-daily-tile .games-eyebrow{color:var(--purple)}
 .game-share-preview{display:grid;gap:10px;font-size:var(--text-sm)}.game-share-preview textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:180px;padding:14px;border:1px solid var(--line);border-radius:var(--control-radius);background:var(--control);color:var(--text);font:500 var(--text-sm)/1.7 var(--font-mono);overflow-wrap:anywhere}.game-share-preview textarea:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
