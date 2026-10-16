@@ -3,7 +3,7 @@ import test from 'node:test';
 import {beginAuction,buyInformation,lockBid,tickAuction,finishAuction,leaveAuction} from '../core/domain/auction-engine.ts';
 import {initialAuctionSave} from '../core/domain/auction-types.ts';
 import {parseAuctionSave,validDailyManifest} from '../core/domain/auction-save.ts';
-import {informationOffers,INVESTIGATIONS} from '../core/domain/auction-information.ts';
+import {informationOffers,CURRENT_INVESTIGATIONS} from '../core/domain/auction-information.ts';
 import {npcInvestigationRounds} from '../core/domain/auction-npc-schedule.ts';
 import {AUCTION_NPCS} from '../core/domain/auction-npcs.ts';
 import {createDailyAuctionManifest,startDailyAuction,updateDailyAuction} from '../core/domain/auction-daily.ts';
@@ -25,9 +25,9 @@ test('offers never reveal hidden card composition; basic options rotate and foll
  const auction=beginAuction(initialAuctionSave(),catalog,now).auction;
  assert.deepEqual(informationOffers(auction),informationOffers({...auction,lot:auction.lot.map(card=>({...card,rarity:'Signature',section:'signatures',cents:999999}))}));
  const seen=new Set();for(let seed=0;seed<300;seed++)for(let round=1;round<=4;round++)for(const option of informationOffers({...auction,seed,round}))seen.add(option.id);
- assert.ok(INVESTIGATIONS.filter(option=>!['follow-up'].includes(option.id)&&option.id.endsWith('-final')).every(option=>seen.has(option.id)));
+ assert.ok(CURRENT_INVESTIGATIONS.filter(option=>option.id!=='follow-up-v4').every(option=>seen.has(option.id)));
  const candidate={...auction,round:2,clues:[{id:'rare-mark12',label:'Rare Markers',text:'',round:1,reveals:[{slot:auction.lot.findIndex((_,slot)=>!auction.priced.includes(slot)),visibility:'rarity'}]}]};
- assert.equal(informationOffers(candidate).length,4);assert.ok(informationOffers(candidate).some(option=>option.id==='follow-up'));assert.deepEqual(parseAuctionSave(JSON.stringify({...beginAuction(initialAuctionSave(),catalog,now),auction:candidate})).auction.clues,candidate.clues);
+ assert.equal(informationOffers(candidate).length,4);assert.ok(informationOffers(candidate).some(option=>option.id==='follow-up-v4'));assert.deepEqual(parseAuctionSave(JSON.stringify({...beginAuction(initialAuctionSave(),catalog,now),auction:candidate})).auction.clues,candidate.clues);
 });
 test('NPC schedules are seeded, half allow all four rounds and the Closer saves choices for late rounds',()=>{
  let full=0;for(let seed=0;seed<10000;seed++){

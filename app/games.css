@@ -186,6 +186,19 @@ html[data-theme="light"] .auction-bidder[data-bidder="The Analyst"]{--bidder-col
 .auction-lobby-scene{position:relative;isolation:isolate}
 .auction-lobby-backdrop{position:fixed;inset:0;z-index:-1;opacity:.09}
 .auction-lobby-backdrop .auction-entry-art-lane{animation-duration:70s}
+.auction-entry-art-lane{height:33.333%;gap:0;transform:none}
+.auction-entry-art-group{display:flex;align-items:center;justify-content:space-around;flex-shrink:0;gap:28px;padding-right:28px;min-width:100vw;box-sizing:border-box}
+.auction-entry-art-group img{flex-shrink:0;max-height:27vh;transform:rotate(-8deg)}
+@keyframes auction-entry-drift{from{translate:0 0}to{translate:-50% 0}}
+.auction-investigation-rarity{font-weight:650;color:var(--gray)}
+.auction-investigation-rarity[data-rarity="uncommon"]{color:var(--tone-up)}
+.auction-investigation-rarity[data-rarity="rare"]{color:var(--blue)}
+.auction-investigation-rarity[data-rarity="epic"],.auction-investigation-rarity[data-rarity="alt"]{color:var(--purple)}
+.auction-investigation-rarity[data-rarity="premium"]{color:var(--tone-favorite)}
+.auction-investigation-rarity[data-rarity="promo"]{color:var(--tone-down)}
+.auction-inspection-prompt{padding:12px;border:1px solid var(--purple);border-radius:var(--control-radius);color:var(--text);background:color-mix(in srgb,var(--purple) 8%,var(--surface));font-size:var(--text-sm);line-height:1.6}
+.auction-card[data-follow-up]{cursor:pointer;outline:2px solid var(--purple);outline-offset:2px;box-shadow:0 0 12px color-mix(in srgb,var(--purple) 35%,transparent)}
+.auction-card[data-follow-up]:hover{outline-width:3px}
 .auction-entry-fee{font-style:normal;white-space:nowrap;color:color-mix(in srgb,var(--tone-warn) 70%,var(--text))}
 .games-daily-directory{margin-top:36px}.game-daily-tile{border-color:color-mix(in srgb,var(--purple) 40%,var(--line))}.game-daily-tile .games-eyebrow{color:var(--purple)}
 .game-share-preview{display:grid;gap:10px;font-size:var(--text-sm)}.game-share-preview textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:180px;padding:14px;border:1px solid var(--line);border-radius:var(--control-radius);background:var(--control);color:var(--text);font:500 var(--text-sm)/1.7 var(--font-mono);overflow-wrap:anywhere}.game-share-preview textarea:focus-visible{outline:3px solid var(--blue);outline-offset:2px}

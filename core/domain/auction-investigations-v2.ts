@@ -94,7 +94,7 @@ export function rebalancedResult(auction:Auction,option:Investigation,targetSlot
 export function valuationClues(clues:Clue[]):Clue[]{
  return clues.flatMap(clue=>{
   if(clue.id==='lot-audit'||clue.id==='lot-audit-v3')return ['common','uncommon','duplicates'].map((kind,index)=>({...clue,id:['common-count','uncommon-count','duplicates'][index],text:`${new RegExp(`${kind==='duplicates'?'Duplicate':kind==='common'?'Common':'Uncommon'} copies: (\\d+)`).exec(clue.text)?.[1]??0} copies.`}));
-  const aliases:Record<string,string>={'bulk-v2':'bulk','rares-v2':'rares','top2-final':'top2'};
+  const aliases:Record<string,string>={'bulk-v2':'bulk','rares-v2':'rares','top2-final':'top2','rarities-v4':'rarities-v3'};
   return [{...clue,id:aliases[clue.id]??clue.id}];
  });
 }

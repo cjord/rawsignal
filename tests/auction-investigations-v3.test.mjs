@@ -57,7 +57,7 @@ test('Lot Audit reports repeated printing counts with identity-only representati
 });
 
 test('new menus retire superseded options, name scan rarities explicitly, and preserve saved offered rules',()=>{
- assert.equal(CURRENT_INVESTIGATIONS.length,22);
+ assert.equal(CURRENT_INVESTIGATIONS.length,23);
  for(let seed=0;seed<50;seed++)assert.ok(informationOffers({...hidden(),seed}).every(row=>!RETIRED_V2_INVESTIGATIONS.includes(row.id)));
  for(const [id,word] of [['rare12','12 RARE'],['epic6','6 EPIC'],['alt4','4 ALT-ART']])assert.ok(option(id).description.includes(word));
  for(const id of [...RETIRED_V2_INVESTIGATIONS,...CURRENT_INVESTIGATIONS.map(row=>row.id)]){const save=fresh();save.auction.offers=[option(id)];assert.deepEqual(parseAuctionSave(JSON.stringify(save)),save);}
@@ -90,7 +90,7 @@ test('player bid history records current investigation only and normalizes cumul
 
 test('NPC grouped census cannot recover hidden premium composition or exact prices',()=>{
  let found;
- for(let seed=0;seed<100;seed++){const auction={...fresh().auction,seed},info=npcRoundInformation(auction,0,[],undefined,'The Archivist');if(info.investigations.at(-1)==='rarities-v3'){found={auction,info};break;}}
+ for(let seed=0;seed<100;seed++){const auction={...fresh().auction,seed},info=npcRoundInformation(auction,0,[],undefined,'The Archivist');if(info.investigations.at(-1)==='rarities-v4'){found={auction,info};break;}}
  assert.ok(found);const {auction,info}=found,slot=auction.lot.findIndex((card,slot)=>card.section==='signatures'&&!info.inspected.includes(slot));assert.ok(slot>=0);
  const changed={...auction,lot:auction.lot.map((card,index)=>index===slot?{...card,section:'overnumbered',cents:9999999}:card)};
  assert.equal(npcRoundInformation(changed,0,[],undefined,'The Archivist').estimate,info.estimate);

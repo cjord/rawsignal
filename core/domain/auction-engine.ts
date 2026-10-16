@@ -13,6 +13,7 @@ import {auctionMarketPrior} from './auction-market-prior.ts';
 import {auctionClueReveals} from './auction-clue-reveals.ts';
 import {recordAuctionStart,recordAuctionResult} from './auction-statistics.ts';
 import {auctionRoundBid} from './auction-display.ts';
+import {pendingInspectionResult,settlePendingFollowUp} from './auction-follow-up.ts';
 
 // Only completed public bids may influence an estimate; current sealed bids are never inputs.
 export function npcBid(sample:number[],range:[number,number],priorBids:number[],personality:number,random:()=>number,feeBps=1000,confidence=1,participation=0,grossEstimate?:number,certainty=1,round=2):number{
@@ -69,10 +70,11 @@ export function buyInformation(save:AuctionSave,id:string,now:number,targetSlot?
  if(!auction||auction.stage!=='round'||auction.selected!==null||auction.bought||now>=auction.deadline)return save;
  const option=auction.offers.find(option=>option.id===id);if(!option||save.wallet.cash<option.cost||id==='value-band'||id==='value-band4'||id==='top5')return save;
  if(id==='follow-up'&&(targetSlot===undefined||!followUpSlots(auction).includes(targetSlot)))return save;
- if(id==='top2-final'&&auction.round!==4)return save;
- const result=investigate(auction,option,targetSlot);
+ if(id==='follow-up-v4'&&!followUpSlots(auction).length)return save;
+ if(['top2-final','top-three-peek'].includes(id)&&auction.round!==4)return save;
+ const result=id==='follow-up-v4'?pendingInspectionResult(auction,option):investigate(auction,option,targetSlot);
  const reveals=auctionClueReveals(auction,result);
- return {...save,...(auction.statisticsTracked?{statistics:{...save.statistics!,investigations:save.statistics!.investigations+option.cost}}:{}),wallet:{...save.wallet,cash:save.wallet.cash-option.cost},auction:{...auction,known:result.known,priced:result.priced,...(result.rarityKnown?{rarityKnown:result.rarityKnown}:{}),...(result.topCardSlot!==undefined?{topCardSlot:result.topCardSlot}:{}),clues:[...auction.clues,{...result.clue,round:auction.round,reveals}],bought:true,spent:auction.spent+option.cost}};
+ return {...save,...(auction.statisticsTracked?{statistics:{...save.statistics!,investigations:save.statistics!.investigations+option.cost}}:{}),wallet:{...save.wallet,cash:save.wallet.cash-option.cost},auction:{...auction,known:result.known,priced:result.priced,...('rarityKnown' in result&&result.rarityKnown?{rarityKnown:result.rarityKnown}:{}),...('topCardSlot' in result&&result.topCardSlot!==undefined?{topCardSlot:result.topCardSlot}:{}),...(id==='follow-up-v4'?{pendingFollowUp:true as const}:{}),clues:[...auction.clues,{...result.clue,round:auction.round,reveals}],bought:true,spent:auction.spent+option.cost}};
 }
 export function lockBid(save:AuctionSave,cents:number,now:number):AuctionSave{
  const auction=save.auction;
@@ -101,7 +103,7 @@ export function tickAuction(save:AuctionSave,now:number):AuctionSave{
  const expired=now>=auction.deadline,npcs=auction.npcs.map(npc=>!npc.locked&&(expired||now>=npc.lockAt)?{...npc,locked:true}:npc);
  const selected=expired&&auction.selected===null?0:auction.selected;
  const next={...auction,selected,npcs};
- if(selected!==null&&npcs.every(npc=>npc.locked))return resolveRound(save,next);
+ if(selected!==null&&npcs.every(npc=>npc.locked))return resolveRound(save,settlePendingFollowUp(next));
  if(selected===auction.selected&&npcs.every((npc,index)=>npc===auction.npcs[index]))return save;
  return {...save,auction:next};
 }

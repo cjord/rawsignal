@@ -7,9 +7,10 @@ import {REBALANCED_INVESTIGATIONS,followUpSlots,valuationClues} from './auction-
 import {auctionClueReveals} from './auction-clue-reveals.ts';
 import {npcCanInvestigate} from './auction-npc-schedule.ts';
 import {REVISED_INVESTIGATIONS,investigationCensusBand} from './auction-investigations-v3.ts';
+import {SCAN_INVESTIGATIONS} from './auction-investigations-v4.ts';
 
-export const NPC_INVESTIGATION_IDS=['reveal3','bulk','rares','top5','top2','appraisal','common3','uncommon3','rare2','epic2','alt1','chase1','sets','rarities','duplicates','identity3','common-count','uncommon-count','rare8','epic5','alt3','value-band','value-band4',...REBALANCED_INVESTIGATIONS.map(option=>option.id),...REVISED_INVESTIGATIONS.map(option=>option.id)];
-export function npcInvestigationEquivalent(id:string){return ({reveal3:'reveal5',bulk:'bulk-core-v3',rares:'alt-value-v3',top2:'top2-final',chase1:'chase-scan-v2',sets:'lot-audit-v3',rarities:'rarities-v3',duplicates:'lot-audit-v3',identity3:'identity5','common-count':'lot-audit-v3','uncommon-count':'lot-audit-v3',rare8:'rare12',epic5:'epic6',alt3:'alt4'} as Record<string,string>)[id]??id;}
+export const NPC_INVESTIGATION_IDS=['reveal3','bulk','rares','top5','top2','appraisal','common3','uncommon3','rare2','epic2','alt1','chase1','sets','rarities','duplicates','identity3','common-count','uncommon-count','rare8','epic5','alt3','value-band','value-band4',...REBALANCED_INVESTIGATIONS.map(option=>option.id),...REVISED_INVESTIGATIONS.map(option=>option.id),...SCAN_INVESTIGATIONS.map(option=>option.id)];
+export function npcInvestigationEquivalent(id:string){return ({reveal3:'price-small4',bulk:'bulk-core-v3',rares:'alt-value-v3',top2:'top-three-peek',chase1:'chase-scan-v4',sets:'lot-audit-v3',rarities:'rarities-v4',duplicates:'lot-audit-v3',identity3:'identity5','common-count':'lot-audit-v3','uncommon-count':'lot-audit-v3',rare8:'rare12',epic5:'epic6',alt3:'alt4'} as Record<string,string>)[id]??id;}
 export function npcInvestigationName(npc:Npc){return INVESTIGATIONS.find(option=>option.id===npc.investigations?.at(-1))?.label??'Card Inspection (Legacy)'}
 export function npcInvestigationNotes(npc:Npc,round?:number):Clue[]{
  const id=npc.investigations?.at(-1);
@@ -37,10 +38,10 @@ export function npcRoundInformation(auction:Auction,index:number,_sample:number[
  const rank=auction.round===1?'targeted':auction.round===2?'strong':'premium',ranks=['basic','targeted','strong','premium'];
  const {history,priced,known,findings,personal}=personalKnowledge(auction,previous);
  const personalClues=personal;
- const choices=INVESTIGATIONS.filter(option=>NPC_INVESTIGATION_IDS.includes(option.id)&&!RETIRED_INVESTIGATION_IDS.includes(option.id)&&!history.includes(option.id)&&ranks.indexOf(option.tier)<=ranks.indexOf(rank)&&(option.id!=='top2-final'||auction.round===4)&&(option.id!=='follow-up'||followUpSlots(personalClues).length>0));
+ const choices=INVESTIGATIONS.filter(option=>NPC_INVESTIGATION_IDS.includes(option.id)&&!RETIRED_INVESTIGATION_IDS.includes(option.id)&&!history.includes(option.id)&&ranks.indexOf(option.tier)<=ranks.indexOf(rank)&&(option.id!=='top-three-peek'||auction.round===4)&&(option.id!=='follow-up-v4'||followUpSlots(personalClues).length>0));
  const chosen=npcCanInvestigate(auction,name)?chooseNpcInvestigation(choices,name,auction.seed+index*191+auction.round*43):undefined;
  const investigations=chosen?[...history,chosen.id]:history;
- const result=chosen?investigate(personal,chosen,chosen.id==='follow-up'?followUpSlots(personal)[0]:undefined):null;
+ const result=chosen?investigate(personal,chosen,chosen.id==='follow-up-v4'?followUpSlots(personal)[0]:undefined):null;
  const inspected=result?.priced??priced,identified=result?.known??known,slots=[...new Set([...priced,...inspected])];
  const randomSlots=publicAuctionSlots(auction);
  const nextFindings=result?[...findings,{...result.clue,round:auction.round,reveals:auctionClueReveals(personal,result)}]:findings;

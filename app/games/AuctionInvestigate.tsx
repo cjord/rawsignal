@@ -1,7 +1,7 @@
 /* eslint-disable jsx-a11y/no-noninteractive-tabindex -- keyboard users can scroll cumulative round findings */
 import InfoHint from '../InfoHint';
 import AuctionClueIcon from './AuctionClueIcon';
-import {auctionUsd} from './AuctionWallet';
+import AuctionInvestigationText,{investigationUsd} from './AuctionInvestigationText';
 import {buyInformation} from '../../core/domain/auction-engine';
 import type {Auction,AuctionSave,Clue} from '../../core/domain/auction-types';
 import {publicAuctionSlots} from '../../core/domain/auction-public';
@@ -16,9 +16,9 @@ export default function AuctionInvestigate({save,now,transact}:{save:AuctionSave
   <div className="auction-investigation-scroll" role="region" aria-label="Investigation options and round findings" tabIndex={0}>
    {!auction.bought&&<div className="auction-offers">{auction.offers.map(option=>{
     const disabled=auction.selected!==null||now>=auction.deadline||save.wallet.cash<option.cost;
-    return option.id==='follow-up'?<AuctionFollowUp key={option.id} save={save} option={option} disabled={disabled} transact={transact}/>:<button className="game-control" data-investigation={option.id} type="button" key={option.id} disabled={disabled} onClick={()=>transact(current=>buyInformation(current,option.id,Date.now()))}><AuctionClueIcon id={option.id}/><span>{option.label}{option.description&&<small>{option.description}</small>}</span><strong>{auctionUsd(option.cost)}</strong></button>;
+    return option.id==='follow-up'?<AuctionFollowUp key={option.id} save={save} option={option} disabled={disabled} transact={transact}/>:<button className="game-control" data-investigation={option.id} type="button" key={option.id} disabled={disabled} onClick={()=>transact(current=>buyInformation(current,option.id,Date.now()))}><AuctionClueIcon id={option.id}/><span><AuctionInvestigationText text={option.label}/>{option.description&&<small><AuctionInvestigationText text={option.description}/></small>}</span><strong>{investigationUsd(option.cost)}</strong></button>;
    })}</div>}
-   <PublicInformation auction={auction}/>
+   {auction.pendingFollowUp&&<p className="auction-inspection-prompt" role="status">Choose a highlighted card in the collection below to finish your inspection.</p>}<PublicInformation auction={auction}/>
   </div>
  </section>;
 }

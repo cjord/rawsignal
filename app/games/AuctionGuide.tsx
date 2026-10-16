@@ -4,12 +4,12 @@ import {AUCTION_NPCS,AUCTION_RARE_GUEST_CHANCE} from '../../core/domain/auction-
 import {AUCTION_LOT_THEMES} from '../../core/domain/auction-lot-themes';
 import {AUCTION_LOT_SIZES} from '../../core/domain/auction-lots';
 import {AUCTION_ROUNDS,AUCTION_START_CASH,AUCTION_PAID_ENTRY,AUCTION_DEFAULT_FEE} from '../../core/domain/auction-types';
-import {AUCTION_TOP_TWO_PAID_COST} from '../../core/domain/auction-investigations-v2';
 import {CURRENT_INVESTIGATIONS} from '../../core/domain/auction-information';
 import {npcInvestigationEquivalent} from '../../core/domain/auction-npc-information';
 import {AUCTION_DRAW_LABELS,auctionGuideTargets} from '../../core/domain/auction-guide';
 import AuctionClueIcon from './AuctionClueIcon';
 import {auctionThemeSize} from '../../core/domain/auction-lot-size';
+import AuctionInvestigationText from './AuctionInvestigationText';
 
 const usd=(cents:number)=>`$${(cents/100).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2})}`;
 const percent=(n:number)=>`${(n*100).toFixed(2)}%`;
@@ -34,11 +34,11 @@ function GuideRivals(){
 }
 function GuideInvestigations(){
  return <section className="detail-section" id="investigations"><h2>Investigations</h2><p>Buy at most one investigation per round, before locking your bid. Three random options include one basic choice; any active investigation can appear, subject to its stated round restriction. Options are not filtered by hidden contents and may return no matches. Eligible Follow-Up Inspection is always available as an extra option to build on an earlier rarity marker. Each option describes what it reveals. Public reveals are free and separate. Costs are virtual USD and remain spent even if you lose or leave.</p><p>Rivals follow their individual investigation preferences. Half of auctions allow four private investigation rounds; otherwise each rival investigates in three rounds, with the Closer saving their choices for rounds 2–4. Early buyouts can end an auction before those opportunities occur. Earlier findings and public reveals still inform bids on a skipped round.</p>
-  <div className="auction-guide-investigations">{CURRENT_INVESTIGATIONS.map(option=><article key={option.id}><div><h3><AuctionClueIcon id={option.id}/><span>{option.label}</span></h3><strong>{option.id==='top2-final'?`${usd(option.cost)} Free / ${usd(AUCTION_TOP_TWO_PAID_COST)} Paid`:usd(option.cost)}</strong></div><p>{option.description}</p>{option.id==='follow-up'&&<small>Requires one of your unpriced rarity markers from an earlier round.</small>}</article>)}</div>
-  <p className="games-note">Rarity markers reveal only rarity and location. Identity peeks add the name and artwork, but no price. Price scans add identity and price. “Up to” means fewer cards when eligible hidden copies run out; chase scans target Overnumbered / Signature copies. Exact category valuations are subtotals, not the value of every unseen card. Top-Two Valuation is round 4 only. Collection Value Band is currently disabled.</p>
-  <p>Counts refer to individual copies, not unique card names. A Rare Scan reveals up to 12 Rare copies—not 12 random cards. Targeted scans respect the card’s treatment: Alt Art, Overnumbered and Signature copies are not ordinary Rare/Epic copies even if their source rarity says Epic.</p>
+  <div className="auction-guide-investigations">{CURRENT_INVESTIGATIONS.map(option=><article key={option.id}><div><h3><AuctionClueIcon id={option.id}/><span><AuctionInvestigationText text={option.label}/></span></h3><strong>{usd(option.cost)}</strong></div><p><AuctionInvestigationText text={option.description??''}/></p>{option.id==='follow-up-v4'&&<small>Requires one of your unpriced rarity markers from an earlier round. After purchase, tap a highlighted collection card; if unused, one is chosen randomly at the deadline or when bidding resolves. The choice survives reloads.</small>}</article>)}</div>
+  <p className="games-note">Rarity markers reveal only rarity and location. Identity peeks add the name and artwork, but no price. Price scans add identity and price. “Up to” means fewer cards when eligible hidden cards run out; chase scans target Overnumbered / Signature cards. Exact category valuations are subtotals, not the value of every unseen card. Top-Three Price Peek is round 4 only, costs $40 in either auction type and reveals one random unpriced card from the top three—not their combined value. Collection Value Band is currently disabled.</p>
+  <p>Counts refer to individual cards, not unique card names. A Rare Scan reveals up to 12 Rare cards—not 12 random cards. Targeted scans respect the card’s treatment: Alt Art, Overnumbered and Signature cards are not ordinary Rare/Epic cards even if their source rarity says Epic.</p>
   <p>Rarity Census deliberately groups Overnumbered, Signature and all Other/Promo/Showcase cards as <strong>Chase / Special</strong>. It cannot tell you how many are Signatures, Metal cards or ordinary promos. This is an information group, not a promise that every card in it is valuable.</p>
-  <p>Lot Audit identifies one representative of each of up to three most-repeated ordinary printings and reports its total copies; it does not mark every matching location. Bulk Valuation covers ordinary Common through Epic cards only. Alt-Art Valuation covers Alt Arts only. Neither subtotal includes hidden chase or special-promo value.</p>
+  <p>Lot Audit identifies one representative of each of up to three most-repeated ordinary printings and reports its total card count; it does not mark every matching location. Bulk Valuation covers ordinary Common through Epic cards only. Alt-Art Valuation covers Alt Arts only. Neither subtotal includes hidden chase or special-promo value.</p>
  </section>;
 }
 export default function AuctionGuide(){

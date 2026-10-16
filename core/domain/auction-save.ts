@@ -6,6 +6,7 @@ import {AUCTION_LOT_THEMES} from './auction-lot-themes.ts';
 import {rebalancedCost} from './auction-investigations-v2.ts';
 import {validAuctionStatistics} from './auction-statistics.ts';
 import {validAuctionReceipts} from './auction-daily-results.ts';
+import {followUpSlots} from './auction-investigations-v2.ts';
 
 export const AUCTION_STORAGE_KEY='raw-signal-auction-house-v1';
 const record=(value:unknown)=>value!==null&&typeof value==='object'&&!Array.isArray(value);
@@ -57,9 +58,10 @@ function validAuction(value:unknown):value is Auction{
  if(!record(value))return false;const auction=value as Auction;
  if([auction.statisticsTracked,auction.npcInvestigationSchedule].some(flag=>flag!==undefined&&typeof flag!=='boolean'))return false;
  if(!validRivals(auction.rivals))return false;
- return validAuctionEntry(auction)&&validRoundMetadata(auction)&&validSnapshot(auction)&&validNpcs(auction)&&validClues(auction)&&validBids(auction.bids)&&Array.isArray(auction.bidHistory)&&auction.bidHistory.length<=4&&auction.bidHistory.every(validBids)&&validResult(auction);
+ return validAuctionEntry(auction)&&validRoundMetadata(auction)&&validSnapshot(auction)&&validNpcs(auction)&&validClues(auction)&&validPendingInspection(auction)&&validBids(auction.bids)&&Array.isArray(auction.bidHistory)&&auction.bidHistory.length<=4&&auction.bidHistory.every(validBids)&&validResult(auction);
 }
 function validAuctionEntry(auction:Auction){return auction.kind===undefined&&auction.entryFee===undefined||auction.kind==='free'&&auction.entryFee===0||auction.kind==='paid'&&auction.entryFee===5000}
+function validPendingInspection(auction:Auction){return auction.pendingFollowUp===undefined||auction.pendingFollowUp===true&&auction.stage==='round'&&auction.bought&&auction.clues.some(clue=>clue.id==='follow-up-v4'&&clue.round===auction.round)&&followUpSlots(auction).length>0;}
 export function parseAuctionSave(raw:string|null):AuctionSave{
  if(raw===null)return initialAuctionSave();
  if(raw.length>4e6)throw new Error('Saved game is too large. Reset to start again.');

@@ -24,6 +24,7 @@ import AuctionStatistics from './games/AuctionStatistics';
 import AuctionDaily from './games/AuctionDaily';
 import {dailyAuctionDate,updateDailyAuction} from '../core/domain/auction-daily';
 import AuctionBackdrop from './games/AuctionBackdrop';
+import {selectFollowUp} from '../core/domain/auction-follow-up';
 
 const sources=allowedRarities.riftbound.map(section=>`/data/${section}.json`);
 function AuctionSaveFeedback({save,error,reset}:{save:AuctionSave|null;error:string|null;reset:()=>void}){
@@ -67,7 +68,7 @@ export default function RiftboundAuctionHouse({dailyMode=false}:{dailyMode?:bool
   {(status==='error'||status==='empty')&&<p role="status">Current market prices are unavailable. <button className="game-control" type="button" onClick={reload}>Retry market</button></p>}
   {dailyMode&&entry.imageError&&<p role="alert">{entry.imageError}</p>}
   {entry.entry&&<AuctionEntryReveal key={entry.entry.seed} entry={entry.entry} catalog={catalog} cancel={entry.cancel} skip={entry.skip}/>}
-  {save?.auction&&<div ref={arena} className="auction-arena" onPointerDownCapture={audio.unlock} onKeyDownCapture={audio.unlock}><AuctionRoundHeader auction={save.auction} now={now}/>{celebrating?<AuctionWinner auction={save.auction}/>:<AuctionRound save={save} now={now} transact={transact} dailyMode={dailyMode} autoSeconds={auto.seconds} revealDone={reveal.done} visible={reveal.visible}/>} {!celebrating&&<AuctionCollection auction={save.auction} visible={reveal.visible} done={reveal.done} skip={reveal.skip}/>} <AuctionBiddingHistory auction={save.auction}/></div>}
+  {save?.auction&&<div ref={arena} className="auction-arena" onPointerDownCapture={audio.unlock} onKeyDownCapture={audio.unlock}><AuctionRoundHeader auction={save.auction} now={now}/>{celebrating?<AuctionWinner auction={save.auction}/>:<AuctionRound save={save} now={now} transact={transact} dailyMode={dailyMode} autoSeconds={auto.seconds} revealDone={reveal.done} visible={reveal.visible}/>} {!celebrating&&<AuctionCollection auction={save.auction} visible={reveal.visible} done={reveal.done} skip={reveal.skip} choose={slot=>transact(current=>selectFollowUp(current,slot,Date.now()))}/>} <AuctionBiddingHistory auction={save.auction}/></div>}
   <AuctionDataNote dailyMode={dailyMode}/>
  </GamesShell>;
 }

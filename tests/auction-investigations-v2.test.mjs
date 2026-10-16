@@ -62,7 +62,7 @@ test('round-four Top-Two uses explicit free/paid prices, suppresses already know
   const auction={...fresh().auction,kind,entryFee:kind==='paid'?5000:0},row=option('top2-final'),cost=kind==='paid'?12500:7500;
   assert.equal(rebalancedCost(row,auction),cost);
   for(const round of [1,2,3])assert.equal(informationUseful({...auction,round},row.id),false);
-  assert.equal(informationUseful({...auction,round:4},row.id),true);
+  assert.equal(informationUseful({...auction,round:4},row.id),false); // Retired from new offers; saved effects remain below.
   const save={...fresh(),auction:{...auction,round:4,offers:[{...row,cost}]}};
   const bought=buyInformation(save,row.id,1100);assert.equal(bought.wallet.cash,250000-cost);assert.deepEqual(parseAuctionSave(JSON.stringify(bought)),bought);
   assert.equal(informationUseful({...auction,round:4,priced:[88,89]},row.id),false);

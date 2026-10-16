@@ -10,6 +10,7 @@ import {publicAuctionBidNotes} from '../../core/domain/auction-display';
 import {auctionPlacementLabel} from '../../core/domain/auction-ranking';
 import {INVESTIGATIONS} from '../../core/domain/auction-information';
 import AuctionClueCards from './AuctionClueCards';
+import AuctionInvestigationText from './AuctionInvestigationText';
 
 export default function AuctionBidTile({bid,round,leading=false,placement,auction,details=false}:{bid:RoundBid;round:number;leading?:boolean;placement?:number;auction?:Auction;details?:boolean}){
  const settled=auction?.stage==='result'&&details,notes=publicAuctionBidNotes(bid,settled);
@@ -25,5 +26,5 @@ export default function AuctionBidTile({bid,round,leading=false,placement,auctio
 }
 function InvestigationNote({note,auction,settled}:{note:Clue;auction:Auction|undefined;settled:boolean}){
  const description=settled?INVESTIGATIONS.find(option=>option.id===note.id)?.description:undefined;
- return <li><b><AuctionClueIcon id={note.id}/>{note.label}</b>{description&&<p className="games-note">{description}</p>}<p>{note.text}</p>{settled&&auction&&<AuctionClueCards auction={auction} reveals={note.reveals}/>}</li>;
+ return <li><b><AuctionClueIcon id={note.id}/><AuctionInvestigationText text={note.label}/></b>{description&&<p className="games-note"><AuctionInvestigationText text={description}/></p>}<p><AuctionInvestigationText text={note.text}/></p>{settled&&auction&&<AuctionClueCards auction={auction} reveals={note.reveals}/>}</li>;
 }

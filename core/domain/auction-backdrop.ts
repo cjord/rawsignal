@@ -1,9 +1,14 @@
 import {auctionRandom,type AuctionCard} from './auction-types.ts';
 
 // Decorative catalog sample only: never inspect the prepared/hidden auction lot.
-export function auctionBackdropImages(catalog:Pick<AuctionCard,'image'>[],seed:number,count=10):string[]{
- const images=[...new Set(catalog.map(card=>card.image.trim()).filter(image=>/^https?:\/\//.test(image)))].sort();
+export function auctionBackdropImages(catalog:(Pick<AuctionCard,'image'>&Partial<Pick<AuctionCard,'rarity'|'section'>>)[],seed:number,count=18):string[]{
+ const images=new Map<string,number>();
+ for(const card of catalog){
+  const image=card.image.trim();if(!/^https?:\/\//.test(image))continue;
+  const treatment=`${card.section??''} ${card.rarity??''}`;
+  const weight=/signature|over.?number|showcase|promo|metal|alt/i.test(treatment)?8:/epic/i.test(treatment)?4:/\brare\b/i.test(treatment)?2:1;
+  images.set(image,Math.max(images.get(image)??0,weight));
+ }
  const random=auctionRandom(seed);
- for(let index=images.length-1;index>0;index--){const swap=Math.floor(random()*(index+1));[images[index],images[swap]]=[images[swap],images[index]]}
- return images.slice(0,Math.max(0,count));
+ return [...images].sort(([a],[b])=>a.localeCompare(b)).map(([image,weight])=>({image,score:-Math.log(Math.max(Number.EPSILON,random()))/weight})).sort((a,b)=>a.score-b.score).slice(0,Math.max(0,count)).map(row=>row.image);
 }
