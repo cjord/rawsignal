@@ -12,6 +12,16 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
+- **Release 2026-10-16:** app `7a4cbb6` pushed and deployed to staging `ab294936`,
+  then production `c076ac77` after staging passed. Includes all pending auction
+  polish, rarity budgets/T1 treatment, two rivals, Auction Guide and larger
+  portraits. Staging and production-version-preview free/paid four-round checks
+  passed, with zero browser errors/additional gameplay pricing calls. Production's
+  custom domain challenges automated requests (HTTP 403); zone security rules were
+  not changed. See release details in `docs/games-auction-house-plan.md`. This
+  supersedes the earlier local-only/production-pending notes below. Developer mode
+  remains plan-only. No migrations or ingestion runs.
+
 - [ ] Developer mode — **plan only**, staging Settings option, default off; no
   production control/payload until accounts and an explicit authorization model
   are approved. Candidate diagnostics cover auctions, catalog/history provenance,
@@ -19,8 +29,8 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
   zero calls; debug auction progress must be isolated. See
   [Developer mode plan](developer-mode-plan.md). No toggle or infrastructure built.
 
-- Auction Guide and two new rivals implemented locally (2026-10-16), not pushed
-  or deployed: `/games/riftbound-auction/guide` linked from the lobby; rules,
+- Auction Guide and two new rivals released (2026-10-16):
+  `/games/riftbound-auction/guide` linked from the lobby; rules,
   collection themes, all active investigations, roster and disjoint per-card
   admission targets derive from game configuration. All T1 Worlds Champion bundle
   cards now share the ultra-rare 0.01% free / 0.02% paid pool regardless of price.
@@ -31,7 +41,7 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
   `docs/games-auction-house-plan.md`; no additional API/database calls or migrations.
   Full local gate passed: 507 node tests (one skipped), 63 browser journeys,
   build/lint/typecheck; no new warnings. Guide desktop/mobile dark/light reviewed.
-  No commit, push or deployment; developer mode remains documentation only.
+  Shipped in `7a4cbb6` to staging and production; developer mode remains documentation only.
 
 - Metal/premium-promo reduction implemented locally (2026-10-16), not pushed/deployed.
   User-approved combined Metal/Best Of targets 0.05% free / 0.10% paid per card;

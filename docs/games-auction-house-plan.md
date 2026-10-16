@@ -1,5 +1,42 @@
 # Riftbound Auction House
 
+## Release — staging and production, 2026-10-16
+
+Application commit **`7a4cbb6`**, pushed to `feature/set-rarity-heatmap`, includes all
+preceding local reveal/exit polish, rare promo/T1 admission, twelve NPC profiles,
+Auction Guide, and 40px gameplay / 34px compact-history portraits. Developer mode
+remains documentation only. This release supersedes the local-only/promotion-pending
+status notes below, which retain their original implementation history.
+
+- Staging version `ab294936-cc0c-49dc-a6fe-4aa7a40735d1` deployed first. Live staging
+  verification passed before production promotion: guide with all twelve portraits
+  and 25 active investigations, real-data free 65-copy / paid 120-copy auctions,
+  all four rounds' local/deployed model and offer parity, private clue purchase,
+  settlement, saved wallet/lot after reload, inventory controls, confirmed leave,
+  larger portraits and phone/desktop light/dark layouts. No browser errors or new
+  per-round pricing calls; guide requested no market feeds/API.
+- Production version `c076ac77-e280-4497-baf6-dded24155ecc` deployed from the same
+  validated build after staging passed. Existing production database, custom route,
+  secrets and minutely cron retained; deployment preserves dashboard variables.
+  Its version preview passed the same checks using production bindings (25-copy
+  free / 98-copy paid collections, four rounds each, zero browser errors).
+- **Custom-domain verification limitation:** fresh automated browser navigation to
+  `rawsignal.cards` encountered a Cloudflare challenge; direct headers confirmed
+  HTTP 403 and `Cf-Mitigated: challenge` on both default and IPv4 requests. Example
+  Ray ID: `a4b5091d58a2780e-IAD`. The production version preview returned HTTP 200
+  and passed, but does not validate the zone's security exception. No WAF/IP rules
+  were modified. Recheck the source in Security Events and the narrowly scoped
+  testing exception before claiming custom-domain automated verification passed.
+
+The local release gate was green: build, 507 passing node tests (one skipped),
+lint/typecheck (21 existing warnings, none new), and 63 Chromium journeys. The live
+verification helper initially advanced its virtual clock before the native tick
+and did not complete the restored reveal before testing Finish; synchronization
+and replay completion fixed the helper, with no application change. Virtual saves
+were isolated to fresh test browser contexts; no user wallet or database mutated.
+No migrations, feed refreshes, staging ingestion or security changes were required.
+The unrelated trading overlay image remains untracked and untouched.
+
 ## Portrait size follow-up — local only, 2026-10-16
 
 Player/NPC portraits are now 40px instead of 32px during bidding, winner previews
