@@ -115,6 +115,54 @@ deletion is introduced; revisit retention if growth warrants it.
 
 ## Release
 
+### Staging and production promotion — 2026-10-16
+
+Validated/pushed application source `0ff7aaa` on `feature/set-rarity-heatmap`:
+staging `71fed4ab-ee74-4504-8424-b95068eb611d`, then production
+`ee692c03-09ea-42e9-aa58-51496c30aa92`. Includes daily games/sharing, pending lobby
+and statistics polish, card-inspection/foil fixes and the approved
+[NPC balance](auction-npc-balance-2026-10-16.md). Production retains its custom
+domain/minutely guard cron; staging retains workers.dev/no cron. Existing vars,
+secrets and service bindings preserved. Developer mode remains plan-only and
+sales features remain paused.
+
+Full release gate passed: 530 node tests passed, one skipped, 72 Chromium checks,
+production build/lint/typecheck. Source-only lint retains 21 existing complexity
+warnings and introduces none. Temporary simulation source copies were archived
+under ignored `work/`; their duplicate legacy warnings are not application changes.
+Application simulation summaries exactly matched the final isolated candidate
+for all 4,000 primary auctions, including every per-NPC result.
+
+Before production migration, a complete SQL export, SHA-256 checksum and D1
+recovery bookmark were saved under ignored local backups/work logs. Deployed
+first, then applied additive migrations 0022/0023; verified no pending migrations.
+Staging already had both, so no staging migration or snapshot replacement ran.
+Production first-use initialization created one auction and one Showdown row for
+2026-10-16. No refresh, ingestion, historical regeneration or wallet mutation.
+
+Live staging and the new production-version preview each passed:
+
+- Guide: 12 rivals, 25 investigations, no market calls.
+- Normal free/paid auctions: exact NPC calculation/private-sample parity in all
+  four rounds, fees, settlement, reload, leave and zero extra gameplay data calls.
+- Daily Showdown: all ten Normal and ten Hard rounds, frozen choices, resume and
+  shared result viewing without changing saved answers.
+- Daily auction: all five receipts, automatic sales, reconstructed cash and reward
+  credited once, plus shared top-card artwork. Affordable bids were forced only
+  inside isolated diagnostic browsers to exercise settlement paths; this is not
+  a measurement of natural human-play outcomes.
+- Real-art foil/glow and card-popup outside dismissal in both themes; responsive
+  Singles/Sealed views and exact versioned-history/row parity across markets.
+- Zero browser errors. Normal-auction verifier's paused-clock stall was resolved
+  by using real timers; no application change was needed.
+
+The production custom domain still returns HTTP 403 / “Just a moment…” to this
+automated browser, both before and after deploy. Production verification used
+the deployed version preview with production bindings. This proves the deployed
+application, not custom-domain zone access. No Cloudflare security rules changed.
+
+### Earlier staging-only release record
+
 Local complete gate passed: 528 node tests passed (one skipped), 71 Chromium
 journeys passed, production build/lint/typecheck passed; 21 existing complexity
 warnings and none introduced. Tests cover both modes, persistence, empty/expired

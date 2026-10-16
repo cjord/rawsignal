@@ -1,6 +1,6 @@
 # Auction NPC balance — 2026-10-16
 
-Approved for staging and production after paired offline trials. No changes to
+Released to staging and production as `0ff7aaa` after paired offline trials. No changes to
 rarity odds, entry fees, selling fees, NPC margins or buyout thresholds.
 
 ## Settings
@@ -62,3 +62,6 @@ does not isolate each lever's causal effect. Follow up with active-player strate
 and human play-testing; watch rare-guest overpayments and paid underestimation before
 another blanket increase. All runtime calculation remains browser-local: zero new
 Worker requests, database reads/writes or paid API calls for NPC balancing.
+
+Release gate and live checks passed; see [release record](daily-games-and-sharing.md#release).
+The two daily-game migrations are unrelated to NPC calculations, which remain local.

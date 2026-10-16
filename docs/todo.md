@@ -12,17 +12,23 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
-- **Approved release preparation (2026-10-16):** deploy the accepted free and
-  stronger paid NPC balance alongside the pending lobby, statistics and inspection
+- **Released to staging and production (2026-10-16), source `0ff7aaa`:** accepted free and
+  stronger paid NPC balance alongside the lobby, statistics and inspection
   fixes. Final speculation weights are 14/11/8.5/6% free and 20/18/15/12% paid;
   weaker rivals get broader private random samples, with bounded stronger prior-bid
   influence. [Balance settings and paired trials](auction-npc-balance-2026-10-16.md).
   This supersedes the earlier unchanged/proposed NPC notes below; early Rarity
   Census itself remains unchanged. No extra gameplay requests or ingestion.
-  Production promotion also includes the already-staged daily games and additive
-  migrations 0022/0023, now authorized by the user. Back up before migration and
-  retain existing staging daily snapshots. Release verification is recorded in the
-  daily-games document after deployment.
+  Production promotion also includes the daily games and additive migrations
+  0022/0023, verified after deploy with a local export/recovery bookmark saved first.
+  Existing staging daily snapshots retained. Full gate: 530 node tests passed, one
+  skipped, 72 browser checks, build/lint/typecheck; no new source warnings. Live
+  staging and production-version preview passed normal auctions/model parity,
+  daily challenges/shares, real artwork effects and Singles/Sealed parity in both
+  themes/sizes. Production's custom domain still challenges this automated browser
+  (403); zone rules unchanged. This release supersedes the older local-only and
+  production-pending status notes below. Human play-testing of the accepted balance
+  remains useful. [Release verification](daily-games-and-sharing.md#release).
 
 - **Auction inspection/foil repair (2026-10-16), local only:** card inspection
   dismisses on outside clicks/taps, restores focus, and keeps interior clicks or
