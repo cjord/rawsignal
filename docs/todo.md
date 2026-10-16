@@ -12,12 +12,15 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
-- **Investigation scans/direct selection/audio (2026-10-16), staging preparation:**
+- **Investigation scans/direct selection/audio (2026-10-16), staging verified:**
   Small/Large Price Scans, cheaper chase/census/follow-up, one-of-top-three peek,
   direct highlighted-card inspection with persisted timed fallback; rarity-colored
   wording and whole-dollar costs. Three-row, premium-weighted seamless backdrop and
   quiet lock/settlement/count-complete audio. Current NPC information boundary is
-  unchanged. [Rules, compatibility, sound map and validation](auction-investigations-scans-and-audio.md).
+  unchanged. Source `6cdf9e1` pushed; staging `6d859e46-df75-41a4-917a-b922f5514afc`
+  verified. Gate: 545 node tests and 75 browser checks passed. No migration,
+  daily-snapshot replacement or production deploy.
+  [Rules, compatibility, sound map and validation](auction-investigations-scans-and-audio.md).
 
 - **Investigation revision + removal of NPC automatic samples (2026-10-16), staging verified:**
   grouped Chase / Special census, combined markers/identity peeks, $8 ordinary

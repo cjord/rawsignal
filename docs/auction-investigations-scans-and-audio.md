@@ -1,6 +1,6 @@
 # Auction scans, direct inspection and presentation — 2026-10-16
 
-Implementation prepared for staging; production is not part of this release.
+Released to staging from source `6cdf9e1`; production is not part of this release.
 
 ## Investigation menu
 
@@ -82,5 +82,16 @@ random top-three targeting, grouped NPC census, pending reload/choice, deadline 
 early-resolution fallback, exactly-once payment/history, sound event deduplication,
 mute/background behavior and premium-weighted image sampling. Browser coverage
 includes direct card selection and rarity colors in dark/light and desktop/mobile.
-Complete release check and live staging verification must pass before handoff.
-No migrations or daily-snapshot replacement is needed.
+Complete `npm run check` passed: 545 node tests passed, one skipped; 75 Chromium
+checks passed; production build, lint and typecheck passed. The 21 existing
+complexity warnings remain unchanged. Browser checks caught an omitted opening
+flip sound, now restored, and legacy wording assertions were updated to match the
+requested display text without changing persisted clue facts.
+
+Staging version `6d859e46-df75-41a4-917a-b922f5514afc` verified live: all 23 current
+investigation costs, three decorative rows, $5 Follow-Up purchase, reload,
+highlighted-card selection and deadline fallback. Both free and paid auctions
+matched the local NPC model in all four rounds and passed settlement/reload/leave,
+desktop/mobile and both themes, with no browser errors or extra gameplay data
+calls after the initial catalog load. No migrations, snapshot replacement or
+production changes.
