@@ -6,6 +6,7 @@ import {buyInformation} from '../../core/domain/auction-engine';
 import type {Auction,AuctionSave,Clue} from '../../core/domain/auction-types';
 import {publicAuctionSlots} from '../../core/domain/auction-public';
 import AuctionFindingTile from './AuctionFindingTile';
+import AuctionFollowUp from './AuctionFollowUp';
 function ClueResults({clues,auction,round}:{clues:Clue[];auction:Auction;round:number}){
  return <div className="auction-clues"><ul>{clues.map(clue=><li key={clue.id}><AuctionFindingTile auction={auction} round={round} clue={clue}/></li>)}</ul></div>;
 }
@@ -13,7 +14,10 @@ export default function AuctionInvestigate({save,now,transact}:{save:AuctionSave
  const auction=save.auction!;
  return <section className="detail-section auction-investigate"><h2>{auction.bought?'Investigation Results':'Investigation'} <InfoHint label="Investigation rules">Shared reveals are free and visible to every bidder. Optionally buy one private investigation per round. Costs are not refunded if you lose. All findings carry forward.</InfoHint></h2>
   <div className="auction-investigation-scroll" role="region" aria-label="Investigation options and round findings" tabIndex={0}>
-   {!auction.bought&&<div className="auction-offers">{auction.offers.map(option=><button className="game-control" type="button" key={option.id} disabled={auction.selected!==null||now>=auction.deadline||save.wallet.cash<option.cost} onClick={()=>transact(current=>buyInformation(current,option.id,Date.now()))}><AuctionClueIcon id={option.id}/><span>{option.label}{option.description&&<small>{option.description}</small>}</span><strong>{auctionUsd(option.cost)}</strong></button>)}</div>}
+   {!auction.bought&&<div className="auction-offers">{auction.offers.map(option=>{
+    const disabled=auction.selected!==null||now>=auction.deadline||save.wallet.cash<option.cost;
+    return option.id==='follow-up'?<AuctionFollowUp key={option.id} save={save} option={option} disabled={disabled} transact={transact}/>:<button className="game-control" type="button" key={option.id} disabled={disabled} onClick={()=>transact(current=>buyInformation(current,option.id,Date.now()))}><AuctionClueIcon id={option.id}/><span>{option.label}{option.description&&<small>{option.description}</small>}</span><strong>{auctionUsd(option.cost)}</strong></button>;
+   })}</div>}
    <PublicInformation auction={auction}/>
   </div>
  </section>;

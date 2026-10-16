@@ -11,7 +11,8 @@ export const AUCTION_LOT_THEMES=[
 export function auctionLotTheme(seed:number){const random=auctionRandom(seed+401);random();random();return AUCTION_LOT_THEMES[Math.floor(random()*AUCTION_LOT_THEMES.length)]}
 export function auctionThemeProfile(seed:number,kind:AuctionKind){
  const theme=auctionLotTheme(seed);
- // A paid theme retains its identity but moves 20% of draws toward premium stock.
+ // Paid themes reduce bulk/rare factors; auction-composition calibrates the final
+ // rarity mix while these relative factors preserve each collection's identity.
  return {...theme,bulk:theme.bulk*(kind==='paid'?.8:1),rare:theme.rare*(kind==='paid'?.8:1)};
 }
 export function auctionThemeChoices(choices:AuctionCard[],focus:string,profile:ReturnType<typeof auctionThemeProfile>,random:()=>number){

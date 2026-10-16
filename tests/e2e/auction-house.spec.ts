@@ -13,6 +13,22 @@ async function fixtures(page:Page){
 }
 const saved=(page:Page)=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)!),key);
 
+test('versioned investigations support a private marked-card follow-up and explicit paid final valuation price',async({page},testInfo)=>{
+ await fixtures(page);await page.clock.pauseAt(new Date('2026-10-14T12:00:05Z'));let requests=0;
+ await page.route('**/data/*.json',route=>{requests++;return route.fulfill({contentType:'application/json',body:JSON.stringify(rows)})});
+ await page.goto('/games/riftbound-auction');await page.getByRole('button',{name:'Enter Free Auction',exact:true}).click();await expect(page.getByLabel('Bid (virtual USD)')).toBeVisible();const initialRequests=requests;
+ const offer=async(id:string)=>page.evaluate(({key,option})=>{const state=JSON.parse(localStorage.getItem(key)!);state.auction.offers=[option];state.revision++;const raw=JSON.stringify(state);localStorage.setItem(key,raw);dispatchEvent(new StorageEvent('storage',{key,newValue:raw}));},{key,option:INVESTIGATIONS.find(row=>row.id===id)!});
+ await offer('rare-mark12');await page.locator('.auction-offers button').click();const marked=await saved(page);expect(marked.auction.clues.at(-1).reveals.every((row:{visibility:string})=>row.visibility==='rarity')).toBe(true);
+ await page.evaluate(key=>{const state=JSON.parse(localStorage.getItem(key)!);state.auction.npcs=state.auction.npcs.map((npc:object)=>({...npc,bid:100,locked:true}));state.revision++;const raw=JSON.stringify(state);localStorage.setItem(key,raw);dispatchEvent(new StorageEvent('storage',{key,newValue:raw}));},key);
+ await page.getByRole('button',{name:'Pass ($0)',exact:true}).click();await page.clock.runFor(500);await page.getByRole('button',{name:'Next Auction Round',exact:true}).click();await offer('follow-up');
+ const select=page.getByLabel('Follow-Up Inspection',{exact:false});await expect(select).toBeVisible();const target=await select.locator('option').last().getAttribute('value');expect(target).not.toBeNull();await select.selectOption(target!);
+ for(const width of [1440,390])for(const theme of ['dark','light']){await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);await page.locator('.auction-follow-up').screenshot({path:testInfo.outputPath(`follow-up-${width}-${theme}.png`)});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
+ const before=await saved(page);await page.getByRole('button',{name:'Inspect Card · $8.00',exact:true}).click();const after=await saved(page);expect(after.wallet.cash).toBe(before.wallet.cash-800);expect(after.auction.priced).toContain(Number(target));expect(after.auction.clues.at(-1).reveals).toEqual([{slot:Number(target),visibility:'price'}]);expect(requests).toBe(initialRequests);
+ await page.reload();await expect(page.locator('.auction-private-finding').filter({hasText:'Follow-Up Inspection'})).toBeVisible();expect(requests).toBe(initialRequests+11);
+ await page.evaluate(({key,option})=>{const state=JSON.parse(localStorage.getItem(key)!);Object.assign(state.auction,{kind:'paid',entryFee:5000,round:4,bought:false,selected:null,offers:[{...option,cost:12500}]});state.revision++;const raw=JSON.stringify(state);localStorage.setItem(key,raw);dispatchEvent(new StorageEvent('storage',{key,newValue:raw}));},{key,option:INVESTIGATIONS.find(row=>row.id==='top2-final')!});
+ await expect(page.locator('.auction-offers button')).toContainText('$125.00');const paid=await saved(page);await page.locator('.auction-offers button').click();expect((await saved(page)).wallet.cash).toBe(paid.wallet.cash-12500);expect(requests).toBe(initialRequests+11);
+});
+
 test('optional auto advance counts down for twenty seconds, cancels safely, and never skips settlement',async({page})=>{
  await fixtures(page);await page.clock.pauseAt(new Date('2026-10-14T12:00:05Z'));let requests=0;
  await page.route('**/data/*.json',route=>{requests++;return route.fulfill({contentType:'application/json',body:JSON.stringify(rows)})});await page.goto('/games/riftbound-auction');await expect(page.getByRole('button',{name:'Auto Advance: Off',exact:true})).toHaveAttribute('aria-pressed','false');await page.getByRole('button',{name:'Enter Free Auction',exact:true}).click();await expect(page.getByLabel('Bid (virtual USD)')).toBeVisible();
@@ -174,6 +190,7 @@ test('new rivals have original portraits, distinct visible strategies and resuma
 test('investigation icons use target rarity or general clue tier colors and offers have heading space',async({page},testInfo)=>{
  await fixtures(page);await page.route('**/data/*.json',route=>route.fulfill({contentType:'application/json',body:JSON.stringify(rows)}));await page.goto('/games/riftbound-auction');await page.getByRole('button',{name:'Enter Free Auction',exact:true}).click();await expect(page.getByLabel('Bid (virtual USD)')).toBeVisible();
  const targets:Record<string,string>={'rare-mark8':'rare','epic-mark5':'epic','alt-mark3':'epic','common-count':'common','uncommon-count':'uncommon',common3:'common',uncommon3:'uncommon',rare2:'rare','rare-mark2':'rare','rare-identity2':'rare',rares:'rare',epic2:'epic','epic-mark2':'epic','epic-identity2':'epic',alt1:'epic','alt-mark1':'epic',chase1:'premium','chase-mark1':'premium','chase-identity1':'premium'};
+ Object.assign(targets,{'rare-mark12':'rare','epic-mark8':'epic','alt-mark5':'epic','rare-identity8':'rare','epic-identity5':'epic',rare12:'rare',epic6:'epic',alt4:'epic','chase-mark-v2':'premium','chase-identity-v2':'premium','chase-scan-v2':'premium','rares-v2':'rare'});
  const tierTones={basic:'common',targeted:'rare',strong:'epic',premium:'premium'},tokens={common:'--gray',uncommon:'--tone-up',rare:'--blue',epic:'--purple',premium:'--tone-favorite'};
  const options=INVESTIGATIONS.filter(option=>!RETIRED_INVESTIGATION_IDS.includes(option.id));
  for(const width of [1440,390])for(const theme of ['dark','light']){

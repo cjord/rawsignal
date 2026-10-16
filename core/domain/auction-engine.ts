@@ -8,23 +8,29 @@ import {npcRoundInformation,npcInvestigationNotes} from './auction-npc-informati
 import {auctionSampleValue,publicAuctionSlots,revealPublicRound} from './auction-public.ts';
 import {auctionLotTheme} from './auction-lot-themes.ts';
 import {rankAuctionBids} from './auction-ranking.ts';
+import {followUpSlots} from './auction-investigations-v2.ts';
+import {auctionMarketPrior} from './auction-market-prior.ts';
 
 // Only completed public bids may influence an estimate; current sealed bids are never inputs.
-export function npcBid(sample:number[],range:[number,number],priorBids:number[],personality:number,random:()=>number,feeBps=1000,confidence=1,participation=0,grossEstimate?:number,certainty=1):number{
+export function npcBid(sample:number[],range:[number,number],priorBids:number[],personality:number,random:()=>number,feeBps=1000,confidence=1,participation=0,grossEstimate?:number,certainty=1,round=2):number{
  const npc=AUCTION_NPCS[personality]??AUCTION_NPCS[0],caution=npc.name==='The Skeptic'?.9+.1*certainty:1;
  if(random()>Math.min(1,Math.max(0,(npc.participation+participation)*caution)))return 0;
  const estimate=(grossEstimate??auctionSampleValue(sample)*(range[0]+range[1])/2)*(1-feeBps/10000);
  if(estimate<=0)return 0;
  const noise=1-npc.noise+random()*npc.noise*2,stretch=random()<npc.risk?1.08+random()*.1:1;
  const personal=estimate*npc.margin*confidence*noise*stretch;
- return Math.max(1,Math.min(250000,Math.round(influencedBid(personal,priorBids,npc.name,random))));
+ const bid=Math.round(influencedBid(personal,priorBids,npc.name,random,round));
+ return Number.isSafeInteger(bid)?Math.max(1,bid):0;
 }
-function influencedBid(personal:number,priorBids:number[],name:string,random:()=>number){
+function influencedBid(personal:number,priorBids:number[],name:string,random:()=>number,round:number){
+ if(round<=1)return personal;
  const positives=priorBids.filter(bid=>Number.isSafeInteger(bid)&&bid>0).sort((a,b)=>a-b);
- if(!positives.length||random()>(name==='The Follower'?.65:.3))return personal;
+ const later=Math.min(2,round-2),follower=name==='The Follower';
+ if(!positives.length||random()>(follower?.65+later*.1:.3+later*.1))return personal;
  const middle=Math.floor(positives.length/2),median=positives.length%2?positives[middle]:(positives[middle-1]+positives[middle])/2;
- // A rival's offer is evidence of interest, not a valuation: cap the nudge at 8% (12% for the Follower).
- const limit=name==='The Follower'?.12:.08;
+ // Public history matters more later, but never overrides personal evidence.
+ // Round 2→4 nudge limits: 8→12%, or 12→18% for the Follower.
+ const limit=follower?.12+later*.03:.08+later*.02;
  return personal+Math.max(-personal*limit,Math.min(personal*limit,(median-personal)*.2));
 }
 function roundNpcs(auction:Auction,now:number):Npc[]{
@@ -37,7 +43,7 @@ function roundNpcs(auction:Auction,now:number):Npc[]{
   const mood=auctionNpcMood(auction.seed,npc.name),personality=AUCTION_NPCS.findIndex(profile=>profile.name===npc.name);
   const paid=auction.kind==='paid';
   const priorBids=(auction.bidHistory.at(-1)??[]).filter(bid=>bid.name!==npc.name).map(bid=>bid.cents);
-  return {name:npc.name,sample,investigations:knowledge.investigations,inspected:knowledge.inspected,identified:knowledge.identified,bid:npcBid(knowledge.prices,auction.range,priorBids,personality,random,auction.feeBps,mood.confidence,mood.participation+(paid?0.04:0),knowledge.estimate,knowledge.certainty),lockAt:now+Math.round((.3+random()*.6)*AUCTION_ROUNDS[auction.round-1].seconds*1000),locked:false};
+  return {name:npc.name,sample,investigations:knowledge.investigations,inspected:knowledge.inspected,identified:knowledge.identified,rarityKnown:knowledge.rarityKnown,findings:knowledge.findings,bid:npcBid(knowledge.prices,auction.range,priorBids,personality,random,auction.feeBps,mood.confidence,mood.participation+(paid?0.04:0),knowledge.estimate,knowledge.certainty,auction.round),lockAt:now+Math.round((.3+random()*.6)*AUCTION_ROUNDS[auction.round-1].seconds*1000),locked:false};
  });
 }
 function openRound(auction:Auction,now:number):Auction{
@@ -50,13 +56,16 @@ export function beginAuction(save:AuctionSave,catalog:AuctionCard[],now:number,p
  const lot=(prepared??generateAuctionLot(catalog,seed,kind)).map(card=>({...card})),size=AUCTION_LOT_SIZES[kind];if(lot.length<size.min||lot.length>size.max)return save;
  const auction:Auction={seed,kind,entryFee,stage:'round',round:1,deadline:0,lot,range:[lot.length,lot.length],known:[],priced:[],offers:[],clues:[],bought:false,spent:0,selected:null,npcs:[],bids:[],bidHistory:[],result:null,feeBps:save.wallet.feeBps};
  auction.lotTheme=auctionLotTheme(seed).id;
+ auction.marketPrior=auctionMarketPrior(catalog,seed,kind);
  return {...save,wallet:{...save.wallet,cash:save.wallet.cash-entryFee},sequence:save.sequence+1,auction:openRound(auction,now)};
 }
-export function buyInformation(save:AuctionSave,id:string,now:number):AuctionSave{
+export function buyInformation(save:AuctionSave,id:string,now:number,targetSlot?:number):AuctionSave{
  const auction=save.auction;
  if(!auction||auction.stage!=='round'||auction.selected!==null||auction.bought||now>=auction.deadline)return save;
  const option=auction.offers.find(option=>option.id===id);if(!option||save.wallet.cash<option.cost||id==='value-band'||id==='value-band4'||id==='top5')return save;
- const result=investigate(auction,option);
+ if(id==='follow-up'&&(targetSlot===undefined||!followUpSlots(auction).includes(targetSlot)))return save;
+ if(id==='top2-final'&&auction.round!==4)return save;
+ const result=investigate(auction,option,targetSlot);
  const reveals:ClueReveal[]=[...result.priced.filter(slot=>!auction.priced.includes(slot)).map(slot=>({slot,visibility:'price' as const})),...result.known.filter(slot=>!auction.known.includes(slot)&&!result.priced.includes(slot)).map(slot=>({slot,visibility:'identity' as const})),...(result.rarityKnown??[]).filter(slot=>!auction.rarityKnown?.includes(slot)&&!result.known.includes(slot)).map(slot=>({slot,visibility:'rarity' as const}))];
  return {...save,wallet:{...save.wallet,cash:save.wallet.cash-option.cost},auction:{...auction,known:result.known,priced:result.priced,...(result.rarityKnown?{rarityKnown:result.rarityKnown}:{}),...(result.topCardSlot!==undefined?{topCardSlot:result.topCardSlot}:{}),clues:[...auction.clues,{...result.clue,round:auction.round,reveals}],bought:true,spent:auction.spent+option.cost}};
 }

@@ -1,14 +1,12 @@
 import type {AuctionCard,Clue} from './auction-types.ts';
+import {applyNpcMarketPrior,type NpcValuationKnowledge} from './auction-npc-prior.ts';
+import {auctionReferencePrice} from './auction-market-prior.ts';
 
 // Inputs contain only information actually available to this bidder, never the lot.
-type Knowledge={count:number;observed:AuctionCard[];random:AuctionCard[];clues:Clue[]};
+type Knowledge=NpcValuationKnowledge;
 const sum=(cards:AuctionCard[])=>cards.reduce((total,card)=>total+card.cents,0);
 const money=(clue:Clue)=>[...clue.text.matchAll(/\$([\d,.]+)/g)].map(match=>Math.round(Number(match[1].replaceAll(',',''))*100));
-export function npcConservativeMean(prices:number[]){
- if(!prices.length)return 0;
- const sorted=prices.toSorted((a,b)=>a-b),median=sorted[Math.floor((sorted.length-1)/2)];
- return sorted.reduce((total,price)=>total+Math.min(price,median*3),0)/sorted.length*.8+median*.2;
-}
+export const npcConservativeMean=auctionReferencePrice;
 function censusEstimate(knowledge:Knowledge,clue:Clue,discount:number){
  const field=clue.id==='sets'?'set':'rarity',groups=[...clue.text.matchAll(/(?:^| · )([^:]+): (\d+)/g)];
  const fallback=npcConservativeMean(knowledge.random.map(card=>card.cents))*.5;
@@ -70,5 +68,5 @@ export function npcKnowledgeValue(knowledge:Knowledge){
   estimate=band.id==='value-band4'?Math.max(low,Math.min(estimate,upper)):upper;
   certainty=band.id==='value-band4'?Math.max(certainty,.5):.65;
  }
- return {estimate:Math.max(observed,estimate),certainty};
+ return applyNpcMarketPrior(knowledge,Math.max(observed,estimate),certainty);
 }

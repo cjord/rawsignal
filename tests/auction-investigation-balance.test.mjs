@@ -30,7 +30,7 @@ test('count-only clues count every copy including known cards, reveal zero ident
   const result=investigate(auction,option(id));assert.match(result.clue.text,/^15 /);assert.deepEqual(result.known,auction.known);assert.deepEqual(result.priced,auction.priced);assert.equal(knownValue({...auction,...result}),before);
   const counted={...auction,clues:[{id:'rarities',label:'Rarity Census',text:'Common: 15'}]};assert.equal(informationUseful(counted,id),false);
  }
- const empty={...auction,lot:auction.lot.filter(card=>card.rarity!=='Common')};assert.match(investigate(empty,option('common-count')).clue.text,/^0 common/);assert.equal(informationUseful(empty,'common-count'),true);
+ const empty={...auction,lot:auction.lot.filter(card=>card.rarity!=='Common')};assert.match(investigate(empty,option('common-count')).clue.text,/^0 common/);assert.equal(informationUseful(empty,'common-count'),false);
 });
 
 test('top-card rarity marks its precise location without revealing identity/artwork/price and persists safely',()=>{
@@ -82,7 +82,7 @@ test('NPC count investigations do not learn unseen prices or reuse the player’
  let matched;
  for(let seed=0;seed<100;seed++){
   const auction={...fresh().auction,seed,clues:[{id:'rarities',label:'Player secret',text:'Secret'}]},info=npcRoundInformation(auction,0,[],undefined,'The Bargain Hunter');
-  if(info.investigations.at(-1)==='common-count'){matched={auction,info};break}
+  if(info.investigations.at(-1)==='lot-audit'){matched={auction,info};break}
  }
  assert.ok(matched);const {auction,info}=matched,hidden=auction.lot.findIndex((card,i)=>!info.inspected.includes(i)&&card.rarity==='Rare');assert.ok(hidden>=0);
  const changed={...auction,lot:auction.lot.map((card,i)=>i===hidden?{...card,cents:999999}:card)};

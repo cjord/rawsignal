@@ -12,7 +12,7 @@ test('seeded lots vary profiles, counts, contents and copies but stay reproducib
   const lot=generateAuctionLot(pool,seed),profile=auctionLotProfile(seed);profiles.add(profile.name);counts.add(lot.length);contents.add(lot.map(holdingKey).join(','));
   assert.deepEqual(lot,generateAuctionLot([...pool].reverse(),seed));assert.ok(lot.length>=profile.min&&lot.length<=profile.max);
   const copies=new Map();for(const card of lot){assert.deepEqual(card,pool.find(source=>holdingKey(source)===holdingKey(card)));copies.set(holdingKey(card),(copies.get(holdingKey(card))??0)+1)}
-  assert.ok([...copies.values()].every(count=>count<=profile.copyCap));assert.ok(lot.reduce((sum,card)=>sum+card.cents,0)<=200000);
+  assert.ok([...copies.values()].every(count=>count<=profile.copyCap));
  }
  assert.equal(profiles.size,AUCTION_LOT_PROFILES.length);assert.ok(counts.size>10);assert.equal(contents.size,100);
  assert.deepEqual(generateAuctionLot(pool.slice(0,5),1),[]);assert.ok(generateAuctionLot([...pool,{...pool[0],productId:999,image:''}],1).every(card=>card.productId!==999));

@@ -5,6 +5,7 @@ import {auctionWinner} from '../../core/domain/auction-engine';
 import {AUCTION_NPCS} from '../../core/domain/auction-npcs';
 import InfoHint from '../InfoHint';
 import {INVESTIGATIONS} from '../../core/domain/auction-information';
+import {npcInvestigationEquivalent} from '../../core/domain/auction-npc-information';
 
 export default function AuctionBidders({auction}:{auction:Auction}){
  const bidders=[{name:'You',locked:auction.selected!==null},...auction.npcs];
@@ -19,7 +20,7 @@ function PreviousBid({auction,name}:{auction:Auction;name:string}){
 }
 function BidderIdentity({name}:{name:string}){
  const profile=AUCTION_NPCS.find(npc=>npc.name===name);
- const priorities=profile?.cluePriority.map(id=>INVESTIGATIONS.find(option=>option.id===id)?.label??id).join(', ');
- const detail=profile?`${profile.strategy}. ${profile.description} Favored investigations: ${priorities}. Bids use public reveals and personal clues, with occasional small nudges from previous public bids—never your locked current-round bid or the full hidden collection.`:undefined;
+ const priorities=profile?[...new Set(profile.cluePriority.map(npcInvestigationEquivalent))].map(id=>INVESTIGATIONS.find(option=>option.id===id)?.label??id).join(', '):'';
+ const detail=profile?`${profile.strategy}. ${profile.description} Favored investigations: ${priorities}. Opening bids cautiously combine catalog expectations with public reveals and personal clues. Speculation fades each round; previous public bids can have a stronger but limited influence later—never your locked current-round bid or the full hidden collection.`:undefined;
  return <span className="auction-bidder-identity"><AuctionBidder name={name} detail={detail}/>{profile&&<InfoHint label={`${name} profile`}>{detail}</InfoHint>}</span>;
 }

@@ -2,11 +2,14 @@ import {sampleIndices,type Auction,type AuctionCard,type Clue,type Investigation
 import {RARITY_INVESTIGATIONS,rarityInvestigationSlots} from './auction-rarity-investigations.ts';
 import {PARTIAL_INVESTIGATIONS,partialInvestigationSlots,investigatePartial} from './auction-partial-investigations.ts';
 import {balancedClue} from './auction-balanced-clues.ts';
+import {REBALANCED_INVESTIGATIONS,rebalancedCost,rebalancedUseful,rebalancedResult} from './auction-investigations-v2.ts';
 
 // Retain old definitions for active saves and historic NPC clues, never new offers.
-export const RETIRED_INVESTIGATION_IDS=['count','rarity-peek3','rare-mark2','epic-mark2','alt-mark1','rare-identity2','epic-identity2','common3','uncommon3','rare2','epic2','alt1','highest','appraisal','value-band','value-band4','top5'];
+export const RETIRED_INVESTIGATION_IDS=['count','rarity-peek3','rare-mark2','epic-mark2','alt-mark1','rare-identity2','epic-identity2','common3','uncommon3','rare2','epic2','alt1','highest','appraisal','value-band','value-band4','top5',
+ 'rarity-peek8','rare-mark8','epic-mark5','alt-mark3','rare-identity5','epic-identity3','chase-mark1','chase-identity1','rare8','epic5','alt3','chase1','sets','rarities','duplicates','common-count','uncommon-count','highest-rarity','reveal3','identity3','identity10','bulk','rares','over5','over20','share','top2'];
 
 export const INVESTIGATIONS:Investigation[]=[
+ ...REBALANCED_INVESTIGATIONS,
  ...PARTIAL_INVESTIGATIONS,
  ...RARITY_INVESTIGATIONS,
  {id:"count",label:"Exact card count",cost:500,tier:"basic"},
@@ -37,7 +40,7 @@ export const PRE_BALANCE_INVESTIGATION_COSTS:Record<string,number>={rarities:400
 export const LEGACY_INVESTIGATION_COSTS:Record<string,number>={count:500,sets:500,rarities:1000,duplicates:1000,over5:1500,reveal3:2000,identity3:2000,bulk:1500,over20:2500,highest:4000,rares:4000,share:3000,top5:6000,identity10:4500,appraisal:7500};
 const money=(cents:number)=>`$${(cents/100).toFixed(2)}`;
 const sum=(cards:AuctionCard[])=>cards.reduce((value,card)=>value+card.cents,0);
-const tiers=[['basic','basic','targeted'],['basic','targeted','strong'],['targeted','strong','premium'],['targeted','strong','premium']];
+const tiers=[['basic','targeted','strong'],['basic','targeted','strong'],['basic','targeted','premium'],['basic','targeted','premium']];
 const topCounts:Record<string,number>={top2:2,top5:5};
 export function informationOffers(auction:Auction):Investigation[]{
  const eligible=INVESTIGATIONS.filter(option=>!auction.clues.some(clue=>clue.id===option.id)&&informationUseful(auction,option.id));
@@ -46,10 +49,11 @@ export function informationOffers(auction:Auction):Investigation[]{
   const remaining=eligible.filter(option=>!picked.includes(option)),preferred=remaining.filter(option=>option.tier===tier),pool=preferred.length?preferred:remaining;
   if(pool.length)picked.push(pool[sampleIndices(pool.length,1,auction.seed+auction.round*31+index)[0]]);
  }
- return picked;
+ return picked.map(option=>({...option,cost:rebalancedCost(option,auction)}));
 }
 export function informationUseful(auction:Auction,id:string){
  if(RETIRED_INVESTIGATION_IDS.includes(id))return false;
+ const balanced=rebalancedUseful(auction,id);if(balanced!==null)return balanced;
  if(id==='top2')return !auction.clues.some(clue=>clue.id==='top5');
  if(['common-count','uncommon-count'].includes(id))return !auction.clues.some(clue=>clue.id==='rarities');
  const partialSlots=partialInvestigationSlots(auction,id);if(partialSlots!==null)return partialSlots.length>0;
@@ -62,7 +66,10 @@ function breakdown(cards:AuctionCard[],key:'set'|'rarity'){
  const groups=new Map<string,number>();for(const card of cards)groups.set(card[key],(groups.get(card[key])??0)+1);
  return [...groups.entries()].map(([name,count])=>`${name}: ${count}`).join(' · ');
 }
-export function investigate(auction:Auction,option:Investigation):{known:number[];priced:number[];rarityKnown?:number[];topCardSlot?:number;clue:Clue}{
+export function investigate(auction:Auction,option:Investigation,targetSlot?:number):{known:number[];priced:number[];rarityKnown?:number[];topCardSlot?:number;clue:Clue}{
+ return rebalancedResult(auction,option,targetSlot)??investigateLegacy(auction,option);
+}
+function investigateLegacy(auction:Auction,option:Investigation):{known:number[];priced:number[];rarityKnown?:number[];topCardSlot?:number;clue:Clue}{
  const partial=investigatePartial(auction,option);if(partial)return partial;
  const balanced=balancedClue(auction,option);if(balanced)return balanced;
  const {lot}=auction,known=new Set(auction.known),priced=new Set(auction.priced);let text='';

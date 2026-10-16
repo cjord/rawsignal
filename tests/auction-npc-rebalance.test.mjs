@@ -33,7 +33,7 @@ test('new profiles have distinct original assets and identity-only clues cannot 
  const pool=Array.from({length:60},(_,i)=>({...card(),productId:i+1}));let found;
  for(let seed=0;seed<100;seed++){
   const auction=beginAuction(initialAuctionSave(),pool,1000,pool,seed).auction,info=npcRoundInformation(auction,0,[1,3,4,5],undefined,'The Playset Builder');
-  if(info.investigations.at(-1)==='identity3'){found={auction,info};break}
+  if(info.investigations.at(-1)==='identity5'){found={auction,info};break}
  }
  assert.ok(found);const {auction,info}=found,slot=info.identified.find(slot=>!info.inspected.includes(slot));assert.ok(slot!==undefined);
  const changed={...auction,lot:auction.lot.map((row,index)=>index===slot?{...row,cents:999999}:row)};
@@ -42,19 +42,22 @@ test('new profiles have distinct original assets and identity-only clues cannot 
  const legacy=beginAuction(initialAuctionSave(),pool,1000,pool,42);legacy.auction.npcs.forEach(npc=>delete npc.identified);assert.deepEqual(parseAuctionSave(JSON.stringify(legacy)),legacy);
 });
 
-test('bundled-catalog simulation keeps Collector overpayment rare without a true-value bidding cap',()=>{
+test('legacy sample-only Collector valuation remains conservative without a monetary bid ceiling',()=>{
  const catalog=auctionCatalog(allowedRarities.riftbound.flatMap(section=>JSON.parse(readFileSync(new URL(`../public/data/${section}.json`,import.meta.url),'utf8'))));
  for(const kind of ['free','paid']){
-  let bids=0,over=0,capped=0;const seen=new Set();
+  let bids=0,over=0,affordable=0,cappedAffordable=0;const seen=new Set();
   for(let seed=0;seed<200;seed++){
-   let save=beginAuction(initialAuctionSave(),catalog,1000,undefined,seed,kind);
+   let save=beginAuction(initialAuctionSave(),catalog,1000,undefined,seed,kind);delete save.auction.marketPrior;
+   save=nextAuctionRound({...save,auction:{...save.auction,stage:'reveal',round:0,npcs:[]}},1000);
    for(let round=1;round<=4;round++){
     const auction=save.auction,net=auction.lot.reduce((sum,card)=>sum+card.cents,0)*.9;
-    for(const npc of auction.npcs){seen.add(npc.name);if(npc.name==='The Collector'&&npc.bid>0){bids++;over+=Number(npc.bid>net);capped+=Number(npc.bid===250000)}}
+    for(const npc of auction.npcs){seen.add(npc.name);assert.ok(Number.isSafeInteger(npc.bid));if(npc.name==='The Collector'&&npc.bid>0){bids++;over+=Number(npc.bid>net);if(net<250000){affordable++;cappedAffordable+=Number(npc.bid===250000)}}}
     assert.deepEqual(parseAuctionSave(JSON.stringify(save)),save);
     if(round<4)save=nextAuctionRound({...save,auction:{...auction,stage:'reveal'}},auction.deadline+1);
    }
   }
-  assert.equal(seen.size,10);assert.ok(bids>100);assert.ok(over/bids<.1);assert.ok(capped/bids<.02);
+  // Uncapped high-value lots can legitimately reach an NPC's cash ceiling. Keep
+  // the anti-inflation check on lots whose net value is below that ceiling.
+  assert.equal(seen.size,10);assert.ok(bids>100);assert.ok(over/bids<.1);assert.ok(affordable>50);assert.ok(cappedAffordable/affordable<.02);
  }
 });

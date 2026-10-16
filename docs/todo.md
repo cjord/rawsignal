@@ -12,6 +12,32 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
+- Approved auction rebalance implemented locally (2026-10-16), not pushed/deployed:
+  versioned cheaper/expanded investigations, $8 selectable follow-up, round-4
+  Top-Two ($75 free / $125 paid), and uncapped NPC bids. New auctions blend a
+  cautious public-catalog rarity/theme expectation into opening estimates, tapering
+  at most 10/6/2.5/0% free and 8/5/2/0% paid, further reduced by priced coverage.
+  Follow-up calibration: median opening NPC bids $98.52 free / $295.33 paid over
+  1,000 simulated auctions each; prior completed bids influence later rounds more,
+  but stay bounded and never read current sealed bids/private findings. Frozen
+  saves retained; priced clues keep full value and round-one buyout stays 2× the
+  highest rival. Future economy decision: loss sharing still rewards passive free
+  play (~$3.93 mean rebate), blind paid play can be profitable, and unlimited bids
+  allow rare large outliers. Paid's average passive rebate is below its entry fee.
+  Do not silently change payout rules. Details: `docs/games-auction-house-plan.md`.
+  Full local gate passed: 495 node tests (one skipped), 59 browser checks, build,
+  lint and typecheck; no new lint warnings. Still awaiting push/deploy authorization.
+
+- Local-only auction composition update (2026-10-15): remove the $2,000 lot cap;
+  target free Epic/Alt Art 8%/5% and paid 12%/8%, paid Signature 0.5%, taking the
+  increase from Common. Retain themes, copy limits, source prices and old saves.
+  2,000-seed production-snapshot simulation: free 7.81%/5.09%, paid 11.76%/7.97%,
+  paid Signature 0.51%. No push/deploy authorized yet. The accompanying investigation
+  proposal (cheaper expanded scans, consolidated audits, follow-up inspections and
+  round-4 higher-cost Top-Two) is now implemented above, along with removing the
+  old NPC bid limit. Full details and
+  simulation caveats: `docs/games-auction-house-plan.md` §Uncapped rarity composition.
+
 - Production gameplay verification pending Cloudflare testing access: latest Auction
   House application `1451236` is deployed to staging `469c9ca8` and production
   `60d8c7a5`, including optional 20-second auto advance, Top-Two Valuation, flip and

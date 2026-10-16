@@ -17,7 +17,7 @@ test('fourth copies are uncommon and progressively rarer by treatment; further c
  }
  assert.ok(extra[0]>1500&&extra[0]<3000);assert.ok(extra.every((count,index)=>index===0||extra[index-1]>count));assert.ok(extra.at(-1)<20);assert.ok(fifth.every((count,index)=>count<extra[index]*.1));
 });
-test('lot budgets use the actual seeded copy limits, preserve printing identity and source order independence',()=>{
+test('lot stock uses the actual seeded copy limits, preserving printing identity and source order independence',()=>{
  const pool=Array.from({length:80},(_,i)=>({...cards[i%cards.length],productId:i+1}));
  for(const kind of ['free','paid'])for(let seed=0;seed<40;seed++){
   const lot=generateAuctionLot(pool,seed,kind),copies=new Map();assert.ok(lot.length>=(kind==='free'?25:50));
@@ -38,7 +38,7 @@ test('rarity markers expose no identities or prices; targeted identity peeks exp
  const option=INVESTIGATIONS.find(option=>option.id==='rarity-peek3');const bought=buyInformation({...save,auction:{...auction,offers:[option]}},option.id,1100);
  assert.deepEqual(parseAuctionSave(JSON.stringify(bought)),bought);assert.equal(bought.wallet.cash,250000-option.cost);assert.deepEqual(orderedAuctionSlots(bought.auction,bought.auction.known).slice(bought.auction.known.length,bought.auction.known.length+3),[...bought.auction.rarityKnown].sort((a,b)=>a-b));
  const invalid=structuredClone(bought);invalid.auction.rarityKnown=[99999];assert.throws(()=>parseAuctionSave(JSON.stringify(invalid)));
- assert.ok(informationOffers({...auction,known:pool.map((_,i)=>i)}).every(offer=>!offer.id.includes('mark')&&!offer.id.includes('identity')&&offer.id!=='rarity-peek3'));
+ assert.ok(informationOffers({...auction,known:pool.map((_,i)=>i)}).every(offer=>!offer.id.startsWith('rare-mark')&&!offer.id.startsWith('epic-mark')&&!offer.id.startsWith('alt-mark')&&!offer.id.includes('identity')&&!offer.id.startsWith('rarity-peek')));
 });
 test('NPC public notes and icons exclude current and legacy shared clues without changing player notes or stored history',()=>{
  const notes=[{id:'public-start',label:'Shared Public Reveals',text:'public'},{id:'reveal3',label:'Public Starting Cards',text:'public old'},{id:'bulk',label:'private',text:'secret'}],bid={name:'The Dealer',cents:100,notes};

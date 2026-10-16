@@ -1,5 +1,291 @@
 # Riftbound Auction House
 
+## Cautious openings and fading speculation — local, 2026-10-16
+
+User-approved follow-up to the initial prior trial below; **not pushed or deployed**.
+Target roughly $100 free / $300 paid median NPC opening bids, not fixed bid floors,
+ceilings or guaranteed per-auction values. Preserve the approved investigations,
+uncapped lots/bids, fee rules, personalities, source prices and 2× highest-rival
+round-one buyout rule. Players can still benefit from a lucky private early reveal.
+
+The blind catalog-expectation blend is now at most **10% / 6% / 2.5% / 0% free**
+and **8% / 5% / 2% / 0% paid** over rounds 1–4, replacing the initial 50/30/12/0
+trial. Multiply each by the individually unpriced fraction, so growing priced
+coverage further reduces speculation. This changes the uncertain remainder, not
+the value of a disclosed price. Exact category totals, rarity/count evidence and
+the NPC's personal scans remain useful. Round four has no blind catalog blend;
+conservative estimates for actually disclosed rarity markers/counts and remaining
+sample-based estimates are still permitted. NPCs never learn uninspected prices.
+
+Previous completed rival bids (including the player's) become a somewhat stronger
+social cue as rounds progress. Ordinary NPC influence chances are 30% / 40% / 50%
+in rounds 2–4, with adjustments limited to 8% / 10% / 12% of their own bid. The
+Follower uses 65% / 75% / 85% chances and 12% / 15% / 18% limits. This is a seeded,
+bounded nudge toward the latest completed round's positive rival-bid median, not
+an instruction to match or outbid it. Passes/invalid values are ignored. No social
+influence in round one; no reading current sealed bids or other private findings.
+Current locked bids and saved collections remain frozen; new rounds use the new
+policy. Old saves without catalog-prior metadata retain their sample-only model.
+
+### Measured balance
+
+Same stored October 16 production-price snapshot, 1,288 eligible priced catalog
+entries, 1,000 deterministic seeds per mode; no upstream refresh/artwork re-probe.
+These are simulated gameplay outcomes, not real player results or permanent targets.
+
+| Opening measure | Free | Paid |
+|---|---:|---:|
+| Median individual NPC bid, including passes | $98.52 | $295.33 |
+| Individual bid middle 80% | $19.28–$831.15 | $118.78–$1,544.36 |
+| Median minimum player round-one buyout | $320.84 | $935.88 |
+| Affordable buyout under 25% of true net lot value | 10.9% | 18.2% |
+| NPC first-round buyout if player passes | 22.4% | 26.2% |
+
+The minimum player buyout doubles the **highest** rival bid, not the median. Cheap
+buyouts require at least one positive rival and enough starting cash; true lot
+value is used only for audit, never as an NPC input. Personality opening medians
+span about $73–$131 free / $233–$394 paid. Strong individual clues can legitimately
+produce bids far above these targets; no blanket multiplier suppresses those facts.
+
+In a full always-pass simulation, NPC settlement loss rates are 18.3% free / 8.6%
+paid; average player loss-share rebates are $3.93 / $13.36, with maximum observed
+rebates $263.75 / $7,615.12. A fourth round occurs in 41.1% / 28.2% of those runs.
+Paid's average rebate remains below its $50 entry fee. A separate single-round
+stress test that blindly bids $750 wins 41.5% of paid auctions and averages about
+$285 net across attempts after every entry fee (later rounds and NPC-loss credits
+excluded). This intentionally generous, uncapped virtual economy can inflate cash;
+do not claim that investigation is required for every profitable strategy. Raising
+paid openings, charging NPC investigations, funding loss shares or adding economy
+sinks remains a future user decision, not part of this calibration.
+
+No extra Worker/API/D1 calls, price refresh, migration or save-schema change.
+Focused tests cover tapering/coverage, fully preserved priced discoveries, uncapped
+evidence-driven bids, progressive bounded social influence, exact buyout thresholds,
+private-information boundaries and legacy persistence. Full `npm run check` passed:
+495 node tests (one skipped), 59 Chromium checks, production build, lint and
+typecheck; 21 existing lint warnings, none new. Browser checks include desktop/
+phone and dark/light auction flows plus Singles/Sealed regressions. The local test
+database still logs existing missing-history-column fallback diagnostics; all
+checks passed without applying a migration. Nothing has been pushed or deployed.
+
+## Approved investigations and initial NPC prior trial — local, 2026-10-16
+
+The investigation changes below remain current. Its opening weights and simulation
+numbers are a **superseded local trial**, retained for comparison; the follow-up
+above is the active policy.
+
+Implemented after user approval; **not pushed or deployed**. The preceding uncapped
+rarity-composition work is retained. Changed investigation effects have new IDs;
+old purchased results, old already-offered prices/effects and locked NPC bids keep
+their meaning. New menus use the following choices (virtual USD, up-to counts):
+
+| Choice | Effect / cost |
+|---|---|
+| Lot Audit | Set, duplicate, Common and Uncommon counts plus one hidden rarity marker; $4. Replaces those four standalone offers. |
+| Rarity Census | Exclusive rarity/treatment counts, including Alt Art/Overnumbered/Signature separately; $12. |
+| Rarity Peek | 12 random hidden rarity markers; $4. |
+| Rare / Epic / Alt-Art Markers | 12 / 8 / 5 hidden rarity markers; $3 / $4 / $5. |
+| Identity / Rare Identity / Epic Identity | 5 / 8 / 5 identities without prices; $3 / $4 / $6. |
+| Binder Preview | 12 identities without prices; $10. |
+| Random Price Scan | 5 random unpriced identities and prices; $6. |
+| Rare / Epic / Alt-Art Scan | 12 / 6 / 4 matching unpriced identities and prices; $6 / $10 / $12. |
+| Bulk / Rare Valuation | Same exact category-subtotal effects; $5 / $8. |
+| Top Card Rarity | Same top location/rarity, no new identity/price; $12. |
+| Chase Marker / Identity / Scan | One random Overnumbered/Signature copy at rarity-only / identity-only / priced visibility; $10 / $25 / $45 in either auction type. |
+| $5 / $20 Price Check | Exact whole-lot count plus one qualifying hidden rarity marker when available; $15 / $25. Zero matches stay an honest zero. |
+| Concentration Report | Top-three value concentration under 30%, 30–under 60%, or at least 60%; $12. Not a total-value appraisal or an exact percentage. |
+| Top-Two Valuation | Round 4 only; exact two-copy subtotal, $75 free / $125 paid. Not offered when both prices are already disclosed. |
+| Follow-Up Inspection | $8 to choose one private rarity marker acquired in an earlier round and reveal its identity and price. No charge for missing/forged/stale targets. |
+
+Menus mix basic, targeted and stronger information, keeping one purchase per round.
+Exhausted scans/identity reveals and already-disclosed category prices are not sold
+again. No speculative automatic free fallback reveal was added; up-to counts and
+threshold zeros remain explicit. Presence-filtered menus still reveal some
+availability; a hidden-content-independent menu policy remains a future decision.
+New findings use the existing round grouping, safe popups and flip/sound behavior.
+The follow-up picker exposes only previously disclosed rarity/identity metadata.
+
+### Why the opening bids were low
+
+The old estimator clips each sampled price at three times the sample median,
+discounts the unseen remainder by roughly 55–95%, then applies fees and each
+personality's resale margin. Cheap public/private samples thus erased most
+expectation of unseen premium cards. The old $2,500 bid clamp also suppressed
+legitimately high personal estimates, especially later in paid auctions.
+
+NPC bids now have **no monetary ceiling**, including persisted bids, history and
+settlement. Nonnegative finite safe-integer cent validation remains; unsafe numeric
+overflow is not converted into a giant bid. Player bids are still limited by their
+own balance. NPC information remains free and NPC cash is not persistent.
+
+Each new auction freezes a compact public-catalog prior: mean price, conservative
+rarity reference price and expected share per band, weighted for auction kind and
+the publicly described theme. The conservative reference clips prices at three
+times that band's median (80% clipped mean / 20% median), rather than treating a
+rare expensive catalog outlier as the value of every rarity-marked card.
+It is built from eligible catalog entries, never the generated hidden lot, its
+true total, or its draw sequence. The known copy count scales this per-card model.
+Cheap random samples no longer imply that all remaining cards are bulk. Actual
+private/public prices, disclosed counts and private rarity markers adjust estimates;
+an exact top-two/five subtotal supersedes the general prior.
+
+The prior blend tapers over rounds: 50% / 30% / 12% / 0%, further reduced as more of
+the lot becomes individually priced. Existing fee awareness, margins, seeded moods,
+small risk events, pass chances and bounded prior-public-bid influence remain.
+Round four has no blind starting-average floor. Disclosed rarity counts/markers
+and identity-only cards can still use conservative catalog cohort references;
+threshold counts and concentration reports retain mathematically disclosed lower
+bounds. None of these read the hidden identities/prices that were not revealed.
+Current sealed bids,
+other bidders' private facts and uninspected prices never enter the model. Old saves
+without a catalog prior keep their sample-only estimator; fresh auctions use the
+new model. Current locked bids are never recalculated on load.
+
+### Simulation and remaining economy tradeoff
+
+Same production snapshot as the composition analysis, 1,000 deterministic seeds per
+type. These are game simulations, not measured user outcomes. Artwork was not
+re-probed; browser preparation still excludes failed artwork.
+
+| Opening measure | Free before → after | Paid before → after |
+|---|---:|---:|
+| Median individual NPC bid (including passes) | $30.71 → $292.48 | $107.43 → $1,065.28 |
+| Mean individual NPC bid | $210.24 → $538.11 | $389.90 → $1,296.96 |
+| Affordable buyout costing under 25% of true net lot value | 24.9% → 3.1% | 40.1% → 0.8% |
+| NPC early-buyout opportunity if player passes | 29.4% → 12.4% | 37.0% → 7.5% |
+
+Cheap-buyout percentages count all simulated auctions, require starting cash to
+cover the bid, and use the minimum bid clearing the highest rival at the round-one
+threshold. The before column uses the pre-rebalance rules, not a new prior-disabled
+run. True net lot value is used only to audit the simulation, never as an NPC input.
+
+A controlled all-pass run with the new investigations/unlimited bids compares
+sample-only vs final prior model. NPC settlement losses rise from 1.8% to 28.2% free
+and 1.4% to 13.8% paid. The final prior gives way to a fourth round in 46.3% free /
+44.7% paid games, versus 39.1% / 31.1% in that control. Slower-fading priors and raw
+cohort means produced excessive overpayment/rebates and were not retained. These rates differ from
+per-bid overpayment because most early bids never become a purchase.
+
+Existing loss sharing is unchanged. Always passing earns an average $7.26 free
+rebate per simulated auction; paid's $12.71 rebate remains below its $50 entry fee.
+This small free passive-payout incentive is still real, and uncapped rare outlier
+losses can produce large rebates. Funding/capping payouts or requiring meaningful
+participation needs an explicit future economy decision; no such restriction was
+silently introduced in this change. There is no real-money trading or guarantee.
+
+No extra pricing API/Worker/D1 calls, daily ingestion or database changes. The
+catalog model and private NPC findings add only small browser-save metadata.
+
+Final local validation: `npm run check` passed 490 node tests (one skipped), all
+59 Chromium checks, production build, typecheck and lint (21 pre-existing warnings,
+none new). Coverage includes current/legacy clue effects and prices, larger scans,
+marker privacy, earlier-round selectable follow-ups, stale/corrupt target rejection,
+explicit paid/free final valuation costs, uncapped bid persistence/settlement,
+catalog-only prior construction, final-round disclosed evidence and unchanged
+sealed-bid privacy. Desktop/phone dark/light follow-up screenshots were reviewed;
+the action keeps the site's control sizing and a two-column label/price layout.
+No push, deployment, migration or production/staging mutation was performed.
+
+## Uncapped rarity composition — local only, 2026-10-15
+
+Implemented at the user's request; **not committed, pushed or deployed**. New lots
+have no $2,000 gross-value ceiling or price-based affordability filter. Selection
+uses explicit mutually exclusive rarity/treatment bands, then the existing theme's
+set focus and repeat preference. Seeded playset limits, artwork eligibility, real
+catalog prices, free 25–90 / paid 50–130 sizes and $50 paid entry remain unchanged.
+Existing frozen auctions and inventory are not regenerated or repriced by this change.
+
+`core/domain/auction-composition.ts` targets free Epic 8%, Alt Art 5%, Signature
+0.37%; paid Epic 12%, Alt Art 8%, Signature 0.5%. Other category targets retain
+the preceding measured proportions; Common is the remainder. Theme premium/bulk/
+rare multipliers average to these targets across equally likely themes, rather
+than guaranteeing identical compositions within every lot. Missing or exhausted
+bands renormalize over available copy-limited stock. These are gameplay targets,
+not real pack odds. The former 50% free-signature retention is superseded by the
+explicit signature weight, not layered on top of it.
+
+Same production D1 catalog/price snapshot as the prior value analysis: 1,288 priced
+artwork-bearing printing entries; 2,000 deterministic seeds per mode. Artwork URLs
+were not re-probed in this offline analysis; browser preparation still excludes
+failed artwork. Actual per-card shares:
+
+| Band | Free | Paid |
+|---|---:|---:|
+| Common | 22.52% | 22.69% |
+| Uncommon | 24.95% | 17.81% |
+| Rare | 34.25% | 30.33% |
+| Epic | 7.81% | 11.76% |
+| Alt Art | 5.09% | 7.97% |
+| Overnumbered | 1.82% | 4.13% |
+| Signature | 0.39% | 0.51% |
+| Other | 3.17% | 4.80% |
+
+At least one Signature occurred in 18.75% free / 37.15% paid lots; average copies
+0.2245 / 0.4615. Aggregate shares vary with random seeds, stock and artwork exclusions.
+Mean lot values $1,345.55 / $3,151.79, medians $390.18 / $2,265.24, middle 80%
+$38.39–$3,989.77 / $447.64–$7,090.88. Simulated maxima $16,304.96 / $20,122.92
+are observations, not new caps. Source prices and every value calculation stay exact.
+
+At this first composition step, the separate $2,500 NPC bid limit, starting cash,
+selling fee and loss-sharing mechanic were unchanged; the follow-up above removes
+the NPC bid limit. Removing the lot cap makes large wins very profitable and
+can accelerate the existing virtual-cash inflation; investigate funded NPC budgets,
+progression and stakes separately rather than silently changing those rules.
+No extra API/Worker calls, D1 reads/writes, ingestion changes or migration.
+
+Local verification: full `npm run check` passed (478 node tests, one skipped;
+58 Chromium checks; build, lint and typecheck). No new source warnings. Windows
+temp-file replacement required a workspace-local test temp directory; browser
+tests required localhost networking outside the restricted network sandbox. An
+initial browser run observed a dev-server feed reload during a comment edit;
+the full clean-source rerun passed the unchanged no-extra-gameplay-request check.
+Tests cover target/theme averages, seeded empirical shares, price-independent
+selection above $2,000, missing-stock fallback, playset constraints, source-order
+stability, save compatibility and uncapped settlement/inventory proceeds. NPC
+overpayment tests retain their strict affordable-lot inflation check while allowing
+genuinely expensive uncapped lots to reach the unchanged $2,500 bidding limit.
+
+### Investigation rebalance proposal — approved 2026-10-16, implemented above
+
+Simulated on the new lots at round 3 after public reveals, with no prior private
+purchases, comparing each clue independently. Covered hidden-card value is NOT
+money shown by rarity/identity clues, nor a measurement of information quality.
+Use medians over means because rare chase prices heavily skew means. Current
+Rare Scan's median priced total is only $3.86 free / $4.17 paid for a $15 purchase;
+Epic Scan $11.04 / $20.95 for $20; Alt-Art Scan $8.21 / $11.80 for $30. Top-Two
+Valuation discloses a median exact subtotal of $254.44 / $1,616.85 for only $35.
+Thus stronger ordinary scans and a later, more expensive top-two clue are warranted.
+
+Proposed virtual costs/effects, not market-value guarantees:
+
+| Family | Proposed change |
+|---|---|
+| Set / duplicate / Common / Uncommon counts | Consolidate into a $4 Lot Audit: all four counts plus one random hidden rarity marker, replacing four low-impact standalone choices. |
+| Rarity Census | Keep $12; show all category counts in one concise breakdown. |
+| Rarity Peek | Keep $4, increase 8 to 12 random hidden rarity markers. |
+| Rare / Epic / Alt-Art Markers | Reduce $6/$10/$12 to $3/$4/$5; increase up-to counts 8/5/3 to 12/8/5. |
+| Identity Peek / Rare / Epic identity | Reduce $6/$12/$18 to $3/$4/$6; increase up-to counts 3/5/3 to 5/8/5. Names/art only; expert recognition is useful but exact prices stay hidden. |
+| Binder Preview | $16 to $10 for up to 12 identities, not 10. |
+| Random Price Scan | $12 to $6; up to 5 unpriced random copies instead of 3. A cheap lottery, not guaranteed profit. |
+| Rare / Epic / Alt-Art Scan | $15/$20/$30 to $6/$10/$12; up to 12/6/4 priced identities. |
+| Bulk / Rare Valuation | $15 each to $5/$8; exact category subtotals, no new identities. |
+| Top Card Rarity | $8 to $12; keep only the top card's location and rarity. |
+| Chase Marker / Identity / Scan | $18/$35/$65 to $10/$25/$45; retain one random chase copy, not necessarily the most valuable. Consider $65 paid Chase Scan if playtesting justifies a separate clearly displayed price. |
+| $5 / $20 Price Check | Keep $15/$25 count-only; add a rarity-only location marker for one qualifying hidden copy so the result has a tangible collection interaction. |
+| Top-Three Share | Replace the precise rounded percentage with a $12 Concentration Report (broad concentration bands); reduce calculator-like combinations with top-two subtotals. This is not a total-value band/appraisal. |
+| Top-Two Valuation | Round 4 only, $75 free / $125 paid, unchanged two-copy subtotal. Avoid offering it when both prices are already known. |
+| New: Follow-Up Inspection | $6–$10 to price one player-selected previously marked hidden card in a later round. Makes cheaper rarity-only clues a deliberate setup instead of dead-end information. |
+
+Keep one purchase per round. Curate each menu to offer a cheap broad clue, a
+targeted clue and a stronger valuation/identity choice, rather than near-duplicates.
+Never repeatedly charge for information already disclosed. Targeted scans should
+state up-to counts and may find fewer cards; consider one random unpriced fallback
+reveal when no target remains, rather than selling an empty animation. Decide and
+test the fallback/menu policy explicitly: presence-filtered offers already leak
+some rarity availability. Preserve legacy purchased clue semantics and saved prices
+via versioned IDs when implementing any changed effect; update NPC estimators and
+strategies with the same disclosed-information boundary, not hidden lot knowledge.
+
 ## Optional auto advance and presentation cues — 2026-10-15
 
 Header controls put Auto Advance beside Mute Sound. It defaults off and persists as

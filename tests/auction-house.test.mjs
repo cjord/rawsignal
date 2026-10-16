@@ -36,7 +36,7 @@ test('identity-only and aggregate investigations never leak or double-count know
  const aggregate=investigate(auction,INVESTIGATIONS.find(option=>option.id==='top5'));assert.equal(knownValue({...auction,...aggregate}),before);
  const expected=auction.priced.length+3,priced=investigate(auction,INVESTIGATIONS.find(option=>option.id==='reveal3'));assert.equal(priced.priced.length,expected);
  auction={...auction,known:priced.known,priced:priced.priced};assert.equal(new Set(auction.priced).size,expected);
- assert.equal(INVESTIGATIONS.filter(option=>!RETIRED_INVESTIGATION_IDS.includes(option.id)).length,27);
+ assert.equal(INVESTIGATIONS.filter(option=>!RETIRED_INVESTIGATION_IDS.includes(option.id)).length,25);
 });
 test('bid lock is irreversible, cents-valid and affordable; NPC acceleration changes timing only',()=>{
  const save=start(),before=save.auction.npcs.map(npc=>npc.bid),locked=lockBid(save,10000,1100);
@@ -95,9 +95,9 @@ test('missing inventory prices remain owned and are not sold as zero; fee config
  for(const bad of [-1,10001,1.1,NaN])assert.equal(changeAuctionFee(save,bad),save);
  const active=start();assert.equal(changeAuctionFee(active,500),active);
 });
-test('NPC valuation uses only supplied clue prices and count range, bounded virtual cash and a repeatable seed',()=>{
+test('NPC valuation uses supplied evidence and a repeatable seed without a monetary bid ceiling',()=>{
  assert.equal(npcBid([100,200],[25,50],[],0,()=>.5),npcBid([100,200],[25,50],[],0,()=>.5));
- assert.ok(npcBid([10000000],[25,50],[],1,()=>.5)<=250000);
+ assert.ok(npcBid([10000000],[25,50],[],1,()=>.5)>250000);
  assert.equal(npcBid([100],[25,50],[],0,()=>.99),0);
 });
 test('local saves validate corruption, normalize holdings without stored values and preserve resumable frozen auctions',()=>{

@@ -4,9 +4,12 @@ import {prepareAuctionLot} from '../app/data/auction-images.ts';
 import {generateAuctionLot} from '../core/domain/auction-lots.ts';
 const pool=Array.from({length:100},(_,i)=>({productId:i+1,printing:'Normal',name:`Card ${i}`,image:`https://images.example/${i}`,set:'Origins',rarity:i<70?'Common':'Rare',section:'rares',cents:100+i}));
 test('artwork failures beyond four draws are excluded automatically until a valid collection is built',async()=>{
+ // Plenty of unseen artwork keeps this retry test independent of a small pool's
+ // composition: the generator may otherwise finish earlier using cached successes.
+ const stock=Array.from({length:10},(_,batch)=>pool.map(card=>({...card,productId:card.productId+batch*100,image:`${card.image}-${batch}`}))).flat();
  const failed=new Set(),valid=new Set();let active=0,peak=0,draws=0,loaded=false,rejected=false;
  const loader={failed:src=>{if(loaded){draws++;loaded=false;rejected=false}return failed.has(src)},exclude:src=>failed.add(src),load:async src=>{loaded=true;active++;peak=Math.max(peak,active);const reject=!rejected&&draws<6;if(reject)rejected=true;await new Promise(resolve=>setTimeout(resolve,1));active--;if(reject)return false;valid.add(src);return true}};
- const lot=await prepareAuctionLot(pool,loader,42);assert.ok(lot.length>=25&&lot.length<=90);assert.ok(draws>=6);assert.ok(lot.every(card=>valid.has(card.image)&&!failed.has(card.image)));assert.ok(peak<=6);
+ const lot=await prepareAuctionLot(stock,loader,42);assert.ok(lot.length>=25&&lot.length<=90);assert.ok(draws>=6);assert.ok(lot.every(card=>valid.has(card.image)&&!failed.has(card.image)));assert.ok(peak<=6);
 });
 test('artwork exhaustion and cancellation terminate safely instead of looping forever',async()=>{
  let calls=0;const excluded=new Set(),loader={failed:src=>excluded.has(src),exclude:src=>excluded.add(src),load:async()=>{calls++;return false}};

@@ -3,19 +3,20 @@ import {INVESTIGATIONS,LEGACY_INVESTIGATION_COSTS,PREVIOUS_INVESTIGATION_COSTS,P
 import {AUCTION_NPCS} from './auction-npcs.ts';
 import {NPC_INVESTIGATION_IDS} from './auction-npc-information.ts';
 import {AUCTION_LOT_THEMES} from './auction-lot-themes.ts';
+import {rebalancedCost} from './auction-investigations-v2.ts';
 
 export const AUCTION_STORAGE_KEY='raw-signal-auction-house-v1';
 const record=(value:unknown)=>value!==null&&typeof value==='object'&&!Array.isArray(value);
-const integer=(value:unknown,max=1e12):value is number=>typeof value==='number'&&Number.isSafeInteger(value)&&value>=0&&value<=max;
+const integer=(value:unknown,max=Number.MAX_SAFE_INTEGER):value is number=>typeof value==='number'&&Number.isSafeInteger(value)&&value>=0&&value<=max;
 const text=(value:unknown,max=300):value is string=>typeof value==='string'&&value.length<=max;
 function validLot(auction:Auction){
  return Array.isArray(auction.lot)&&auction.lot.length>=6&&auction.lot.length<=350&&auction.lot.every(card=>record(card)&&integer(card.productId)&&card.productId>0&&text(card.printing,80)&&text(card.name)&&text(card.set)&&text(card.rarity)&&text(card.section)&&text(card.image,2000)&&/^https?:\/\//.test(card.image)&&integer(card.cents)&&card.cents>0);
 }
 function validSlots(value:unknown,length:number):value is number[]{return Array.isArray(value)&&value.length<=length&&new Set(value).size===value.length&&value.every(index=>integer(index,length-1))}
 function validNpcs(auction:Auction){
- return Array.isArray(auction.npcs)&&auction.npcs.length===3&&auction.npcs.every(npc=>record(npc)&&AUCTION_NPCS.some(profile=>profile.name===npc.name)&&integer(npc.bid,250000)&&integer(npc.lockAt,Number.MAX_SAFE_INTEGER)&&typeof npc.locked==='boolean'&&validSlots(npc.sample,auction.lot.length)&&validNpcInformation(npc,auction.lot.length))&&new Set(auction.npcs.map(npc=>npc.name)).size===3;
+ return Array.isArray(auction.npcs)&&auction.npcs.length===3&&auction.npcs.every(npc=>record(npc)&&AUCTION_NPCS.some(profile=>profile.name===npc.name)&&integer(npc.bid)&&integer(npc.lockAt,Number.MAX_SAFE_INTEGER)&&typeof npc.locked==='boolean'&&validSlots(npc.sample,auction.lot.length)&&validNpcInformation(npc,auction.lot.length))&&new Set(auction.npcs.map(npc=>npc.name)).size===3;
 }
-function validNpcInformation(npc:Auction['npcs'][number],length:number){return (npc.identified===undefined||validSlots(npc.identified,length))&&(npc.inspected===undefined||validSlots(npc.inspected,length))&&(npc.investigations===undefined||Array.isArray(npc.investigations)&&npc.investigations.length<=4&&new Set(npc.investigations).size===npc.investigations.length&&npc.investigations.every(id=>NPC_INVESTIGATION_IDS.includes(id)))}
+function validNpcInformation(npc:Auction['npcs'][number],length:number){return (npc.identified===undefined||validSlots(npc.identified,length))&&(npc.inspected===undefined||validSlots(npc.inspected,length))&&(npc.rarityKnown===undefined||validSlots(npc.rarityKnown,length))&&(npc.findings===undefined||Array.isArray(npc.findings)&&npc.findings.length<=4&&npc.findings.every(validClue))&&(npc.investigations===undefined||Array.isArray(npc.investigations)&&npc.investigations.length<=4&&new Set(npc.investigations).size===npc.investigations.length&&npc.investigations.every(id=>NPC_INVESTIGATION_IDS.includes(id)))}
 function validClue(value:unknown){
  const clue=value as {id?:unknown;label?:unknown;text?:unknown;round?:unknown;reveals?:unknown};
  return record(value)&&text(clue.id)&&text(clue.label)&&text(clue.text,3000)&&(clue.round===undefined||integer(clue.round,4)&&clue.round>=1)&&validClueReveals(clue.reveals);
@@ -26,19 +27,25 @@ function validClueReveals(value:unknown){
 function validBidNotes(notes:unknown){return notes===undefined||Array.isArray(notes)&&notes.length<=4&&notes.every(validClue)}
 function validBids(bids:unknown){return Array.isArray(bids)&&bids.length<=4&&bids.every(bid=>record(bid)&&text(bid.name)&&integer(bid.cents)&&validBidNotes(bid.notes))}
 function validClues(auction:Auction){
- return Array.isArray(auction.offers)&&auction.offers.length<=3&&auction.offers.every(option=>record(option)&&INVESTIGATIONS.some(known=>known.id===option.id&&(known.cost===option.cost||LEGACY_INVESTIGATION_COSTS[option.id]===option.cost||PREVIOUS_INVESTIGATION_COSTS[option.id]===option.cost||PRE_BALANCE_INVESTIGATION_COSTS[option.id]===option.cost)&&known.tier===option.tier)&&text(option.label)&&(option.description===undefined||text(option.description,500)))&&Array.isArray(auction.clues)&&auction.clues.length<=4&&auction.clues.every(clue=>validClue(clue)&&(clue.round===undefined||clue.round<=auction.round));
+ return Array.isArray(auction.offers)&&auction.offers.length<=3&&auction.offers.every(option=>record(option)&&INVESTIGATIONS.some(known=>known.id===option.id&&(rebalancedCost(known,auction)===option.cost||LEGACY_INVESTIGATION_COSTS[option.id]===option.cost||PREVIOUS_INVESTIGATION_COSTS[option.id]===option.cost||PRE_BALANCE_INVESTIGATION_COSTS[option.id]===option.cost)&&known.tier===option.tier)&&text(option.label)&&(option.description===undefined||text(option.description,500)))&&Array.isArray(auction.clues)&&auction.clues.length<=4&&auction.clues.every(clue=>validClue(clue)&&(clue.round===undefined||clue.round<=auction.round));
 }
 function validRoundMetadata(auction:Auction){return ['round','reveal','result'].includes(auction.stage)&&integer(auction.round,4)&&auction.round>=1&&integer(auction.seed)&&integer(auction.deadline,Number.MAX_SAFE_INTEGER)&&integer(auction.feeBps,10000)&&integer(auction.spent)&&typeof auction.bought==='boolean'&&(auction.selected===null||integer(auction.selected))}
 function validSnapshot(auction:Auction){
+ if(!validMarketPrior(auction.marketPrior))return false;
  if(auction.lotTheme!==undefined&&!AUCTION_LOT_THEMES.some(theme=>theme.id===auction.lotTheme))return false;
  if(auction.topCardSlot!==undefined&&(!integer(auction.topCardSlot,auction.lot?.length-1)||!auction.rarityKnown?.includes(auction.topCardSlot)))return false;
  if(!validLot(auction)||!validPublicReveals(auction)||auction.rarityKnown!==undefined&&!validSlots(auction.rarityKnown,auction.lot.length))return false;
  return Array.isArray(auction.range)&&auction.range.length===2&&auction.range.every(value=>integer(value,1000))&&auction.range[0]<=auction.range[1]&&validSlots(auction.known,auction.lot.length)&&validSlots(auction.priced,auction.lot.length)&&auction.priced.every(slot=>auction.known.includes(slot));
 }
+function validMarketPrior(prior:Auction['marketPrior']){
+ if(prior===undefined)return true;
+ const finite=(value:number)=>typeof value==='number'&&Number.isFinite(value)&&value>=0&&value<=Number.MAX_SAFE_INTEGER;
+ return record(prior)&&finite(prior.mean)&&Array.isArray(prior.bands)&&prior.bands.length<=8&&new Set(prior.bands.map(row=>row?.band)).size===prior.bands.length&&prior.bands.every(row=>record(row)&&['common','uncommon','rare','epic','alt','over','signature','other'].includes(row.band)&&finite(row.mean)&&(row.typical===undefined||finite(row.typical))&&finite(row.share)&&row.share<=1)&&Math.abs(prior.bands.reduce((sum,row)=>sum+row.share,0)-1)<1e-8;
+}
 function validPublicReveals(auction:Auction){return auction.publicReveals===undefined||Array.isArray(auction.publicReveals)&&auction.publicReveals.length<=4&&new Set(auction.publicReveals.map(reveal=>reveal?.round)).size===auction.publicReveals.length&&auction.publicReveals.every(reveal=>record(reveal)&&integer(reveal.round,auction.round)&&reveal.round>=1&&validSlots(reveal.slots,auction.lot.length)&&reveal.slots.length<=(reveal.round===1?Math.ceil(auction.lot.length*.05)+3:3)&&Array.isArray(auction.priced)&&reveal.slots.every(slot=>auction.priced.includes(slot)))}
 function validResult(auction:Auction){
  if(auction.stage!=='result')return auction.result===null;
- const result=auction.result;return !!result&&record(result)&&(result.winner===null||result.winner==='You'||AUCTION_NPCS.some(profile=>profile.name===result.winner))&&integer(result.bid)&&integer(result.value)&&integer(result.fee)&&typeof result.net==='number'&&Number.isSafeInteger(result.net)&&Math.abs(result.net)<=1e12&&integer(result.playerExpenses)&&typeof result.buyout==='boolean'&&validLossShares(result.lossShares);
+ const result=auction.result;return !!result&&record(result)&&(result.winner===null||result.winner==='You'||AUCTION_NPCS.some(profile=>profile.name===result.winner))&&integer(result.bid)&&integer(result.value)&&integer(result.fee)&&typeof result.net==='number'&&Number.isSafeInteger(result.net)&&integer(result.playerExpenses)&&typeof result.buyout==='boolean'&&validLossShares(result.lossShares);
 }
 function validLossShares(shares:unknown){
  return shares===undefined||Array.isArray(shares)&&shares.length<=3&&new Set(shares.map(share=>share?.name)).size===shares.length&&shares.every(share=>record(share)&&text(share.name)&&integer(share.cents));

@@ -5,11 +5,12 @@ import {beginAuction,lockBid,tickAuction,nextAuctionRound,npcBid} from '../core/
 import {auctionRandom,initialAuctionSave} from '../core/domain/auction-types.ts';
 import {AUCTION_NPCS,auctionNpcMood} from '../core/domain/auction-npcs.ts';
 import {npcRoundInformation} from '../core/domain/auction-npc-information.ts';
+import {AUCTION_RARITY_TARGETS} from '../core/domain/auction-composition.ts';
 
 const sections=['epics','alt-arts','overnumbered','signatures'];
 const pool=sections.flatMap((section,tier)=>Array.from({length:40},(_,index)=>({productId:tier*40+index+1,printing:'Normal',name:`Card ${tier}-${index}`,image:`https://images.example/${tier}-${index}`,set:'Origins',rarity:'Epic',section,cents:100})));
 
-test('free auctions modestly reduce overnumbers and more strongly reduce signatures without changing paid selection',()=>{
+test('premium-only catalogs renormalize the requested mix rather than inventing bulk stock',()=>{
  const shares={};
  for(const kind of ['free','paid']){
   const counts=Object.fromEntries(sections.map(section=>[section,0]));let total=0;
@@ -20,27 +21,27 @@ test('free auctions modestly reduce overnumbers and more strongly reduce signatu
   }
   shares[kind]=Object.fromEntries(sections.map(section=>[section,counts[section]/total]));
  }
- assert.ok(shares.free.overnumbered<shares.paid.overnumbered*.9);
- assert.ok(shares.free.signatures<shares.paid.signatures*.65);
- assert.ok(shares.free.overnumbered>.1&&shares.free.signatures>.05);
- for(const section of sections)assert.ok(shares.paid[section]>.22&&shares.paid[section]<.28);
+ for(const kind of ['free','paid']){
+  const target=AUCTION_RARITY_TARGETS[kind],total=target.epic+target.alt+target.over+target.signature;
+  for(const [section,band] of [['epics','epic'],['alt-arts','alt'],['overnumbered','over'],['signatures','signature']])assert.ok(Math.abs(shares[kind][section]-target[band]/total)<.01,`${kind} ${band}`);
+ }
 });
 
-test('chase-only remaining stock still completes affordable free lots rather than stalling or inventing cards',()=>{
+test('chase-only remaining stock still completes free lots rather than stalling or inventing cards',()=>{
  const limited=pool.filter(card=>card.section==='signatures');
  for(let seed=0;seed<50;seed++){const lot=generateAuctionLot(limited,seed);assert.ok(lot.length>=25&&lot.length<=90);assert.ok(lot.every(card=>limited.some(source=>source.productId===card.productId)))}
 });
 
-test('both modes price personal clues without opening or paid price boosts, preserving seeded participation and caps',()=>{
+test('both modes price personal clues without blanket bid boosts, preserving seeded participation and safe cent bids',()=>{
  for(const kind of ['free','paid'])for(let seed=0;seed<20;seed++){
   let save=beginAuction(initialAuctionSave(),pool,1000,pool.slice(0,50),seed,kind),previous;
   for(let round=1;round<=3;round++){
    const auction=save.auction,random=auctionRandom(seed+round*103);
    auction.npcs.forEach((npc,index)=>{
     const knowledge=npcRoundInformation(auction,index,npc.sample,previous?.[index]),mood=auctionNpcMood(seed,npc.name),personality=AUCTION_NPCS.findIndex(profile=>profile.name===npc.name);
-    assert.equal(npc.bid,npcBid(knowledge.prices,auction.range,[],personality,random,auction.feeBps,mood.confidence,mood.participation+(kind==='paid'?.04:0),knowledge.estimate,knowledge.certainty));
+    assert.equal(npc.bid,npcBid(knowledge.prices,auction.range,[],personality,random,auction.feeBps,mood.confidence,mood.participation+(kind==='paid'?.04:0),knowledge.estimate,knowledge.certainty,round));
     assert.equal(npc.lockAt,auction.deadline-60000+Math.round((.3+random()*.6)*60000));
-    assert.ok(npc.bid>=0&&npc.bid<=250000);
+    assert.ok(Number.isSafeInteger(npc.bid)&&npc.bid>=0);
    });
    previous=auction.npcs;
    save=lockBid(save,0,auction.deadline-1);

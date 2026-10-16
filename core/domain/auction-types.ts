@@ -6,13 +6,14 @@ export const AUCTION_ROUNDS=[{seconds:60,threshold:100},{seconds:60,threshold:60
 export type Holding={productId:number;printing:string;quantity:number};
 export type AuctionCard={productId:number;printing:string;name:string;image:string;set:string;rarity:string;section:string;cents:number};
 export type Wallet={cash:number;feeBps:number;inventory:Holding[]};
-export type Npc={name:string;bid:number;lockAt:number;locked:boolean;sample:number[];investigations?:string[];inspected?:number[];identified?:number[]};
+export type Npc={name:string;bid:number;lockAt:number;locked:boolean;sample:number[];investigations?:string[];inspected?:number[];identified?:number[];rarityKnown?:number[];findings?:Clue[]};
+export type AuctionMarketPrior={mean:number;bands:{band:string;mean:number;share:number;typical?:number}[]};
 export type Investigation={id:string;label:string;description?:string;cost:number;tier:"basic"|"targeted"|"strong"|"premium"};
 export type ClueReveal={slot:number;visibility:'rarity'|'identity'|'price'};
 export type Clue={id:string;label:string;text:string;round?:number;reveals?:ClueReveal[]};
 export type RoundBid={name:string;cents:number;notes?:Clue[]};
 export type AuctionResult={winner:string|null;bid:number;value:number;fee:number;net:number;playerExpenses:number;buyout:boolean;lossShares?:{name:string;cents:number}[]};
-export type Auction={seed:number;lotTheme?:string;publicReveals?:PublicReveal[];rarityKnown?:number[];topCardSlot?:number;stage:"round"|"reveal"|"result";round:number;deadline:number;lot:AuctionCard[];range:[number,number];known:number[];priced:number[];offers:Investigation[];clues:Clue[];bought:boolean;spent:number;selected:number|null;npcs:Npc[];bids:RoundBid[];bidHistory:RoundBid[][];result:AuctionResult|null;feeBps:number;kind?:AuctionKind;entryFee?:number};
+export type Auction={seed:number;marketPrior?:AuctionMarketPrior;lotTheme?:string;publicReveals?:PublicReveal[];rarityKnown?:number[];topCardSlot?:number;stage:"round"|"reveal"|"result";round:number;deadline:number;lot:AuctionCard[];range:[number,number];known:number[];priced:number[];offers:Investigation[];clues:Clue[];bought:boolean;spent:number;selected:number|null;npcs:Npc[];bids:RoundBid[];bidHistory:RoundBid[][];result:AuctionResult|null;feeBps:number;kind?:AuctionKind;entryFee?:number};
 export type AuctionSave={version:1;revision:number;sequence:number;wallet:Wallet;auction:Auction|null};
 export type PublicReveal={round:number;slots:number[]};
 export const holdingKey=(card:Pick<Holding,"productId"|"printing">)=>`${card.productId}:${card.printing}`;

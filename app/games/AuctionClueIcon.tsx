@@ -23,12 +23,15 @@ const paths:Record<string,string>={
 export default function AuctionClueIcon({id}:{id:string}){
  const tier=INVESTIGATIONS.find(option=>option.id===id)?.tier;
  const target=/^(common|uncommon|rare|epic|alt|chase)(?:\d|-)/.exec(id)?.[1];
- const tone=target?targetTones[target]:id==='rares'?'rare':tier?tierTones[tier]:undefined;
+ const tone=target?targetTones[target]:id==='rares'||id==='rares-v2'?'rare':tier?tierTones[tier]:undefined;
  let glyph=id;
  if(id.startsWith('rarity-peek')||id.includes('-mark'))glyph='rarities';
  if(id.endsWith('-count'))glyph='count';
  if(id==='highest-rarity')glyph='highest';
  if(id.includes('-identity'))glyph='identity3';
  if(/^(common|uncommon|rare|epic|alt|chase)\d+$/.test(id))glyph=id==='chase1'?'highest':id==='common3'||id==='uncommon3'?'bulk':'rares';
+ if(/^identity\d+$/.test(id))glyph='identity3';
+ const aliases:Record<string,string>={'lot-audit':'count','rarities-v2':'rarities','bulk-v2':'bulk','rares-v2':'rares','highest-rarity-v2':'highest','over5-mark':'over5','over20-mark':'over20',concentration:'share','top2-final':'top2','follow-up':'reveal3','chase-scan-v2':'highest','chase-mark-v2':'rarities'};
+ glyph=aliases[id]??glyph;
  return <svg className="auction-clue-icon" data-clue={glyph} data-tone={tone} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[glyph==='public-start'?'reveal3':glyph==='legacy-inspection'?'identity3':glyph]??paths.appraisal}/></svg>;
 }
