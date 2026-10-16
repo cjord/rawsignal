@@ -69,8 +69,9 @@ function varyDigest(request: Request, signature: string): string {
 // Routes are keyed by their URL; pages by URL plus a digest of the negotiation headers and the
 // publish signature.
 export function edgeCacheKey(request: Request, kind: EdgeCacheClass = edgeCacheClass(request), signature = ""): Request {
-  if (kind !== "page") return new Request(request.url, { method: "GET" });
   const url = new URL(request.url);
+  const dailyGame=/^\/api\/(auction|showdown)\/daily$/.test(url.pathname);
+  if (kind !== "page" && !dailyGame) return new Request(request.url, { method: "GET" });
   url.searchParams.set("__edge", varyDigest(request, signature));
   return new Request(url.toString(), { method: "GET" });
 }

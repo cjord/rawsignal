@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
-import {loadDailyAuctionManifest} from '../db/auction-daily.ts';
+import {loadDailyAuctionManifest as readAuction} from '../db/auction-daily.ts';
 import {createDailyAuctionManifest} from '../core/domain/auction-daily.ts';
-import {loadDailyShowdownManifest} from '../db/showdown-daily.ts';
+import {loadDailyShowdownManifest as readShowdown} from '../db/showdown-daily.ts';
+const loadDailyAuctionManifest=(db,now,date)=>readAuction(db,now,date,async()=>true);
+const loadDailyShowdownManifest=(db,now,date)=>readShowdown(db,now,date,async()=>true);
 
 const catalog=Array.from({length:150},(_,index)=>({productId:index+1,printing:'Normal',name:`Card ${index}`,image:`https://images.example/${index}`,set:'Origins',rarity:'Rare',section:'rares',cents:200}));
 const now=Date.parse('2026-10-16T12:00:00Z');
@@ -40,5 +42,17 @@ test('Showdown stores one shared row for both modes; archive reads never regener
   assert.deepEqual(await loadDailyShowdownManifest(db,now+86400000,'2026-10-16'),first);
   assert.equal(await loadDailyShowdownManifest(db,now,'2026-10-15'),null);assert.equal(await loadDailyAuctionManifest(db,now,'2026-10-15'),null);
   assert.equal(sqlite.prepare('select count(*) n from daily_auction_manifests').get().n,0);assert.equal(sqlite.prepare('select count(*) n from daily_showdown_manifests').get().n,1);
+ }finally{sqlite.close()}
+});
+
+test('failed artwork initialization never publishes an unchecked snapshot; stored rows never recheck artwork',async()=>{
+ const {sqlite,db}=database();const fail=async()=>{throw new Error('temporary artwork outage')};
+ try{
+  await assert.rejects(()=>readShowdown(db,now,undefined,fail),/temporary artwork outage/);
+  await assert.rejects(()=>readAuction(db,now,undefined,fail),/temporary artwork outage/);
+  assert.equal(sqlite.prepare('select count(*) n from daily_showdown_manifests').get().n,0);
+  assert.equal(sqlite.prepare('select count(*) n from daily_auction_manifests').get().n,0);
+  const first=await loadDailyShowdownManifest(db,now);
+  assert.deepEqual(await readShowdown(db,now,undefined,fail),first);
  }finally{sqlite.close()}
 });

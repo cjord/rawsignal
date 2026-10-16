@@ -9,6 +9,16 @@ const ctx = () => { const pending = []; return { waitUntil: p => pending.push(p)
 const fakeCache = () => { const store = new Map(); return { store, async match(request) { return store.get(request.url); }, async put(request, response) { store.set(request.url, response); } }; };
 const json = (body, cacheControl) => new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json", ...(cacheControl ? { "Cache-Control": cacheControl } : {}) } });
 
+test('daily game caches use deploy identity without an extra database signature read; other route keys stay stable',()=>{
+ for(const game of ['auction','showdown']){
+  const request=new Request(`https://rawsignal.cards/api/${game}/daily?date=2026-10-16`);
+  assert.notEqual(edgeCacheKey(request,'route','v1').url,edgeCacheKey(request,'route','v2').url);
+  assert.equal(new URL(edgeCacheKey(request,'route','v1').url).searchParams.get('date'),'2026-10-16');
+ }
+ const request=new Request('https://rawsignal.cards/api/signals');
+ assert.equal(edgeCacheKey(request,'route','v1').url,edgeCacheKey(request,'route','v2').url);
+});
+
 test("shared max-age reads s-maxage and refuses private or uncacheable responses", () => {
   assert.equal(sharedMaxAge("public, max-age=60, s-maxage=300, stale-while-revalidate=3600"), 300);
   assert.equal(sharedMaxAge("public, max-age=60"), 0);

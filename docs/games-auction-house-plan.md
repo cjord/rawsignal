@@ -1,9 +1,14 @@
 # Riftbound Auction House
 
-## Retained entry, investigations, statistics and daily challenge — local, 2026-10-16
+## Retained entry, investigations, statistics and daily challenge — staging, 2026-10-16
 
-Newer decisions supersede earlier menu/access notes below. Local implementation;
-not pushed, deployed or migrated. Existing guide/theme/intro changes remain local.
+Newer decisions supersede earlier menu/access notes below. Application `4529fae`
+was pushed and deployed to staging, including the guide/theme/intro changes.
+Migrations 0022 and 0023 are applied on staging only. Live validation identified
+missing CDN artwork in the new daily Showdown snapshot; shared first-use artwork
+preflight and an explicitly approved staging-only lineup repair are in progress.
+Production is unchanged. Current sharing/archive/artwork/cost contract:
+[`daily-games-and-sharing.md`](daily-games-and-sharing.md).
 
 Validation: complete `npm run check` passed — 516 node tests passed, one skipped;
 68 Chromium journeys passed; production build, lint and typecheck passed. There
@@ -12,7 +17,8 @@ screenshots reviewed for daily entry, statistics, investigations and shared game
 surfaces. SQLite tests cover immutable shared snapshots, publication readiness and
 concurrent first-visitor insertion; browser tests cover the complete five-auction
 run, reload/resume, automatic sales, one-time reward, expiry and attempt-preserving
-normal reset. Staging/production migration and live snapshot validation remain pending.
+normal reset. Final live staging validation remains pending; production migration
+and deployment require separate authorization.
 
 - Intro Cancel/Escape keeps a per-entry-type seed and frozen preparation stock in
   the versioned browser save, so a later catalog refresh cannot reroll that draft.
@@ -62,19 +68,20 @@ normal reset. Staging/production migration and live snapshot validation remain p
 - `GET /api/auction/daily` first reads the UTC-date row. On its first cache miss
   of a day, it generates from one fully published Riftbound D1 catalog and uses
   insert-on-conflict-do-nothing; a second read returns the winning persisted row
-  in a race. No client date parameter, upstream pricing calls, visitor-specific
+  in a race. Optional archive dates are read-only. No upstream pricing calls, visitor-specific
   writes, new cron, Workflows or Queues. Failure returns non-cacheable 503 without
   consuming an attempt. Existing edge caching caps the successful response at
   five minutes or midnight, whichever comes first. The lineup persists through
   same-day redeploys and catalog refreshes. Broken artwork does not privately
   reroll the daily lot; known image URLs are required and existing Metal/Best Of
-  regular-art substitutions apply. A live artwork audit before rollout is useful.
+  regular-art substitutions apply. New shared snapshots verify selected artwork
+  before publication; see the bounded CDN preflight in the sharing document.
 - Local progress, automatic sales and normal-wallet reward receipts are written
   atomically in the existing versioned save. Complete/failed runs cannot restart
   that day. Clearing storage/another browser bypasses the limit; no accounts yet.
 - New migration **0022_daily_auction_manifest.sql** creates one keyed JSON row/day.
-  **Pending in both environments**: deploy validated source first, then apply the
-  migration and test the real snapshot route. No live infrastructure changed.
+  Applied to staging after deployment; **pending in production**. Deploy validated
+  source first, then apply the migration and test the real snapshot route.
   Subsequent uncached requests read one row; daily initialization adds a catalog
   readiness check, one Riftbound catalog query, one conditional insert and one
   winning-row read (concurrent first visitors can repeat initialization reads).

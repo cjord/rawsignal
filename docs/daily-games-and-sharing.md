@@ -80,8 +80,13 @@ run without five receipts does not get a fabricated rich share link.
   market refresh. Staging's catalog remains deliberately stale, clearly separate
   from the newly dated game lineup. Same-day redeploys cannot replace persisted lots.
 - Daily artwork failures show Retry Artwork without privately rerolling choices.
-  Known URLs are required, but the server does not spend network calls verifying
-  every source image. Live artwork checks are part of staging verification.
+  Before a new shared snapshot is inserted, selected artwork is checked against
+  the HTTPS TCGplayer CDN: bounded image-header reads reject missing/403 images,
+  malformed files and the known 400×570/200×285 placeholders. Only invalid rounds
+  or lots are rebuilt; valid selections remain intact. Temporary source failures
+  abort initialization without publishing an unchecked lineup. Archived rows are
+  never changed by this check. Redirects and arbitrary catalog hosts are refused.
+  Daily API edge keys include deploy identity without a D1 signature lookup.
 
 ## Cost and integrity
 
@@ -91,6 +96,15 @@ insert and a winner-row read; concurrent first visitors can repeat those reads.
 Existing snapshots need one indexed-row read per cache miss. Copy/share adds no
 per-share write; opening a rich link adds one cacheable archive read. No per-answer,
 per-round, completed-sale, graded or eBay calls. Game state stays browser-local.
+
+Artwork preflight adds CDN fetches only during first-use snapshot creation, not
+paid price-provider calls. Checks deduplicate URLs, run at most six concurrently,
+read at most 64 KiB per image and have an eight-second timeout. Each initializer
+has a hard 600-uncached-check budget; exceeding it returns unavailable/retry and
+does not publish. Per-isolate results cache for one hour (valid) or five minutes
+(missing); concurrent first visitors in different isolates may repeat checks.
+There is no artwork cache table, cron, or extra D1 write. Stored snapshots still
+take one indexed row read per edge miss and no artwork preflight.
 
 Limits are bypassable by clearing storage or another browser. Cross-tab revisions
 guard ordinary stale updates; they are not an account-level lock. Midnight expires

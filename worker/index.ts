@@ -81,7 +81,7 @@ const worker = {
     // published runs and the deployed version, so an entry lives until the next publish or deploy
     // (review §15: a crawler over the product long tail costs one render per URL per colo per day).
     if (edgeCacheableRequest(request)) {
-      const signature = edgeCacheClass(request) === "page" ? await pageCacheSignature(env.DB as unknown as D1DatabaseLike | undefined, env.CF_VERSION_METADATA?.id ?? "dev") : "";
+      const signature = edgeCacheClass(request) === "page" ? await pageCacheSignature(env.DB as unknown as D1DatabaseLike | undefined, env.CF_VERSION_METADATA?.id ?? "dev") : env.CF_VERSION_METADATA?.id ?? "dev";
       return withEdgeCache(request, ctx, () => handler.fetch(request, env, ctx), undefined, signature);
     }
     return handler.fetch(request, env, ctx);

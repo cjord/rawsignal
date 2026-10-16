@@ -7,8 +7,11 @@ export type DailyShowdownManifest={version:1;date:string;source:string;normal:Pr
 export type DailyShowdownRun={picks:number[];cursor:number};
 export type DailyShowdownSave={version:1;revision:number;manifest:DailyShowdownManifest;normal:DailyShowdownRun;hard:DailyShowdownRun};
 export const SHOWDOWN_DAILY_KEY='raw-signal-showdown-daily-v1';
+export function dailyShowdownPool(catalog:AuctionCard[]):PriceGameCard[]{
+ return priceGamePool([...catalog].sort((a,b)=>holdingKey(a).localeCompare(holdingKey(b))).map(card=>({...card,game:'riftbound' as const,year:0,number:'',url:'',marketPrice:card.cents/100,lowPrice:null,midPrice:null,highPrice:null,priceChange:null})),'riftbound');
+}
 export function createDailyShowdownManifest(catalog:AuctionCard[],date:string,source:string):DailyShowdownManifest{
- const pool=priceGamePool([...catalog].sort((a,b)=>holdingKey(a).localeCompare(holdingKey(b))).map(card=>({...card,game:'riftbound' as const,year:0,number:'',url:'',marketPrice:card.cents/100,lowPrice:null,midPrice:null,highPrice:null,priceChange:null})),'riftbound');
+ const pool=dailyShowdownPool(catalog);
  const rounds=(mode:PriceGameDifficulty)=>{
   const random=auctionRandom(dailyGameSeed(`showdown-v1-${mode}`,date)),used=new Set<number>();
   return Array.from({length:10},()=>{
