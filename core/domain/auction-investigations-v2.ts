@@ -32,7 +32,8 @@ export const REBALANCED_INVESTIGATIONS:Investigation[]=[
  {id:'top2-final',label:'Top-Two Valuation',cost:7500,tier:'premium',description:'Round 4 only. Exact combined value of the two highest-value copies, without identities.'},
  {id:'follow-up',label:'Follow-Up Inspection',cost:800,tier:'targeted',description:'Choose one card marked by your investigation in an earlier round and reveal its identity and price.'},
 ];
-export const rebalancedCost=(option:Investigation,auction:Auction)=>option.id==='top2-final'&&auction.kind==='paid'?12500:option.cost;
+export const AUCTION_TOP_TWO_PAID_COST=12500;
+export const rebalancedCost=(option:Investigation,auction:Auction)=>option.id==='top2-final'&&auction.kind==='paid'?AUCTION_TOP_TWO_PAID_COST:option.cost;
 export function followUpSlots(auction:Auction){
  return [...new Set(auction.clues.filter(clue=>clue.round!==undefined&&clue.round<auction.round).flatMap(clue=>(clue.reveals??[]).filter(reveal=>reveal.visibility==='rarity').map(reveal=>reveal.slot)))].filter(slot=>Number.isSafeInteger(slot)&&slot>=0&&slot<auction.lot.length&&!auction.priced.includes(slot));
 }

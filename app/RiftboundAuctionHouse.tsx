@@ -19,10 +19,15 @@ import AuctionLobby from './games/AuctionLobby';
 import AuctionHeader from './games/AuctionHeader';
 import {useAuctionAutoAdvance} from './games/useAuctionAutoAdvance';
 import {AuctionBiddingHistory} from './games/AuctionBidHistory';
+import AuctionLeave from './games/AuctionLeave';
 
 const sources=allowedRarities.riftbound.map(section=>`/data/${section}.json`);
 function AuctionSaveFeedback({save,error,reset}:{save:AuctionSave|null;error:string|null;reset:()=>void}){
  return <>{error&&<p className="auction-warning" role="alert">{error} {!save&&<button className="game-control" type="button" onClick={()=>{if(window.confirm('Reset this game to $2,500 cash and no inventory?'))reset()}}>Reset saved game</button>}</p>}{!save&&!error&&<p role="status">Loading saved game…</p>}</>;
+}
+function AuctionPageHeader({save,error,audio,auto,transact}:{save:AuctionSave|null;error:string|null;audio:ReturnType<typeof useAuctionSound>;auto:ReturnType<typeof useAuctionAutoAdvance>;transact:(update:(save:AuctionSave)=>AuctionSave)=>void}){
+ const auction=save?.auction??null;
+ return <AuctionHeader sound={audio.sound} mute={audio.toggle} disabled={!save&&!error} autoAdvance={auto.enabled} toggleAuto={auto.toggle} leave={<AuctionLeave key={auction?.seed} auction={auction} transact={transact}/>}/>;
 }
 export default function RiftboundAuctionHouse(){
  const {items,status,reload}=useCatalogPage({sources,parse:parseCards,keyOf:holdingKey});
@@ -47,7 +52,7 @@ export default function RiftboundAuctionHouse(){
  useEffect(()=>{const tick=()=>{const time=Date.now();setNow(time);transact(current=>tickAuction(current,time))};const interval=window.setInterval(tick,250);window.addEventListener('visibilitychange',tick);return()=>{clearInterval(interval);window.removeEventListener('visibilitychange',tick)}},[transact]);
  useAuctionNavigation(arena,save?.auction??null,celebrating);
  const ready=status==='success',available=ready&&catalog.filter(card=>card.image.trim()).length>=6;
- return <GamesShell wide={Boolean(save?.auction)}><a className="games-back" href="/games">← Games</a><AuctionHeader sound={audio.sound} mute={audio.toggle} disabled={!save&&!error} autoAdvance={auto.enabled} toggleAuto={auto.toggle}/>
+ return <GamesShell wide={Boolean(save?.auction)}><a className="games-back" href="/games">← Games</a><AuctionPageHeader save={save} error={error} audio={audio} auto={auto} transact={transact}/>
   <AuctionSaveFeedback save={save} error={error} reset={reset}/>
   {save&&!save.auction&&<AuctionWallet save={save} catalog={catalog} cards={items} transact={transact} reset={reset} refresh={reload} loading={!ready}/>}
   {status==='loading'&&<p role="status">Loading Market…</p>}

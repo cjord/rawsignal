@@ -1,0 +1,45 @@
+import {GamesShell} from '../GamesView';
+import AuctionBidder from './AuctionBidder';
+import {AUCTION_NPCS,AUCTION_RARE_GUEST_CHANCE} from '../../core/domain/auction-npcs';
+import {AUCTION_LOT_THEMES} from '../../core/domain/auction-lot-themes';
+import {AUCTION_LOT_SIZES} from '../../core/domain/auction-lots';
+import {AUCTION_ROUNDS,AUCTION_START_CASH,AUCTION_PAID_ENTRY,AUCTION_DEFAULT_FEE} from '../../core/domain/auction-types';
+import {REBALANCED_INVESTIGATIONS,AUCTION_TOP_TWO_PAID_COST} from '../../core/domain/auction-investigations-v2';
+import {npcInvestigationEquivalent} from '../../core/domain/auction-npc-information';
+import {AUCTION_DRAW_LABELS,auctionGuideTargets} from '../../core/domain/auction-guide';
+
+const usd=(cents:number)=>`$${(cents/100).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2})}`;
+const percent=(n:number)=>`${(n*100).toFixed(2)}%`;
+function GuideRates(){
+ const free=auctionGuideTargets('free'),paid=auctionGuideTargets('paid');
+ return <section className="detail-section" id="draw-rates"><h2>Card Draw Rates</h2><p>Gameplay targets per card, averaged across the five equally likely collection themes—not real pack pull rates. Themes change the mix, and available catalog stock and copy limits can change realized rates. These are shared pool odds, not odds for each individual card.</p>
+  <div className="auction-guide-table"><table><caption className="sr-only">Target card admission rates by auction type</caption><thead><tr><th scope="col">Card Pool</th><th scope="col">Free</th><th scope="col">Paid</th></tr></thead><tbody>{(Object.keys(AUCTION_DRAW_LABELS) as (keyof typeof AUCTION_DRAW_LABELS)[]).map(band=><tr key={band}><th scope="row">{AUCTION_DRAW_LABELS[band]}</th><td>{percent(free[band])}</td><td>{percent(paid[band])}</td></tr>)}</tbody></table></div>
+  <p className="games-note">Pools are exclusive. Metal and Best Of take precedence; every T1 Worlds Champion bundle printing joins the ultra-rare pool regardless of price, alongside other non-Metal promos priced above $1,000. All T1 cards share that one budget. Unpriced cards and cards without working artwork cannot enter; Best Of cards need an available market price first. Other Showcase cards follow their own treatment group.</p>
+  <p className="games-note">Repeated copies become less likely above a playset of three, especially at higher rarities. Neither a premium theme nor paid entry guarantees a valuable card. Collection values and NPC bids have no fixed dollar cap.</p>
+ </section>;
+}
+function GuideRivals(){
+ return <section className="detail-section" id="rivals"><h2>Meet the Rivals</h2><p>Three distinct rivals join each new auction and stay for all its rounds. Each uses public information, personal investigations and an imperfect estimate—not the hidden collection total. Previous completed bids can influence later bids; current sealed bids cannot.</p>
+  <div className="auction-guide-rivals">{AUCTION_NPCS.map(npc=>{
+   const priorities=[...new Set(npc.cluePriority.map(npcInvestigationEquivalent))].map(id=>REBALANCED_INVESTIGATIONS.find(option=>option.id===id)?.label).filter(Boolean);
+   return <article className="auction-guide-rival" key={npc.name}><h3><AuctionBidder name={npc.name}/></h3><span className="games-eyebrow">{npc.strategy}</span><p>{npc.description}</p><p className="games-note">Favors: {priorities.join(' → ')}.</p>{npc.name==='The Trust Fund Kid'&&<p className="games-note">Rare guest: {Math.round(AUCTION_RARE_GUEST_CHANCE*100)}% chance per auction. Pays a 35–80% personality premium on an already fee-adjusted personal estimate, with occasional extra stretching. This is not a guarantee of a loss.</p>}</article>;
+  })}</div>
+  <p className="games-note">Ordinary rivals generally retain a resale margin. Small seeded confidence/noise differences and occasional risk produce imperfect bids. The Closer increases personal conviction each round; the Follower responds to prior bids more often. Speculation fades as evidence accumulates. Overpayment can happen when a sample or a rival’s interpretation is misleading.</p>
+ </section>;
+}
+function GuideInvestigations(){
+ return <section className="detail-section" id="investigations"><h2>Investigations</h2><p>Buy at most one investigation per round, before locking your bid. Three useful options are offered at a time; this is the complete current catalogue, not a menu guaranteed in every round. Public reveals are free and separate. Costs are virtual USD and remain spent even if you lose or leave.</p>
+  <div className="auction-guide-investigations">{REBALANCED_INVESTIGATIONS.map(option=><article key={option.id}><div><h3>{option.label}</h3><strong>{option.id==='top2-final'?`${usd(option.cost)} Free / ${usd(AUCTION_TOP_TWO_PAID_COST)} Paid`:usd(option.cost)}</strong></div><p>{option.description}</p>{option.id==='follow-up'&&<small>Requires one of your unpriced rarity markers from an earlier round.</small>}</article>)}</div>
+  <p className="games-note">Rarity markers reveal only rarity and location. Identity peeks add the name and artwork, but no price. Price scans add identity and price. “Up to” means fewer cards when eligible hidden copies run out; chase scans target Overnumbered / Signature copies. Exact category valuations are subtotals, not the value of every unseen card. Top-Two Valuation is round 4 only. Collection Value Band is currently disabled.</p>
+ </section>;
+}
+export default function AuctionGuide(){
+ return <GamesShell><a className="games-back" href="/games/riftbound-auction">← Back to Auction House</a><header className="games-heading"><span className="games-eyebrow">Riftbound Auction House</span><h1>Auction Guide</h1><p>Inspect a mystery collection, decide what the clues are worth, and compete against three rival bidders. Win cards for a persistent virtual collection—or let an overconfident rival pay too much.</p></header>
+  <nav className="auction-guide-nav" aria-label="Auction guide sections"><a href="#rules">How to Play</a><a href="#collections">Collections</a><a href="#rivals">Rivals</a><a href="#investigations">Investigations</a><a href="#draw-rates">Draw Rates</a></nav>
+  <section className="detail-section" id="rules"><h2>How to Play</h2><ol className="auction-guide-rules"><li>Start with {usd(AUCTION_START_CASH)} in virtual cash. Choose free entry or pay {usd(AUCTION_PAID_ENTRY)} for a larger, more premium-weighted collection.</li><li>Each round lasts one minute. At the start, everyone sees the same public cards and prices: approximately 5% of the collection, rounded up, plus one card and sometimes 0–2 extras in round 1; 1–3 new cards in later rounds.</li><li>Optionally buy one private investigation, then enter a total bid—not an increment—and lock it. Enter also locks your bid; Pass bids $0. Current bids remain sealed until everyone locks or the timer expires.</li><li>Early buyout needs at least two positive bids. The top bid must be {AUCTION_ROUNDS.slice(0,3).map((round,index)=>`${round.threshold}% above second place in round ${index+1}`).join(', ')}. Otherwise bidding continues. The highest positive bid wins in round 4; tied bids use a seeded tie-break, not profile order.</li><li>Only the winning bid is charged. Investigation costs and paid entry remain spent either way. If an NPC winner overpays, its loss after selling fees is split between the other three bidders, including you. Player losses are not shared.</li><li>Won cards go to your inventory. Keep them or sell individually, by rarity, or all priced holdings between auctions. Sale values use current market prices less your configured selling fee (default {AUCTION_DEFAULT_FEE/100}%).</li></ol>
+   <p className="games-note">All money, prizes and trades are virtual. Collection prices freeze when the auction begins; inventory values can change with the market afterward. Background tabs and reloads do not pause an active round. Optional Auto Advance starts the next round after 20 seconds. Leave Auction abandons an unsettled lot without refunding entry or investigations.</p>
+  </section>
+  <section className="detail-section" id="collections"><h2>Collections</h2><div className="auction-guide-types">{(['free','paid'] as const).map(kind=><article key={kind}><h3>{kind==='paid'?'Paid Auction':'Free Auction'}</h3><strong>{AUCTION_LOT_SIZES[kind].min}–{AUCTION_LOT_SIZES[kind].max} cards</strong><p>{kind==='paid'?`${usd(AUCTION_PAID_ENTRY)} entry · More epics and premium treatments, with slightly more competitive rivals.`:'No entry fee · A smaller collection with a more everyday rarity mix.'}</p></article>)}</div><div className="auction-guide-themes">{AUCTION_LOT_THEMES.map(theme=><article key={theme.id}><h3>{theme.collectionName}</h3><p>{theme.description}</p></article>)}</div><p className="games-note">Cash, inventory and the active auction are saved in this browser, not a user account. Reset Cash and Inventory starts over after confirmation. Clearing browser storage can remove progress. This is a casual single-player prototype, not a secure economy or multiplayer ranking.</p></section>
+  <GuideRivals/><GuideInvestigations/><GuideRates/>
+ </GamesShell>;
+}

@@ -11,7 +11,7 @@ export function auctionRevealQuote(auction:Auction,visible:number[]){
 export function auctionRarity(card:{rarity?:string;section?:string}|null|undefined){
  if(/signature|over.?number/i.test(card?.section??''))return 'premium';
  if(/alt/i.test(card?.section??''))return 'epic';
- if(/promo/i.test(card?.section??'')||/^promo$/i.test(card?.rarity??''))return 'promo';
+ if(/promo/i.test(card?.section??'')||/^(promo|showcase)$/i.test(card?.rarity??''))return 'promo';
  return card?.rarity?.toLowerCase()??'unknown';
 }
 export function auctionMetricTone(value:number|null,kind:'signed'|'cost'|'info'='signed'){
@@ -23,10 +23,16 @@ export function orderedAuctionSlots(auction:Auction,visible:number[]){
  const known=new Set(visible),hidden=auction.lot.map((_,index)=>index).filter(index=>!known.has(index));
  return [...visible,...hidden.filter(index=>auction.rarityKnown?.includes(index)),...hidden.filter(index=>!auction.rarityKnown?.includes(index))];
 }
-// Old saves with detailed NPC notes must also expose only information TYPES in the UI.
-export function publicAuctionBidNotes(bid:RoundBid){
+export const AUCTION_VALUE_EFFECTS={foil:5000,glow:25000} as const;
+export function auctionValueEffect(cents:number,priceVisible:boolean){
+ if(!priceVisible||!Number.isSafeInteger(cents)||cents<AUCTION_VALUE_EFFECTS.foil)return undefined;
+ return cents>=AUCTION_VALUE_EFFECTS.glow?'glow':'foil';
+}
+// Detailed NPC notes, including older saves, stay private until final review.
+export function publicAuctionBidNotes(bid:RoundBid,settled=false){
  if(bid.name==='You')return bid.notes;
  return bid.notes?.filter(note=>note.id!=='public-start'&&!(note.id==='reveal3'&&['Public Starting Cards','Shared Public Reveals'].includes(note.label))).map(note=>{
+  if(settled)return note;
   const starting=note.id==='public-start'||note.id==='reveal3'&&note.label==='Public Starting Cards';
   const legacy=note.id==='legacy-inspection'||note.label==='Private Inspection';
   return {id:note.id,label:starting?'Shared Public Reveals':legacy?'Card Inspection (Legacy)':INVESTIGATIONS.find(option=>option.id===note.id)?.label??'Investigation Unavailable',text:starting?'Used the shared public cards and prices.':'Used this investigation to estimate the collection. Card identities, prices and findings remain private.'};

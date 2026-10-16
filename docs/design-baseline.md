@@ -44,6 +44,12 @@ Defined in `app/styles/tokens.css` (dimensions/motion/stacking) and `app/globals
 
 ## Component anatomy
 
+Auction Guide follows the existing Games shell and section tiles: token-based
+surfaces/borders, responsive two-column roster/investigation cards (one column on
+mobile), self-hosted portraits, mono prices/rates and keyboard-accessible section
+links. It is an informational route, with no catalog/history request of its own.
+New NPC identity colors use mixes of existing theme-aware accent tokens.
+
 - **Section card** (`.detail-section`, KPI blocks): `--surface` background, 1px `--line`
   border, 18px radius, 20–27px padding. Header = kicker span (full-width) + h2
   (~25px, tight tracking) + optional right-aligned control (`margin-left:auto`).
@@ -106,6 +112,15 @@ Defined in `app/styles/tokens.css` (dimensions/motion/stacking) and `app/globals
   of the usual blue. Unrevealed/unmarked backs stay neutral so hover cannot leak
   hidden rarity. Keyboard focus stays blue. This does not change inventory, other
   tiles, buttons, leaderboards or the flat/no-hover-movement rule.
+- **Auction reveal effects (2026-10-16, user-requested):** unmapped Showcase
+  treatments use the Promo red border; explicit Signature/Overnumbered and Alt Art
+  colors still win. Individually price-revealed collection cards at $50+ receive a
+  subtle foil overlay; $250+ also receive a rarity-colored glow. Hidden prices,
+  identity-only peeks and rarity-only backs never receive value-based effects.
+  No movement or resizing of the card itself; reduced motion keeps the foil static.
+  Collection-theme headings use distinct shared-token colors, mixed toward text
+  where needed for light-theme contrast. This is game presentation, not real foil
+  classification or a market signal.
 - **Deliberate exception (2026-08-27, user-requested):** the detail-hero card art tilts
   toward the pointer (rotateX/Y ≤ ~6°) as an interactive flourish. Mouse pointers tilt on
   hover; touch (added 2026-09-01, user-requested) tilts only after a ~220ms hold on the

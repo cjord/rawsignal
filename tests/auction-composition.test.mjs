@@ -32,7 +32,7 @@ test('seeded composition approaches requested epic, alt-art and signature shares
  }
 });
 
-test('prices do not limit or bias selection, even for collections far above $2,000',()=>{
+test('ordinary-card prices do not limit or bias selection, even for collections far above $2,000',()=>{
  for(const kind of ['free','paid'])for(let seed=0;seed<20;seed++){
   const costly=pool.map(card=>({...card,cents:100000+card.productId})),lot=generateAuctionLot(costly,seed,kind);
   assert.deepEqual(lot.map(card=>card.productId),generateAuctionLot(pool,seed,kind).map(card=>card.productId));

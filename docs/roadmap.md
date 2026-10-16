@@ -10,6 +10,15 @@ without re-deriving them. Update or remove entries as they land. The signal-mode
 `docs/todo.md` §P (open steps, priorities, scheduled tasks) and `docs/todo-completed.md`
 (shipped steps P1–P7 with build notes), with run evidence in `docs/backtests.md`.
 
+## Developer mode — FUTURE, staging only (2026-10-16)
+
+User-approved direction, **planning only**: a default-off Settings toggle on staging
+for safe read-only diagnostics. No production option while accounts are absent;
+future accounts do not automatically enable it. Server-enforced environment/access
+checks, zero extra calls while off and isolated debug auction progress are required.
+Scope, proposed panels, cost limits and acceptance criteria:
+[Developer mode plan](developer-mode-plan.md). Implementation is not authorized yet.
+
 ## Auction House multiplayer — FUTURE (2026-10-15)
 
 Multiplayer will support **public auctions only**, with public discovery / Quick Join.

@@ -28,8 +28,8 @@ test('ordinary profiles keep a margin; explicit risk and skeptical uncertainty r
 });
 
 test('new profiles have distinct original assets and identity-only clues cannot expose price knowledge',()=>{
- for(const portrait of ['archivist','playset-builder','skeptic']){const bytes=readFileSync(new URL(`../public/images/games/auction-${portrait}.webp`,import.meta.url));assert.equal(bytes.toString('ascii',0,4),'RIFF');assert.equal(bytes.toString('ascii',8,12),'WEBP')}
- assert.equal(AUCTION_NPCS.length,10);assert.equal(new Set(AUCTION_NPCS.map(npc=>npc.name)).size,10);
+ for(const portrait of ['archivist','playset-builder','skeptic','closer','trust-fund-kid']){const bytes=readFileSync(new URL(`../public/images/games/auction-${portrait}.webp`,import.meta.url));assert.equal(bytes.toString('ascii',0,4),'RIFF');assert.equal(bytes.toString('ascii',8,12),'WEBP')}
+ assert.equal(AUCTION_NPCS.length,12);assert.equal(new Set(AUCTION_NPCS.map(npc=>npc.name)).size,12);
  const pool=Array.from({length:60},(_,i)=>({...card(),productId:i+1}));let found;
  for(let seed=0;seed<100;seed++){
   const auction=beginAuction(initialAuctionSave(),pool,1000,pool,seed).auction,info=npcRoundInformation(auction,0,[1,3,4,5],undefined,'The Playset Builder');
@@ -58,6 +58,6 @@ test('legacy sample-only Collector valuation remains conservative without a mone
   }
   // Uncapped high-value lots can legitimately reach an NPC's cash ceiling. Keep
   // the anti-inflation check on lots whose net value is below that ceiling.
-  assert.equal(seen.size,10);assert.ok(bids>100);assert.ok(over/bids<.1);assert.ok(affordable>50);assert.ok(cappedAffordable/affordable<.02);
+  assert.equal(seen.size,AUCTION_NPCS.length);assert.ok(bids>100);assert.ok(over/bids<.1);assert.ok(affordable>50);assert.ok(cappedAffordable/affordable<.02);
  }
 });

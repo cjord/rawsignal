@@ -12,6 +12,53 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
+- [ ] Developer mode — **plan only**, staging Settings option, default off; no
+  production control/payload until accounts and an explicit authorization model
+  are approved. Candidate diagnostics cover auctions, catalog/history provenance,
+  signals, heatmap/EV inputs, cached eBay matching and performance. Off must add
+  zero calls; debug auction progress must be isolated. See
+  [Developer mode plan](developer-mode-plan.md). No toggle or infrastructure built.
+
+- Auction Guide and two new rivals implemented locally (2026-10-16), not pushed
+  or deployed: `/games/riftbound-auction/guide` linked from the lobby; rules,
+  collection themes, all active investigations, roster and disjoint per-card
+  admission targets derive from game configuration. All T1 Worlds Champion bundle
+  cards now share the ultra-rare 0.01% free / 0.02% paid pool regardless of price.
+  The Closer gains conviction across rounds; rare Trust Fund Kid appears in 8%
+  of new auctions with a 35–80% estimate premium. Neither sees hidden prices.
+  Original portraits, offline audit and regression tests added. Existing frozen
+  lots/rosters remain intact. Economy audit and verification recorded in
+  `docs/games-auction-house-plan.md`; no additional API/database calls or migrations.
+  Full local gate passed: 507 node tests (one skipped), 63 browser journeys,
+  build/lint/typecheck; no new warnings. Guide desktop/mobile dark/light reviewed.
+  No commit, push or deployment; developer mode remains documentation only.
+
+- Metal/premium-promo reduction implemented locally (2026-10-16), not pushed/deployed.
+  User-approved combined Metal/Best Of targets 0.05% free / 0.10% paid per card;
+  non-Metal promos above $1,000 use 0.01% / 0.02%. Sub-budgets subtract from `other`
+  before set focus/repeats; ordinary rarity targets stay unchanged. NPC catalog
+  priors use the same weights, preserving eight saved cohorts. 5,000-seed audit:
+  Metal in 2.64% free / 8.94% paid lots, down from earlier 24.15% / 44.60%; other
+  $1,000+ promos 0.56% / 1.78%. All 37 Best Of snapshot entries are unpriced/excluded;
+  future priced entries share Metal odds. Existing lots/inventory unchanged. Lower
+  lot values naturally lower NPC opening medians to $69.47 / $207.98; no speculative
+  boost to force older targets. No extra API/database calls or migration. Details:
+  `docs/games-auction-house-plan.md`.
+  Full local gate passed: 503 node tests (one skipped), 62 browser checks, build,
+  lint/typecheck; no new warnings. No commit, push or deployment.
+
+- Auction reveal/exit polish implemented locally (2026-10-16), not pushed/deployed:
+  fallback Showcase red borders, price-visible $50 foil / $250 foil+glow, colored
+  collection headings, confirmed nonrefundable Leave Auction, and detailed final
+  investigation/card popups with mid-auction NPC privacy preserved. Generation and
+  bidding unchanged. Promo audit: Metals in 24.15% free / 44.60% paid simulated lots;
+  those historical rates are superseded by the approved subgroup budgets above.
+  Remaining future decision: promo-targeted clues/Collector priorities. Details:
+  `docs/games-auction-house-plan.md`.
+  Full local gate passed: 499 node tests (one skipped), 62 browser checks, build,
+  lint/typecheck with no new warnings. Desktop/phone dark/light reviewed; opening
+  bid simulation is unchanged. Awaiting any future push/deploy authorization.
+
 - Auction rebalance is on staging (2026-10-16), **production promotion pending**:
   application `2c97ad6`, staging `8860d6eb`; production remains `1451236`. Includes
   versioned cheaper/expanded investigations, $8 selectable follow-up, round-4

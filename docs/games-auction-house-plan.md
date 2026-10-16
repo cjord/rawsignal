@@ -1,5 +1,274 @@
 # Riftbound Auction House
 
+## Portrait size follow-up — local only, 2026-10-16
+
+Player/NPC portraits are now 40px instead of 32px during bidding, winner previews
+and settlement. Compact bid-history portraits grow from 28px to 34px; Auction Guide
+portraits stay 64px. Existing 192px assets are reused with no new data requests.
+No commit, push or deployment.
+
+Portrait follow-up verification: `npm run check` passed (507 node tests, one
+skipped; 63 browser journeys; build/lint/typecheck, no new warnings). Added 40px
+portrait assertions to the desktop/mobile dark/light journey and visually checked
+bidding and compact history screenshots. No data, NPC behavior or fee changes.
+
+## Auction Guide, T1 admission and two rivals — local only, 2026-10-16
+
+Implemented at the user's request; no commit, push or deployment. This section
+supersedes older T1 eligibility assumptions. **All** T1 Worlds Champion bundle
+printings, including those below $1,000, now share the existing ultra-rare promo
+budget: 0.01% free / 0.02% paid per card across equally likely themes. This is one
+combined pool with other non-Metal promos above $1,000, not a separate allowance
+for each T1 card. Metal/Best Of still takes precedence at 0.05% / 0.10%. The
+catalog-derived NPC prior uses the same admission groups. Ordinary Signatures and
+expensive regular cards are not reclassified by price. Frozen lots/rosters and
+existing holdings are unchanged; no migration or external data refresh.
+
+Two new personalities (appended to preserve old profile indices):
+
+- **The Trust Fund Kid — Win-First Spender.** A rare wealthy young adult who
+  prioritizes winning over margin. Personal fee-adjusted estimate gets a 1.35–1.80
+  multiplier, plus normal seeded noise/confidence and an 18% chance of the existing
+  1.08–1.18 stretch. The rare guest appears in 8% of new auctions; at most one,
+  alongside two distinct ordinary rivals. It has no access to the true hidden lot
+  total, no current sealed-bid reaction and no dollar cap. It can still underpay
+  when its personal evidence misses the chase cards.
+- **The Closer — Late-Round Conviction.** Surveys rarity/identity before category
+  and top-two valuations. Estimate multipliers 0.90 / 0.98 / 1.08 / 1.18 across
+  rounds, on a 0.91 resale-margin factor. Stronger late bidding comes from personal
+  conviction and completed public bids, not privileged hidden information.
+
+Ordinary profiles are sampled uniformly without replacement, with a rare-guest
+slot replacing one ordinary seat when selected. Each of eleven ordinary profiles
+has about 26.55% encounter probability; the guest has 8%. Rosters remain frozen for
+the active auction. Existing ten profiles' individual bidding parameters and
+social limits are unchanged. Additional **future ideas, not implemented**: a
+Contrarian who discounts a crowded prior-round consensus within bounded limits;
+a Set Specialist whose inspection priorities favor the advertised expansion but
+who still must learn actual prices. Avoid a second reckless spender that makes
+the rare guest routine.
+
+### Offline economy measurement
+
+Reproducible tool: `node scripts/games/audit-auctions.mjs --snapshot <saved-row-json>
+--seeds 2000` (one line). Defaults to bundled feeds when no snapshot is supplied;
+no API calls, source refreshes or writes. October 16 production-price snapshot,
+1,288 priced eligible printings, 2,000 seeds **per auction type**, fresh wallet per
+auction, default 10% selling fee, player **passes every round**:
+
+| Measure | Free | Paid |
+|---|---:|---:|
+| NPC winning collection loses money after selling fee | 24.65% | 21.45% |
+| All NPC bids above collection net resale value | 8.47% | 5.92% |
+| Trust Fund Kid encounters | 155 / 2,000 (7.75%) | 155 / 2,000 (7.75%) |
+| Trust Fund Kid wins | 115 | 96 |
+| Trust Fund Kid losing wins | 76 / 115 (66.09%) | 31 / 96 (32.29%) |
+| Mean player loss-share credit before entry/investigations | $8.43 | $11.38 |
+| Median round-one NPC bid | $67.43 | $202.80 |
+
+Thus losses remain occasional (~one in four free / one in five paid under this
+passive scenario), rather than an outcome forced by knowing true prices. Rare
+guest losses are deliberately more frequent. These are simulations, not live-user
+rates: player bids, investigations, fee settings, themes and changing prices alter
+the outcome. Paid's mean credit remains below its $50 entry; passive free auctions
+still generate virtual cash over time and uncapped bids preserve rare large
+payouts. User explicitly likes loss sharing, so no payout restriction was added.
+Earlier 1,000-seed pre-change audit: 17.7% free / 13.3% paid winning NPC losses;
+different seed sample sizes and the simultaneous T1 change mean this is contextual,
+not a controlled attribution to either new profile alone. Lower-value admissions
+naturally lower opening estimates; no unrelated speculation increase was made.
+
+### Guide and development plans
+
+`/games/riftbound-auction/guide`, linked from the lobby as **Auction Guide**, covers
+rules/fees, public vs private information, themes, every active investigation and
+cost, all twelve profiles and preferred strategies, exclusive admission rates,
+storage/reset/leave behavior and the casual virtual-economy boundary. Guide rows
+use the game's exported configuration rather than an independent duplicate list.
+No market feeds, D1 reads or pricing API calls are needed by this route.
+
+Developer mode is **planning only**, recorded in
+[developer-mode-plan.md](developer-mode-plan.md): staging-only Settings opt-in,
+server-enforced availability/authorization, no production toggle/payload, zero
+extra calls while off, safe read-only diagnostics and isolated debug auction saves.
+No developer mode code or infrastructure has been introduced.
+
+Verification: `npm run check` passed (507 node tests, one skipped; 63 Chromium
+journeys; production build, lint and typecheck). The same 21 pre-existing complexity
+warnings remain, with none added. Focused auction suites passed 110 tests. Guide
+navigation, every active investigation/profile, both new portrait files, zero
+market-data requests on the guide, phone/desktop and light/dark layouts passed;
+full-suite Singles/Sealed journeys remain green. Screenshots reviewed. No feeds,
+databases, migrations, secrets or deployed environments changed.
+
+### Original portrait assets
+
+Imagegen skill, built-in generation mode, one image per character. Original PNGs
+remain in the image library; final format-compressed/downscaled 192px WebPs are
+`public/images/games/auction-trust-fund-kid.webp` and
+`public/images/games/auction-closer.webp`. Both use the existing circular avatar UI.
+
+Final Trust Fund Kid prompt:
+
+> Use case: stylized-concept. Asset type: square game NPC avatar, intended for 32px circular profile and larger guide portrait. Primary request: original fantasy card-auction bidder called The Trust Fund Kid, a wealthy reckless young adult man (clearly age 22+) with an amused smug expression, swept blond hair, lavish burgundy jacket and gold trim. Style: polished painterly fantasy trading card character portrait, realistic proportions, crisp expressive face, restrained details. Composition: single centered head and shoulders, generous safe margins for circular crop, deep navy studio background, soft dramatic warm key light. No text, no logos, no watermark, not an existing game character.
+
+Final Closer prompt:
+
+> Use case: stylized-concept. Asset type: small square original game NPC avatar for a fantasy card auction, matching polished painterly portraits. Primary request: The Closer, a composed middle-aged Black woman with short silver natural hair, alert eyes and a calm decisive expression, wearing a tailored deep teal jacket with subtle silver trim. Composition: one centered head and shoulders, generous safe margins for circular crop, face readable at 32px. Dark navy plain background, soft blue/violet rim light, warm natural skin tones, realistic proportions, restrained details. No cards, no props, no text, no lettering, no logos, no watermark. Square image.
+
+## Ultra-rare Metal and $1,000+ promo budgets — local only, 2026-10-16
+
+User approved greatly reducing Metal below Signature frequency, plus separate
+ultra-rare weighting for non-Metal promos worth **more than** $1,000. Implemented
+locally; **not committed, pushed or deployed**. Previous reveal/exit polish is
+retained. Staging and production remain unchanged.
+
+`AUCTION_PROMO_TARGETS` in `core/domain/auction-composition.ts` defines aggregate
+per-card targets across equally likely themes:
+
+| Draw group | Free target | Paid target |
+|---|---:|---:|
+| All Metal / Best Of treatments combined | 0.05% | 0.10% |
+| All other Promo-section/Promo-rarity cards above $1,000 combined | 0.01% | 0.02% |
+| Signature, unchanged | 0.37% | 0.50% |
+
+These are combined group budgets, not that probability for each card. Metal wins
+classification even when expensive; Best Of shares its budget, not a second chance.
+Exactly $1,000 remains ordinary; expensive ordinary singles/Signatures are not
+reclassified solely by price. Subgroups subtract from `other`; ordinary-rarity
+weights are unchanged. Freed frequency stays with ordinary `other` stock. Theme
+multipliers keep Metal below one quarter of Signature weighting in every theme.
+Draw subgroup selection precedes set focus/repeats so neither bypasses the budget.
+Missing/exhausted groups renormalize over remaining source stock; narrow catalogs
+containing only Metal can still fill from it. These are gameplay targets, not real
+pack odds or hard quotas. Existing copy limits and artwork checks remain intact.
+
+New NPC catalog priors use these same admission weights, collapsed back into the
+eight actual rarity cohorts. This avoids the old inflated promo expectation while
+preserving clues/save format and not inspecting a hidden lot. Existing auctions,
+source prices, inventory, speculation schedules, margins and social rules stay intact.
+
+### Eligibility and simulation
+
+Stored October 16 production snapshot: 1,288 eligible priced artwork-bearing entries.
+All **37 Best Of entries have null market prices**, so none enter auctions. No
+regular-printing price is substituted. Future priced Best Of entries share Metal's
+budget. There are 25 eligible Metal Prize Wall entries; the only eligible non-Metal
+promo above $1,000 is **Teemo, Scout (GG EZ), Foil, $1,430.38** in this snapshot.
+Threshold classification uses entry prices; later market movement affects future
+auctions, never re-rolls an active lot.
+
+5,000 deterministic seeds per mode, artwork not re-probed:
+
+| Measured frequency | Free | Paid |
+|---|---:|---:|
+| Metal / all cards | 0.0473% | 0.1055% |
+| Other $1,000+ promo / all cards | 0.0097% | 0.0200% |
+| Signature / all cards | 0.3727% | 0.5230% |
+| Lots containing Metal | 2.64% | 8.94% |
+| Lots containing other $1,000+ promo | 0.56% | 1.78% |
+| Lots containing Signature | 17.86% | 37.26% |
+| Lots containing 3+ Metal copies | 0% observed | 0.02% |
+
+The earlier 2,000-seed audit had Metal in 24.15% free / 44.60% paid lots. Zero now
+observed is not an impossibility guarantee. Lot values naturally fall: mean $738.70 /
+$1,833.60, median $278.79 / $1,369.30; middle 80% $35.08–$2,021.92 / $357.94–$4,058.82.
+No lot-value or NPC bid cap was added. The existing separate 1,000-seed opening
+audit now gives NPC medians $69.47 free / $207.98 paid as admission weights and
+personal samples reflect less valuable lots. Speculation was not boosted to force
+older $100/$300 targets; recalibration is a separate decision.
+
+No extra API/Worker/D1 calls, refresh or migration. Focused tests cover budgets,
+theme sums, precedence/boundaries, empirical rarity, source determinism, scarcity,
+weighted prior correctness and save compatibility. Full `npm run check` passed:
+503 node tests (one skipped), 62 Chromium checks, production build, lint and
+typecheck; 21 existing warnings and none new. The prior local visual/exit changes
+also remain covered. No commit, push or deployment.
+
+## Reveal polish, leave confirmation and promo audit — local only, 2026-10-16
+
+Implemented at user request; **not committed, pushed or deployed**. Staging and
+production remain at the releases recorded below. No auction generation weights,
+NPC bidding rules, market feeds or database rows were changed in this follow-up.
+
+- Showcase cards without an explicit Signature/Overnumbered/Alt Art treatment
+  use the Promo red border. Explicit treatment colors keep precedence.
+- Individually known prices at $50+ get subtle foil; $250+ also get a rarity-colored
+  glow. Thresholds live in `AUCTION_VALUE_EFFECTS` (`core/domain/auction-display.ts`).
+  This never uses hidden prices for backs or identity-only peeks. Reduced motion
+  makes foil static; natural art proportions and 300px card-tile height remain.
+- Collection headings distinguish all five themes with shared-token colors and
+  light-theme contrast mixes, retaining their description tooltips.
+- Leave Auction sits beside Auto Advance/Mute while bidding or reviewing rounds.
+  A centered confirmation states the actual entry/investigation costs and that
+  they are not refunded. Leaving clears only the current unfinished auction; it
+  retains existing cash/inventory, grants no collection/loss credit and does not
+  charge an unsettled bid. Seed and result-stage guards protect against a stale
+  dialog discarding a newer or already-settled auction. Modal confirmation does
+  not pause the deadline; settling while it is open preserves the result instead.
+- Final bid-history popups show investigation descriptions, actual findings and
+  card thumbnails/details at the visibility that bidder actually learned. Identity
+  peeks still have no price; rarity peeks still have no name/art/price. Aggregate
+  clues show their report, not an invented card list. NPC details stay redacted
+  during bidding, round reviews and final counting, becoming reviewable only once
+  collection reveal finishes. Hover, keyboard focus and touch use the existing popup.
+  New NPC findings snapshot newly priced/identified/rarity-marked slots per round;
+  old saved notes without these details are explicitly unavailable, not reconstructed.
+
+The same pure visibility-snapshot helper now serves player/NPC investigations.
+Metadata adds a small bounded amount to the browser save; no additional pricing
+API/Worker/D1 calls or migration. Existing game prices/fees remain exact.
+
+### Promo frequency and low NPC bids — diagnosis, no balance change
+
+Offline audit reuses the stored October 16 production snapshot: 1,288 priced,
+artwork-bearing entries, 2,000 deterministic lots per mode; artwork not re-probed.
+Only priced cards enter auctions. These are simulated game-generation frequencies,
+not real pack odds or a live census of today's staging catalog.
+
+| Measure | Free | Paid |
+|---|---:|---:|
+| Metal copies / all drawn cards | 0.637% | 0.955% |
+| At least one Metal in a lot | 24.15% | 44.60% |
+| Three or more Metal copies in a lot | 2.75% | 11.10% |
+| Mean Metal copies per lot | 0.366 | 0.860 |
+| All Promo-section/Promo-rarity copies / cards | 2.150% | 3.240% |
+| At least one Promo worth $250+ in a lot | 27.40% | 49.70% |
+
+There is no dedicated Metal rate: 25 eligible Metal Prize Wall printings share
+the 112-card `other` stock bucket. `other` has aggregate targets 3.12% free / 4.75%
+paid, and themes/set focus/repeats skew the realized mix. Chase Collector lots
+contain a Metal in about 53.1% free / 71.6% paid cases; Set Collector about 25.7% /
+40.7%. Metal is thus more common per card than Signature under this snapshot and
+can dominate lot value. Recommended next balance decision: split/reweight Metal
+and other premium promos independently, aim substantially lower lot occurrence
+(for example 5% free / 10% paid), and measure again before approval. Do not silently
+change odds or source prices in a visual/diagnostic request.
+
+The screenshot alone does not include the auction seed or each NPC's private
+findings, so its exact bids cannot be replayed. The code supports the following
+explanation: Rare/Epic/Alt-Art scans are restricted to their named groups, and
+Chase Scan covers Overnumbered/Signature, **not Metal Promo**. Identity/rarity peeks
+do not grant actual prices. Collector/Opportunist can miss all expensive promos
+while Playset Builder learns stronger counts/identities. Small-sample estimates
+are conservative; blind speculation fades to zero in round four, and following
+prior public bids is bounded rather than forcing price matching. Therefore low
+final bids can be legitimate, not proof of a cap or price-cache failure. If an NPC
+had actually priced a $1,600 card, its observed subtotal must survive valuation;
+fees/margins/social nudges alone cannot explain a roughly $400 bid. The new final
+review makes that distinction inspectable. Optional future work: promo-targeted
+investigations and Collector priorities; no automatic access to unseen prices.
+
+Full `npm run check` passed: 499 node tests (one skipped), 62 Chromium checks,
+production build, lint and typecheck; 21 existing warnings and none new. Checks
+cover nonrefundable leaves, stale-seed/late-settlement guards, visibility upgrades,
+private/public boundaries, reveal persistence and reduced-motion effects. Reviewed
+desktop/phone dark/light screenshots; theme-heading contrast mixes preserve light
+legibility. The model simulation is unchanged: $98.52 free / $295.33 paid median
+openings and $151.03 / $656.38 forced-fourth-round medians on the same 1,000 seeds.
+Local test-DB history-column fallback diagnostics remain pre-existing and all
+regression checks pass without a migration. No commit, push or deployment.
+
 ## Cautious openings and fading speculation — staging, 2026-10-16
 
 Pushed application `2c97ad6` on `feature/set-rarity-heatmap`, then deployed staging

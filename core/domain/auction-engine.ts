@@ -1,7 +1,7 @@
-import {AUCTION_ROUNDS,AUCTION_PAID_ENTRY,auctionRandom,sampleIndices,type Auction,type AuctionCard,type AuctionSave,type AuctionKind,type Npc,type RoundBid,type ClueReveal} from "./auction-types.ts";
+import {AUCTION_ROUNDS,AUCTION_PAID_ENTRY,auctionRandom,sampleIndices,type Auction,type AuctionCard,type AuctionSave,type AuctionKind,type Npc,type RoundBid} from "./auction-types.ts";
 import {addInventory,inventoryQuote} from "./auction-market.ts";
 import {AUCTION_LOT_SIZES,generateAuctionLot} from './auction-lots.ts';
-import {AUCTION_NPCS,auctionNpcRoster,auctionNpcMood} from './auction-npcs.ts';
+import {AUCTION_NPCS,auctionNpcRoster,auctionNpcMood,auctionNpcAmbition} from './auction-npcs.ts';
 import {informationOffers,investigate} from "./auction-information.ts";
 import {auctionLossShares,auctionSaleRarity} from './auction-economy.ts';
 import {npcRoundInformation,npcInvestigationNotes} from './auction-npc-information.ts';
@@ -10,6 +10,7 @@ import {auctionLotTheme} from './auction-lot-themes.ts';
 import {rankAuctionBids} from './auction-ranking.ts';
 import {followUpSlots} from './auction-investigations-v2.ts';
 import {auctionMarketPrior} from './auction-market-prior.ts';
+import {auctionClueReveals} from './auction-clue-reveals.ts';
 
 // Only completed public bids may influence an estimate; current sealed bids are never inputs.
 export function npcBid(sample:number[],range:[number,number],priorBids:number[],personality:number,random:()=>number,feeBps=1000,confidence=1,participation=0,grossEstimate?:number,certainty=1,round=2):number{
@@ -18,7 +19,7 @@ export function npcBid(sample:number[],range:[number,number],priorBids:number[],
  const estimate=(grossEstimate??auctionSampleValue(sample)*(range[0]+range[1])/2)*(1-feeBps/10000);
  if(estimate<=0)return 0;
  const noise=1-npc.noise+random()*npc.noise*2,stretch=random()<npc.risk?1.08+random()*.1:1;
- const personal=estimate*npc.margin*confidence*noise*stretch;
+ const personal=estimate*npc.margin*confidence*noise*stretch*auctionNpcAmbition(npc.name,round,random);
  const bid=Math.round(influencedBid(personal,priorBids,npc.name,random,round));
  return Number.isSafeInteger(bid)?Math.max(1,bid):0;
 }
@@ -66,7 +67,7 @@ export function buyInformation(save:AuctionSave,id:string,now:number,targetSlot?
  if(id==='follow-up'&&(targetSlot===undefined||!followUpSlots(auction).includes(targetSlot)))return save;
  if(id==='top2-final'&&auction.round!==4)return save;
  const result=investigate(auction,option,targetSlot);
- const reveals:ClueReveal[]=[...result.priced.filter(slot=>!auction.priced.includes(slot)).map(slot=>({slot,visibility:'price' as const})),...result.known.filter(slot=>!auction.known.includes(slot)&&!result.priced.includes(slot)).map(slot=>({slot,visibility:'identity' as const})),...(result.rarityKnown??[]).filter(slot=>!auction.rarityKnown?.includes(slot)&&!result.known.includes(slot)).map(slot=>({slot,visibility:'rarity' as const}))];
+ const reveals=auctionClueReveals(auction,result);
  return {...save,wallet:{...save.wallet,cash:save.wallet.cash-option.cost},auction:{...auction,known:result.known,priced:result.priced,...(result.rarityKnown?{rarityKnown:result.rarityKnown}:{}),...(result.topCardSlot!==undefined?{topCardSlot:result.topCardSlot}:{}),clues:[...auction.clues,{...result.clue,round:auction.round,reveals}],bought:true,spent:auction.spent+option.cost}};
 }
 export function lockBid(save:AuctionSave,cents:number,now:number):AuctionSave{
@@ -103,6 +104,11 @@ export function nextAuctionRound(save:AuctionSave,now:number):AuctionSave{
  return {...save,auction:openRound({...save.auction,round:save.auction.round+1},now)};
 }
 export function finishAuction(save:AuctionSave):AuctionSave{return save.auction?.stage==='result'?{...save,auction:null}:save}
+// Entry/investigation costs were charged already. Leaving grants no lot or loss share;
+// an un-settled sealed bid was not charged. Never discard a newer or settled auction.
+export function leaveAuction(save:AuctionSave,seed:number):AuctionSave{
+ return save.auction&&save.auction.seed===seed&&save.auction.stage!=='result'?{...save,auction:null}:save;
+}
 export function changeAuctionFee(save:AuctionSave,bps:number):AuctionSave{
  return !save.auction&&Number.isInteger(bps)&&bps>=0&&bps<=10000?{...save,wallet:{...save.wallet,feeBps:bps}}:save;
 }
