@@ -1,6 +1,6 @@
 # Auction showcase and delayed investigations — 2026-10-16
 
-Prepared for the user-authorized staging release. Production is unchanged.
+Released to staging from source `845d726`. Production is unchanged.
 
 ## Decisions and game rules
 
@@ -94,3 +94,17 @@ NPC disclosure timing, per-round history, copy conservation/protected sales,
 inputs, fixed future fees, hidden-value independence, sound boundaries, drag/touch
 controls, colors, urgent header, intro audio and reduced motion. Complete release
 gate and live staging verification are required before handing off.
+
+Release verification: `npm run check` passed with 553 node tests, one skipped,
+79 Chromium journeys, build/lint/typecheck, and the same 21 existing complexity
+warnings (no new warnings). A test-only prefer-const error was corrected before
+the final run. The revealed-sale-value regression test also caught and fixed a
+hidden duplicate-price lookup; the calculation now uses revealed values only.
+
+Staging version `d88a6156-73b1-41ea-934e-8842184279b3` passed live verification:
+round-three delayed activation without extra calls; showcase drag/reserved-copy
+sales protection/return/reload; frozen shared profile with no wallet or unselected
+inventory; desktop/mobile and dark/light layouts. Both auction houses matched NPC
+calculations in all four rounds and passed settlement/reload/leave with no extra
+gameplay data calls or browser errors. Only isolated virtual browser saves were
+used. No migrations, snapshots replaced or production changes.

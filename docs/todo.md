@@ -12,13 +12,15 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
-- **Showcase + delayed investigation (2026-10-16), staging preparation:** $15
+- **Showcase + delayed investigation (2026-10-16), staging verified:** $15
   half-weight Delayed Gratification in rounds 1–2, reveal two of top five unpriced
   cards two rounds later; Bilgewater/Piltover naming, fixed 10% future fees,
   revealed-only sale value, high-price effects, intro audio and colored warning
   panels. New protected 20-printing showcase with drag/button editing, profile
   statistics and bounded private-wallet-free frozen share links. No DB storage,
-  migration, daily replacement or production changes.
+  migration, daily replacement or production changes. Source `845d726` pushed;
+  staging `d88a6156-73b1-41ea-934e-8842184279b3` verified with 553 node tests,
+  79 browser checks and live showcase/delayed/free/paid flows.
   [Decisions, ownership/privacy rules and validation](auction-showcase-and-delayed.md).
 
 - **Investigation scans/direct selection/audio (2026-10-16), staging verified:**
