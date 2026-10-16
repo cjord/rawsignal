@@ -31,4 +31,4 @@ export function scanUseful(auction:Auction,id:string){
  if(id==='follow-up-v4')return followUpSlots(auction).length>0;
  return true;
 }
-export const investigationDescription=(text:string)=>text.replace(/\bcopies\b/gi,'cards').replace(/\bcopy\b/gi,'card').replace(/(\$[\d,]+)\.00\b/g,'$1');
+export const investigationDescription=(text:string)=>text.replace(/\bcopies\b/gi,'cards').replace(/\bcopy\b/gi,'card').replace(/(\$[\d,]+)\.00\b/g,'$1').replace(/\b(?:COMMONS?|UNCOMMONS?|RARES?|EPICS?|ALT[- ]ARTS?|OVERNUMBERED|SIGNATURES?|PROMOS?|SHOWCASE|METAL)\b/g,rarity=>rarity.toLowerCase().replace(/\b[a-z]/g,letter=>letter.toUpperCase())).replace(/\bALL\b/g,'all');
