@@ -18,7 +18,7 @@ function Choice({card,locked,ready,revealed,winner,selected,onChoose,onReady,onF
  </button>;
 }
 
-function RoundChoices({round,difficulty,selected,preparing,onChoose,onFailed,firstButton}:{round:PriceGameCard[];difficulty:PriceGameDifficulty;selected:number|null;preparing:boolean;onChoose:(card:PriceGameCard,keyboard:boolean)=>void;onFailed:(image:string)=>void;firstButton:React.RefObject<HTMLButtonElement|null>}){
+export function RoundChoices({round,difficulty,selected,preparing,onChoose,onFailed,firstButton}:{round:PriceGameCard[];difficulty:PriceGameDifficulty;selected:number|null;preparing:boolean;onChoose:(card:PriceGameCard,keyboard:boolean)=>void;onFailed:(image:string)=>void;firstButton:React.RefObject<HTMLButtonElement|null>}){
  const [ready,setReady]=useState<number[]>([]);
  const allReady=round.every(card=>ready.includes(card.productId)),winner=priceGameWinner(round),revealed=selected!=null;
  return <div className={`price-game-round mode-${difficulty}`} aria-busy={preparing||!allReady}>

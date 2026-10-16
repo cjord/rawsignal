@@ -15,7 +15,8 @@ export const AUCTION_NPCS=[
  {name:'The Trust Fund Kid',participation:.99,margin:1,noise:.08,risk:.18,portrait:'trust-fund-kid',strategy:'Win-First Spender',cluePriority:['reveal3','alt3','chase1','top2'],description:'A rare wealthy guest who prioritizes winning over resale margin. Pays a large premium on a personal estimate, even when that estimate is wrong.'},
 ] as const;
 export const AUCTION_RARE_GUEST_CHANCE=.08;
-export function auctionNpcRoster(seed:number){
+export function auctionNpcRoster(seed:number,pinned?:readonly string[]){
+ if(pinned?.length===3&&new Set(pinned).size===3&&pinned.every(name=>AUCTION_NPCS.some(profile=>profile.name===name)))return pinned.map(name=>AUCTION_NPCS.find(profile=>profile.name===name)!);
  const ordinary=AUCTION_NPCS.filter(npc=>npc.name!=='The Trust Fund Kid');
  const guest=auctionRandom(seed+1207)()<AUCTION_RARE_GUEST_CHANCE;
  const roster:typeof AUCTION_NPCS[number][]=sampleIndices(ordinary.length,guest?2:3,seed+907).map(index=>ordinary[index]);

@@ -5,10 +5,10 @@ import type {PriceGameHistory} from "../../core/domain/price-game";
 
 const usd=(value:number)=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(value);
 
-export default function PriceShowdownHistory({history}:{history:PriceGameHistory[]}){
+export default function PriceShowdownHistory({history,daily=false}:{history:PriceGameHistory[];daily?:boolean}){
  return <details className="detail-section detail-collapsible price-game-history">
   <summary><h2>Showdown History <span className="price-game-history-count">({history.length})</span></h2><i className="detail-collapse-mark" aria-hidden="true">▸</i></summary>
-  <p className="games-note">Newest first. Your pick is green when correct and red when wrong. Restarting or changing difficulty clears history.</p>
+  <p className="games-note">Newest first. Your pick is green when correct and red when wrong. {daily?'Daily answers persist in this browser until the next UTC day.':'Restarting or changing difficulty clears history.'}</p>
   {!history.length?<p className="games-note">Make a pick to start your history.</p>:<div className="price-game-history-list" role="region" aria-label="Completed rounds" tabIndex={0}>
    {history.map(entry=><article className="price-game-history-row" key={entry.roundNumber} aria-label={`Round ${entry.roundNumber}: ${entry.correct?"correct":"wrong"}`}>
     <div className={`price-game-history-cards cards-${entry.cards.length}`}>

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {AUCTION_PROMO_TARGETS,auctionDrawBand,auctionDrawWeights,auctionRarityWeights} from '../core/domain/auction-composition.ts';
 import {auctionLotTheme,AUCTION_LOT_THEMES} from '../core/domain/auction-lot-themes.ts';
+import {auctionThemeSize} from '../core/domain/auction-lot-size.ts';
 import {auctionMarketPrior} from '../core/domain/auction-market-prior.ts';
 import {generateAuctionLot} from '../core/domain/auction-lots.ts';
 import {auctionRarityBand} from '../core/domain/auction-copy-policy.ts';
@@ -28,13 +29,14 @@ test('promo budgets subtract from other, stay below signatures in every theme, a
  const seeds=new Map();for(let seed=0;seeds.size<AUCTION_LOT_THEMES.length;seed++)seeds.set(auctionLotTheme(seed).id,seed);
  for(const kind of ['free','paid']){
   const draws=[...seeds.values()].map(seed=>auctionDrawWeights(seed,kind));
+  const counts=[...seeds.values()].map(seed=>{const size=auctionThemeSize(kind,auctionLotTheme(seed));return (size.min+size.max)/2});
   for(const seed of seeds.values()){
    const weights=auctionDrawWeights(seed,kind),original=auctionRarityWeights(seed,kind);
    assert.ok(Math.abs(Object.values(weights).reduce((sum,v)=>sum+v,0)-1)<1e-12);assert.ok(weights.metal<weights.signature/4);assert.ok(weights['ultra-promo']<weights.metal);
    assert.ok(Math.abs(weights.other+weights.metal+weights['ultra-promo']-original.other)<1e-12);
    for(const band of ['common','uncommon','rare','epic','alt','over','signature'])assert.equal(weights[band],original[band]);
   }
-  for(const band of ['metal','ultra-promo'])assert.ok(Math.abs(draws.reduce((sum,w)=>sum+w[band],0)/draws.length-AUCTION_PROMO_TARGETS[kind][band])<1e-12);
+  for(const band of ['metal','ultra-promo'])assert.ok(Math.abs(draws.reduce((sum,w,i)=>sum+w[band]*counts[i],0)/counts.reduce((s,n)=>s+n,0)-AUCTION_PROMO_TARGETS[kind][band])<1e-12);
  }
 });
 

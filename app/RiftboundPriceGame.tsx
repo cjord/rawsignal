@@ -26,7 +26,7 @@ export default function RiftboundPriceGame(){
    <CheckboxGrid className="set-option-grid price-game-auto" options={[{key:"auto",label:"Auto next round (1s)"}]} selected={auto?["auto"]:[]} onToggle={()=>setAuto(value=>!value)}/>
    <button className="game-control price-game-restart" type="button" disabled={status==="loading"} onClick={()=>setSession(value=>value+1)}>Restart Game</button>
   </div>
-  <p className="games-note price-game-mode-note">Changing difficulty resets your streak and score.</p>
+  <p className="games-note price-game-mode-note"><span>Changing difficulty resets your streak and score.</span> <a className="games-back" href="/games/riftbound-price/daily">Play the Daily Challenge →</a></p>
   {status==="loading"&&<><p role="status">Loading Riftbound cards…</p><PriceShowdownSkeleton difficulty={difficulty}/></>}
   {(status==="error"||status==="empty")&&<p role="status">Card prices are unavailable. <button type="button" className="game-control" onClick={reload}>Try again</button></p>}
   {status==="success"&&pool.length>0&&<GameSession key={`${difficulty}:${session}`} pool={pool} difficulty={difficulty} images={images} auto={auto}/>}

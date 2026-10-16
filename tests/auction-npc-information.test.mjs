@@ -6,13 +6,14 @@ import {npcRoundInformation,npcInvestigationName,NPC_INVESTIGATION_IDS} from '..
 import {publicAuctionBidNotes} from '../core/domain/auction-display.ts';
 import {parseAuctionSave} from '../core/domain/auction-save.ts';
 import {publicAuctionSlots} from '../core/domain/auction-public.ts';
+import {npcInvestigationRounds} from '../core/domain/auction-npc-schedule.ts';
 const pool=Array.from({length:60},(_,i)=>({productId:i+1,printing:'Normal',name:`Secret Card ${i}`,image:`https://images.example/${i}`,set:'Origins',rarity:i<30?'Common':'Rare',section:'rares',cents:100+i*10}));
 test('NPCs choose named investigations, preserve memory and snapshot only their investigation names',()=>{
  let save=beginAuction(initialAuctionSave(),pool,1000,undefined,42);
  for(let round=1;round<=4;round++){
-  for(const npc of save.auction.npcs){assert.equal(npc.investigations.length,round);assert.ok(NPC_INVESTIGATION_IDS.includes(npc.investigations.at(-1)));assert.notEqual(npcInvestigationName(npc),'Private Inspection')}
+  for(const npc of save.auction.npcs){assert.equal(npc.investigations.length,npcInvestigationRounds(save.auction.seed,npc.name).filter(value=>value<=round).length);assert.ok(npc.investigations.every(id=>NPC_INVESTIGATION_IDS.includes(id)));assert.notEqual(npcInvestigationName(npc),'Private Inspection')}
   save={...save,auction:{...save.auction,npcs:save.auction.npcs.map(npc=>({...npc,bid:1,locked:true}))}};save=lockBid(save,1,save.auction.deadline-1000);save=tickAuction(save,save.auction.deadline-500);
-  save.auction.npcs.forEach((npc,index)=>{const notes=publicAuctionBidNotes(save.auction.bids[index+1]);assert.equal(notes.length,1);assert.equal(notes[0].label,npcInvestigationName(npc));assert.ok(!JSON.stringify(notes).includes('Secret Card'));assert.ok(!JSON.stringify(notes).includes('$'))});
+  save.auction.npcs.forEach((npc,index)=>{const notes=publicAuctionBidNotes(save.auction.bids[index+1]),investigated=npcInvestigationRounds(save.auction.seed,npc.name).includes(round);assert.equal(notes.length,Number(investigated));if(investigated)assert.equal(notes[0].label,npcInvestigationName(npc));assert.ok(!JSON.stringify(notes).includes('Secret Card'));assert.ok(!JSON.stringify(notes).includes('$'))});
   assert.deepEqual(parseAuctionSave(JSON.stringify(save)),save);
   if(round<4)save=nextAuctionRound(save,save.auction.deadline+1);
  }

@@ -29,7 +29,7 @@ export default function AuctionWallet({save,catalog,cards,transact,reset,refresh
   </details>
   <details className="auction-fee"><summary>Game settings · selling fee {save.wallet.feeBps/100}%</summary><label>Selling fee (%) <input type="number" min="0" max="100" step="1" value={fee??String(save.wallet.feeBps/100)} disabled={!between} onChange={event=>setFee(event.target.value)}/></label><button className="game-control" type="button" disabled={!between||fee===null||!/^\d{1,3}$/.test(fee)||Number(fee)>100} onClick={()=>{transact(current=>changeAuctionFee(current,Number(fee)*100));setFee(null)}}>Apply fee</button><p className="games-note">A configurable virtual game rule, not actual marketplace fees. Changing it affects future sales and the current inventory display.</p></details>
   {confirm&&<AuctionDialog title="Reset your auction progress?" onClose={()=>setConfirm(false)}>
-   <p>This removes your saved inventory and unfinished auction, restores $2,500 virtual cash, and resets the selling fee to 10%. Other site preferences are unchanged.</p>
+   <p>This removes your normal-play inventory, auction statistics, pending collections and unfinished auction, restores $2,500 virtual cash, and resets the selling fee to 10%. Today’s daily challenge attempt is preserved. Other site preferences are unchanged.</p>
    <button className="game-control" type="button" onClick={()=>{reset();setConfirm(false)}}>Confirm reset</button>
   </AuctionDialog>}
  </section>;

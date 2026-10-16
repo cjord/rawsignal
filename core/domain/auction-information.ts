@@ -2,7 +2,7 @@ import {sampleIndices,type Auction,type AuctionCard,type Clue,type Investigation
 import {RARITY_INVESTIGATIONS,rarityInvestigationSlots} from './auction-rarity-investigations.ts';
 import {PARTIAL_INVESTIGATIONS,partialInvestigationSlots,investigatePartial} from './auction-partial-investigations.ts';
 import {balancedClue} from './auction-balanced-clues.ts';
-import {REBALANCED_INVESTIGATIONS,rebalancedCost,rebalancedUseful,rebalancedResult} from './auction-investigations-v2.ts';
+import {REBALANCED_INVESTIGATIONS,rebalancedCost,rebalancedUseful,rebalancedResult,followUpSlots} from './auction-investigations-v2.ts';
 
 // Retain old definitions for active saves and historic NPC clues, never new offers.
 export const RETIRED_INVESTIGATION_IDS=['count','rarity-peek3','rare-mark2','epic-mark2','alt-mark1','rare-identity2','epic-identity2','common3','uncommon3','rare2','epic2','alt1','highest','appraisal','value-band','value-band4','top5',
@@ -40,15 +40,15 @@ export const PRE_BALANCE_INVESTIGATION_COSTS:Record<string,number>={rarities:400
 export const LEGACY_INVESTIGATION_COSTS:Record<string,number>={count:500,sets:500,rarities:1000,duplicates:1000,over5:1500,reveal3:2000,identity3:2000,bulk:1500,over20:2500,highest:4000,rares:4000,share:3000,top5:6000,identity10:4500,appraisal:7500};
 const money=(cents:number)=>`$${(cents/100).toFixed(2)}`;
 const sum=(cards:AuctionCard[])=>cards.reduce((value,card)=>value+card.cents,0);
-const tiers=[['basic','targeted','strong'],['basic','targeted','strong'],['basic','targeted','premium'],['basic','targeted','premium']];
 const topCounts:Record<string,number>={top2:2,top5:5};
 export function informationOffers(auction:Auction):Investigation[]{
- const eligible=INVESTIGATIONS.filter(option=>!auction.clues.some(clue=>clue.id===option.id)&&informationUseful(auction,option.id));
- const picked:Investigation[]=[];
- for(const [index,tier] of tiers[auction.round-1].entries()){
-  const remaining=eligible.filter(option=>!picked.includes(option)),preferred=remaining.filter(option=>option.tier===tier),pool=preferred.length?preferred:remaining;
-  if(pool.length)picked.push(pool[sampleIndices(pool.length,1,auction.seed+auction.round*31+index)[0]]);
- }
+ // Menu eligibility uses public rules only. A targeted option can return zero matches.
+ const eligible=INVESTIGATIONS.filter(option=>!RETIRED_INVESTIGATION_IDS.includes(option.id)&&option.id!=='follow-up'&&(option.id!=='top2-final'||auction.round===4)&&!auction.clues.some(clue=>clue.id===option.id));
+ const basics=eligible.filter(option=>option.tier==='basic');
+ const first=basics[sampleIndices(basics.length,1,auction.seed+auction.round*31)[0]];
+ const remaining=eligible.filter(option=>option!==first);
+ const picked=[...(first?[first]:[]),...sampleIndices(remaining.length,first?2:3,auction.seed+auction.round*79).map(index=>remaining[index])];
+ if(followUpSlots(auction).length&&!auction.clues.some(clue=>clue.id==='follow-up'))picked.push(INVESTIGATIONS.find(option=>option.id==='follow-up')!);
  return picked.map(option=>({...option,cost:rebalancedCost(option,auction)}));
 }
 export function informationUseful(auction:Auction,id:string){

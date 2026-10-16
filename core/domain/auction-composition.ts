@@ -1,6 +1,7 @@
 import {auctionRarityBand} from './auction-copy-policy.ts';
 import {AUCTION_LOT_THEMES,auctionThemeProfile} from './auction-lot-themes.ts';
 import type {AuctionCard,AuctionKind} from './auction-types.ts';
+import {auctionThemeSize} from './auction-lot-size.ts';
 
 type RarityBand=ReturnType<typeof auctionRarityBand>;
 export type AuctionDrawBand=RarityBand|'metal'|'ultra-promo';
@@ -20,11 +21,14 @@ export const AUCTION_RARITY_TARGETS={
  free:{uncommon:.2464,rare:.348,epic:.08,alt:.05,over:.0185,signature:.0037,other:.0312},
  paid:{uncommon:.1779,rare:.3044,epic:.12,alt:.08,over:.0412,signature:.005,other:.0475},
 } as const;
-const mean=(key:'bulk'|'rare')=>AUCTION_LOT_THEMES.reduce((sum,theme)=>sum+theme[key],0)/AUCTION_LOT_THEMES.length;
+const mean=(key:'bulk'|'rare',kind:AuctionKind)=>{
+ const rows=AUCTION_LOT_THEMES.map(theme=>{const size=auctionThemeSize(kind,theme);return {value:theme[key],count:(size.min+size.max)/2}});
+ return rows.reduce((sum,row)=>sum+row.value*row.count,0)/rows.reduce((sum,row)=>sum+row.count,0);
+};
 
 export function auctionRarityWeights(seed:number,kind:AuctionKind):Record<RarityBand,number>{
  const profile=auctionThemeProfile(seed,kind),scale=kind==='paid'?.8:1;
- const bulkMean=mean('bulk')*scale,rareMean=mean('rare')*scale,premiumMean=1-bulkMean-rareMean;
+ const bulkMean=mean('bulk',kind)*scale,rareMean=mean('rare',kind)*scale,premiumMean=1-bulkMean-rareMean;
  const targets=AUCTION_RARITY_TARGETS[kind],premium=(1-profile.bulk-profile.rare)/premiumMean;
  const weights={common:0,uncommon:targets.uncommon*profile.bulk/bulkMean,rare:targets.rare*profile.rare/rareMean,
   epic:targets.epic*premium,alt:targets.alt*premium,over:targets.over*premium,signature:targets.signature*premium,other:targets.other*premium};

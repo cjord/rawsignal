@@ -1,5 +1,168 @@
 # Riftbound Auction House
 
+## Retained entry, investigations, statistics and daily challenge — local, 2026-10-16
+
+Newer decisions supersede earlier menu/access notes below. Local implementation;
+not pushed, deployed or migrated. Existing guide/theme/intro changes remain local.
+
+Validation: complete `npm run check` passed — 516 node tests passed, one skipped;
+68 Chromium journeys passed; production build, lint and typecheck passed. There
+are 21 existing complexity warnings and none introduced. Desktop/mobile dark/light
+screenshots reviewed for daily entry, statistics, investigations and shared game
+surfaces. SQLite tests cover immutable shared snapshots, publication readiness and
+concurrent first-visitor insertion; browser tests cover the complete five-auction
+run, reload/resume, automatic sales, one-time reward, expiry and attempt-preserving
+normal reset. Staging/production migration and live snapshot validation remain pending.
+
+- Intro Cancel/Escape keeps a per-entry-type seed and frozen preparation stock in
+  the versioned browser save, so a later catalog refresh cannot reroll that draft.
+  Once artwork preparation finishes, the exact lot/printing/price snapshot is
+  retained too, replacing the temporary stock snapshot. Return/reload uses that draft, not a new roll. Free and paid drafts
+  are independent. No entry/timer before confirmation; leaving an *active* auction
+  still forfeits its fees and ends it (not a pause).
+- Three seeded random offers include a random basic option; all active choices
+  can appear, except the stated round-4-only Top-Two rule. Menus no longer inspect
+  hidden contents to suppress empty results. An empty scan is a legitimate paid
+  result. Earlier unpriced private rarity markers guarantee an extra Follow-Up
+  Inspection option, unless already purchased. One purchase per round remains.
+  Options group into Count / Locate / Value with disclosure labels.
+- New auctions give each NPC three private-investigation opportunities, or all
+  four in a shared seeded 50% of auctions. Otherwise each rival skips one seeded
+  round; the Closer skips the opener and investigates rounds 2–4. Personality
+  priorities remain weighted, not scripts. Selection no longer uses hidden stock
+  to pick only productive scans. Public reveals, retained findings and the
+  existing base private sample still inform skipped-round estimates. No new clue
+  icon is attributed to that round. Existing saved auctions keep legacy access.
+- Lobby statistics track normal-play starts, settled wins and win rate,
+  investigation spend, estimated net auction P/L, best profit, loss-share credits
+  and early buyout wins. Abandonments count as starts/costs but not settled win-rate
+  trials. No historical backfill: old wallets have no trustworthy cost basis.
+  P/L values frozen won collections less fees, bid, entry and investigations; it
+  is not realized-sale P/L or subsequent market movement. Settlement updates once.
+
+### Daily challenge decisions and implementation
+
+- Route `/games/riftbound-auction/daily`, linked from the normal lobby.
+- $2,500 separate virtual bankroll; three free then two $50 paid auctions.
+  Fixed 10% selling fee independent of normal-play settings. Won collections
+  automatically sell at frozen prices after **each auction**, not bidding round.
+- A completed five-auction run transfers **25% of positive net profit**, rounded
+  down to cents, excluding the $2,500 starting cash, **no reward cap**. Normal cash
+  and inventory never fund challenge costs or absorb challenge losses. NPC loss
+  shares enter the challenge bankroll. No normal inventory is added by challenge wins.
+- Once per browser per UTC date; reload resumes and timers continue. Leaving an
+  active challenge auction fails the run. Unable to pay a required entry ends it.
+  UTC midnight expires incomplete runs with no reward; only five completed
+  auctions qualify. Resetting normal progress preserves the daily attempt.
+- Shared manifest holds five exact lots, frozen prices, seeds, kinds and frozen
+  market priors. Seeds determine shared rivals/themes; later NPC bids can differ
+  legitimately because each player's completed public bids differ. A readonly
+  public representation necessarily contains hidden client-game data: this remains
+  a casual, inspectable browser game, not secure competitive play.
+- `GET /api/auction/daily` first reads the UTC-date row. On its first cache miss
+  of a day, it generates from one fully published Riftbound D1 catalog and uses
+  insert-on-conflict-do-nothing; a second read returns the winning persisted row
+  in a race. No client date parameter, upstream pricing calls, visitor-specific
+  writes, new cron, Workflows or Queues. Failure returns non-cacheable 503 without
+  consuming an attempt. Existing edge caching caps the successful response at
+  five minutes or midnight, whichever comes first. The lineup persists through
+  same-day redeploys and catalog refreshes. Broken artwork does not privately
+  reroll the daily lot; known image URLs are required and existing Metal/Best Of
+  regular-art substitutions apply. A live artwork audit before rollout is useful.
+- Local progress, automatic sales and normal-wallet reward receipts are written
+  atomically in the existing versioned save. Complete/failed runs cannot restart
+  that day. Clearing storage/another browser bypasses the limit; no accounts yet.
+- New migration **0022_daily_auction_manifest.sql** creates one keyed JSON row/day.
+  **Pending in both environments**: deploy validated source first, then apply the
+  migration and test the real snapshot route. No live infrastructure changed.
+  Subsequent uncached requests read one row; daily initialization adds a catalog
+  readiness check, one Riftbound catalog query, one conditional insert and one
+  winning-row read (concurrent first visitors can repeat initialization reads).
+  Gameplay itself adds zero Worker/D1/API calls per round. Storage grows by one
+  compressed-over-HTTP JSON manifest per day; database JSON itself is uncompressed.
+
+
+### Offline balance check for the investigation schedule
+
+1,000 seeds per entry type using the saved Oct-16 production snapshot (1,288
+eligible printings), default 10% fee, player passing every round. No network or
+source-data writes. Not human playtesting or real sale performance:
+
+| Mode | Median opening NPC bid | NPC winner loses money | Mean player loss share |
+|---|---:|---:|---:|
+| Free | $71.48 | 20.8% | $5.44 |
+| Paid | $199.79 | 16.5% | $10.62 before entry |
+
+Compared with the prior four-investigations-every-auction baseline, median bids
+were $75.37/$213.69 and winning-loss rates 23.2%/18.6%. No bid-margin or speculation
+weights were retuned in this change. Less private information and honest empty
+investigations reduce typical estimates slightly. The Closer still wins 189/280
+paid appearances when the player always passes, with losses in 58 of those wins;
+watch its late-round strength in playtesting. The rare wealthy guest appears in
+72/1,000 auctions, loses 27/54 free wins and 11/46 paid wins. These are conditional
+simulation outcomes, not encounter probabilities or guarantees of shared profit.
+
+## Guide polish, two collection themes and entry briefing — local, 2026-10-16
+
+User requested implementation; no push or deployment requested for this revision.
+Production/staging remain on app `7a4cbb6` until a separately authorized release.
+
+Design directions considered: (1) rapid rolling ticker, (2) a binder-opening scene,
+(3) a scanner-style briefing. Selected **scanner briefing with rolling labels**:
+site-blue/violet borders, a large collection label, three portraits that settle in
+sequence, a restrained progress line and two slowly drifting faded-art lanes.
+It keeps the site's dashboard character rather than introducing a casino skin.
+The nominal intro lasts five seconds while artwork validation runs in parallel.
+Skip Intro bypasses the presentation only, not validation. Cancel/Escape aborts
+preparation without charging entry or starting the round. Reduced motion shows
+the final names statically and shortens the intro to 400ms. Slow artwork checks
+can extend preparation beyond five seconds; the status changes rather than
+pretending a round has started. Entry cost and the one-minute timer begin only
+after both prerequisites finish. Unmount/cancel and stale completion guards keep
+an old preparation from starting or skipping a newer auction.
+
+The decorative background samples up to ten unique URLs from the loaded catalog,
+not the actual hidden lot. Duplicate lane images reuse browser caching. It adds
+no pricing/API or D1 reads/writes, but can fetch up to ten additional CDN artwork
+images and existing cacheable rival portraits on first use. No image generation,
+new assets, source refresh, backend endpoint or migration is required.
+
+New collection ideas: a larger Store Clear-Out, a low-duplicate Curated Binder,
+and a Tournament Trade-In focused on repeat playable stock. Selected the first
+two; Tournament Trade-In overlaps with Deck Builder and remains a future idea.
+
+- **Store Clear-Out:** 71–90 copies free / 106–130 paid when stock allows, everyday
+  stock/regular rares with occasional premiums. Still inside existing global
+  limits (25–90 free, 50–130 paid); scarce catalogs may use fewer copy-limited
+  cards but must meet the auction type's global minimum.
+- **Curated Binder:** mixed expansions, more premium lean than everyday bulk,
+  at most two copies of any printing. Distinct from Set Collector's expansion
+  focus and Deck Builder's repeat-copy preference.
+
+Seven themes are equally likely for newly generated lots. Existing frozen lots,
+saved theme identities and rosters remain unchanged. Rarity calibration weights
+theme means by expected lot count, so larger clear-outs do not silently alter
+the requested overall Epic/Alt Art/Signature or rare promo admission targets.
+Actual catalog availability/copy caps can still shift realized rates. The NPC's
+catalog prior uses the same per-theme draw weights and the actual public count;
+there is no new access to hidden prices or an unrelated bidding-parameter change.
+
+Guide polish: seven shared collection-name colors, all 25 existing clue icons,
+larger body text, numbered and spaced rules, two-column theme cards, stronger
+body contrast, purple strategy labels and blue investigation-strategy labels.
+Current theme count, size ranges, costs and rates derive from game configuration.
+The guide remains static and needs no market data request.
+
+Validation: `npm run check` passed: production build, 508 passing node tests (one
+skipped), lint/typecheck (21 existing warnings; none new), and 65 Chromium browser
+journeys. New checks cover larger clear-out sizes, the two-copy binder cap,
+count-weighted rarity/promo targets, every guide icon/theme color, intro timing,
+cancel/re-entry, deferred fee/timer start, Skip Intro without bypassing artwork,
+broken-image exclusion and reduced motion. Entry and guide screenshots reviewed
+at desktop/mobile sizes in light/dark themes; existing Singles/Sealed journeys
+remain green. Test fixtures were expanded from 24 to 26 printings so a two-copy
+paid binder can legitimately meet the 50-card minimum. Nothing pushed/deployed.
+
 ## Release — staging and production, 2026-10-16
 
 Application commit **`7a4cbb6`**, pushed to `feature/set-rarity-heatmap`, includes all

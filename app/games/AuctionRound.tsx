@@ -10,7 +10,7 @@ import {lockBid,nextAuctionRound,finishAuction} from '../../core/domain/auction-
 import AuctionInvestigate from './AuctionInvestigate';
 import AuctionResultMetrics from './AuctionResultMetrics';
 
-type Props={save:AuctionSave;now:number;transact:(update:(save:AuctionSave)=>AuctionSave)=>void;revealDone?:boolean;visible?:number[];autoSeconds?:number|null};
+type Props={save:AuctionSave;now:number;transact:(update:(save:AuctionSave)=>AuctionSave)=>void;revealDone?:boolean;visible?:number[];autoSeconds?:number|null;dailyMode?:boolean};
 function RoundControls({save,now,transact}:Props){
  const auction=save.auction!,[bid,setBid]=useState(''),locked=auction.selected!==null,expired=now>=auction.deadline;
  const valid=/^\d+(\.\d{1,2})?$/.test(bid),cents=valid?Math.round(Number(bid)*100):NaN;
@@ -30,18 +30,19 @@ export function AuctionRoundHeader({auction,now}:{auction:Auction;now:number}){
   <p className="games-note">{auction.round<4?`Buyout: top bid must be ${AUCTION_ROUNDS[auction.round-1].threshold}% above second place, with at least two positive bids.`:'Final round: highest positive bid wins; seeded priority breaks ties. All passes mean no sale.'}</p>
  </div>;
 }
-export default function AuctionRound({save,now,transact,autoSeconds=null,revealDone=true,visible=save.auction!.lot.map((_,index)=>index)}:Props){
+export default function AuctionRound({save,now,transact,autoSeconds=null,revealDone=true,visible=save.auction!.lot.map((_,index)=>index),dailyMode=false}:Props){
  const auction=save.auction!;
+ const finishLabel=dailyMode?(save.sequence===5?'Complete Challenge':'Continue Daily Challenge'):'Finish & Manage Inventory';
  return <div className={`auction-round-panel${auction.stage==='round'?'':' is-results'}`}>
-  {auction.stage==='round'?<RoundControls key={auction.round} save={save} now={now} transact={transact}/>:<section className="detail-section auction-results" id={auction.stage==='result'?'auction-settled':undefined}><div className={`auction-results-heading${auction.stage==='reveal'?' auction-round-review-heading':''}`}><h2>{auction.stage==='result'?'Auction Settled':'Round Bids'}</h2>{auction.stage==='reveal'?<><p className="auction-no-buyout">No Early Buyout <InfoHint label="Round review rules">The buyout threshold wasn’t met. Another round gives you a fresh chance to win. Placements rank bids highest first; ties use the auction’s seeded priority. A $0 pass cannot win.</InfoHint></p><button className="game-control auction-finish auction-next-round" type="button" onClick={()=>transact(current=>nextAuctionRound(current,Date.now()))}>Next Auction Round{autoSeconds!==null?` (${autoSeconds}s)`:''}</button></>:<button className={`game-control${revealDone?' auction-finish':''}`} disabled={!revealDone} type="button" onClick={()=>transact(finishAuction)}>Finish &amp; Manage Inventory</button>}</div>
-   {auction.stage==='reveal'?<AuctionBidHistory auction={auction} heading={false}/>:<div className="auction-settlement-layout"><div className="auction-settlement-summary"><AuctionOutcome save={save} revealDone={revealDone} visible={visible}/></div><AuctionBidHistory auction={auction} details={revealDone}/></div>}
+  {auction.stage==='round'?<RoundControls key={auction.round} save={save} now={now} transact={transact}/>:<section className="detail-section auction-results" id={auction.stage==='result'?'auction-settled':undefined}><div className={`auction-results-heading${auction.stage==='reveal'?' auction-round-review-heading':''}`}><h2>{auction.stage==='result'?'Auction Settled':'Round Bids'}</h2>{auction.stage==='reveal'?<><p className="auction-no-buyout">No Early Buyout <InfoHint label="Round review rules">The buyout threshold wasn’t met. Another round gives you a fresh chance to win. Placements rank bids highest first; ties use the auction’s seeded priority. A $0 pass cannot win.</InfoHint></p><button className="game-control auction-finish auction-next-round" type="button" onClick={()=>transact(current=>nextAuctionRound(current,Date.now()))}>Next Auction Round{autoSeconds!==null?` (${autoSeconds}s)`:''}</button></>:<button className={`game-control${revealDone?' auction-finish':''}`} disabled={!revealDone} type="button" onClick={()=>transact(finishAuction)}>{finishLabel}</button>}</div>
+   {auction.stage==='reveal'?<AuctionBidHistory auction={auction} heading={false}/>:<div className="auction-settlement-layout"><div className="auction-settlement-summary"><AuctionOutcome save={save} revealDone={revealDone} visible={visible} dailyMode={dailyMode}/></div><AuctionBidHistory auction={auction} details={revealDone}/></div>}
   </section>}
  </div>;
 }
-function AuctionOutcome({save,revealDone=true,visible=[]}:Pick<Props,'save'|'revealDone'|'visible'>){
+function AuctionOutcome({save,revealDone=true,visible=[],dailyMode=false}:Pick<Props,'save'|'revealDone'|'visible'|'dailyMode'>){
  const result=save.auction!.result!,won=result.winner==='You';
  return <><div className="auction-settled-winner" role="status">{result.winner&&<AuctionBidder name={result.winner}/>}<span>{result.winner?`won${result.buyout?' by early buyout':''} for ${auctionUsd(result.bid)}.`:'No positive bids: this collection was not sold.'} <InfoHint label="Collection value explanation">Market value uses frozen auction prices and adds up as cards flip. Winner net deducts selling fees and the winning bid; when you win, it also deducts your investigation spend and entry fee. Your Auction Result includes your own costs and any NPC loss share.</InfoHint></span></div>
   <AuctionResultMetrics auction={save.auction!} visible={visible} done={revealDone}/>
-  {won&&<p className="games-note">The cards you won have been added to your inventory. Market values can change daily—sell whenever you’re ready between auctions.</p>}
+  {won&&<p className="games-note">{dailyMode?'Your won cards were automatically sold at frozen market values less the 10% fee. Proceeds are in your challenge bankroll.':'The cards you won have been added to your inventory. Market values can change daily—sell whenever you’re ready between auctions.'}</p>}
  </>;
 }

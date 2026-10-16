@@ -13,17 +13,18 @@ export function useAuctionSave(){
   window.addEventListener('storage',receive);return()=>window.removeEventListener('storage',receive);
  },[adopt]);
  const transact=useCallback((update:(save:AuctionSave)=>AuctionSave)=>{
-  const previous=current.current;if(!previous)return;
+  const previous=current.current;if(!previous)return null;
   try{
    const stored=parseAuctionSave(localStorage.getItem(AUCTION_STORAGE_KEY));
-   if(stored.revision!==previous.revision){adopt(stored);setError('Another tab changed your game. Please repeat your action.');return}
-   const changed=update(previous);if(changed===previous)return;
+   if(stored.revision!==previous.revision){adopt(stored);setError('Another tab changed your game. Please repeat your action.');return null}
+   const changed=update(previous);if(changed===previous)return previous;
    const next={...changed,revision:previous.revision+1};
    localStorage.setItem(AUCTION_STORAGE_KEY,JSON.stringify(next));adopt(next);setError(null);
-  }catch{setError('Browser storage is unavailable or full. This action was not saved or charged. Free storage and try again.')}
+   return next;
+  }catch{setError('Browser storage is unavailable or full. This action was not saved or charged. Free storage and try again.');return null}
  },[adopt]);
  const reset=useCallback(()=>{
-  try{const next=initialAuctionSave();next.revision=(current.current?.revision??0)+1;localStorage.setItem(AUCTION_STORAGE_KEY,JSON.stringify(next));adopt(next);setError(null)}catch{setError('Browser storage is unavailable. Enable storage to reset and play.')}
+  try{const next=initialAuctionSave();next.revision=(current.current?.revision??0)+1;next.daily=current.current?.daily;localStorage.setItem(AUCTION_STORAGE_KEY,JSON.stringify(next));adopt(next);setError(null)}catch{setError('Browser storage is unavailable. Enable storage to reset and play.')}
  },[adopt]);
  return {save,error,transact,reset};
 }

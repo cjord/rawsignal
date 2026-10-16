@@ -12,6 +12,48 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
+- **Daily result sharing + daily Showdown (2026-10-16), staging release in progress:**
+  spoiler-free emoji/text previews and compact self-reported results links; auction
+  links reconstruct five outcomes, spend/fees/profit/reward and top five won cards.
+  Daily Showdown has 10 Normal and 10 Hard rounds, independent once/day browser
+  attempts, shared frozen UTC snapshots, reload/resume and results grids. Both daily
+  games have Games tiles. No per-share records/writes or per-round calls. New
+  migration 0023 joins pending 0022; apply only to staging for this release.
+  Historical manifest requests read existing rows only, never regenerate old days.
+  Implementation, options, integrity limitations and costs:
+  [Daily games and sharing](daily-games-and-sharing.md).
+
+- **Auction progress/challenge changes local (2026-10-16), release pending:**
+  retained canceled-intro drafts, random investigation menus that allow zero-hit
+  results, guaranteed eligible Follow-Up, Count/Locate/Value grouping, three/four
+  round NPC investigation schedules and browser-local normal-play statistics.
+  Daily Challenge: $2,500; 3 free + 2 paid; auto-sell wins after each auction at
+  fixed 10% fee; 25% positive profit bonus, no cap; once per browser/UTC date;
+  resume until midnight, expire without reward if unfinished. Leaving or failing
+  a required entry ends the run. Normal reset preserves the daily attempt.
+  Shared date-keyed frozen lineup uses `/api/auction/daily`; migration **0022**
+  is pending in staging/production. No new cron or upstream calls. Browser-level
+  limit is bypassable until accounts; no secure leaderboard implied. Complete
+  gate and live staging snapshot verification are release prerequisites. See
+  `docs/games-auction-house-plan.md` for definitions, costs and deployment order.
+  Local full gate passed: 516 node tests passed (one skipped), 68 browser journeys,
+  build/lint/typecheck; no new warnings. Daily challenge, statistics and
+  investigation screens reviewed in dark/light at phone and desktop widths.
+
+
+- Guide/entry presentation and collection expansion implemented locally (2026-10-16),
+  not pushed or deployed. Seven colored collection types, clue icons, larger guide
+  text and clearer rival descriptions. Store Clear-Out favors 71–90 free / 106–130
+  paid copies; Curated Binder caps printings at two copies. Existing global size
+  limits and requested aggregate rarity targets remain; calibration accounts for
+  the larger theme. Five-second scanner-style entry briefing runs alongside artwork
+  validation, with Skip Intro, free cancellation and reduced-motion support; no
+  fee/timer starts while preparing. Background art is decorative, not the hidden
+  lot. No new pricing/API/D1 calls; up to ten cacheable decorative image URLs.
+  Details and design alternatives: `docs/games-auction-house-plan.md`.
+  Full gate passed: 508 node tests (one skipped), 65 browser journeys, build,
+  lint/typecheck; no new warnings. Desktop/mobile dark/light reviewed. Local only.
+
 - **Release 2026-10-16:** app `7a4cbb6` pushed and deployed to staging `ab294936`,
   then production `c076ac77` after staging passed. Includes all pending auction
   polish, rarity budgets/T1 treatment, two rivals, Auction Guide and larger

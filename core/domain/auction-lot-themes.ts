@@ -7,6 +7,8 @@ export const AUCTION_LOT_THEMES=[
  {id:'trade-binder',name:'Trade Binder',collectionName:'Trade Binder Collection',description:'A varied mix of everyday cards, regular rares and a few premium treatments.',bulk:.6,rare:.3,repeat:.25,copyCap:4,setFocus:0},
  {id:'set-collector',name:'Set Collector',collectionName:"Set Collector's Collection",description:'A broad binder leaning toward one expansion and fewer repeated printings.',bulk:.38,rare:.42,repeat:.08,copyCap:3,setFocus:.85},
  {id:'chase-collector',name:'Chase Collector',collectionName:"Chase Collector's Collection",description:'A showcase-style binder with a stronger premium-treatment bias. Valuable hits are not guaranteed.',bulk:.25,rare:.4,repeat:.12,copyCap:3,setFocus:0},
+ {id:'store-clearout',name:'Store Clear-Out',collectionName:"Store Clear-Out Collection",description:'A larger stockroom clear-out with everyday inventory, regular rares and occasional premium surprises.',bulk:.68,rare:.25,repeat:.45,copyCap:8,setFocus:.15},
+ {id:'curated-binder',name:'Curated Binder',collectionName:"Curated Binder Collection",description:'A carefully varied binder spanning expansions, with at most two copies of a printing and a premium-treatment lean.',bulk:.35,rare:.4,repeat:.02,copyCap:2,setFocus:0},
 ] as const;
 export function auctionLotTheme(seed:number){const random=auctionRandom(seed+401);random();random();return AUCTION_LOT_THEMES[Math.floor(random()*AUCTION_LOT_THEMES.length)]}
 export function auctionThemeProfile(seed:number,kind:AuctionKind){

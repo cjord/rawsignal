@@ -4,6 +4,7 @@ import {AUCTION_RARITY_TARGETS,auctionRarityWeights} from '../core/domain/auctio
 import {generateAuctionLot} from '../core/domain/auction-lots.ts';
 import {auctionRarityBand} from '../core/domain/auction-copy-policy.ts';
 import {auctionLotTheme,AUCTION_LOT_THEMES} from '../core/domain/auction-lot-themes.ts';
+import {auctionThemeSize} from '../core/domain/auction-lot-size.ts';
 import {initialAuctionSave} from '../core/domain/auction-types.ts';
 import {beginAuction,tickAuction,finishAuction,sellInventory} from '../core/domain/auction-engine.ts';
 import {parseAuctionSave} from '../core/domain/auction-save.ts';
@@ -15,8 +16,9 @@ test('theme weights sum to one and average to explicit aggregate rarity targets'
  const seeds=new Map();for(let seed=0;seeds.size<AUCTION_LOT_THEMES.length;seed++)seeds.set(auctionLotTheme(seed).id,seed);
  for(const kind of ['free','paid']){
   const profiles=[...seeds.values()].map(seed=>auctionRarityWeights(seed,kind));
+  const counts=[...seeds.values()].map(seed=>{const size=auctionThemeSize(kind,auctionLotTheme(seed));return (size.min+size.max)/2});
   for(const weights of profiles){assert.ok(Object.values(weights).every(value=>value>=0));assert.ok(Math.abs(Object.values(weights).reduce((sum,value)=>sum+value,0)-1)<1e-12);}
-  for(const [band,target] of Object.entries(AUCTION_RARITY_TARGETS[kind]))assert.ok(Math.abs(profiles.reduce((sum,weights)=>sum+weights[band],0)/profiles.length-target)<1e-12,`${kind} ${band}`);
+  for(const [band,target] of Object.entries(AUCTION_RARITY_TARGETS[kind]))assert.ok(Math.abs(profiles.reduce((sum,weights,i)=>sum+weights[band]*counts[i],0)/counts.reduce((s,n)=>s+n,0)-target)<1e-12,`${kind} ${band}`);
  }
 });
 

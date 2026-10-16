@@ -1,5 +1,5 @@
 "use client";
-import {useEffect,useMemo,useRef,useState} from 'react';
+import {useCallback,useEffect,useMemo,useRef,useState,type ComponentProps} from 'react';
 import {GamesShell} from './GamesView';
 import {useCatalogPage} from './data/useCatalogPage';
 import {useAuctionSave} from './games/useAuctionSave';
@@ -8,11 +8,9 @@ import AuctionCollection from './games/AuctionCollection';
 import AuctionRound,{AuctionRoundHeader} from './games/AuctionRound';
 import {allowedRarities} from '../core/market-state';
 import {parseCards} from '../core/domain/contracts';
-import {holdingKey,type AuctionSave,type AuctionKind} from '../core/domain/auction-types';
+import {holdingKey,type AuctionSave} from '../core/domain/auction-types';
 import {auctionCatalog} from '../core/domain/auction-market';
-import {beginAuction,tickAuction} from '../core/domain/auction-engine';
-import {prepareAuctionLot} from './data/auction-images';
-import {createPriceGameImageLoader} from './data/price-game-images';
+import {tickAuction} from '../core/domain/auction-engine';
 import {useAuctionNavigation,useAuctionReveal,useAuctionSound} from './games/useAuctionPresentation';
 import AuctionWinner,{useAuctionWinner} from './games/AuctionWinner';
 import AuctionLobby from './games/AuctionLobby';
@@ -20,6 +18,11 @@ import AuctionHeader from './games/AuctionHeader';
 import {useAuctionAutoAdvance} from './games/useAuctionAutoAdvance';
 import {AuctionBiddingHistory} from './games/AuctionBidHistory';
 import AuctionLeave from './games/AuctionLeave';
+import {useAuctionEntry} from './games/useAuctionEntry';
+import AuctionEntryReveal from './games/AuctionEntryReveal';
+import AuctionStatistics from './games/AuctionStatistics';
+import AuctionDaily from './games/AuctionDaily';
+import {dailyAuctionDate,updateDailyAuction} from '../core/domain/auction-daily';
 
 const sources=allowedRarities.riftbound.map(section=>`/data/${section}.json`);
 function AuctionSaveFeedback({save,error,reset}:{save:AuctionSave|null;error:string|null;reset:()=>void}){
@@ -29,36 +32,41 @@ function AuctionPageHeader({save,error,audio,auto,transact}:{save:AuctionSave|nu
  const auction=save?.auction??null;
  return <AuctionHeader sound={audio.sound} mute={audio.toggle} disabled={!save&&!error} autoAdvance={auto.enabled} toggleAuto={auto.toggle} leave={<AuctionLeave key={auction?.seed} auction={auction} transact={transact}/>}/>;
 }
-export default function RiftboundAuctionHouse(){
+function NormalAuctionLobby({save,dailyMode,entry,available,...wallet}:{save:AuctionSave|null;dailyMode:boolean;entry:ReturnType<typeof useAuctionEntry>;available:boolean}&Omit<ComponentProps<typeof AuctionWallet>,'save'>){
+ if(!save||save.auction||dailyMode)return null;
+ return <><AuctionWallet save={save} {...wallet}/><AuctionLobby available={available} preparing={Boolean(entry.entry)} imageError={entry.imageError} enter={entry.enter} cash={save.wallet.cash}/><AuctionStatistics save={save}/></>;
+}
+function AuctionDataNote({dailyMode}:{dailyMode:boolean}){
+ return <p className="games-note">{dailyMode?'TCGCSV / TCGplayer Near Mint prices frozen in the shared UTC-day snapshot. Challenge wins auto-sell at those prices less a fixed 10% fee.':'TCGCSV / TCGplayer Near Mint market pricing. Auction contents/prices freeze on entry; owned inventory is repriced from the current loaded catalog. Price refreshes use existing cached feeds, not real-time sale quotes.'} Missing prices remain unavailable. Clearing browser storage removes progress. Casual single-player only; local saves and daily limits are not tamper-proof.</p>;
+}
+export default function RiftboundAuctionHouse({dailyMode=false}:{dailyMode?:boolean}){
  const {items,status,reload}=useCatalogPage({sources,parse:parseCards,keyOf:holdingKey});
- const catalog=useMemo(()=>auctionCatalog(items),[items]),{save,error,transact,reset}=useAuctionSave();
+ const catalog=useMemo(()=>auctionCatalog(items),[items]),{save:root,error,transact:saveRoot,reset}=useAuctionSave();
  const [now,setNow]=useState(()=>Date.now()),arena=useRef<HTMLDivElement>(null);
- const [preparing,setPreparing]=useState(false),[imageError,setImageError]=useState('');
- const loader=useRef(createPriceGameImageLoader()),mounted=useRef(true),preparation=useRef<AbortController|null>(null);
- useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;preparation.current?.abort()}},[]);
- const celebrating=useAuctionWinner(save?.auction??null);
- const reveal=useAuctionReveal(save?.auction??null,!celebrating),audio=useAuctionSound(save?.auction??null,now,reveal.visible.length);
- const auto=useAuctionAutoAdvance(save?.auction??null,now,transact);
- const enter=async(kind:AuctionKind)=>{
-  if(preparing)return;audio.unlock();setPreparing(true);setImageError('');
-  preparation.current?.abort();const controller=new AbortController();preparation.current=controller;
-  const seed=crypto.getRandomValues(new Uint32Array(1))[0];
-  const lot=await prepareAuctionLot(catalog,loader.current,seed,kind,controller.signal);
-  if(!mounted.current)return;
-  setPreparing(false);
-  if(lot.length)transact(current=>beginAuction(current,catalog,Date.now(),lot,seed,kind));
-  else setImageError('Auctions are temporarily unavailable. Your balance has not changed. Refresh the market to check availability.');
- };
+ const daily=root?.daily?.date===dailyAuctionDate(now)?root.daily:null;
+ const save=dailyMode?(daily?.status==='playing'?daily.save:null):root;
+ const auction=save?save.auction:null;
+ const transact=useCallback((update:(save:AuctionSave)=>AuctionSave)=>{
+  if(!dailyMode)return saveRoot(update);
+  const next=saveRoot(current=>updateDailyAuction(current,update,Date.now()));
+  return next?.daily?.status==='playing'?next.daily.save:null;
+ },[dailyMode,saveRoot]);
+ const celebrating=useAuctionWinner(auction);
+ const reveal=useAuctionReveal(auction,!celebrating),audio=useAuctionSound(auction,now,reveal.visible.length);
+ const auto=useAuctionAutoAdvance(auction,now,transact);
+ const entry=useAuctionEntry(catalog,transact,audio.unlock);
  useEffect(()=>{const tick=()=>{const time=Date.now();setNow(time);transact(current=>tickAuction(current,time))};const interval=window.setInterval(tick,250);window.addEventListener('visibilitychange',tick);return()=>{clearInterval(interval);window.removeEventListener('visibilitychange',tick)}},[transact]);
- useAuctionNavigation(arena,save?.auction??null,celebrating);
+ useAuctionNavigation(arena,auction,celebrating);
  const ready=status==='success',available=ready&&catalog.filter(card=>card.image.trim()).length>=6;
- return <GamesShell wide={Boolean(save?.auction)}><a className="games-back" href="/games">← Games</a><AuctionPageHeader save={save} error={error} audio={audio} auto={auto} transact={transact}/>
-  <AuctionSaveFeedback save={save} error={error} reset={reset}/>
-  {save&&!save.auction&&<AuctionWallet save={save} catalog={catalog} cards={items} transact={transact} reset={reset} refresh={reload} loading={!ready}/>}
+ return <GamesShell wide={Boolean(auction)}><a className="games-back" href="/games">← Games</a><AuctionPageHeader save={save} error={error} audio={audio} auto={auto} transact={transact}/>
+  <AuctionSaveFeedback save={root} error={error} reset={reset}/>
+  {dailyMode&&root&&<><a className="games-back" href="/games/riftbound-auction">← Normal Auctions</a><AuctionDaily root={root} now={now} transact={saveRoot} enter={entry.enter} preparing={Boolean(entry.entry)}/></>}
+  <NormalAuctionLobby save={save} dailyMode={dailyMode} entry={entry} available={available} catalog={catalog} cards={items} transact={transact} reset={reset} refresh={reload} loading={!ready}/>
   {status==='loading'&&<p role="status">Loading Market…</p>}
   {(status==='error'||status==='empty')&&<p role="status">Current market prices are unavailable. <button className="game-control" type="button" onClick={reload}>Retry market</button></p>}
-  {save&&!save.auction&&<AuctionLobby available={available} preparing={preparing} imageError={imageError} enter={enter} cash={save.wallet.cash}/>}
-  {save?.auction&&<div ref={arena} className="auction-arena" onPointerDownCapture={audio.unlock} onKeyDownCapture={audio.unlock}><AuctionRoundHeader auction={save.auction} now={now}/>{celebrating?<AuctionWinner auction={save.auction}/>:<AuctionRound save={save} now={now} transact={transact} autoSeconds={auto.seconds} revealDone={reveal.done} visible={reveal.visible}/>} {!celebrating&&<AuctionCollection auction={save.auction} visible={reveal.visible} done={reveal.done} skip={reveal.skip}/>} <AuctionBiddingHistory auction={save.auction}/></div>}
-  <p className="games-note">TCGCSV / TCGplayer Near Mint market pricing. Auction contents/prices freeze on entry; owned inventory is repriced from the current loaded catalog. Price refreshes use existing cached feeds, not real-time sale quotes. Missing prices remain unavailable. Clearing browser storage removes progress. Casual single-player only; local saves are not tamper-proof.</p>
+  {dailyMode&&entry.imageError&&<p role="alert">{entry.imageError}</p>}
+  {entry.entry&&<AuctionEntryReveal key={entry.entry.seed} entry={entry.entry} catalog={catalog} cancel={entry.cancel} skip={entry.skip}/>}
+  {save?.auction&&<div ref={arena} className="auction-arena" onPointerDownCapture={audio.unlock} onKeyDownCapture={audio.unlock}><AuctionRoundHeader auction={save.auction} now={now}/>{celebrating?<AuctionWinner auction={save.auction}/>:<AuctionRound save={save} now={now} transact={transact} dailyMode={dailyMode} autoSeconds={auto.seconds} revealDone={reveal.done} visible={reveal.visible}/>} {!celebrating&&<AuctionCollection auction={save.auction} visible={reveal.visible} done={reveal.done} skip={reveal.skip}/>} <AuctionBiddingHistory auction={save.auction}/></div>}
+  <AuctionDataNote dailyMode={dailyMode}/>
  </GamesShell>;
 }

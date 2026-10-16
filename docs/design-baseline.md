@@ -50,6 +50,15 @@ mobile), self-hosted portraits, mono prices/rates and keyboard-accessible sectio
 links. It is an informational route, with no catalog/history request of its own.
 New NPC identity colors use mixes of existing theme-aware accent tokens.
 
+Auction collection labels share their theme color in gameplay, the guide and entry
+briefing. Guide body copy uses the 14px-at-default `--text-base` token, generous
+line-height, numbered rules, purple strategy labels and blue investigation labels;
+investigation icons reuse the in-game rarity/tier colors. The entry briefing uses
+a short blue/violet scanner-style panel over faded, drifting catalog artwork, not
+casino styling. No new illustrations or remote fonts. Motion stops for reduced
+motion; native modal focus/escape, Skip Intro and Cancel stay available. Decorative
+art is not a preview of the hidden lot and never reveals identity/price information.
+
 - **Section card** (`.detail-section`, KPI blocks): `--surface` background, 1px `--line`
   border, 18px radius, 20–27px padding. Header = kicker span (full-width) + h2
   (~25px, tight tracking) + optional right-aligned control (`margin-left:auto`).
@@ -153,6 +162,19 @@ New NPC identity colors use mixes of existing theme-aware accent tokens.
 - Provenance (source + updated date) appears once per page, muted.
 
 ## Theming
+
+Daily Games tiles reuse the established game artwork and distinguish themselves
+with token-derived purple accents/daily labels. Daily Showdown reuses the same
+card choices, tilt, segmented difficulty and checkbox primitives as practice.
+Share previews use the standard centered dialog and a selectable text area;
+results pages reuse section/KPI tiles, natural-aspect artwork and an overflowable
+table on phones. Emoji grids have accessible per-round labels. No new color system.
+
+Auction investigation offers group by Count / Locate / Value, using existing
+control surfaces and blue/violet disclosure accents. Statistics use the shared
+tile typography and a four-column desktop/two-column mobile definition list.
+Daily Challenge reuses the auction arena and entry briefing; only its separate
+bankroll/progress header and lobby rules differ. No new decorative art is needed.
 
 - Dark is the default (`data-theme="dark"` pre-hydration via the head script); both themes
   ship complete token sets. Any new color must be specified for both or derived via

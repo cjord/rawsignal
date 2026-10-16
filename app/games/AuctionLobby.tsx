@@ -10,7 +10,7 @@ export default function AuctionLobby({available,preparing,imageError,enter,cash}
    <button className="game-control auction-entry auction-entry-card is-premium" type="button" aria-label="Enter Paid Auction · $50" disabled={!available||preparing||cash<AUCTION_PAID_ENTRY} onClick={()=>void enter('paid')}><img src="/images/games/auction-entry-paid.webp" alt="" width="960" height="640" decoding="async"/><span><strong>Enter Paid Auction · $50</strong><small>{AUCTION_LOT_SIZES.paid.min}–{AUCTION_LOT_SIZES.paid.max} cards · Higher-quality collection</small></span></button>
   </div>
   <p className="games-note">Paid Auction <InfoHint label="Paid auction rules">$50 virtual entry, charged only when the collection is ready. Random collections of {AUCTION_LOT_SIZES.paid.min}–{AUCTION_LOT_SIZES.paid.max} cards with more rare/premium cards and slightly more competitive NPCs using their own clues. Entry is not refunded; a better result is not guaranteed.</InfoHint></p>
-  <p><a className="game-control auction-guide-link" href="/games/riftbound-auction/guide">Auction Guide <span aria-hidden="true">→</span></a></p>
-  {preparing&&<p className="games-note" role="status">Starting Auction…</p>}{imageError&&<p role="alert">{imageError}</p>}
+  <p className="auction-actions"><a className="game-control auction-guide-link" href="/games/riftbound-auction/guide">Auction Guide <span aria-hidden="true">→</span></a><a className="game-control auction-guide-link" href="/games/riftbound-auction/daily">Daily Challenge <span aria-hidden="true">→</span></a></p>
+  {imageError&&<p role="alert">{imageError}</p>}
  </section>;
 }

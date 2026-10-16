@@ -18,5 +18,5 @@ test('seeded tied placements match the winner across input orders, while all pas
 });
 test('collection display names follow lot themes, including the requested Deck Builder title',()=>{
  assert.equal(AUCTION_LOT_THEMES.find(theme=>theme.id==='deck-builder').collectionName,"Deck Builder's Collection");
- assert.equal(new Set(AUCTION_LOT_THEMES.map(theme=>theme.collectionName)).size,5);assert.ok(AUCTION_LOT_THEMES.every(theme=>theme.collectionName.endsWith('Collection')));
+ assert.equal(new Set(AUCTION_LOT_THEMES.map(theme=>theme.collectionName)).size,7);assert.ok(AUCTION_LOT_THEMES.every(theme=>theme.collectionName.endsWith('Collection')));
 });

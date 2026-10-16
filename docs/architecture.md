@@ -119,4 +119,11 @@ See [Data ingestion](data-ingestion.md) for operations and failure behavior.
 
 ## Tests and release gate
 
+Daily game snapshots use immutable UTC-date rows: auction migration 0022 and
+Showdown migration 0023. Shared catalog preparation lives in `db/game-catalog.ts`;
+the two daily routes lazily create today's snapshot once with a conditional insert
+but only read archived dates. Browser-local attempts and compact URL-fragment
+results do not create player/share server records. No new cron or paid upstream
+calls. See [Daily games and sharing](daily-games-and-sharing.md).
+
 `npm run check` is the required local and CI gate. It builds the production Worker, runs all unit/contract/characterization/critical-journey tests, lints the repository, type-checks it (`tsc --noEmit`), and runs the focused Playwright journey suite against a suite-managed local server on port 4173 (stop the :3000 dev server first: vinext refuses a second dev server for the same directory). Migrations under `drizzle/` are hand-written, contiguously numbered SQL files applied by wrangler in filename order; `drizzle-kit` is retired (its journal stopped at 0004, and the generator, its config, and the devDependency were removed on 2026-09-03). `drizzle-orm` remains for the schema types in `db/schema.ts`.

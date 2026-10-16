@@ -69,14 +69,14 @@ test('round-four Top-Two uses explicit free/paid prices, suppresses already know
  }
 });
 
-test('new menus exclude retired definitions and redundant scans while historic offers remain buyable',()=>{
+test('new menus exclude retired definitions but allow zero-information choices while historic offers remain buyable',()=>{
  const ids=new Set(REBALANCED_INVESTIGATIONS.map(row=>row.id));
  for(let seed=0;seed<100;seed++)for(let round=1;round<=4;round++){
   const offers=informationOffers({...fresh().auction,seed,round});assert.equal(new Set(offers.map(row=>row.id)).size,offers.length);assert.ok(offers.every(row=>ids.has(row.id)));
   assert.ok(offers.filter(row=>row.id==='top2-final').every(()=>round===4));
  }
  const save=fresh();save.auction.offers=[option('rare8')];assert.deepEqual(parseAuctionSave(JSON.stringify(save)),save);assert.equal(buyInformation(save,'rare8',1100).wallet.cash,248500);
- const full={...save.auction,known:pool.map((_,i)=>i),priced:pool.map((_,i)=>i)};assert.deepEqual(informationOffers(full),[]);
+ const full={...save.auction,known:pool.map((_,i)=>i),priced:pool.map((_,i)=>i)};assert.deepEqual(informationOffers(full),informationOffers(save.auction));
 });
 
 test('concentration is a broad share band, not an exact percentage or a collection-value appraisal',()=>{

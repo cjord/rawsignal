@@ -1,6 +1,17 @@
 import { sql } from "drizzle-orm";
 import { check, index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
+export const dailyAuctionManifests=sqliteTable('daily_auction_manifests',{
+ challengeDate:text('challenge_date').primaryKey(),
+ manifestJson:text('manifest_json').notNull(),
+ createdAt:text('created_at').notNull(),
+});
+export const dailyShowdownManifests=sqliteTable('daily_showdown_manifests',{
+ challengeDate:text('challenge_date').primaryKey(),
+ manifestJson:text('manifest_json').notNull(),
+ createdAt:text('created_at').notNull(),
+});
+
 export const ingestionRuns = sqliteTable("ingestion_runs", {
   id: text("id").primaryKey(),
   source: text("source").notNull(),

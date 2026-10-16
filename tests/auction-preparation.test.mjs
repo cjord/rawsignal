@@ -20,7 +20,7 @@ test('paid preparation rerolls failed URLs and retains its minimum, and free lot
  const excluded=new Set(),loader={failed:src=>excluded.has(src),exclude:src=>excluded.add(src),load:async src=>{if(/\/(1|3|5)$/.test(src))return false;return true}};
  const lot=await prepareAuctionLot(pool,loader,42,'paid');assert.ok(lot.length>=50&&lot.length<=130);assert.ok(lot.every(card=>!excluded.has(card.image)));
  const small=await prepareAuctionLot(pool.slice(0,6),loader,42);assert.equal(small.length,0); // three failed sources cannot supply six distinct eligible cards
- const healthy={failed:()=>false,exclude:()=>{},load:async()=>true};assert.deepEqual(await prepareAuctionLot(pool.slice(0,5),healthy,42),[]);assert.ok((await prepareAuctionLot(pool.slice(0,12),healthy,42)).length>=25);
+ const healthy={failed:()=>false,exclude:()=>{},load:async()=>true};assert.deepEqual(await prepareAuctionLot(pool.slice(0,5),healthy,42),[]);assert.ok((await prepareAuctionLot(pool.slice(0,13),healthy,42)).length>=25); // Curated Binder allows two copies per printing.
 });
 test('artwork retries retain the original generation seed and theme instead of silently switching profiles',async()=>{
  for(const kind of ['free','paid']){
