@@ -1,4 +1,13 @@
 import {auctionRandom,sampleIndices} from './auction-types.ts';
+import type {AuctionKind} from './auction-types.ts';
+
+// Broader private random samples help cautious rivals cross-check their focused
+// investigations. Targets depend on profile/kind/round, never hidden card values.
+export function auctionNpcSampleTarget(name:string,kind:AuctionKind,round:number){
+ const weaker=['The Dealer','The Collector','The Opportunist','The Bargain Hunter','The Follower','The Skeptic'].includes(name);
+ const bonus=weaker?(kind==='paid'?1+2*(round-1):Math.max(0,round-1)):0;
+ return 3+round+bonus;
+}
 
 export const AUCTION_NPCS=[
  {name:'The Dealer',participation:.97,margin:.84,noise:.03,risk:0,portrait:'dealer',strategy:'Bulk-First Reseller',cluePriority:['bulk','rares','top2','common-count'],description:'Checks bulk value first, then regular rares and overall resale value.'},

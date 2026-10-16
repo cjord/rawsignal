@@ -7,7 +7,7 @@ import {createPriceGameImageLoader} from '../data/price-game-images';
 import {auctionMarketPrior} from '../../core/domain/auction-market-prior';
 import {auctionNpcRoster} from '../../core/domain/auction-npcs';
 
-export const AUCTION_INTRO_MS=5000;
+export const AUCTION_INTRO_MS=7000;
 export type AuctionEntry={seed:number;kind:AuctionKind;rivals?:string[]};
 export function useAuctionEntry(catalog:AuctionCard[],transact:(update:(save:AuctionSave)=>AuctionSave)=>AuctionSave|null,unlock:()=>void){
  const [entry,setEntry]=useState<AuctionEntry|null>(null),[imageError,setImageError]=useState('');

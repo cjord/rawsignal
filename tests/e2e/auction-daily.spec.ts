@@ -38,8 +38,12 @@ test('unavailable manifest never consumes an attempt; expiry removes the run wit
 });
 test('normal auction statistics remain readable at mobile/desktop widths and in both themes',async({page},testInfo)=>{
  await setup(page);
- const state={...initialAuctionSave(),statistics:{started:5,settled:4,won:3,abandoned:1,investigations:3500,entryFees:10000,profit:12345,rebates:500,bestProfit:10000,buyouts:2}};
+ const initial=initialAuctionSave(),state={...initial,wallet:{...initial.wallet,feeBps:1250},statistics:{started:5,settled:4,won:3,abandoned:1,investigations:3500,entryFees:10000,profit:12345,rebates:500,bestProfit:10000,buyouts:2}};
  await page.evaluate(({key,state})=>localStorage.setItem(key,JSON.stringify(state)),{key,state});await page.goto('/games/riftbound-auction');
  const stats=page.locator('.auction-statistics');await expect(stats).toContainText('75.0%');await expect(stats).toContainText('$123.45');await expect(stats).toContainText('$35.00');
- for(const width of [1440,390])for(const theme of ['dark','light']){await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await stats.screenshot({path:testInfo.outputPath(`statistics-${width}-${theme}.png`)});}
+ await expect(stats.locator('[data-stat-tone]')).toHaveCount(8);await expect(stats.locator('[data-stat-tone="gain"]')).toHaveCount(4);await expect(stats.locator('[data-stat-tone="cost"]')).toHaveCount(1);
+ await expect(page.getByText('12.5% Selling Fee',{exact:true})).toBeVisible();await expect(page.getByText('3 Rival Bidders',{exact:true})).toBeVisible();await expect(page.locator('.auction-lobby-backdrop')).toHaveAttribute('aria-hidden','true');await expect(page.locator('.auction-lobby-backdrop')).toHaveCSS('position','fixed');await expect(page.locator('.auction-lobby-backdrop img')).toHaveCount(40);
+ const paid=page.getByRole('button',{name:'Enter Paid Auction · $50 Fee',exact:true});await expect(paid.locator('.auction-entry-fee')).toHaveText('$50 Fee');await expect(paid.locator('.auction-entry-fee')).not.toHaveCSS('color',await paid.locator('strong').evaluate(node=>getComputedStyle(node).color));
+ await page.emulateMedia({reducedMotion:'reduce'});await expect(page.locator('.auction-lobby-backdrop .auction-entry-art-lane').first()).toHaveCSS('animation-name','none');
+ for(const width of [1440,390])for(const theme of ['dark','light']){await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await stats.screenshot({path:testInfo.outputPath(`statistics-${width}-${theme}.png`)});await page.locator('.auction-lobby').screenshot({path:testInfo.outputPath(`lobby-${width}-${theme}.png`)});}
 });

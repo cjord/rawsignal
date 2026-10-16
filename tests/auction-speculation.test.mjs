@@ -9,16 +9,16 @@ import {auctionRandom} from '../core/domain/auction-types.ts';
 const card=cents=>({productId:1,printing:'Normal',name:'Known Card',image:'https://images.example/1',set:'Origins',rarity:'Common',section:'commons',cents});
 const prior={mean:1000,bands:[{band:'common',mean:1000,typical:100,share:1}]};
 
-test('free and paid speculation starts cautiously and fades to zero by round four',()=>{
+test('free and paid speculation tapers while retaining an uncertain-remainder prior in round four',()=>{
  const knowledge={count:100,observed:[],random:[],clues:[],prior};
  for(const kind of ['free','paid']){
   const values=[1,2,3,4].map(round=>applyNpcMarketPrior({...knowledge,kind,round},1000,.2).estimate);
   NPC_SPECULATION_WEIGHTS[kind].forEach((weight,index)=>assert.equal(values[index],Math.round(1000*(1-weight)+100000*weight)));
-  assert.ok(values[0]>values[1]&&values[1]>values[2]&&values[2]>values[3]);assert.equal(values[3],1000);
+  assert.ok(values[0]>values[1]&&values[1]>values[2]&&values[2]>values[3]);assert.ok(values[3]>1000);
  }
- assert.deepEqual(NPC_SPECULATION_WEIGHTS.free,[.1,.06,.025,0]);
- assert.deepEqual(NPC_SPECULATION_WEIGHTS.paid,[.08,.05,.02,0]);
- assert.equal(applyNpcMarketPrior(knowledge,1000,.2).estimate,10900); // Legacy missing kind defaults to free.
+ assert.deepEqual(NPC_SPECULATION_WEIGHTS.free,[.14,.11,.085,.06]);
+ assert.deepEqual(NPC_SPECULATION_WEIGHTS.paid,[.20,.18,.15,.12]);
+ assert.equal(applyNpcMarketPrior(knowledge,1000,.2).estimate,14860); // Legacy missing kind defaults to free.
 });
 
 test('individually priced coverage further reduces speculation without discounting known prices',()=>{
@@ -45,7 +45,7 @@ test('completed public bids have progressively stronger bounded influence, not a
   const follower=AUCTION_NPCS[personality].name==='The Follower',counts=[];
   for(const round of [1,2,3,4]){
    let influenced=0;
-   const limit=round===1?0:follower?.12+(round-2)*.03:.08+(round-2)*.02;
+   const limit=round===1?0:follower?.18+(round-2)*.04:.12+(round-2)*.04;
    for(let seed=0;seed<500;seed++){
     const bid=history=>npcBid([],[50,50],history,personality,auctionRandom(seed),1000,1,0,10000,.5,round);
     const personal=bid([]),high=bid([900000,800000,1]),low=bid([1,2,900000]);

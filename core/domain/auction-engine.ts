@@ -1,7 +1,7 @@
 import {AUCTION_ROUNDS,AUCTION_PAID_ENTRY,auctionRandom,sampleIndices,type Auction,type AuctionCard,type AuctionSave,type AuctionKind,type Npc,type RoundBid} from "./auction-types.ts";
 import {addInventory,inventoryQuote} from "./auction-market.ts";
 import {AUCTION_LOT_SIZES,generateAuctionLot} from './auction-lots.ts';
-import {AUCTION_NPCS,auctionNpcRoster,auctionNpcMood,auctionNpcAmbition} from './auction-npcs.ts';
+import {AUCTION_NPCS,auctionNpcRoster,auctionNpcMood,auctionNpcAmbition,auctionNpcSampleTarget} from './auction-npcs.ts';
 import {informationOffers,investigate} from "./auction-information.ts";
 import {auctionLossShares,auctionSaleRarity} from './auction-economy.ts';
 import {npcRoundInformation,npcInvestigationNotes} from './auction-npc-information.ts';
@@ -28,19 +28,20 @@ function influencedBid(personal:number,priorBids:number[],name:string,random:()=
  if(round<=1)return personal;
  const positives=priorBids.filter(bid=>Number.isSafeInteger(bid)&&bid>0).sort((a,b)=>a-b);
  const later=Math.min(2,round-2),follower=name==='The Follower';
- if(!positives.length||random()>(follower?.65+later*.1:.3+later*.1))return personal;
+ if(!positives.length||random()>(follower?.75+later*.1:.45+later*.1))return personal;
  const middle=Math.floor(positives.length/2),median=positives.length%2?positives[middle]:(positives[middle-1]+positives[middle])/2;
  // Public history matters more later, but never overrides personal evidence.
- // Round 2→4 nudge limits: 8→12%, or 12→18% for the Follower.
- const limit=follower?.12+later*.03:.08+later*.02;
- return personal+Math.max(-personal*limit,Math.min(personal*limit,(median-personal)*.2));
+ // Round 2→4 nudge limits: 12→20%, or 18→26% for the Follower.
+ const limit=follower?.18+later*.04:.12+later*.04;
+ return personal+Math.max(-personal*limit,Math.min(personal*limit,(median-personal)*.3));
 }
 function roundNpcs(auction:Auction,now:number):Npc[]{
  const random=auctionRandom(auction.seed+auction.round*103);
  const roster=auction.npcs.length?auction.npcs.map(npc=>AUCTION_NPCS.find(profile=>profile.name===npc.name)!):auctionNpcRoster(auction.seed,auction.rivals);
  return roster.map((npc,index)=>{
   const previous=auction.npcs.find(bidder=>bidder.name===npc.name)?.sample??[];
-  const sample=[...previous,...sampleIndices(auction.lot.length,Math.max(0,3+auction.round-previous.length),auction.seed+index*67+auction.round,[...publicAuctionSlots(auction),...previous])];
+  const target=auctionNpcSampleTarget(npc.name,auction.kind??'free',auction.round);
+  const sample=[...previous,...sampleIndices(auction.lot.length,Math.max(0,target-previous.length),auction.seed+index*67+auction.round,[...publicAuctionSlots(auction),...previous])];
   const knowledge=npcRoundInformation(auction,index,sample,auction.npcs.find(bidder=>bidder.name===npc.name),npc.name);
   const mood=auctionNpcMood(auction.seed,npc.name),personality=AUCTION_NPCS.findIndex(profile=>profile.name===npc.name);
   const paid=auction.kind==='paid';

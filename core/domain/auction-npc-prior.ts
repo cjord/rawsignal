@@ -6,7 +6,7 @@ export type NpcValuationKnowledge={count:number;observed:AuctionCard[];random:Au
 type Knowledge=NpcValuationKnowledge;
 // Blend only the uncertain remainder, never discount an actually disclosed price.
 // Gameplay calibration, not bid targets/floors: strong evidence can exceed these.
-export const NPC_SPECULATION_WEIGHTS={free:[.10,.06,.025,0],paid:[.08,.05,.02,0]} as const;
+export const NPC_SPECULATION_WEIGHTS={free:[.14,.11,.085,.06],paid:[.20,.18,.15,.12]} as const;
 const labels:Record<string,string>={Common:'common',Uncommon:'uncommon',Rare:'rare',Epic:'epic','Alt Art':'alt',Overnumbered:'over',Signature:'signature',Other:'other'};
 function disclosedCounts(clues:Clue[]){
  const census=clues.find(clue=>clue.id==='rarities-v2'),counts=new Map<string,number>();

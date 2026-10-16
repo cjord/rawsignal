@@ -12,6 +12,46 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Games — price comparison (2026-10-14)
 
+- **Approved release preparation (2026-10-16):** deploy the accepted free and
+  stronger paid NPC balance alongside the pending lobby, statistics and inspection
+  fixes. Final speculation weights are 14/11/8.5/6% free and 20/18/15/12% paid;
+  weaker rivals get broader private random samples, with bounded stronger prior-bid
+  influence. [Balance settings and paired trials](auction-npc-balance-2026-10-16.md).
+  This supersedes the earlier unchanged/proposed NPC notes below; early Rarity
+  Census itself remains unchanged. No extra gameplay requests or ingestion.
+  Production promotion also includes the already-staged daily games and additive
+  migrations 0022/0023, now authorized by the user. Back up before migration and
+  retain existing staging daily snapshots. Release verification is recorded in the
+  daily-games document after deployment.
+
+- **Auction inspection/foil repair (2026-10-16), local only:** card inspection
+  dismisses on outside clicks/taps, restores focus, and keeps interior clicks or
+  inside-to-outside drags open. Close moves to the shared dialog header's right
+  with a red border. Foil now layers above artwork (the old auto-z overlay sat
+  under the positioned image); a reflective sweep/texture also appears in
+  inspection. $250+ glow is softened and confined to the art frame. $50/$250
+  thresholds and hidden-price safeguards are unchanged; reduced motion is static.
+  No push, deployment, new pricing-provider calls or database changes. Final full
+  gate passed: 529 node tests (one skipped), 72 browser checks, build/lint/typecheck;
+  no new warnings. Tests verify actual rendered foil pixels/stacking, static
+  reduced motion, hidden-price protection, inside-drag safety, outside click/tap,
+  Escape and focus restoration. Real catalog art reviewed in both themes.
+
+- **Auction lobby polish + opening audit (2026-10-16), local only:** remove
+  investigation category/disclosure tags, color statistics and inset metrics,
+  vary the decorative scrolling lobby/entry art, clarify the highlighted $50 fee,
+  show current selling fee/three rivals and extend normal entry to seven seconds.
+  NPC bidding remains unchanged. Two batches per type (4,000 auctions total)
+  show passive-player R1 NPC buyouts at 26.8% free / 32.1% paid. Four automatic
+  private samples and early Rarity Census drive disparate estimates; test those
+  information advantages before changing every opening bid. Per-rival means,
+  methodology and proposed experiments:
+  [Opening audit](auction-opening-audit-2026-10-16.md).
+  Final full gate passed: 529 node tests (one skipped), 71 browser journeys,
+  build/lint/typecheck; no new warnings. Desktop/mobile dark/light reviewed.
+  An opening-only census-from-round-two experiment reduced early NPC buyouts to
+  about 20% for both types; runtime balance changes remain proposed, not applied.
+
 - **Daily result sharing + daily Showdown (2026-10-16), staging verified; production pending:**
   spoiler-free emoji/text previews and compact self-reported results links; auction
   links reconstruct five outcomes, spend/fees/profit/reward and top five won cards.

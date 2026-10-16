@@ -109,6 +109,10 @@ html[data-theme="light"] .auction-bidder[data-bidder="The Analyst"]{--bidder-col
 .auction-npcs li:not(.is-locked) .auction-bid-status{animation:auction-awaiting-bid 1.8s ease-in-out infinite}.auction-result-metrics>div:hover{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue);transition:border-color var(--motion-standard),box-shadow var(--motion-standard)}
 .auction-owned-card[data-rarity="common"]{border-color:var(--gray)}.auction-owned-card[data-rarity="uncommon"]{border-color:var(--tone-up)}.auction-owned-card[data-rarity="rare"]{border-color:var(--blue)}.auction-owned-card[data-rarity="epic"]{border-color:var(--purple)}.auction-owned-card[data-rarity="premium"]{border-color:var(--tone-favorite)}.auction-owned-card:hover{box-shadow:0 0 0 1px var(--blue)}
 .auction-dialog{position:fixed;inset:0;margin:auto;height:fit-content;max-height:85vh}
+.auction-dialog-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+.auction-dialog-heading h2{min-width:0;margin:0;overflow-wrap:anywhere}
+.auction-dialog-close{flex-shrink:0;border-color:var(--tone-down);background:color-mix(in srgb,var(--tone-down) 6%,var(--control))}
+.auction-dialog-close:hover:not(:disabled){border-color:var(--tone-down);background:color-mix(in srgb,var(--tone-down) 12%,var(--control))}
 @keyframes auction-awaiting-bid{50%{border-color:var(--blue);box-shadow:0 0 0 1px color-mix(in srgb,var(--blue) 35%,transparent)}}
 @media(prefers-reduced-motion:reduce){.auction-npcs li:not(.is-locked) .auction-bid-status{animation:none;border-color:var(--blue)}.auction-result-metrics>div:hover{transition:none}}
 .auction-offers{grid-template-columns:1fr}.auction-offers button{min-height:76px;display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:center;gap:12px}
@@ -151,12 +155,15 @@ html[data-theme="light"] .auction-bidder[data-bidder="The Analyst"]{--bidder-col
 [data-collection-theme="store-clearout"]{color:color-mix(in srgb,var(--blue) 55%,var(--text))}
 [data-collection-theme="curated-binder"]{color:color-mix(in srgb,var(--purple) 55%,var(--tone-up))}
 /* Effects require a visible individual price, never just a rarity/identity peek. */
-.auction-card[data-value-effect]>.deferred-image{position:relative;isolation:isolate;overflow:hidden;border-radius:6px}
-.auction-card[data-value-effect]>.deferred-image.is-loaded::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,transparent 20%,color-mix(in srgb,var(--blue) 55%,transparent) 36%,color-mix(in srgb,var(--purple) 65%,transparent) 45%,color-mix(in srgb,var(--tone-favorite) 60%,transparent) 52%,transparent 65%);background-size:280% 100%;mix-blend-mode:soft-light;opacity:.65;animation:auction-foil 7s ease-in-out infinite}
-.auction-card[data-value-effect="glow"]{box-shadow:0 0 0 1px color-mix(in srgb,var(--auction-rarity-color,var(--tone-favorite)) 65%,transparent),0 0 14px color-mix(in srgb,var(--auction-rarity-color,var(--tone-favorite)) 35%,transparent)}
-.auction-card[data-value-effect="glow"]:hover{box-shadow:0 0 0 2px var(--auction-rarity-color,var(--tone-favorite)),0 0 18px color-mix(in srgb,var(--auction-rarity-color,var(--tone-favorite)) 45%,transparent)}
-@keyframes auction-foil{0%,100%{background-position:100% 0}50%{background-position:0 0}}
-@media(prefers-reduced-motion:reduce){.auction-card[data-value-effect]>.deferred-image.is-loaded::after{animation:none;background-position:50% 0}}
+:is(.auction-card,.auction-inspection)[data-value-effect]>.deferred-image{position:relative;isolation:isolate;overflow:hidden;border-radius:6px}
+/* Keep the foil above DeferredImage's positioned artwork, never beneath it. */
+:is(.auction-card,.auction-inspection)[data-value-effect]>.deferred-image.is-loaded::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(115deg,transparent 18%,rgb(255 255 255 / .28) 30%,color-mix(in srgb,var(--blue) 65%,transparent) 39%,color-mix(in srgb,var(--purple) 70%,transparent) 46%,color-mix(in srgb,var(--tone-favorite) 60%,transparent) 53%,color-mix(in srgb,var(--tone-up) 55%,transparent) 60%,transparent 72%),repeating-linear-gradient(135deg,transparent 0 7px,rgb(255 255 255 / .12) 8px,transparent 9px 15px);background-size:240% 160%,160% 140%;mix-blend-mode:screen;opacity:.5;animation:auction-foil 6s ease-in-out infinite}
+:is(.auction-card,.auction-inspection)[data-value-effect]>.deferred-image img{z-index:0}
+:is(.auction-card,.auction-inspection)[data-value-effect="glow"]>.deferred-image{box-shadow:0 0 0 1px color-mix(in srgb,var(--auction-rarity-color,var(--tone-favorite)) 45%,transparent),0 0 10px color-mix(in srgb,var(--auction-rarity-color,var(--tone-favorite)) 22%,transparent)}
+.auction-card[data-value-effect="glow"]:hover>.deferred-image{box-shadow:0 0 0 1px color-mix(in srgb,var(--auction-rarity-color,var(--tone-favorite)) 65%,transparent),0 0 14px color-mix(in srgb,var(--auction-rarity-color,var(--tone-favorite)) 30%,transparent)}
+.auction-inspection[data-rarity="common"]{--auction-rarity-color:var(--gray)}.auction-inspection[data-rarity="uncommon"]{--auction-rarity-color:var(--tone-up)}.auction-inspection[data-rarity="rare"]{--auction-rarity-color:var(--blue)}.auction-inspection[data-rarity="epic"]{--auction-rarity-color:var(--purple)}.auction-inspection[data-rarity="premium"]{--auction-rarity-color:var(--tone-favorite)}.auction-inspection[data-rarity="promo"]{--auction-rarity-color:var(--tone-down)}
+@keyframes auction-foil{0%,100%{background-position:100% 0,0 0}50%{background-position:0 0,100% 100%}}
+@media(prefers-reduced-motion:reduce){:is(.auction-card,.auction-inspection)[data-value-effect]>.deferred-image.is-loaded::after{animation:none;background-position:50% 0,50% 50%}}
 .auction-popup-scroll .auction-clue-cards{padding:0;margin:10px 0 0;list-style:none}
 .auction-popup-scroll .auction-clue-cards>li{display:flex;align-items:center;gap:10px;padding:10px 0;min-width:0}
 .auction-clue-cards .deferred-image,.auction-clue-card-back{width:40px;aspect-ratio:5/7;flex:0 0 40px}
@@ -167,10 +174,19 @@ html[data-theme="light"] .auction-bidder[data-bidder="The Analyst"]{--bidder-col
 .auction-statistics-grid>div{padding:16px;border:1px solid var(--line);border-radius:var(--control-radius);background:var(--control)}
 .auction-statistics-grid dt{color:var(--gray);font-size:var(--text-xs)}
 .auction-statistics-grid dd{margin:8px 0 0;font:600 var(--text-lg) var(--font-mono);overflow-wrap:anywhere}
-.auction-offer-group:empty{display:none}
-.auction-offer-group{display:grid;gap:10px}
-.auction-offer-group h3{font-size:var(--text-xs);color:var(--gray);margin:4px 0}
-.auction-offers .auction-disclosure{color:var(--purple)}
+.auction-statistics{border-color:color-mix(in srgb,var(--purple) 38%,var(--line));background:linear-gradient(135deg,color-mix(in srgb,var(--purple) 7%,var(--surface)),var(--surface) 75%)}
+.auction-statistics>h2{color:color-mix(in srgb,var(--purple) 65%,var(--text))}
+.auction-statistics-grid>[data-stat-tone]{--stat-color:var(--gray);border-color:color-mix(in srgb,var(--stat-color) 32%,var(--line));background:color-mix(in srgb,var(--stat-color) 7%,var(--control))}
+.auction-statistics-grid>[data-stat-tone="blue"]{--stat-color:var(--blue)}
+.auction-statistics-grid>[data-stat-tone="purple"]{--stat-color:var(--purple)}
+.auction-statistics-grid>[data-stat-tone="gain"]{--stat-color:var(--tone-up)}
+.auction-statistics-grid>[data-stat-tone="loss"]{--stat-color:var(--tone-down)}
+.auction-statistics-grid>[data-stat-tone="cost"]{--stat-color:var(--tone-warn)}
+.auction-statistics-grid>[data-stat-tone] dd{color:color-mix(in srgb,var(--stat-color) 72%,var(--text))}
+.auction-lobby-scene{position:relative;isolation:isolate}
+.auction-lobby-backdrop{position:fixed;inset:0;z-index:-1;opacity:.09}
+.auction-lobby-backdrop .auction-entry-art-lane{animation-duration:70s}
+.auction-entry-fee{font-style:normal;white-space:nowrap;color:color-mix(in srgb,var(--tone-warn) 70%,var(--text))}
 .games-daily-directory{margin-top:36px}.game-daily-tile{border-color:color-mix(in srgb,var(--purple) 40%,var(--line))}.game-daily-tile .games-eyebrow{color:var(--purple)}
 .game-share-preview{display:grid;gap:10px;font-size:var(--text-sm)}.game-share-preview textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:180px;padding:14px;border:1px solid var(--line);border-radius:var(--control-radius);background:var(--control);color:var(--text);font:500 var(--text-sm)/1.7 var(--font-mono);overflow-wrap:anywhere}.game-share-preview textarea:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 .game-share-actions,.daily-game-complete{margin:20px 0}.game-result-emoji{display:grid;grid-template-columns:repeat(5,auto);justify-content:start;gap:8px;font-size:1.5rem;margin:20px 0}.game-result-breakdown{margin:24px 0}.game-result-table{overflow-x:auto}.game-result-table table{width:100%;border-collapse:collapse;font-size:var(--text-sm)}.game-result-table th,.game-result-table td{text-align:left;padding:14px 10px;border-bottom:1px solid var(--line)}.game-result-table td{font-family:var(--font-mono);white-space:nowrap}.game-result-table small{display:block;margin-top:6px;color:var(--gray);font-size:var(--text-xs);font-weight:400}.game-result-table [data-tone="gain"]{color:var(--tone-up)}.game-result-table [data-tone="loss"]{color:var(--tone-down)}

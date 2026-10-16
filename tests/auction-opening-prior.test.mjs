@@ -21,7 +21,10 @@ test('cheap opening samples retain a meaningful type expectation, with stronger 
  const census=npcKnowledgeValue({...knowledge,prior,round:1,clues:[{id:'rarities-v2',label:'Rarity Census',text:'Common: 90'}]});assert.ok(census.estimate<opening.estimate*.1);
  const marked=npcKnowledgeValue({...knowledge,prior,round:1,markedBands:['signature']});assert.ok(marked.estimate>opening.estimate);
  const finalMarked=npcKnowledgeValue({...knowledge,prior,round:4,markedBands:['signature']});assert.ok(finalMarked.estimate>last.estimate);
- const finalCensus=npcKnowledgeValue({...knowledge,prior,round:4,clues:[{id:'rarities-v2',label:'Rarity Census',text:'Common: 89 · Signature: 1'}]});assert.ok(finalCensus.estimate>last.estimate*5);
+ // Exact counts replace speculation and may lower it: this lot has only one
+ // Signature, rather than the hidden premium population the prior allows for.
+ const finalCensus=npcKnowledgeValue({...knowledge,prior,round:4,clues:[{id:'rarities-v2',label:'Rarity Census',text:'Common: 89 · Signature: 1'}]});
+ assert.equal(finalCensus.estimate,Math.round(8*20+81*prior.bands.find(row=>row.band==='common').typical+prior.bands.find(row=>row.band==='signature').typical));
 });
 
 test('NPCs have no financial ceiling and large winning bids survive persistence and loss settlement',()=>{

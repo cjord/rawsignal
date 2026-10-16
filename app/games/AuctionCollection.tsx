@@ -29,6 +29,6 @@ export default function AuctionCollection({auction,visible,done,skip}:{auction:A
     {auction.topCardSlot===index&&<span className="auction-top-marker" role="img" aria-label="Top card" title="Most valuable card in this collection">Top</span>}
    </button>;
   })}</div>
-  {selected&&<AuctionDialog title={selected.name} onClose={()=>setInspected(null)}><DeferredImage className="auction-inspect-art" src={selected.image} alt={selected.name}/><p>{selected.printing} · {selected.set}</p><strong>{priceKnown?auctionUsd(selected.cents):'Price Unknown'}</strong></AuctionDialog>}
+  {selected&&<AuctionDialog title={selected.name} onClose={()=>setInspected(null)} dismissOnOutside><div className="auction-inspection" data-rarity={auctionRarity(selected)} data-value-effect={auctionValueEffect(selected.cents,priceKnown)}><DeferredImage className="auction-inspect-art" src={selected.image} alt={selected.name}/><p>{selected.printing} · {selected.set}</p><strong>{priceKnown?auctionUsd(selected.cents):'Price Unknown'}</strong></div></AuctionDialog>}
  </section>;
 }

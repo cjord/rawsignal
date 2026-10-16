@@ -124,12 +124,20 @@ art is not a preview of the hidden lot and never reveals identity/price informat
 - **Auction reveal effects (2026-10-16, user-requested):** unmapped Showcase
   treatments use the Promo red border; explicit Signature/Overnumbered and Alt Art
   colors still win. Individually price-revealed collection cards at $50+ receive a
-  subtle foil overlay; $250+ also receive a rarity-colored glow. Hidden prices,
+  visible reflective foil overlay above the artwork; $250+ also receive a soft
+  rarity-colored glow around the **artwork frame**, not a bright halo around the
+  whole text tile. The same treatment applies in card inspection. Hidden prices,
   identity-only peeks and rarity-only backs never receive value-based effects.
   No movement or resizing of the card itself; reduced motion keeps the foil static.
   Collection-theme headings use distinct shared-token colors, mixed toward text
   where needed for light-theme contrast. This is game presentation, not real foil
   classification or a market signal.
+- Auction card inspection closes on an outside click/tap or Escape, with focus
+  restored to the opener. Interior clicks and drags starting inside stay open.
+  Shared auction dialogs put Close at the header's right with a red border and
+  theme-aware muted red fill; keyboard focus retains the standard blue outline.
+  Financial confirmation dialogs keep explicit action/cancel behavior rather
+  than inheriting card inspection's optional backdrop dismissal.
 - **Deliberate exception (2026-08-27, user-requested):** the detail-hero card art tilts
   toward the pointer (rotateX/Y ≤ ~6°) as an interactive flourish. Mouse pointers tilt on
   hover; touch (added 2026-09-01, user-requested) tilts only after a ~220ms hold on the
@@ -170,9 +178,17 @@ Share previews use the standard centered dialog and a selectable text area;
 results pages reuse section/KPI tiles, natural-aspect artwork and an overflowable
 table on phones. Emoji grids have accessible per-round labels. No new color system.
 
-Auction investigation offers group by Count / Locate / Value, using existing
-control surfaces and blue/violet disclosure accents. Statistics use the shared
-tile typography and a four-column desktop/two-column mobile definition list.
+Auction investigation offers show icon, name, plain-language description and price,
+without Count / Locate / Value headings or disclosure tags. Round findings retain
+their blue public/purple private treatment. Statistics use shared tile typography,
+a softly purple-tinted outer section and four-column desktop/two-column mobile
+metric tiles: blue counts, purple rates/buyouts, green gains, red losses, amber
+spending and neutral zero amounts. Colors derive from theme tokens.
+The normal auction lobby reuses the faded, noninteractive drifting catalog-art
+background, with a new random decorative selection per visit (never hidden lot
+contents). Both lobby and entry motion stop under reduced motion. Normal entry
+lasts seven seconds, giving two extra seconds to review the locked table; Skip
+Intro remains available and no fee/timer starts during preparation.
 Daily Challenge reuses the auction arena and entry briefing; only its separate
 bankroll/progress header and lobby rules differ. No new decorative art is needed.
 
