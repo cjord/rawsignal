@@ -51,6 +51,7 @@ export default function TopBar({active=null,actions,strictness,onStrictness,sett
     <button type="button" className="settings-toggle" onClick={()=>setSettingsOpen(value=>!value)} aria-label="Display settings" aria-expanded={settingsOpen} aria-haspopup="menu"><span aria-hidden="true">⚙</span></button>
     {settingsOpen&&<div className="settings-menu" role="menu" aria-label="Display settings">
      {account.enabled&&<a className="account-settings-link" href="/account" role="menuitem">Profile &amp; Account</a>}
+     {account.user?.role==='admin'&&<a className="account-settings-link" href="/admin" role="menuitem">Administration</a>}
      <span>Appearance</span>
      <button type="button" className="game-control settings-theme" onClick={toggleTheme} aria-label={`Switch to ${theme==="dark"?"light":"dark"} mode`}><span aria-hidden="true">{theme==="dark"?"☀":"☾"}</span> {theme==="dark"?"Light Mode":"Dark Mode"}</button>
      <span>Font size</span>

@@ -17,6 +17,13 @@ test('account deployments are explicit, isolate the auth origin and restrict the
  assert.equal(enabled.vars.AUTH_ENABLED,'true');assert.equal(enabled.vars.AUTH_BASE_URL,'https://staging.example.test');assert.deepEqual(enabled.send_email,[{name:'AUTH_EMAIL',allowed_sender_addresses:['accounts@rawsignal.cards']}]);assert.deepEqual(enabled.triggers,{});
 });
 
+test('recovery/audit tools are explicit and never inherited into another account deployment',()=>{
+ const options={environment:'staging',databaseId,databaseName:'raw-signal-staging',workerName:'raw-signal-staging',accounts:true,authBaseUrl:'https://stage.example'};
+ const disabled=prepareDeploymentConfig({...base,vars:{AUTH_AUDIT_ENABLED:'true',AUTH_RECOVERY_ENABLED:'true'}},options);assert.equal(disabled.vars.AUTH_AUDIT_ENABLED,'false');assert.equal(disabled.vars.AUTH_RECOVERY_ENABLED,'false');
+ const enabled=prepareDeploymentConfig(base,{...options,accountTools:true});assert.equal(enabled.vars.AUTH_AUDIT_ENABLED,'true');assert.equal(enabled.vars.AUTH_RECOVERY_ENABLED,'true');
+ assert.throws(()=>prepareDeploymentConfig(base,{...options,accounts:false,accountTools:true}),/require accounts/);
+});
+
 test("staging config keeps Cron disabled and binds assets plus an isolated D1 database",()=>{
  const config=prepareDeploymentConfig(base,{environment:"staging",databaseId,databaseName:"raw-signal-staging",workerName:"raw-signal-staging"});
  assert.equal(config.name,"raw-signal-staging");assert.equal(config.workers_dev,true);assert.equal(config.preview_urls,true);

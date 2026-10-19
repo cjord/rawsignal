@@ -518,7 +518,7 @@ test('mute persists, countdown warns, Enter locks and reduced motion reveals imm
 });
 
 test('winner preview, confetti, four-round notes matrix and full-width colored results remain accessible',async({page},testInfo)=>{
- await fixtures(page);await page.route('**/data/*.json',route=>route.fulfill({contentType:'application/json',body:JSON.stringify(rows)}));
+ await fixtures(page);await page.clock.pauseAt(new Date('2026-10-14T12:00:05Z'));await page.route('**/data/*.json',route=>route.fulfill({contentType:'application/json',body:JSON.stringify(rows)}));
  await page.goto('/games/riftbound-auction');await startAuction(page);await expect(page.getByRole('heading',{name:/Place Your Bid/})).toBeVisible();
  await expect(page.locator('.auction-title-row').getByRole('button',{name:'Mute Sound',exact:true})).toBeVisible();await expect(page.getByText('Virtual Trading · Saved in This Browser')).toHaveCount(0);
  await expect(page.locator('.auction-bid-history')).toHaveCount(0);

@@ -12,6 +12,23 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Accounts and collection saves — in progress (2026-10-19)
 
+- Current staging release in preparation: read-only Accounts & Sync Health, Catalog
+  Quality and Jobs & Budgets; account-opt-in live showcases and unverified normal-play
+  auction leaderboard; decoded-art fade-in and confirmed-guest-only warning. Public
+  showcase/leaderboard switches are independent and default off. Additive 0026 plus
+  pending recovery/audit 0025 require deploy-before-migrate activation on staging only.
+  [Privacy, exact scope, calls, limitations and release plan](auction-community.md).
+
+- Local recovery/admin slice (not pushed/deployed): encrypted IndexedDB pending drafts,
+  seven-day validity, owner/revision-checked manual restore, persistent-storage request,
+  wrapped per-account keys and append-only management audit. Read-only Overview,
+  Audit History and Data Health pages have server-side page/API guards. Migration
+  0025 and explicit feature activation are pending in both environments.
+- Prioritize next admin areas: Accounts & Sync Health (metadata/support lookup),
+  Catalog Quality, then Jobs/Budgets and isolated Daily Games diagnostics. No live
+  answer keys, impersonation or destructive management actions in the first slice.
+  [Design, suggestions, audit/recovery limits and rollout](admin-and-recovery.md).
+
 - Staging now runs source `197dcda`: login cleanup, safe provider-link recovery,
   connected-method status, administrator foundation, on-demand devices and explicit
   save-conflict/tab recovery. Details and release evidence:

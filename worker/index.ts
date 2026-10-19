@@ -10,6 +10,8 @@ import { handleStagingJob, type StagingJobEnv } from "./staging-jobs.ts";
 import { EBAY_ACCOUNT_DELETION_PATH, handleEbayAccountDeletion, type EbayAccountDeletionEnv } from "./ebay-account-deletion.ts";
 import {handleAccountRoute} from './account-routes.ts';
 import type {AccountEnv} from './account-auth.ts';
+import {isAdminPage,handleAdminPage} from './admin-pages.ts';
+import {auctionCommunityPath,handleAuctionCommunity} from './auction-community.ts';
 
 interface Env {
   ASSETS: Fetcher;
@@ -46,6 +48,8 @@ interface ExecutionContext {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    if(isAdminPage(url.pathname))return handleAdminPage(request,env as AccountEnv,()=>handler.fetch(request,env,ctx));
+    if(auctionCommunityPath(url.pathname))return handleAuctionCommunity(request,env as AccountEnv);
     const accountResponse=await handleAccountRoute(request,env as AccountEnv);
     if(accountResponse)return accountResponse;
 

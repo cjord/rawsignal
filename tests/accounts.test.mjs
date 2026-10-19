@@ -10,6 +10,9 @@ import {claimAccountEmail} from '../db/account-email-budget.ts';
 import {createAccountAuth} from '../worker/account-auth.ts';
 import {accountProblem,accountRequestMessage} from '../core/domain/account-errors.ts';
 import {accountRole} from '../worker/account-role.ts';
+import {handleAdminPage,isAdminPage} from '../worker/admin-pages.ts';
+import {appendAdminAudit,readAdminAudit,pruneExpiredAdminAudit} from '../db/admin-audit.ts';
+import {accountRecoveryKey} from '../db/account-recovery.ts';
 
 const origin='http://localhost:3000';
 test('sign-in problems provide safe recovery without exposing arbitrary provider errors',()=>{
@@ -28,7 +31,7 @@ test('auth errors redirect to the branded account page with private response hea
  const auth=createAccountAuth(f.env);assert.equal(auth.options.account.accountLinking.disableImplicitLinking,true);
 });
 function fixture(){
- const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');sqlite.exec(readFileSync(new URL('../drizzle/0024_accounts.sql',import.meta.url),'utf8'));
+ const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');for(const name of ['0024_accounts.sql','0025_recovery_and_admin_audit.sql','0026_admin_health_and_auction_profiles.sql'])sqlite.exec(readFileSync(new URL('../drizzle/'+name,import.meta.url),'utf8'));
  const db={async exec(sql){sqlite.exec(sql)},prepare(sql){let args=[];return {bind(...values){args=values;return this},async first(){return sqlite.prepare(sql).get(...args)??null},async all(){const results=sqlite.prepare(sql).all(...args);return {success:true,results,meta:{changes:sqlite.prepare("SELECT changes() n").get().n,last_row_id:sqlite.prepare("SELECT last_insert_rowid() n").get().n}}},async run(){return sqlite.prepare(sql).run(...args)}}},async batch(statements){const rows=[];for(const statement of statements)rows.push(await statement.all());return rows}};
  const sent=[],env={DB:db,AUTH_ENABLED:'true',AUTH_BASE_URL:origin,AUTH_SECRET:'local-test-only-secret-at-least-thirty-two-characters',AUTH_EMAIL:{async send(message){sent.push(message)}}};return {sqlite,db,env,sent};
 }
@@ -99,4 +102,50 @@ test('email codes expire, stop after three incorrect attempts, and revoked sessi
  const expired=f.sent.at(-1).text.match(/\b\d{6}\b/)[0];f.sqlite.prepare("UPDATE auth_verification SET expiresAt='2000-01-01T00:00:00.000Z'").run();
  assert.notEqual((await handleAccountRoute(request('/api/auth/sign-in/email-otp',{email:'expired@example.test',otp:expired},'','192.0.2.4'),f.env)).status,200);
  assert.equal((await handleAccountRoute(request('/api/account/data',undefined,b.cookie),f.env)).status,401);
+});
+
+test('recovery keys are wrapped, stable and strictly scoped to the verified session owner',async()=>{
+ const f=fixture(),a=await login(f,'key-a@example.test'),b=await login(f,'key-b@example.test','192.0.2.2');
+ assert.equal((await handleAccountRoute(request('/api/account/recovery-key',{},a.cookie),f.env)).status,503);
+ f.env.AUTH_RECOVERY_ENABLED='true';f.env.AUTH_AUDIT_ENABLED='true';
+ const response=await handleAccountRoute(request('/api/account/recovery-key',{owner:b.userId},a.cookie),f.env),key=await response.json();assert.equal(key.owner,a.userId);assert.equal(response.headers.get('cache-control'),'private, no-store');
+ const again=await accountRecoveryKey(f.db,a.userId,f.env.AUTH_SECRET),other=await accountRecoveryKey(f.db,b.userId,f.env.AUTH_SECRET);assert.deepEqual(again,key);assert.notEqual(other.key,key.key);
+ assert.ok(!JSON.stringify(f.sqlite.prepare('SELECT * FROM account_recovery_keys').all()).includes(key.key));
+ assert.ok(!JSON.stringify(f.sqlite.prepare('SELECT * FROM admin_audit_events').all()).includes(key.key));
+ assert.equal((await handleAccountRoute(new Request(origin+'/api/account/recovery-key',{method:'POST',headers:{Cookie:a.cookie,Origin:'https://evil.test'}}),f.env)).status,403);
+ assert.equal((await handleAccountRoute(request('/api/account/recovery-key',{}),f.env)).status,401);
+ await assert.rejects(()=>accountRecoveryKey(f.db,a.userId,f.env.AUTH_SECRET+'wrong'));
+ f.sqlite.prepare('DELETE FROM auth_user WHERE id=?').run(a.userId);assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM account_recovery_keys WHERE user_id=?').get(a.userId).n,0);
+});
+test('admin pages and APIs enforce server identity, private headers and audited read-only access',async()=>{
+ const f=fixture(),a=await login(f,'manager@example.test'),b=await login(f,'member-2@example.test','192.0.2.2');f.env.AUTH_ADMIN_EMAILS='manager@example.test';f.env.AUTH_AUDIT_ENABLED='true';let renders=0;const render=async()=>{renders++;return new Response('private panel')};
+ assert.equal(isAdminPage('/admin/audit'),true);assert.equal(isAdminPage('/administrator'),false);
+ assert.equal((await handleAdminPage(request('/admin'),f.env,render)).status,303);assert.equal((await handleAdminPage(request('/admin',undefined,b.cookie),f.env,render)).status,403);assert.equal(renders,0);
+ const page=await handleAdminPage(request('/admin',undefined,a.cookie),f.env,render);assert.equal(page.status,200);assert.equal(page.headers.get('cache-control'),'private, no-store');assert.equal(renders,1);assert.equal(edgeCacheClass(request('/admin/audit')),null);
+ const denied=await handleAccountRoute(request('/api/account/admin/overview',undefined,b.cookie),f.env);assert.equal(denied.status,403);
+ const summary=await handleAccountRoute(request('/api/account/admin/overview',undefined,a.cookie),f.env);assert.equal(summary.status,200,await summary.clone().text());assert.equal((await summary.json()).accounts,2);
+ assert.equal((await handleAccountRoute(request('/api/account/admin/overview',{},a.cookie),f.env)).status,405);
+ const log=await (await handleAccountRoute(request('/api/account/admin/audit',undefined,a.cookie),f.env)).json();assert.ok(log.events.some(row=>row.action==='admin.access.denied'));assert.ok(log.events.some(row=>row.action==='admin.overview.read'));
+ assert.ok(!JSON.stringify(log).includes('manager@example.test'));assert.ok(!JSON.stringify(log).includes(a.cookie));
+ f.env.AUTH_AUDIT_ENABLED='false';assert.equal((await handleAccountRoute(request('/api/account/admin/overview',undefined,a.cookie),f.env)).status,503);
+ f.env.AUTH_AUDIT_ENABLED='true';f.sqlite.exec('DROP TABLE admin_audit_events');assert.equal((await handleAccountRoute(request('/api/account/admin/overview',undefined,a.cookie),f.env)).status,503);
+});
+test('audit reads are bounded and filtered, append-only records coalesce and respect retention',async()=>{
+ const f=fixture(),now=Date.now(),event={actorId:'opaque-id',actorRole:'admin',action:'admin.audit.read',outcome:'allowed',requestId:'request-id'};
+ await appendAdminAudit(f.db,event,now);await appendAdminAudit(f.db,event,now);assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM admin_audit_events').get().n,1);
+ const insert=f.sqlite.prepare("INSERT INTO admin_audit_events(id,occurred_at,actor_id,actor_role,action,target_type,outcome,request_id,reason_code) VALUES(?,?,?,'admin','admin.data.read','management','allowed','r','authorized')");
+ for(let i=0;i<110;i++)insert.run('audit-'+i,new Date(now-i*1000).toISOString(),'another-actor');
+ const first=await readAdminAudit(f.db,new URLSearchParams('actor=another-actor'),now);assert.equal(first.events.length,50);assert.ok(first.nextCursor);
+ const second=await readAdminAudit(f.db,new URLSearchParams({actor:'another-actor',cursor:first.nextCursor}),now);assert.equal(second.events.length,50);assert.ok(!first.events.some(row=>second.events.some(other=>row.id===other.id)));
+ assert.equal((await readAdminAudit(f.db,new URLSearchParams('outcome=denied'),now)).events.length,0);
+ await assert.rejects(()=>readAdminAudit(f.db,new URLSearchParams('action=arbitrary'),now),/Invalid audit/);await assert.rejects(()=>readAdminAudit(f.db,new URLSearchParams('cursor=bad'),now),/Invalid audit/);
+ assert.throws(()=>f.sqlite.prepare("UPDATE admin_audit_events SET outcome='denied'").run(),/append-only/);assert.throws(()=>f.sqlite.prepare('DELETE FROM admin_audit_events').run(),/retention/);
+ insert.run('expired-audit',new Date(now-91*86400000).toISOString(),'another-actor');f.sqlite.prepare("DELETE FROM admin_audit_events WHERE id='expired-audit'").run();
+ for(let i=0;i<3;i++)insert.run('expired-'+i,new Date(now-91*86400000).toISOString(),'another-actor');await pruneExpiredAdminAudit(f.db,2,now);assert.equal(f.sqlite.prepare("SELECT COUNT(*) n FROM admin_audit_events WHERE id LIKE 'expired-%'").get().n,1);await assert.rejects(()=>pruneExpiredAdminAudit(f.db,101,now),/limit/);
+});
+test('data management reads the published marker, not an incomplete newer ingestion, and keeps missing streams unavailable',async()=>{
+ const f=fixture(),admin=await login(f,'data-manager@example.test');f.env.AUTH_ADMIN_EMAILS='data-manager@example.test';f.env.AUTH_AUDIT_ENABLED='true';f.env.ENVIRONMENT='staging';
+ f.sqlite.exec("CREATE TABLE ingestion_runs(id TEXT,source TEXT,status TEXT,started_at TEXT,completed_at TEXT,source_updated_at TEXT,records_written INTEGER);CREATE TABLE refresh_state(key TEXT,ingestion_run_id TEXT);CREATE TABLE set_heatmap_snapshots(game TEXT,source_date TEXT,computed_at TEXT,algorithm_version INTEGER)");
+ f.sqlite.exec("INSERT INTO ingestion_runs VALUES('published','tcgcsv-live','succeeded','2026-10-18T00:00:00Z','2026-10-18T01:00:00Z','2026-10-17T12:00:00Z',123),('partial','tcgcsv-live','running','2026-10-19T00:00:00Z',NULL,NULL,5);INSERT INTO refresh_state VALUES('daily-market','published');INSERT INTO set_heatmap_snapshots VALUES('riftbound','2026-10-17','2026-10-18T02:00:00Z',4)");
+ const response=await handleAccountRoute(request('/api/account/admin/data',undefined,admin.cookie),f.env);assert.equal(response.status,200,await response.clone().text());const data=await response.json();assert.equal(data.runs.find(row=>row.source==='daily-market').runId,'published');assert.equal(data.runs.find(row=>row.source==='product-details').runId,null);assert.equal(data.automaticIngestion,false);assert.equal(data.heatmaps[0].algorithmVersion,4);
 });

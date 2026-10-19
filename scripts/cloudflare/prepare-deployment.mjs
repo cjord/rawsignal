@@ -5,7 +5,7 @@ import {pathToFileURL} from "node:url";
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const clone=value=>structuredClone(value);
 
-export function prepareDeploymentConfig(base,{environment,databaseId,databaseName,workerName,route,cron,accounts=false,authBaseUrl}){
+export function prepareDeploymentConfig(base,{environment,databaseId,databaseName,workerName,route,cron,accounts=false,authBaseUrl,accountTools=false,accountCommunity=false}){
  if(environment!=="staging"&&environment!=="production")throw new Error("Environment must be staging or production");
  if(!uuid.test(databaseId??""))throw new Error("A valid Cloudflare D1 database UUID is required");
  if(!databaseName?.trim()||!workerName?.trim())throw new Error("Database and Worker names are required");
@@ -21,7 +21,7 @@ export function prepareDeploymentConfig(base,{environment,databaseId,databaseNam
  config.images={binding:"IMAGES"};
  config.version_metadata={binding:"CF_VERSION_METADATA"};
  config.vars={...(config.vars??{}),ENVIRONMENT:environment};
- configureAccounts(config,{accounts,authBaseUrl});
+ configureAccounts(config,{accounts,authBaseUrl,accountTools,accountCommunity});
  if(environment==="production")config.vars.EBAY_DELETION_ENDPOINT_URL=`https://${route.trim()}/api/ebay/account-deletion`;
  else delete config.vars.EBAY_DELETION_ENDPOINT_URL;
  // A schedule exists only when explicitly requested (--cron / env) — never inherited from
@@ -38,15 +38,21 @@ export function prepareDeploymentConfig(base,{environment,databaseId,databaseNam
  return config;
 }
 
-function configureAccounts(config,{accounts,authBaseUrl}){
+function configureAccounts(config,{accounts,authBaseUrl,accountTools,accountCommunity}){
  // Never inherit an account-enabled build or email binding into another release.
  config.vars.AUTH_ENABLED='false';delete config.vars.AUTH_BASE_URL;
+ config.vars.AUTH_AUDIT_ENABLED='false';config.vars.AUTH_RECOVERY_ENABLED='false';
+ config.vars.AUTH_COMMUNITY_ENABLED='false';
+ if(accountCommunity&&(!accounts||!accountTools))throw new Error('Community requires accounts, account tools and applied profile migration');
+ if(accountTools&&!accounts)throw new Error('Account tools require accounts and the applied recovery/audit migration');
  config.send_email=(config.send_email??[]).filter(binding=>binding.name!=='AUTH_EMAIL');
  if(!config.send_email.length)delete config.send_email;
  if(!accounts)return;
  let origin;try{origin=new URL(authBaseUrl)}catch{throw new Error('Account deployments require an explicit HTTPS auth origin')}
  if(origin.protocol!=='https:'||origin.username||origin.password||origin.search||origin.hash||origin.pathname!=='/')throw new Error('Account deployments require an explicit HTTPS auth origin');
  config.vars.AUTH_ENABLED='true';config.vars.AUTH_BASE_URL=origin.origin;
+ if(accountTools){config.vars.AUTH_AUDIT_ENABLED='true';config.vars.AUTH_RECOVERY_ENABLED='true'}
+ if(accountCommunity)config.vars.AUTH_COMMUNITY_ENABLED='true';
  config.send_email=[...(config.send_email??[]),{name:'AUTH_EMAIL',allowed_sender_addresses:['accounts@rawsignal.cards']}];
 }
 
@@ -64,7 +70,7 @@ async function main(){
   environment,databaseId,databaseName:option("database-name")??defaults.databaseName,
   workerName:option("worker-name")??defaults.workerName,route:option("route"),
   cron:option("cron")??process.env.RAW_SIGNAL_STAGING_CRON,
-  accounts:option('accounts')==='true',authBaseUrl:option('auth-base-url'),
+  accounts:option('accounts')==='true',authBaseUrl:option('auth-base-url'),accountTools:option('account-tools')==='true',accountCommunity:option('account-community')==='true',
  });
  await fs.mkdir(path.dirname(outPath),{recursive:true});await fs.writeFile(outPath,`${JSON.stringify(config,null,2)}\n`);
  console.log(outPath);

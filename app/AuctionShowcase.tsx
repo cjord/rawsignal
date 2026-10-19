@@ -15,6 +15,7 @@ import AuctionShowcaseShare from './games/AuctionShowcaseShare';
 import AuctionCardInspection from './games/AuctionCardInspection';
 import AuctionShowcaseGallery from './games/AuctionShowcaseGallery';
 import AuctionShowcaseControls from './games/AuctionShowcaseControls';
+import AuctionPublicSettings from './games/AuctionPublicSettings';
 
 const sources=allowedRarities.riftbound.map(section=>`/data/${section}.json`);
 function ShowcasePending({error}:{error:string|null}){return error?<p role="alert">{error} Return to Auction House to review your saved game. Nothing has been overwritten.</p>:<p role="status">Loading Showcase…</p>;}
@@ -28,8 +29,9 @@ export default function AuctionShowcase(){
  return <GamesShell><div className="auction-showcase-scene"><AuctionBackdrop catalog={catalog} lobby/><a className="games-back" href="/games/riftbound-auction">← Auction House</a><header className="games-heading"><span className="games-eyebrow">Riftbound Auction House</span><h1>{snapshot?.name?`${snapshot.name}’s Showcase`:'Auction Showcase'}</h1><p>{shared?`Shared snapshot · ${new Date(shared.at).toLocaleString()} · Self-reported virtual cards and statistics.`:'Your auction record and a hand-picked display of cards you own. Showcase cards stay protected from inventory sales.'}</p></header>
   {invalid?<p role="alert">This showcase link is invalid or too large. Your saved game has not been changed.</p>:!ready?<ShowcasePending error={error}/>:<>
    {!shared&&save&&<AuctionShowcaseControls save={save} error={error} editing={editing} loaded={status==='success'} toggle={()=>setEditing(value=>!value)} share={()=>setSharing(auctionProfileSnapshot(save,catalog))}/>}
+   {!shared&&<AuctionPublicSettings/>}
    <AuctionStatistics shared={Boolean(shared)} save={shared?{...initialAuctionSave(),statistics:shared.stats}:save!}/>
-   {editing&&canEdit&&save?<><section className="detail-section"><label className="auction-profile-name">Display Name (optional)<input maxLength={40} value={save.profileName??''} onChange={event=>{const name=event.target.value;transact(current=>({...current,profileName:name}))}}/></label><p className="games-note">Public only when you share a snapshot. No accounts or verified identities yet.</p></section><AuctionShowcaseEditor save={save} catalog={catalog} transact={transact}/></>:<AuctionShowcaseGallery cards={cards} shared={Boolean(shared)} inspect={setInspect}/>}
+   {editing&&canEdit&&save?<><section className="detail-section"><label className="auction-profile-name">Snapshot Display Name (optional)<input maxLength={40} value={save.profileName??''} onChange={event=>{const name=event.target.value;transact(current=>({...current,profileName:name}))}}/></label><p className="games-note">Used in frozen snapshot links. Account showcase visibility and its public display name are controlled separately above.</p></section><AuctionShowcaseEditor save={save} catalog={catalog} transact={transact}/></>:<AuctionShowcaseGallery cards={cards} shared={Boolean(shared)} inspect={setInspect}/>}
   </>}{status==='error'&&<p role="status">Current catalog unavailable. Card artwork and current prices may be unavailable.</p>}{sharing&&<AuctionShowcaseShare snapshot={sharing} close={()=>setSharing(null)}/>} {inspect&&<AuctionCardInspection card={inspect} close={()=>setInspect(null)}/>}
  </div></GamesShell>;
 }

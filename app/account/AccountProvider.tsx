@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable react-hooks/set-state-in-effect -- account/session and save status hydrate from the server after mount. */
 import {useEffect,useState,useCallback,useMemo,type ReactNode} from 'react';
-import {cloudStatus,configureAccountStorage,discardCloudPending,flushCloud,getSavedItem,pendingBackup,retryCloud,subscribeCloud} from './storage';
+import {cloudStatus,configureAccountStorage,discardCloudPending,flushCloud,flushDeviceRecovery,getSavedItem,initializeAccountRecovery,pendingBackup,retryCloud,subscribeCloud} from './storage';
 import AuctionDialog from '../games/AuctionDialog';
 import type {AccountDocument} from '../../core/domain/account-data';
 
@@ -9,7 +9,7 @@ import {AccountContext,accountDefaults as defaults,type AccountState} from './co
 export {useAccount,type AccountUser} from './context';
 import {authAction} from './auth-client';
 export {authAction} from './auth-client';
-export async function signOutAccount(){await flushCloud();if(cloudStatus().pending)throw new Error('Wait for cloud saves to finish before logging out.');await authAction('sign-out',{});location.assign('/');}
+export async function signOutAccount(){await flushCloud();if(cloudStatus().pending)throw new Error('Wait for cloud saves to finish before logging out.');await flushDeviceRecovery();await authAction('sign-out',{});location.assign('/');}
 function downloadBackup(){const url=URL.createObjectURL(new Blob([pendingBackup()],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download='raw-signal-unsynced-backup.json';link.click();URL.revokeObjectURL(url);}
 export default function AccountProvider({enabled,children}:{enabled:boolean;children:ReactNode}){
  const [account,setAccount]=useState<AccountState>({...defaults,enabled,loading:enabled}),[scope,setScope]=useState('initial'),[cloud,setCloud]=useState(cloudStatus);
@@ -23,6 +23,7 @@ export default function AccountProvider({enabled,children}:{enabled:boolean;chil
    const response=await fetch('/api/account/session',{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw new Error('Account service unavailable. Retry before making changes.');
    const data=await response.json() as AccountState&{documents:AccountDocument[]};
    configureAccountStorage(data.user?'account':'guest',data.user?.id,data.documents??[]);
+   if(data.user)await initializeAccountRecovery(data.features?.recovery===true);
    if(data.user){document.documentElement.dataset.theme=getSavedItem('raw-signal-theme')==='light'?'light':'dark';document.documentElement.dataset.fontSize=getSavedItem('raw-signal-font-size')==='large'?'large':'default';}
    setScope(data.user?.id??'guest');setAccount({...data,loading:false,error:''});
    try{localStorage.setItem('raw-signal-account-identity',data.user?.id??'guest')}catch{/* The cookie still identifies this tab securely. */}
@@ -30,13 +31,15 @@ export default function AccountProvider({enabled,children}:{enabled:boolean;chil
  },[]);
  useEffect(()=>{if(enabled)void bootstrap();return()=>{if(enabled)configureAccountStorage('loading')}},[enabled,bootstrap]);
  useEffect(()=>subscribeCloud(()=>setCloud(cloudStatus())),[]);
+ useEffect(()=>{const connected=()=>{if(cloudStatus().failure==='transient')retryCloud()};window.addEventListener('online',connected);return()=>window.removeEventListener('online',connected)},[]);
  useEffect(()=>{if(!enabled)return;const changed=(event:StorageEvent)=>{if(event.key==='raw-signal-account-identity'){if(cloudStatus().pending){setAccount(current=>({...current,error:'The account changed in another tab. Export pending changes before reloading.'}));return}location.reload()}};window.addEventListener('storage',changed);return()=>window.removeEventListener('storage',changed)},[enabled]);
  useEffect(()=>{const warn=(event:BeforeUnloadEvent)=>{if(cloudStatus().pending){event.preventDefault();event.returnValue=''}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn)},[]);
  if(!enabled)return children;
  return <AccountContext.Provider value={context}>
   {account.error&&<div className="account-status" role="alert">{account.error} {cloud.pending?<button type="button" className="game-control" onClick={downloadBackup}>Export Pending Changes</button>:<button type="button" className="game-control" onClick={()=>void bootstrap()}>Retry Account</button>}</div>}
   {account.user&&(cloud.pending>0||cloud.error)&&<div className="account-status" role={cloud.error?'alert':'status'}>{cloud.error||'Saving to your account…'}{cloud.error&&<>{!['conflict','session','invalid'].includes(cloud.failure)&&<button className="game-control" type="button" onClick={retryCloud}>Retry Save</button>}<button className="game-control" type="button" onClick={downloadBackup}>Export Pending Changes</button><button className="game-control" type="button" disabled={cloud.working} onClick={()=>setConfirmReload(true)}>Load Cloud Save</button></>}</div>}
-  {confirmReload&&<AuctionDialog title="Load the Cloud Save?" onClose={()=>setConfirmReload(false)}><p>This discards this tab’s unsynced changes and loads the latest saved account. Export Pending Changes first if you want to keep a copy. Money and inventory will not be merged.</p><button className="game-control" type="button" onClick={downloadBackup}>Export Pending Changes</button><button className="game-control account-delete" type="button" disabled={cloud.working} onClick={()=>{discardCloudPending();location.reload()}}>Discard Local Changes &amp; Reload</button></AuctionDialog>}
+  {account.user&&!cloud.pending&&cloud.recovery.drafts.length>0&&<div className="account-status" role="status">Unsynced progress was found on this device. <a href="/account#recovery">Review Recovery</a></div>}
+  {confirmReload&&<AuctionDialog title="Load the Cloud Save?" onClose={()=>setConfirmReload(false)}><p>This discards this tab’s unsynced changes and loads the latest saved account. Export Pending Changes first if you want to keep a copy. Money and inventory will not be merged.</p><button className="game-control" type="button" onClick={downloadBackup}>Export Pending Changes</button><button className="game-control account-delete" type="button" disabled={cloud.working} onClick={()=>void discardCloudPending().then(()=>location.reload())}>Discard Local Changes &amp; Reload</button></AuctionDialog>}
   <div key={scope} inert={account.loading||!!account.error||!!cloud.error}>{children}</div>
  </AccountContext.Provider>;
 }

@@ -25,6 +25,22 @@ data is embedded in publicly cached market HTML, and unrelated market requests d
 not query auth tables. Deployment/remaining launch work:
 [Accounts and collections](accounts-and-collections.md).
 
+Local follow-up adds `db/account-recovery.ts` (wrapped owner keys), `db/admin-audit.ts`
+(bounded append-only access ledger), `worker/admin-pages.ts` + `admin-routes.ts`
+(private server-enforced management access), and encrypted pending-draft IndexedDB
+storage in `app/account/recovery-*`. Migration 0025 and explicit audit/recovery flags
+are required; neither is remotely activated yet. The read-only `/admin`, `/admin/audit`
+and `/admin/data` surfaces make no upstream market requests and add no cron.
+[Scope, costs and safeguards](admin-and-recovery.md).
+
+The next slice adds read-only `/admin/accounts`, `/admin/quality`, `/admin/jobs` and
+an explicitly opt-in auction community. `db/admin-health.ts` reads bounded support
+metadata/coverage/job data; `db/auction-community.ts` exposes only allowlisted public
+profile fields. Migration 0026 projects unverified normal-play statistics atomically
+from successful game-document saves. Community APIs run before edge caches so privacy
+revocation affects future reads. `AUTH_COMMUNITY_ENABLED` is explicit/default-off.
+[Community and management follow-up](auction-community.md).
+
 ### Domain
 
 `core/domain/` owns market types, runtime input contracts, display formatting, and dated-history calculations. Missing source values remain `null`; presentation code decides whether to render `N/A` or another established unavailable label.

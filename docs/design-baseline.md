@@ -192,6 +192,13 @@ Intro remains available and no fee/timer starts during preparation.
 Daily Challenge reuses the auction arena and entry briefing; only its separate
 bankroll/progress header and lobby rules differ. No new decorative art is needed.
 
+Auction lobby/profile decorative artwork is transparent until decoded, then fades
+in without moving content; reduced motion removes that transition. Account guest
+notices wait for a confirmed guest session, avoiding signed-in layout flashes.
+Public account showcases and the community leaderboard reuse the Games shell,
+statistics tiles, artwork/inspection and responsive data tables. Public visibility
+and leaderboard participation are separate, clearly labeled opt-in controls.
+
 - Dark is the default (`data-theme="dark"` pre-hydration via the head script); both themes
   ship complete token sets. Any new color must be specified for both or derived via
   `color-mix` from tokens.

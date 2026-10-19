@@ -2,6 +2,11 @@
 
 ## Status — staging testing, 2026-10-19
 
+New local follow-up: [persistent recovery and read-only management audit](admin-and-recovery.md).
+Migration 0025 and its feature flags are **not** applied/enabled remotely; the staging
+release recorded below is unchanged. The implemented local slice is not a claim of
+fully offline gameplay or a complete audit of every account operation.
+
 Branch: `codex/accounts-and-collections`, created from released main at `1a72935`.
 Application source `197dcda` (following feature commit `45a2552`) is pushed and deployed to staging. Accounts remain
 disabled by default but are explicitly enabled on the canonical staging hostname.
