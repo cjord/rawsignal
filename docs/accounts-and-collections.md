@@ -3,14 +3,15 @@
 ## Status — staging testing, 2026-10-19
 
 Branch: `codex/accounts-and-collections`, created from released main at `1a72935`.
-Application source `9ead83e` is pushed and deployed to staging. Accounts remain
+Application source `197dcda` (following feature commit `45a2552`) is pushed and deployed to staging. Accounts remain
 disabled by default but are explicitly enabled on the canonical staging hostname.
 Production code, secrets, bindings and database have not been changed.
 
-Staging version: `600ee3df-a0bf-4586-bd7e-033beaef7f3c`. Migration 0024 was applied
+Staging version: `a2afdede-8624-4b88-895d-08890673e797`. Migration 0024 was applied
 only after the initial disabled-account deployment. A pre-migration database export
 and recovery bookmark were saved in ignored local storage. Five staging auth secrets
-and the restricted-sender native email binding are configured; staging still has no cron.
+plus the admin allowlist and restricted-sender native email binding are configured;
+staging still has no cron. The login/role/recovery release required no new migration.
 The generated staging auth secret is retained in the ignored
 `.secrets/accounts-staging-auth-secret` file; preserve it for future configuration.
 
@@ -25,7 +26,7 @@ explicit Google linking. A same-email Google login before linking correctly retu
 `account_not_linked`; matching emails must not silently merge accounts. Automated
 local account tests continue to use mock email, not real recipients.
 
-## Account UX review — local follow-up, not deployed
+## Account UX review — released to staging
 
 Highest-impact findings and changes:
 
@@ -47,12 +48,13 @@ Highest-impact findings and changes:
 
 Cost: one additional private `list-accounts` request on the signed-in account page
 (plus deliberate retries). No new calls on market pages, upstream data requests,
-ingestion work, scheduled jobs or migrations. Existing save/session behavior is
-unchanged. These improvements require a separately authorized push/deployment.
+ingestion work, scheduled jobs or migrations. Device listing adds one private read
+only when requested, plus a write for explicit device revocation. Save conflicts
+now have deliberate recovery controls; pending valid saves gain tab reload recovery.
 
-Next priorities: conflict-specific recovery instead of repeatedly retrying a stale
-revision, active-session/device listing, durable offline recovery, then verified
-email changes and avatar controls. Avoid automatic merges or silent overwrite flows.
+Conflict-specific recovery and on-demand device listing are now implemented.
+Next priorities: durable offline recovery, reviewed backup import, verified email
+changes and avatar controls. Avoid automatic merges or silent overwrite flows.
 
 ## Decisions
 
@@ -253,9 +255,17 @@ owner-scoped tab recovery, thirty-second server cooldown and short-screen Settin
 The artwork-blocking auction test now waits for DOM readiness rather than full load;
 its deliberate blocked image requests otherwise deadlock the full load event.
 Login/profile screenshots were reviewed at desktop/mobile widths in both themes.
+Live final-deployment checks passed for stacked provider controls, collapsed email
+entry, Settings profile access, branded unlinked-account recovery, mobile/desktop
+dark/light layouts, guest admin rejection, zero guest save writes and no optional
+third-party affiliate loader. A read-only check found one verified owner account
+eligible for the provisioned admin allowlist. No test emails were sent and real
+OAuth authorization was not repeated; please verify the Administrator badge and
+your account/device actions while signed in.
+
 The local market fixture still logs its existing old-schema fallback and affiliate
 link hydration warnings; market browser checks pass. User-confirmed staging logins
-and live smoke checks are recorded above; this UX follow-up has not been deployed.
+and live smoke checks are recorded above. Production remains unchanged.
 
 ## Next: real collections and monitoring
 

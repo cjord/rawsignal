@@ -9,6 +9,26 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-19 — Account login, roles and recovery (staging)
+
+Source `197dcda` (feature `45a2552`), staging version
+`a2afdede-8624-4b88-895d-08890673e797`. Quiet successful saves, highlighted login,
+appearance inside scrollable Settings, stacked Discord/Google/expandable email with
+local icons, privacy tooltip, five-minute code expiry and thirty-second UI/server
+resend. Branded safe linking errors, connected-method status, in-place profile edits,
+confirmed device/session controls, and private export/deletion remain explicit.
+Verified server-email allowlist grants admin; staging owner eligibility confirmed
+read-only. Production accounts/admin activation remain pending, not silently enabled.
+
+Conflicts block stale retries and require explicit discard/reload or export; pending
+valid saves have owner-scoped same-tab recovery with original revision checks.
+Closing the tab/storage failures still risk unsynced data; no durable offline claim.
+No migration, market-source calls, scheduled work or production changes. Full gate:
+566 unit tests (one skipped), 87 browser checks, types/lint (21 existing warnings).
+Final live guest login/recovery, screen/theme and authorization smoke checks passed;
+no email sent, guest upload, or repeated real-provider authorization. See
+[account boundaries and remaining gaps](accounts-and-collections.md).
+
 ## 2026-10-15 — Auction auto advance, sound cues and Top-Two Valuation (production)
 
 Pushed application `1451236`; staging `469c9ca8-db37-4363-bc80-298f93aab7e0`, then
