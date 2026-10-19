@@ -16,14 +16,16 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
   coordinated Showcase loading, value-ranked showcase directory, profile-owned public
   username and configurable bottom-right notifications. Migration 0027 intentionally
   resets old public visibility for explicit username/visibility consent. Full gate
-  passed (585 node + 103 browser checks; one node skip); staging release pending,
-  production unchanged. [Details and next UI gaps](auction-ui-follow-up.md).
+  passed (585 node + 103 browser checks; one node skip); staging released as `d6f0ba1`,
+  version `8fac8370-d450-4b78-ab9d-47258a54a6fd`. Live UI/access/artwork checks passed.
+  Save a public username in Profile, then explicitly re-enable public visibility.
+  Production unchanged. [Details and next UI gaps](auction-ui-follow-up.md).
 
-- Staging runs application `19bc36e`, version `05b35536-032a-4995-87b5-1eb0ba2887d4`:
+- Staging includes the application `19bc36e` recovery/community foundation:
   encrypted device recovery, audited read-only management pages, opt-in account
   showcases/unverified auction leaderboard, decoded-art fade-in and confirmed-guest
-  warning. Migrations 0025/0026 and feature flags are activated on staging only.
-  Gate: 580 node tests (one skipped), 100 browser journeys. Live public/guest-access
+  warning. Migrations 0025/0026/0027 and feature flags are activated on staging only.
+  Original foundation gate: 580 node tests (one skipped), 100 browser journeys. Live public/guest-access
   checks passed; review real signed-in recovery/admin/public-visibility workflows.
   [Exact scope, privacy, costs and remaining hardening](auction-community.md).
 - Next admin work: isolated Daily Games diagnostics and reviewed Access & Security

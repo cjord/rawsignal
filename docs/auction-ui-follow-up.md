@@ -108,6 +108,19 @@ deployment, then existing account/community flags were re-enabled. Initial live
 public/guest authorization, layouts and notification settings passed. Visual review
 caught a negative-z-index backdrop escaping its old isolated container after moving
 to the common shell; the shared scene now provides that stacking boundary and tests
-assert it. Final same-source staging redeploy/visual verification is pending here.
-Production remains unchanged. Real authenticated visibility/username review uses
-the owner's staging session; automated live checks do not send mail or alter accounts.
+assert it. The full gate passed again after that correction, with the same counts.
+
+Final staging application source: `d6f0ba1` (main feature `c8cd8d7`), Worker version
+`8fac8370-d450-4b78-ab9d-47258a54a6fd`. Live guest/public APIs, private-route rejection,
+community pages, collapsed sharing controls, notification duration setting and all
+five auction-route background containers passed. Desktop/mobile and both themes
+were checked. A reduced-motion screenshot comparison with artwork temporarily
+hidden proves that the background visibly paints on desktop/dark and mobile/light,
+rather than merely decoding behind the body. Failed images are excluded.
+
+Existing auth secrets, provider/email setup and admin eligibility were preserved.
+No staging cron, market refresh, daily replacement, real account save modification
+by automated checks, email send or production operation occurred. Existing public
+visibility was disabled only by the documented migration transition. Real signed-in
+username/visibility review remains with the owner's staging session: save a Username
+(Public) in Profile, then explicitly opt in again from My Showcase → Sharing & Visibility.

@@ -9,6 +9,24 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-19 — Auction profiles, loading and site notifications (staging)
+
+Application `d6f0ba1` (feature `c8cd8d7`), staging version
+`8fac8370-d450-4b78-ab9d-47258a54a6fd`. Centered/tinted game controls; live market-value
+showcase ranking independent of profit rankings; Profile-owned explicit public
+username; common decoded-card background on auction surfaces; coordinated Showcase
+data reveal with reserved art and collapsed sharing; bottom-right, click-through,
+dismissible notifications with account/device duration preference.
+
+Migration 0027 deployed-first after private backup/bookmark, then verified and existing
+features re-enabled. Existing public visibility resets off for explicit username and
+opt-in consent; games and inventory are untouched. Full gate: 585 node tests passed,
+one skipped; 103 browser journeys; types passed, 21 existing lint warnings only.
+Live access/UI/theme/size checks passed, including actual visible background pixels
+after correcting its shared stacking boundary. No live test emails/account saves,
+cron, feed refresh or production changes. Owner's real username/visibility review
+remains. [Scope, loading alternatives and next UI improvements](auction-ui-follow-up.md).
+
 ## 2026-10-19 — Encrypted recovery, management and auction community (staging)
 
 Application `19bc36e`, staging version `05b35536-032a-4995-87b5-1eb0ba2887d4`.

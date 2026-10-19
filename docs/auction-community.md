@@ -141,7 +141,7 @@ Rollback disables tool/community flags without dropping keys, audit, profiles, g
 saves or daily manifests. Do not attempt a database rollback as an automatic deploy
 fallback; user saves may have changed since the recovery point.
 
-The next UI/identity slice uses migration 0027, explicitly chosen Profile usernames,
+The subsequent staging UI/identity slice uses migration 0027, explicitly chosen Profile usernames,
 value-ranked showcases, coordinated loading, shared auction backgrounds and ephemeral
 notifications. Its privacy transition, costs, validation and release evidence are
 recorded in [Auction UI follow-up](auction-ui-follow-up.md); the original release
