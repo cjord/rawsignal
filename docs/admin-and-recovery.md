@@ -2,16 +2,23 @@
 
 ## Status
 
-Local implementation on `codex/accounts-and-collections`; not pushed or deployed.
-Migration **0025_recovery_and_admin_audit.sql** is pending in both environments.
-Neither remote databases nor Worker flags/secrets have changed for this work.
+Released to staging from `codex/accounts-and-collections`, application source
+`19bc36e`, version `05b35536-032a-4995-87b5-1eb0ba2887d4`. Migration 0025 and
+the follow-up 0026 are applied on staging, with explicit recovery/audit/community
+flags enabled after migration. Private export/recovery bookmark saved first;
+existing auth secrets preserved, no cron added. Production is unchanged and its
+account/recovery/admin migrations and activation remain pending.
 
 Validation on 2026-10-19: `npm run check` passed (572 node tests passed, one
 skipped; all 93 Chromium journeys passed; type checking passed and lint retained
 only the 21 pre-existing complexity warnings). Focused recovery checks used real
 browser IndexedDB for close/reopen, account isolation, revision conflicts and
 blocked-storage handling. Management pages were checked at mobile/desktop widths
-in both themes. This is local validation, not live staging or production evidence.
+in both themes. The expanded release gate passed 580 node tests (one skipped) and
+all 100 browser journeys. Live staging guest/admin access boundaries, public APIs,
+community pages, responsive themes and real artwork decoding also passed. Real
+signed-in recovery/admin UI testing remains for the user's existing staging session;
+no email was sent and no live account data was changed by the automated checks.
 
 ## First management pages
 
@@ -44,9 +51,9 @@ not today's date. No automatic polling is added.
 | 4. Daily Games | Published manifest dates/versions, card counts, artwork validation health, reward/save anomalies once instrumented | No live answer keys, active hidden bids/clues, wallet resets or same-day regeneration. Previews use an isolated staging sandbox, never the real wallet. |
 | 5. Access & Security | Reviewed role changes, session-risk summaries, sensitive exports/deletions and access alerts | Fresh sign-in, reason, server-derived actor/role, atomic action+audit for new mutations, retention/access policy. No impersonation in the first version. |
 
-The recommended next page is **Accounts & Sync Health**, followed by **Catalog
-Quality**. They help investigate real support/data problems without granting broad
-destructive controls. Staging-only developer mode remains a separate future feature;
+Accounts & Sync Health, Catalog Quality, and Jobs & Budgets are now implemented on
+staging; [exact scope and release evidence](auction-community.md). Daily Games and
+Access & Security remain future areas. Staging-only developer mode remains separate;
 ordinary admin access does not turn it on.
 
 ## Audit contract and limits

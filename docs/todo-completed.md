@@ -9,6 +9,27 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-19 — Encrypted recovery, management and auction community (staging)
+
+Application `19bc36e`, staging version `05b35536-032a-4995-87b5-1eb0ba2887d4`.
+Encrypted seven-day device drafts with safe owner/revision-checked recovery; server-
+guarded read-only Overview, Audit, Data, Accounts & Sync, Catalog Quality and Jobs &
+Budgets; fixed-purpose support lookup and metadata counters. Account-linked public
+showcases and unverified normal-auction profit rankings are separate explicit opt-ins.
+Cards fade after decode; guest notices wait for confirmed identity. Existing snapshot
+links, wallet isolation, daily challenges and source data remain unchanged.
+
+Full gate: 580 node tests passed, one skipped, all 100 Chromium journeys; 21 existing
+lint warnings only. The old winner-preview test now explicitly pauses/advances time
+instead of racing the 250 ms tick. Live staging public APIs, private access denials,
+guest redirects, community/lobby pages and responsive themes passed; real art loaded
+and decoded. No emails sent or real account saves altered by live checks. Real signed-in
+admin/recovery/public visibility review remains with the user's staging session.
+
+Deploy-first migrations 0025/0026 applied after private export/recovery bookmark;
+enabled flags verified afterward. Existing auth secrets preserved; no cron, market
+refresh, daily snapshot replacement or production deployment. [Scope and safeguards](auction-community.md).
+
 ## 2026-10-19 — Account login, roles and recovery (staging)
 
 Source `197dcda` (feature `45a2552`), staging version

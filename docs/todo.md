@@ -12,38 +12,29 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Accounts and collection saves — in progress (2026-10-19)
 
-- Current staging release in preparation: read-only Accounts & Sync Health, Catalog
-  Quality and Jobs & Budgets; account-opt-in live showcases and unverified normal-play
-  auction leaderboard; decoded-art fade-in and confirmed-guest-only warning. Public
-  showcase/leaderboard switches are independent and default off. Additive 0026 plus
-  pending recovery/audit 0025 require deploy-before-migrate activation on staging only.
-  [Privacy, exact scope, calls, limitations and release plan](auction-community.md).
-
-- Local recovery/admin slice (not pushed/deployed): encrypted IndexedDB pending drafts,
-  seven-day validity, owner/revision-checked manual restore, persistent-storage request,
-  wrapped per-account keys and append-only management audit. Read-only Overview,
-  Audit History and Data Health pages have server-side page/API guards. Migration
-  0025 and explicit feature activation are pending in both environments.
-- Prioritize next admin areas: Accounts & Sync Health (metadata/support lookup),
-  Catalog Quality, then Jobs/Budgets and isolated Daily Games diagnostics. No live
-  answer keys, impersonation or destructive management actions in the first slice.
-  [Design, suggestions, audit/recovery limits and rollout](admin-and-recovery.md).
-
-- Staging now runs source `197dcda`: login cleanup, safe provider-link recovery,
-  connected-method status, administrator foundation, on-demand devices and explicit
-  save-conflict/tab recovery. Details and release evidence:
-  [Accounts and collections](accounts-and-collections.md) and
-  [completed release notes](todo-completed.md#2026-10-19--account-login-roles-and-recovery-staging).
+- Staging runs application `19bc36e`, version `05b35536-032a-4995-87b5-1eb0ba2887d4`:
+  encrypted device recovery, audited read-only management pages, opt-in account
+  showcases/unverified auction leaderboard, decoded-art fade-in and confirmed-guest
+  warning. Migrations 0025/0026 and feature flags are activated on staging only.
+  Gate: 580 node tests (one skipped), 100 browser journeys. Live public/guest-access
+  checks passed; review real signed-in recovery/admin/public-visibility workflows.
+  [Exact scope, privacy, costs and remaining hardening](auction-community.md).
+- Next admin work: isolated Daily Games diagnostics and reviewed Access & Security
+  events/controls. No live answer keys, impersonation, destructive management actions
+  or developer-mode activation have been added.
 - Accounts remain disabled in production; its account migration, provider credentials,
   native email binding and admin bootstrap require a separate approved rollout.
   The requested owner allowlist is configured on staging and retained privately
   for production activation. Developer-mode UI remains a later staging-only feature.
 - Confirm real multi-device game/favorites/import sync, targeted-device revocation,
   recovery and the Administrator badge with the user's staging session.
-- Remaining: durable offline queue, safe backup import/compare, account email/avatar
+- Remaining: safe backup import/compare, account email/avatar
   changes and unlinking, cross-device idle refresh, audited role administration,
   privacy/retention and backup disclosures, bounded auth cleanup and rate/budget
   monitoring (including per-account document/device API throttles).
+- Before production community launch: public/API throttling and moderation, full-account
+  export of public-profile settings, counter/audit retention cleanup and disclosures.
+  Server-verified competitive scoring remains separate from the casual community board.
 - Plan real-world collection archives and monitoring after account/save reliability;
   current Collectr sync retains only the last import, not every past collection.
   Keep guest data isolated and never blend game holdings with real owned collections.

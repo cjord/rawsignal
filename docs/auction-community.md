@@ -2,8 +2,9 @@
 
 ## Scope (2026-10-19)
 
-Implementation on `codex/accounts-and-collections`, awaiting staging release.
-Production accounts remain disabled and production is not part of this release.
+Released to staging from `codex/accounts-and-collections`, source `19bc36e`, Worker
+version `05b35536-032a-4995-87b5-1eb0ba2887d4`. Production accounts remain disabled;
+no production source/configuration/database deployment was performed.
 Migration 0025 adds the earlier recovery/audit foundation; additive migration 0026
 adds support counters and account-linked public auction profiles.
 
@@ -58,8 +59,9 @@ private/no-store, noindex, manually refreshed, and add no market-source calls or
    stored product-history counts, largest 50 sets and up to 25 duplicate-identity review
    candidates. Product history coverage does not prove every printing/condition matches;
    image URL presence is not a live image-availability test. No history JSON scanning,
-   auto-merging, source fetching or signal promotion. Counts are rows still stamped with
-   the published run; an in-flight live walk can restamp rows before publication.
+   auto-merging, source fetching or signal promotion. A coverage notice compares rows
+   still stamped with the published run against its recorded writes; an in-flight live
+   walk can restamp rows before publication.
 3. `/admin/jobs`: latest 20 ingestion attempts, status/timestamps/written/rejected counts,
    an error-present flag (never raw error text), recorded email/eBay UTC budget counters
    and applied account migration names. Provider dashboards are not contacted. Missing
@@ -98,8 +100,8 @@ the transition and drifting animation. No new catalog/history requests are added
   and server-verified scores are launch hardening work before high-traffic production.
   Account document exports still export the existing document domains; include the
   new visibility/display-name settings in a reviewed full-account archive before a
-  production privacy/portability launch. Audit target filtering, richer exact-variant
-  public pricing and explicit partial-published-run warnings are useful next UI work.
+  production privacy/portability launch. Audit target filtering and richer exact-variant
+  public pricing are useful next UI work; audit target IDs are already visible.
 
 ## Rollout
 
@@ -110,6 +112,20 @@ now pauses its clock before checking the brief bid-lock state, then explicitly
 advances into winner/results; no gameplay assertion was removed. Account/public
 visibility, revocation, reset/deletion, ownership isolation, DTO privacy, pagination,
 support audit and decoded-art/guest-banner behavior have focused coverage.
+
+Staging release completed: disabled-feature deploy first, then migrations 0025/0026,
+then enabled-feature deploy of the same build. Both migration records and all four
+new tables were verified. A private database export and recovery bookmark were saved
+before migration. Existing OAuth/email/admin/auth-secret configuration was preserved.
+No market refresh, daily-lineup replacement, new schedule or production write occurred.
+
+Live staging checks passed for session feature flags, no-store community APIs,
+anonymous rejection on new private admin/settings APIs, guest redirects on management
+pages, leaderboard/showcase directory/profile controls for guests, and desktop/mobile
+layouts in both themes. The real lobby became market-ready and all 108 decorative
+image elements decoded/loaded. No emails sent or real account saves changed. Live
+authenticated admin/recovery/visibility workflows still need review in the user's
+existing signed-in session; local integration/browser coverage checks those boundaries.
 
 Full gate → commit/push exact validated source → deploy staging with accounts enabled
 but tools/community disabled → record staging recovery bookmark/export → apply pending

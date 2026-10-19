@@ -2,10 +2,12 @@
 
 ## Status — staging testing, 2026-10-19
 
-New local follow-up: [persistent recovery and read-only management audit](admin-and-recovery.md).
-Migration 0025 and its feature flags are **not** applied/enabled remotely; the staging
-release recorded below is unchanged. The implemented local slice is not a claim of
-fully offline gameplay or a complete audit of every account operation.
+Latest staging application source is `19bc36e`, version
+`05b35536-032a-4995-87b5-1eb0ba2887d4`. Migrations 0025/0026 and explicit tool/community
+flags are active on staging only. This adds [persistent recovery/admin audit](admin-and-recovery.md),
+support/data/jobs management pages and [opt-in auction community](auction-community.md).
+It does not provide fully offline play, complete security auditing or verified scores.
+The initial account release below is retained as history. Production is unchanged.
 
 Branch: `codex/accounts-and-collections`, created from released main at `1a72935`.
 Application source `197dcda` (following feature commit `45a2552`) is pushed and deployed to staging. Accounts remain

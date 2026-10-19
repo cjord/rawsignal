@@ -25,11 +25,11 @@ data is embedded in publicly cached market HTML, and unrelated market requests d
 not query auth tables. Deployment/remaining launch work:
 [Accounts and collections](accounts-and-collections.md).
 
-Local follow-up adds `db/account-recovery.ts` (wrapped owner keys), `db/admin-audit.ts`
+Staging follow-up adds `db/account-recovery.ts` (wrapped owner keys), `db/admin-audit.ts`
 (bounded append-only access ledger), `worker/admin-pages.ts` + `admin-routes.ts`
 (private server-enforced management access), and encrypted pending-draft IndexedDB
 storage in `app/account/recovery-*`. Migration 0025 and explicit audit/recovery flags
-are required; neither is remotely activated yet. The read-only `/admin`, `/admin/audit`
+are required and are activated on staging only. The read-only `/admin`, `/admin/audit`
 and `/admin/data` surfaces make no upstream market requests and add no cron.
 [Scope, costs and safeguards](admin-and-recovery.md).
 
