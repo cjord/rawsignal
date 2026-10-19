@@ -9,7 +9,7 @@ function BackdropImage({src,failed}:{src:string;failed:()=>void}){
  return <img className={ready?'is-decoded':''} src={src} alt="" width="160" height="224" loading="eager" decoding="async" fetchPriority="low" onLoad={async event=>{const image=event.currentTarget;try{await image.decode();if(image.naturalWidth===400&&image.naturalHeight===570){failed();return}setReady(true)}catch{failed()}}} onError={failed}/>;
 }
 
-export default function AuctionBackdrop({catalog,seed,lobby=false}:{catalog:AuctionCard[];seed?:number;lobby?:boolean}){
+export default function AuctionBackdrop({catalog,seed,lobby=false}:{catalog:(Pick<AuctionCard,'image'>&Partial<Pick<AuctionCard,'rarity'|'section'>>)[];seed?:number;lobby?:boolean}){
  const [visitSeed,setVisitSeed]=useState<number|null>(null);
  useEffect(()=>{if(seed===undefined)queueMicrotask(()=>setVisitSeed(crypto.getRandomValues(new Uint32Array(1))[0]))},[seed]);
  const selectedSeed=seed??visitSeed;

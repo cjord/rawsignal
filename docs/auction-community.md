@@ -11,12 +11,12 @@ adds support counters and account-linked public auction profiles.
 ## Public showcases and leaderboard
 
 - `/games/riftbound-auction/showcase` retains the editable owned-card showcase and
-  frozen URL-fragment sharing. Signed-in users additionally choose a public display
-  name and independently opt into public showcase viewing / leaderboard participation.
+  frozen URL-fragment sharing. Signed-in users save their public username in Profile
+  and independently opt into public showcase viewing / leaderboard participation.
   Both switches default off. Provider names/emails are never substituted for the
   public name; names are not unique or verified identities.
-- `/games/riftbound-auction/showcases` lists opted-in showcase accounts, newest save
-  first. `/games/riftbound-auction/players/[id]` shows the account's current selected
+- `/games/riftbound-auction/showcases` ranks opted-in showcase accounts by current
+  showcase value, with incomplete valuations last. `/games/riftbound-auction/players/[id]` shows the account's current selected
   cards and explicitly projected auction statistics. IDs are random public UUIDs,
   not account IDs. Wallet cash, sellable inventory, daily progress, hidden auctions,
   authentication data and imported real collections are not returned.
@@ -91,7 +91,9 @@ the transition and drifting animation. No new catalog/history requests are added
 - Existing accounts with a public-profile row add one trigger update to a successful
   Auction House document save; other documents and accounts without that row do not.
 - Own visibility loads/settings writes happen only on My Showcase. Public directory /
-  leaderboard pages perform a bounded indexed read, no polling; public profile reads
+  leaderboard pages perform an indexed read, no polling; the showcase directory also
+  joins up to 20 selected slots per public profile against published prices on read.
+  Public profile reads
   add a bounded selected-card catalog read/readiness check only if cards are public.
 - Admin reads are manual, audited queries. Catalog coverage aggregates scan the current
   catalog, not the large observation archive. Restrict access and precompute these
@@ -138,3 +140,9 @@ inherit enabled flags accidentally. Production remains unchanged.
 Rollback disables tool/community flags without dropping keys, audit, profiles, game
 saves or daily manifests. Do not attempt a database rollback as an automatic deploy
 fallback; user saves may have changed since the recovery point.
+
+The next UI/identity slice uses migration 0027, explicitly chosen Profile usernames,
+value-ranked showcases, coordinated loading, shared auction backgrounds and ephemeral
+notifications. Its privacy transition, costs, validation and release evidence are
+recorded in [Auction UI follow-up](auction-ui-follow-up.md); the original release
+versions above remain historical.

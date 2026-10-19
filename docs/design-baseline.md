@@ -199,6 +199,15 @@ Public account showcases and the community leaderboard reuse the Games shell,
 statistics tiles, artwork/inspection and responsive data tables. Public visibility
 and leaderboard participation are separate, clearly labeled opt-in controls.
 
+All auction routes share the same noninteractive three-lane catalog-art background,
+including gameplay, guide, showcases and public profiles. Decoration is independent
+of hidden lots and fades after decode. Game link-buttons and native buttons center
+their contents consistently; primary blue and sharing purple are muted token fills.
+Showcase loading reserves a coordinated statistics/gallery area and does not wait
+for artwork. Secondary sharing settings live in a native collapsed section.
+Ephemeral site notices stack bottom-right without changing layout, with dismiss
+controls and configurable/pauseable duration. Important save errors remain inline.
+
 - Dark is the default (`data-theme="dark"` pre-hydration via the head script); both themes
   ship complete token sets. Any new color must be specified for both or derived via
   `color-mix` from tokens.

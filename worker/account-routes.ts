@@ -9,6 +9,7 @@ import {accountJson as json,privateAccountHeaders as privateHeaders} from './acc
 import {boundedJson} from './bounded-json.ts';
 import {recordSyncHealth} from '../db/admin-health.ts';
 import {handleOwnAuctionProfile} from './auction-community.ts';
+import {accountUsername,handleAccountProfile} from './account-profile.ts';
 
 export function privateAccountPath(path:string){return path==='/api/auth'||path.startsWith('/api/auth/')||path==='/api/account'||path.startsWith('/api/account/');}
 async function saveDocument(request:Request,db:D1DatabaseLike,userId:string,origin:string,audit:boolean){
@@ -45,8 +46,9 @@ export async function handleAccountRoute(request:Request,env:AccountEnv):Promise
   const auth=createAccountAuth(env);
   if(path.startsWith('/api/auth/')){const response=await auth.handler(request);const headers=new Headers(response.headers);for(const [key,value] of Object.entries(privateHeaders))headers.set(key,value);return new Response(response.body,{status:response.status,headers})}
   const session=await auth.api.getSession({headers:request.headers});
-  if(path==='/api/account/session'&&request.method==='GET')return json({enabled:true,features:{recovery:env.AUTH_RECOVERY_ENABLED==='true',audit:env.AUTH_AUDIT_ENABLED==='true',community:env.AUTH_COMMUNITY_ENABLED==='true'},providers:accountProviders(env),user:session?{...session.user,role:accountRole(session.user,env)}:null,documents:session?await accountDocuments(env.DB as D1DatabaseLike,session.user.id):[]});
+  if(path==='/api/account/session'&&request.method==='GET')return json({enabled:true,features:{recovery:env.AUTH_RECOVERY_ENABLED==='true',audit:env.AUTH_AUDIT_ENABLED==='true',community:env.AUTH_COMMUNITY_ENABLED==='true'},providers:accountProviders(env),user:session?{...session.user,publicUsername:env.AUTH_COMMUNITY_ENABLED==='true'?await accountUsername(env.DB as D1DatabaseLike,session.user.id):null,role:accountRole(session.user,env)}:null,documents:session?await accountDocuments(env.DB as D1DatabaseLike,session.user.id):[]});
   if(!session)return json({error:'Sign in required'},401);
+  if(path==='/api/account/profile')return await handleAccountProfile(request,env,session.user.id);
   if(path==='/api/account/admin'&&request.method==='GET')return accountRole(session.user,env)==='admin'?json({role:'admin'}):json({error:'Administrator access required'},403);
   if(path.startsWith('/api/account/admin/'))return await handleAdminManagement(request,env,session.user);
   if(path==='/api/account/auction-profile')return await handleOwnAuctionProfile(request,env,session.user.id);

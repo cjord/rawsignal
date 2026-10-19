@@ -10,22 +10,69 @@ import {handleOwnAuctionProfile,handleAuctionCommunity} from '../worker/auction-
 import {adminAccountHealth,adminCatalogQuality,adminJobs,recordSyncHealth} from '../db/admin-health.ts';
 import {handleAdminManagement} from '../worker/admin-routes.ts';
 import {prepareDeploymentConfig} from '../scripts/cloudflare/prepare-deployment.mjs';
+import {handleAccountProfile} from '../worker/account-profile.ts';
 const origin='https://staging.example',key='raw-signal-auction-house-v1',now=new Date().toISOString();
 function fixture(){
  const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');
  for(const file of readdirSync(new URL('../drizzle/',import.meta.url)).filter(name=>/^\d{4}.*\.sql$/.test(name)).sort())sqlite.exec(readFileSync(new URL('../drizzle/'+file,import.meta.url),'utf8'));
  const statements=[],db={prepare(sql){statements.push(sql);let args=[];return {bind(...values){args=values;return this},async first(){return sqlite.prepare(sql).get(...args)??null},async all(){return {results:sqlite.prepare(sql).all(...args)}},async run(){return sqlite.prepare(sql).run(...args)}}}};
  for(const id of ['owner-a','owner-b','admin'])sqlite.prepare('INSERT INTO auth_user(id,name,email,emailVerified,createdAt,updatedAt) VALUES(?,?,?,1,?,?)').run(id,'PRIVATE REAL NAME',id+'@private.test',now,now);
+ sqlite.exec("UPDATE auth_user SET public_username='Public Player'");
  return {sqlite,db,statements,env:{DB:db,AUTH_ENABLED:'true',AUTH_BASE_URL:origin,AUTH_AUDIT_ENABLED:'true',AUTH_COMMUNITY_ENABLED:'true',AUTH_ADMIN_EMAILS:'admin@private.test'}};
 }
 const stats=(profit=1000)=>({...emptyAuctionStatistics(),started:2,settled:2,won:1,profit});
 const save=(profit=1000)=>({...initialAuctionSave(),statistics:stats(profit),showcase:[{productId:1,printing:'Normal',quantity:1},{productId:1,printing:'Normal',quantity:1}],profileName:'PRIVATE SNAPSHOT NAME'});
-const settings={displayName:'Public Player',showcasePublic:true,leaderboardPublic:false};
+const settings={showcasePublic:true,leaderboardPublic:false};
 const req=(path,body,method=body?'PUT':'GET',from=origin)=>new Request(origin+path,{method,headers:{Origin:from,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
+
+test('profile username updates are owner-scoped, origin-checked and reject control characters or foreign fields',async()=>{
+ const f=fixture();try{
+  const call=(body,from=origin)=>handleAccountProfile(req('/api/account/profile',body,'PUT',from),f.env,'owner-a');
+  assert.equal((await call({username:'Name'},'https://evil.test')).status,403);
+  for(const body of [{username:''},{username:'x\n'},{username:'x'.repeat(41)},{username:'Name',userId:'owner-b'}])assert.equal((await call(body)).status,400);
+  assert.equal((await call({username:'  Chosen Player  '})).status,200);
+  assert.equal(f.sqlite.prepare('SELECT public_username FROM auth_user WHERE id=?').get('owner-a').public_username,'Chosen Player');
+  assert.equal(f.sqlite.prepare('SELECT public_username FROM auth_user WHERE id=?').get('owner-b').public_username,'Public Player');
+ }finally{f.sqlite.close()}
+});
+
+test('public username is explicit, live profile names follow it and publishing without one fails closed',async()=>{
+ const f=fixture();try{
+  f.sqlite.prepare('UPDATE auth_user SET public_username=NULL WHERE id=?').run('owner-a');
+  assert.equal((await handleOwnAuctionProfile(req('/api/account/auction-profile',settings),f.env,'owner-a')).status,409);
+  assert.equal((await ownAuctionProfile(f.db,'owner-a')).displayName,'');
+  f.sqlite.prepare('UPDATE auth_user SET public_username=? WHERE id=?').run('Chosen Name','owner-a');
+  const profile=await writePublicAuctionSettings(f.db,'owner-a',settings);
+  assert.equal((await publicAuctionProfile(f.db,profile.id)).displayName,'Chosen Name');
+  f.sqlite.prepare('UPDATE auth_user SET public_username=? WHERE id=?').run('New Name','owner-a');
+  assert.equal((await auctionCommunityPage(f.db,'showcases',null)).rows[0].displayName,'New Name');
+  f.sqlite.prepare('UPDATE auth_user SET public_username=NULL WHERE id=?').run('owner-a');
+  assert.equal(await publicAuctionProfile(f.db,profile.id),null);
+ }finally{f.sqlite.close()}
+});
+test('showcase ranks use live exact-printing values, count duplicate slots and sort incomplete prices last',async()=>{
+ const f=fixture();try{
+  await writeAccountDocument(f.db,'owner-a',key,JSON.stringify(save()),0);
+  const one={...save(),showcase:[{productId:2,printing:'Normal',quantity:1}]};
+  await writeAccountDocument(f.db,'owner-b',key,JSON.stringify(one),0);
+  const a=await writePublicAuctionSettings(f.db,'owner-a',settings),b=await writePublicAuctionSettings(f.db,'owner-b',settings);
+  f.sqlite.exec(`INSERT INTO ingestion_runs(id,source,status,started_at,completed_at,records_written,source_updated_at) VALUES('published','tcgcsv','succeeded','${now}','${now}',2,'${now}');INSERT INTO refresh_state(key,ingestion_run_id,last_success_at) VALUES('daily-market','published','${now}');`);
+  for(const id of [1,2]){
+   f.sqlite.prepare("INSERT INTO catalog_products(product_id,kind,game,name,set_name,rarity,printing,source_updated_at,ingestion_run_id) VALUES(?,'single','riftbound','Card','Origins','Rare','Normal',?,'published')").run(id,now);
+   f.sqlite.prepare("INSERT INTO current_prices(product_id,market_cents,observed_at,source,ingestion_run_id) VALUES(?,?,?,'tcgcsv','published')").run(id,id===1?1000:1500,now);
+  }
+  let page=await auctionCommunityPage(f.db,'showcases',null);assert.deepEqual(page.rows.map(row=>row.id),[a.id,b.id]);assert.equal(page.rows[0].showcaseValue,2000);assert.equal(page.rows[0].cardCount,2);
+  f.sqlite.prepare('UPDATE current_prices SET market_cents=3000 WHERE product_id=2').run();
+  page=await auctionCommunityPage(f.db,'showcases',null);assert.equal(page.rows[0].id,b.id);
+  await writeAccountDocument(f.db,'owner-b',key,JSON.stringify({...one,showcase:[{productId:2,printing:'Foil',quantity:1}]}),1);
+  page=await auctionCommunityPage(f.db,'showcases',null);assert.equal(page.rows[1].id,b.id);assert.equal(page.rows[1].showcaseValue,null);assert.equal(page.rows[1].unpriced,1);
+  assert.ok(!f.statements.some(sql=>/INSERT INTO current_prices|UPDATE current_prices/.test(sql)));
+ }finally{f.sqlite.close()}
+});
 
 test('public profiles are private by default, independently opted in and use random public IDs',async()=>{
  const f=fixture();try{
-  assert.deepEqual(await ownAuctionProfile(f.db,'owner-a'),{id:null,displayName:'Player',showcasePublic:false,leaderboardPublic:false,updatedAt:null});
+  assert.deepEqual(await ownAuctionProfile(f.db,'owner-a'),{id:null,displayName:'Public Player',showcasePublic:false,leaderboardPublic:false,updatedAt:null});
   await writeAccountDocument(f.db,'owner-a',key,JSON.stringify(save()),0);const profile=await writePublicAuctionSettings(f.db,'owner-a',settings);
   assert.match(profile.id,/^[a-f0-9-]{36}$/);assert.notEqual(profile.id,'owner-a');assert.equal((await auctionCommunityPage(f.db,'leaderboard',null)).rows.length,0);assert.equal((await auctionCommunityPage(f.db,'showcases',null)).rows.length,1);
   const publicData=await publicAuctionProfile(f.db,profile.id),text=JSON.stringify(publicData);assert.equal(publicData.cards.length,2);assert.equal(publicData.cards[0].cents,null);for(const privateField of ['owner-a','private.test','PRIVATE','wallet','cash','inventory','drafts','daily'])assert.ok(!text.includes(privateField));
@@ -51,7 +98,7 @@ test('public output allowlists statistics, resolves artwork only from published 
 });
 test('community pagination is deterministic and never includes private or zero-game accounts',async()=>{
  const f=fixture();try{
-  for(let i=0;i<30;i++){const id='p'+i;f.sqlite.prepare('INSERT INTO auth_user(id,name,email,createdAt,updatedAt) VALUES(?,?,?,?,?)').run(id,id,id+'@private.test',now,now);await writeAccountDocument(f.db,id,key,JSON.stringify(save(i<5?1000:1000+i)),0);await writePublicAuctionSettings(f.db,id,{...settings,leaderboardPublic:true})}
+  for(let i=0;i<30;i++){const id='p'+i;f.sqlite.prepare('INSERT INTO auth_user(id,name,email,createdAt,updatedAt) VALUES(?,?,?,?,?)').run(id,id,id+'@private.test',now,now);f.sqlite.prepare('UPDATE auth_user SET public_username=? WHERE id=?').run(id,id);await writeAccountDocument(f.db,id,key,JSON.stringify(save(i<5?1000:1000+i)),0);await writePublicAuctionSettings(f.db,id,{...settings,leaderboardPublic:true})}
   const first=await auctionCommunityPage(f.db,'leaderboard',null),second=await auctionCommunityPage(f.db,'leaderboard',first.nextCursor);assert.equal(first.rows.length,25);assert.equal(second.rows.length,5);assert.equal(new Set([...first.rows,...second.rows].map(row=>row.id)).size,30);assert.equal(first.rows[0].profit,1029);assert.equal(second.offset,25);assert.equal(second.nextCursor,null);
   await assert.rejects(()=>auctionCommunityPage(f.db,'showcases',first.nextCursor),/Invalid community cursor/);await assert.rejects(()=>auctionCommunityPage(f.db,'leaderboard','{}'),/Invalid community cursor/);
  }finally{f.sqlite.close()}

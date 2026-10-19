@@ -8,6 +8,7 @@ import type {SignalStrictness} from "../core/domain/types";
 import AccountControl from './account/AccountControl';
 import {useAccount} from './account/AccountProvider';
 import {setSavedItem} from './account/storage';
+import NotificationSettings from './notifications/NotificationSettings';
 
 const marketLinks=[
  {key:"cards",label:"Cards",href:"/",icon:"◫"},
@@ -54,6 +55,7 @@ export default function TopBar({active=null,actions,strictness,onStrictness,sett
      {account.user?.role==='admin'&&<a className="account-settings-link" href="/admin" role="menuitem">Administration</a>}
      <span>Appearance</span>
      <button type="button" className="game-control settings-theme" onClick={toggleTheme} aria-label={`Switch to ${theme==="dark"?"light":"dark"} mode`}><span aria-hidden="true">{theme==="dark"?"☀":"☾"}</span> {theme==="dark"?"Light Mode":"Dark Mode"}</button>
+     <NotificationSettings/>
      <span>Font size</span>
      <div className="font-size-options" role="group" aria-label="Font size">
       <button type="button" className={fontSize==="default"?"active":""} aria-pressed={fontSize==="default"} onClick={()=>changeFontSize("default")}><b>Aa</b><small>Default</small></button>

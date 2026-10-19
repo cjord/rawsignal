@@ -23,7 +23,6 @@ import AuctionEntryReveal from './games/AuctionEntryReveal';
 import AuctionStatistics from './games/AuctionStatistics';
 import AuctionDaily from './games/AuctionDaily';
 import {dailyAuctionDate,updateDailyAuction} from '../core/domain/auction-daily';
-import AuctionBackdrop from './games/AuctionBackdrop';
 import {selectFollowUp} from '../core/domain/auction-follow-up';
 
 const sources=allowedRarities.riftbound.map(section=>`/data/${section}.json`);
@@ -36,7 +35,7 @@ function AuctionPageHeader({save,error,audio,auto,transact}:{save:AuctionSave|nu
 }
 function NormalAuctionLobby({save,dailyMode,entry,available,...wallet}:{save:AuctionSave|null;dailyMode:boolean;entry:ReturnType<typeof useAuctionEntry>;available:boolean}&Omit<ComponentProps<typeof AuctionWallet>,'save'>){
  if(!save||save.auction||dailyMode)return null;
- return <div className="auction-lobby-scene"><AuctionBackdrop catalog={wallet.catalog} lobby/><AuctionWallet save={save} {...wallet}/><AuctionLobby available={available} preparing={Boolean(entry.entry)} imageError={entry.imageError} enter={entry.enter} cash={save.wallet.cash} feeBps={1000}/><AuctionStatistics save={save}/></div>;
+ return <div className="auction-lobby-scene"><AuctionWallet save={save} {...wallet}/><AuctionLobby available={available} preparing={Boolean(entry.entry)} imageError={entry.imageError} enter={entry.enter} cash={save.wallet.cash} feeBps={1000}/><AuctionStatistics save={save}/></div>;
 }
 function AuctionDataNote({dailyMode}:{dailyMode:boolean}){
  return <p className="games-note">{dailyMode?'TCGCSV / TCGplayer Near Mint prices frozen in the shared UTC-day snapshot. Challenge wins auto-sell at those prices less a fixed 10% fee.':'TCGCSV / TCGplayer Near Mint market pricing. Auction contents/prices freeze on entry; owned inventory is repriced from the current loaded catalog. Price refreshes use existing cached feeds, not real-time sale quotes.'} Missing prices remain unavailable. Clearing browser storage removes progress. Casual single-player only; local saves and daily limits are not tamper-proof.</p>;
@@ -60,7 +59,7 @@ export default function RiftboundAuctionHouse({dailyMode=false}:{dailyMode?:bool
  useEffect(()=>{const tick=()=>{const time=Date.now();setNow(time);transact(current=>tickAuction(current,time))};const interval=window.setInterval(tick,250);window.addEventListener('visibilitychange',tick);return()=>{clearInterval(interval);window.removeEventListener('visibilitychange',tick)}},[transact]);
  useAuctionNavigation(arena,auction,celebrating);
  const ready=status==='success',available=ready&&catalog.filter(card=>card.image.trim()).length>=6;
- return <GamesShell wide={Boolean(auction)}><a className="games-back" href="/games">← Games</a><AuctionPageHeader save={save} error={error} audio={audio} auto={auto} transact={transact}/>
+ return <GamesShell auction wide={Boolean(auction)}><a className="games-back" href="/games">← Games</a><AuctionPageHeader save={save} error={error} audio={audio} auto={auto} transact={transact}/>
   <AuctionSaveFeedback save={root} error={error} reset={reset}/>
   {dailyMode&&root&&<><a className="games-back" href="/games/riftbound-auction">← Normal Auctions</a><AuctionDaily root={root} now={now} transact={saveRoot} enter={entry.enter} preparing={Boolean(entry.entry)}/></>}
   <NormalAuctionLobby save={save} dailyMode={dailyMode} entry={entry} available={available} catalog={catalog} cards={items} transact={transact} reset={reset} refresh={reload} loading={!ready}/>

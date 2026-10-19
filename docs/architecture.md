@@ -41,6 +41,12 @@ from successful game-document saves. Community APIs run before edge caches so pr
 revocation affects future reads. `AUTH_COMMUNITY_ENABLED` is explicit/default-off.
 [Community and management follow-up](auction-community.md).
 
+Migration 0027 adds an explicitly chosen public username, managed by a session-owned
+profile endpoint rather than provider metadata. Public showcase rankings join current
+published prices for selected slots on read; no ingestion fanout is added. A shared
+`app/notifications/` host keeps ephemeral messages outside page flow with a scoped
+duration preference. [UI and loading boundaries](auction-ui-follow-up.md).
+
 ### Domain
 
 `core/domain/` owns market types, runtime input contracts, display formatting, and dated-history calculations. Missing source values remain `null`; presentation code decides whether to render `N/A` or another established unavailable label.

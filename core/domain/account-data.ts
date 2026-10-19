@@ -8,7 +8,7 @@ export const ACCOUNT_KEYS=[
  'raw-signal-favorites','raw-signal-buylist','raw-signal-set-favorites','raw-signal-collectr-import',
  'raw-signal-theme','raw-signal-font-size','raw-signal-scalper-mode','raw-signal-hover-previews',
  'raw-signal-strictness','raw-signal-auction-sound','raw-signal-auction-auto-advance','raw-signal-buylist-size',
- 'raw-signal-showdown-difficulty','raw-signal-showdown-auto-advance',
+ 'raw-signal-showdown-difficulty','raw-signal-showdown-auto-advance','raw-signal-notification-duration',
 ] as const;
 export type AccountKey=typeof ACCOUNT_KEYS[number];
 export type AccountDocument={key:AccountKey;value:string;revision:number;updatedAt:string};
@@ -23,6 +23,7 @@ const choices:Record<string,readonly string[]>={
  'raw-signal-auction-sound':['on','muted'],'raw-signal-auction-auto-advance':['on','off'],
  'raw-signal-buylist-size':['small','large'],
  'raw-signal-showdown-difficulty':['normal','hard'],'raw-signal-showdown-auto-advance':['on','off'],
+ 'raw-signal-notification-duration':['4','8','15','0'],
 };
 export function validAccountValue(key:AccountKey,value:unknown):value is string{
  if(typeof value!=='string'||new TextEncoder().encode(value).length>documentLimit(key))return false;

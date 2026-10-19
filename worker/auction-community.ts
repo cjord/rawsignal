@@ -12,7 +12,8 @@ export async function handleOwnAuctionProfile(request:Request,env:AccountEnv,use
  if(request.method!=='PUT')return json({error:'Method not allowed'},405);
  if(request.headers.get('Origin')!==new URL(env.AUTH_BASE_URL!).origin)return json({error:'Invalid origin'},403);
  let body;try{body=await boundedJson(request,1024)}catch{return json({error:'Invalid settings'},400)}
- if(!validPublicSettings(body))return json({error:'Choose a display name of 1–40 characters and explicit visibility settings'},400);
+ if(!validPublicSettings(body))return json({error:'Choose explicit visibility settings. Public names are managed in Profile.'},400);
+ if((body.showcasePublic||body.leaderboardPublic)&&!(await ownAuctionProfile(db,userId)).displayName)return json({error:'Set your public username in Profile before publishing.',code:'USERNAME_REQUIRED'},409);
  return json(await writePublicAuctionSettings(db,userId,body));
 }
 export const auctionCommunityPath=(path:string)=>path==='/api/games/auction-community'||path.startsWith('/api/games/auction-community/');

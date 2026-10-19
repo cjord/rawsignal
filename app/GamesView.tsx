@@ -5,11 +5,12 @@ import TopBar from "./TopBar";
 import SiteFooter from "./SiteFooter";
 import {parseStrictness,STRICTNESS_KEY,usePreference} from "./state/usePreference";
 import {useAccount} from './account/AccountProvider';
+import AuctionPageBackground from './games/AuctionPageBackground';
 
-export function GamesShell({children,wide=false}:{children:ReactNode;wide?:boolean}){
+export function GamesShell({children,wide=false,auction=false}:{children:ReactNode;wide?:boolean;auction?:boolean}){
  const account=useAccount();
  const [strictness,setStrictness]=usePreference(STRICTNESS_KEY,parseStrictness,"balanced");
- return <><TopBar active="games" strictness={strictness} onStrictness={setStrictness}/><main className={`games-page${wide?' games-page-wide':''}`}>{account.enabled&&!account.loading&&!account.error&&!account.user&&<p className="account-guest-warning">You’re playing as a guest. Progress won’t transfer to an account or another device. <a href="/account">Log In</a> to start saving.</p>}{children}</main><SiteFooter/></>;
+ return <><TopBar active="games" strictness={strictness} onStrictness={setStrictness}/><div className={auction?'auction-page-scene':undefined}>{auction&&<AuctionPageBackground/>}<main className={`games-page${wide?' games-page-wide':''}`}>{account.enabled&&!account.loading&&!account.error&&!account.user&&<p className="account-guest-warning">You’re playing as a guest. Progress won’t transfer to an account or another device. <a href="/account">Log In</a> to start saving.</p>}{children}</main></div><SiteFooter/></>;
 }
 export default function GamesView(){
  return <GamesShell><header className="games-heading"><span className="games-eyebrow">Play the market</span><h1>Games</h1><p>A little instinct. A little market knowledge. Put yours to the test.</p></header>

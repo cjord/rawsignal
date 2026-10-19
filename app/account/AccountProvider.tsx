@@ -14,7 +14,7 @@ function downloadBackup(){const url=URL.createObjectURL(new Blob([pendingBackup(
 export default function AccountProvider({enabled,children}:{enabled:boolean;children:ReactNode}){
  const [account,setAccount]=useState<AccountState>({...defaults,enabled,loading:enabled}),[scope,setScope]=useState('initial'),[cloud,setCloud]=useState(cloudStatus);
  const [confirmReload,setConfirmReload]=useState(false);
- const updateName=useCallback((name:string)=>setAccount(current=>({...current,user:current.user?{...current.user,name}:null})),[]);
+ const updateName=useCallback((name:string,publicUsername?:string)=>setAccount(current=>({...current,user:current.user?{...current.user,name,...(publicUsername===undefined?{}:{publicUsername})}:null})),[]);
  const context=useMemo(()=>({...account,updateName}),[account,updateName]);
  const bootstrap=useCallback(async()=>{
   if(cloudStatus().pending){setAccount(current=>({...current,error:'Unsynced changes are still in this tab. Export them before reloading or changing accounts.'}));return}

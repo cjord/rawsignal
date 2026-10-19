@@ -12,6 +12,13 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Accounts and collection saves — in progress (2026-10-19)
 
+- Auction/profile UI follow-up: centered/tinted controls, shared auction artwork,
+  coordinated Showcase loading, value-ranked showcase directory, profile-owned public
+  username and configurable bottom-right notifications. Migration 0027 intentionally
+  resets old public visibility for explicit username/visibility consent. Full gate
+  passed (585 node + 103 browser checks; one node skip); staging release pending,
+  production unchanged. [Details and next UI gaps](auction-ui-follow-up.md).
+
 - Staging runs application `19bc36e`, version `05b35536-032a-4995-87b5-1eb0ba2887d4`:
   encrypted device recovery, audited read-only management pages, opt-in account
   showcases/unverified auction leaderboard, decoded-art fade-in and confirmed-guest

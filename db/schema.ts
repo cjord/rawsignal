@@ -7,7 +7,7 @@ export const dailyAuctionManifests=sqliteTable('daily_auction_manifests',{
  createdAt:text('created_at').notNull(),
 });
 export const accountUsers=sqliteTable('auth_user',{
- id:text('id').primaryKey(),name:text('name').notNull(),email:text('email').notNull().unique(),
+ id:text('id').primaryKey(),name:text('name').notNull(),publicUsername:text('public_username'),email:text('email').notNull().unique(),
  emailVerified:integer('emailVerified',{mode:'boolean'}).notNull().default(false),image:text('image'),createdAt:text('createdAt').notNull(),updatedAt:text('updatedAt').notNull(),
 });
 export const accountSessions=sqliteTable('auth_session',{

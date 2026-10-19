@@ -8,6 +8,7 @@ const rows=Array.from({length:150},(_,index)=>({game:'riftbound' as const,produc
 const manifest=createDailyAuctionManifest(auctionCatalog(rows),'2026-10-16','daily-test');
 const saved=(page:Page)=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)!),key);
 async function setup(page:Page){
+ await page.route('https://tcgplayer-cdn.tcgplayer.com/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280"/>'}));
  await page.clock.install({time:new Date('2026-10-16T12:00:00Z')});await page.clock.pauseAt(new Date('2026-10-16T12:00:01Z'));
  await page.route('**/data/*.json',route=>route.fulfill({json:rows}));await page.route('**/api/auction/daily',route=>route.fulfill({json:manifest}));
  await page.route('https://images.example/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280"><rect width="200" height="280" fill="#7557ff"/></svg>'}));

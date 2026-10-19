@@ -5,6 +5,14 @@ import {decodeProfileSnapshot} from '../../core/domain/auction-profile-share';
 const key='raw-signal-auction-house-v1';
 const rows=Array.from({length:30},(_,i)=>({game:'riftbound',productId:960000+i,name:`Showcase Card ${i}`,image:`https://images.example/showcase/${i}.svg`,marketPrice:i===0?1200:i===1?700:i+1,printing:'Normal',section:'rares',set:'Origins',rarity:'Rare',year:2025,number:String(i),url:'',lowPrice:null,midPrice:null,highPrice:null,priceChange:null}));
 const read=(page:Page)=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)!),key);
+test('showcase waits for catalog before showing stats and cards together, with collapsed sharing and stable art boxes',async({page})=>{
+ let release!:()=>void;const gate=new Promise<void>(resolve=>release=resolve);
+ await page.route('**/data/*.json',async route=>{await gate;await route.fulfill({json:rows})});
+ await page.addInitScript(({key,state})=>localStorage.setItem(key,JSON.stringify(state)),{key,state:{...initialAuctionSave(),showcase:[{productId:960000,printing:'Normal',quantity:1}]}});
+ await page.goto('/games/riftbound-auction/showcase');await expect(page.getByRole('status').filter({hasText:'Loading Showcase'})).toBeVisible();await expect(page.locator('.auction-statistics')).toHaveCount(0);await expect(page.locator('.auction-profile-skeleton-cards')).toBeVisible();
+ const header=await page.getByRole('heading',{name:'Auction Showcase',exact:true}).boundingBox();release();await expect(page.locator('.auction-statistics')).toBeVisible();await expect(page.locator('.auction-showcase-gallery button')).toHaveCount(1);await expect(page.locator('.auction-showcase-gallery')).toContainText('$1,200');expect(await page.getByRole('heading',{name:'Auction Showcase',exact:true}).boundingBox()).toEqual(header);
+ await expect(page.getByText('Sharing & Visibility',{exact:true})).toBeVisible();await expect(page.locator('.auction-sharing-settings')).not.toHaveAttribute('open','');
+});
 async function setup(page:Page){
  await page.route('**/data/*.json',route=>route.fulfill({json:rows}));await page.route('https://images.example/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280"><rect width="200" height="280" fill="#7557ff"/></svg>'}));
  await page.goto('/games/riftbound-auction');const initial=initialAuctionSave();await page.evaluate(({key,state})=>localStorage.setItem(key,JSON.stringify(state)),{key,state:{...initial,wallet:{...initial.wallet,inventory:rows.map(row=>({productId:row.productId,printing:row.printing,quantity:2}))},statistics:{started:5,settled:4,won:2,abandoned:1,investigations:1500,entryFees:5000,profit:12000,rebates:1000,bestProfit:10000,buyouts:1}}});await page.reload();

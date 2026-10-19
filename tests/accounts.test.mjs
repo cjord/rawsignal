@@ -31,7 +31,7 @@ test('auth errors redirect to the branded account page with private response hea
  const auth=createAccountAuth(f.env);assert.equal(auth.options.account.accountLinking.disableImplicitLinking,true);
 });
 function fixture(){
- const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');for(const name of ['0024_accounts.sql','0025_recovery_and_admin_audit.sql','0026_admin_health_and_auction_profiles.sql'])sqlite.exec(readFileSync(new URL('../drizzle/'+name,import.meta.url),'utf8'));
+ const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');for(const name of ['0024_accounts.sql','0025_recovery_and_admin_audit.sql','0026_admin_health_and_auction_profiles.sql','0027_public_profile_username.sql'])sqlite.exec(readFileSync(new URL('../drizzle/'+name,import.meta.url),'utf8'));
  const db={async exec(sql){sqlite.exec(sql)},prepare(sql){let args=[];return {bind(...values){args=values;return this},async first(){return sqlite.prepare(sql).get(...args)??null},async all(){const results=sqlite.prepare(sql).all(...args);return {success:true,results,meta:{changes:sqlite.prepare("SELECT changes() n").get().n,last_row_id:sqlite.prepare("SELECT last_insert_rowid() n").get().n}}},async run(){return sqlite.prepare(sql).run(...args)}}},async batch(statements){const rows=[];for(const statement of statements)rows.push(await statement.all());return rows}};
  const sent=[],env={DB:db,AUTH_ENABLED:'true',AUTH_BASE_URL:origin,AUTH_SECRET:'local-test-only-secret-at-least-thirty-two-characters',AUTH_EMAIL:{async send(message){sent.push(message)}}};return {sqlite,db,env,sent};
 }
