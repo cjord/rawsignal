@@ -9,6 +9,28 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-19 — Auction loading and Inventory Manager (staging)
+
+Application `b0ae632`, staging version `8d90dbd3-9c64-45e9-81a5-fc3dab2f4bbd`.
+Account-ready catalog/save/background gating removes the duplicate cold feed wave;
+the statistics provenance paragraph moved into its tooltip. Showcase skeletons
+include disabled Edit/Share controls. Closed inventory no longer mounts card rows;
+the expanded Inventory Manager adds search, rarity/set/price filters, value/unit/
+quantity/rarity/name sorting, 24-printing pages, selected sales and Keep 3 extra-copy
+sales with confirmation. Exact printings, unavailable prices and showcase protection
+remain intact; whole-inventory quick sales are separately scoped. Entry help renamed
+About Entry Fees. Refresh Market retained because entry does not fetch again.
+
+Full gate: 590 node passes, one skip, 105 browser journeys, types passed and only
+21 existing lint warnings. Live guest/UI/access/background checks passed, including
+new inventory and loading controls. No live account writes/emails, migration,
+ingestion, cron or production changes. Cold request count 22 → 11; two-visit elapsed
+time samples did not demonstrate a reliable speedup. Detailed plans, explicitly
+unimplemented: public versioned catalog cache, combined bootstrap alternative,
+persistent navigation/Auction Hub, separate Inventory Page and Profile Studio /
+custom decorative cards. [Scope, evidence and plan links](auction-loading-and-inventory.md).
+Distinct future-request names live in the [UI feature map](ui-feature-map.md).
+
 ## 2026-10-19 — Auction profiles, loading and site notifications (staging)
 
 Application `d6f0ba1` (feature `c8cd8d7`), staging version

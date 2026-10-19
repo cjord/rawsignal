@@ -86,4 +86,30 @@ confirmed selected/extra sales. Inventory screenshots were reviewed at desktop a
 phone widths in dark/light themes. Existing Singles/Sealed and game journeys passed.
 The old local D1 fixture still emits schema/fallback diagnostics during unrelated
 detail-page checks; no local or remote database migration was made for this work.
-Staging deployment/live timing verification follows the validated source push.
+Application commit `b0ae632` was pushed before deploying staging version
+`8d90dbd3-9c64-45e9-81a5-fc3dab2f4bbd`. No migration, ingestion refresh, live account
+write, test email, schedule or production change was made. Existing staging account,
+community, recovery and audit flags remain enabled; staging has no cron.
+
+Live guest/private API authorization, auction/community pages and actual background
+painting passed. New live checks used isolated guest storage with current catalog
+cards: 24/6 inventory pagination, selection/confirmation (no sale submitted), and
+disabled Showcase Edit/Share controls while feeds were held back. Phone/desktop
+and both themes were checked. Authenticated delayed-bootstrap behavior is covered
+by the local fixture, not a real owner's live save.
+
+### Repeat timing sample after deployment
+
+| Sample | Before | After |
+| --- | --- | --- |
+| Cold catalog requests | 22 | 11 |
+| Cold market-ready | 1,578 ms | 1,775 ms |
+| Warm catalog requests | 11 | 11 |
+| Warm market-ready | 101 ms | 351 ms |
+
+Fresh browser contexts, two visits per build, no controlled network: this confirms
+the eliminated duplicate request wave, **not a reliable elapsed-time speedup**.
+Do not imply the above after-times prove a regression either; the sample is too
+small to separate network/cache/server variance. The cache/compact-response plans
+remain useful precisely because repeat visits still issue eleven requests. Collect
+multiple cold/warm runs with comparable cache state before setting a latency target.

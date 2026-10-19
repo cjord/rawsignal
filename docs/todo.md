@@ -12,11 +12,11 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Accounts and collection saves — in progress (2026-10-19)
 
-- Auction loading/inventory follow-up: account-ready catalog/save/background gating,
-  stable statistics explanation, disabled Showcase skeleton controls, lazy paged
-  inventory filters/sorting and confirmed selected/extra-copy sales. Full gate passed
-  (590 node passes, one skip; 105 browser journeys); staging release pending.
-  [Scope and performance findings](auction-loading-and-inventory.md).
+- Auction loading and Inventory Manager are released to staging as `b0ae632`,
+  version `8d90dbd3-9c64-45e9-81a5-fc3dab2f4bbd`. Full gate and live guest/UI checks
+  passed. Cold duplicate catalog calls reduced from 22 to 11; timing samples are
+  inconclusive, not a claimed speedup. Production unchanged.
+  [Scope, evidence and remaining loading work](auction-loading-and-inventory.md).
 - Planning only: [version-aware public catalog cache](auction-catalog-cache-plan.md),
   [combined private bootstrap alternative](auction-bootstrap-response-plan.md),
   [persistent navigation, separate Inventory Page and clearer profile preview/edit
