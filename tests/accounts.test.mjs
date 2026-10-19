@@ -8,8 +8,25 @@ import {validAccountValue} from '../core/domain/account-data.ts';
 import {initialAuctionSave} from '../core/domain/auction-types.ts';
 import {claimAccountEmail} from '../db/account-email-budget.ts';
 import {createAccountAuth} from '../worker/account-auth.ts';
+import {accountProblem,accountRequestMessage} from '../core/domain/account-errors.ts';
+import {accountRole} from '../worker/account-role.ts';
 
 const origin='http://localhost:3000';
+test('sign-in problems provide safe recovery without exposing arbitrary provider errors',()=>{
+ assert.equal(accountProblem('ACCOUNT_NOT_LINKED').linking,true);
+ assert.match(accountProblem('account_not_linked').message,/existing method/);
+ for(const code of ['<script>private@example.test</script>','__proto__','constructor','toString']){
+  const problem=accountProblem(code);assert.equal(problem.title,'Sign-In Could Not Be Completed');assert.equal(typeof accountRequestMessage(400,code),'string');assert.ok(!problem.message.includes(code));
+ }
+ assert.match(accountProblem('state_expired').title,/Again/);
+ assert.match(accountRequestMessage(400,'INVALID_OTP'),/newest email/);
+ assert.match(accountRequestMessage(429),/Wait/);assert.match(accountRequestMessage(503),/temporarily unavailable/);
+});
+test('auth errors redirect to the branded account page with private response headers',async()=>{
+ const f=fixture(),response=await handleAccountRoute(request('/api/auth/error?error=account_not_linked'),f.env);
+ assert.equal(response.status,302);assert.equal(response.headers.get('location'),origin+'/account?error=account_not_linked');assert.equal(response.headers.get('cache-control'),'private, no-store');
+ const auth=createAccountAuth(f.env);assert.equal(auth.options.account.accountLinking.disableImplicitLinking,true);
+});
 function fixture(){
  const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');sqlite.exec(readFileSync(new URL('../drizzle/0024_accounts.sql',import.meta.url),'utf8'));
  const db={async exec(sql){sqlite.exec(sql)},prepare(sql){let args=[];return {bind(...values){args=values;return this},async first(){return sqlite.prepare(sql).get(...args)??null},async all(){const results=sqlite.prepare(sql).all(...args);return {success:true,results,meta:{changes:sqlite.prepare("SELECT changes() n").get().n,last_row_id:sqlite.prepare("SELECT last_insert_rowid() n").get().n}}},async run(){return sqlite.prepare(sql).run(...args)}}},async batch(statements){const rows=[];for(const statement of statements)rows.push(await statement.all());return rows}};
@@ -43,6 +60,29 @@ test('accounts fail closed, private routes are never cached, and new services st
 });
 test('email budgets limit a recipient independently of IP and cap UTC daily send attempts',async()=>{
  const f=fixture(),now=Date.parse('2026-10-19T12:00:00Z');assert.equal(await claimAccountEmail(f.db,'one@example.test',2,now),true);assert.equal(await claimAccountEmail(f.db,'ONE@example.test',2,now+1000),false);assert.equal(await claimAccountEmail(f.db,'two@example.test',2,now+1000),true);assert.equal(await claimAccountEmail(f.db,'three@example.test',2,now+1000),false);assert.equal(await claimAccountEmail(f.db,'one@example.test',2,now+86400000),true);
+});
+
+test('recipient cooldown permits sends after thirty seconds while retaining the daily budget',async()=>{
+ const f=fixture(),now=Date.now();assert.equal(await claimAccountEmail(f.db,'cooldown@example.test',3,now),true);assert.equal(await claimAccountEmail(f.db,'cooldown@example.test',3,now+29999),false);assert.equal(await claimAccountEmail(f.db,'cooldown@example.test',3,now+30000),true);
+ assert.equal(createAccountAuth(f.env).options.plugins[0].rateLimit[0].window,30);
+});
+test('admin permissions require an allowlisted verified server identity and cannot be self-assigned',async()=>{
+ const f=fixture(),admin=await login(f,'admin@example.test'),member=await login(f,'member@example.test','192.0.2.2');f.env.AUTH_ADMIN_EMAILS=' ADMIN@example.test ';
+ assert.equal(accountRole({email:'admin@example.test',emailVerified:false},f.env),'member');assert.equal(accountRole({email:'admin@example.test',emailVerified:true},{}),'member');
+ assert.equal((await handleAccountRoute(request('/api/account/admin'),f.env)).status,401);assert.equal((await handleAccountRoute(request('/api/account/admin',undefined,member.cookie),f.env)).status,403);assert.equal((await handleAccountRoute(request('/api/account/admin',undefined,admin.cookie),f.env)).status,200);
+ await handleAccountRoute(request('/api/auth/update-user',{name:'Member',role:'admin'},member.cookie),f.env);
+ const session=await (await handleAccountRoute(request('/api/account/session',undefined,member.cookie),f.env)).json();assert.equal(session.user.role,'member');
+ assert.equal((await (await handleAccountRoute(request('/api/account/session',undefined,admin.cookie),f.env)).json()).user.role,'admin');
+});
+test('device listing omits tokens/IPs and revocation enforces owner, origin and fresh session',async()=>{
+ const f=fixture(),a=await login(f,'devices@example.test'),b=await login(f,'other@example.test','192.0.2.2'),now=new Date().toISOString(),expires=new Date(Date.now()+86400000).toISOString();
+ f.sqlite.prepare('INSERT INTO auth_session(id,token,userId,createdAt,updatedAt,expiresAt,userAgent) VALUES(?,?,?,?,?,?,?)').run('second-device','sensitive-second-token',a.userId,now,now,expires,'Mozilla Windows Chrome/100');
+ const response=await handleAccountRoute(request('/api/account/devices',undefined,a.cookie),f.env),text=await response.text(),devices=JSON.parse(text).devices;assert.equal(devices.length,2);assert.equal(devices.filter(row=>row.current).length,1);assert.ok(!text.includes('sensitive-second-token'));assert.ok(!text.includes('ipAddress'));assert.equal(response.headers.get('cache-control'),'private, no-store');
+ const revoke=(cookie,id,from=origin)=>handleAccountRoute(new Request(origin+'/api/account/devices?id='+id,{method:'DELETE',headers:{Origin:from,Cookie:cookie}}),f.env);
+ assert.equal((await revoke(b.cookie,'second-device')).status,404);assert.equal((await revoke(a.cookie,'second-device','https://evil.test')).status,403);
+ const current=devices.find(row=>row.current);assert.equal((await revoke(a.cookie,current.id)).status,400);assert.equal((await revoke(a.cookie,'second-device')).status,200);
+ assert.equal(f.sqlite.prepare('SELECT id FROM auth_session WHERE id=?').get('second-device'),undefined);
+ f.sqlite.prepare('UPDATE auth_session SET createdAt=? WHERE userId=?').run(new Date(Date.now()-660000).toISOString(),a.userId);assert.equal((await revoke(a.cookie,'absent')).status,403);
 });
 
 test('email codes expire, stop after three incorrect attempts, and revoked sessions lose access immediately',async()=>{

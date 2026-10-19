@@ -6,6 +6,6 @@ async function claim(db:D1DatabaseLike,key:string,limit:number,window:number,now
 }
 export async function claimAccountEmail(db:D1DatabaseLike,email:string,dailyLimit=100,now=Date.now()){
  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(email.trim().toLowerCase())),hash=Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join('');
- if(!await claim(db,`otp-recipient:${hash}`,1,60000,now))return false;
+ if(!await claim(db,`otp-recipient:${hash}`,1,30000,now))return false;
  return !!await claim(db,`otp-day:${new Date(now).toISOString().slice(0,10)}`,dailyLimit,86400000,now);
 }

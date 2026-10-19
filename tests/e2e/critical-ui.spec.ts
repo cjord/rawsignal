@@ -200,7 +200,7 @@ test("persists display preferences without changing market state",async({page})=
  await page.goto(singlesUrl);
  await waitForApp(page);
  const initialUrl=page.url();
- await page.getByRole("button",{name:/Switch to light mode/}).click();
+ await page.getByRole("button",{name:"Display settings"}).click();await page.getByRole("button",{name:/Switch to light mode/}).click();
  await expect(page.locator("html")).toHaveAttribute("data-theme","light");
  expect(page.url()).toBe(initialUrl);
  await page.reload();
@@ -309,7 +309,7 @@ test("matches card and sealed metric typography and tone tiles in mobile popups"
  await page.getByRole("button",{name:"Sealed",exact:true}).click();await expect(page).toHaveURL(/mode=sealed/);
  const sealedStyles=await openPopup();
  expect(cardStyles.labelFont).toBe(sealedStyles.labelFont);expect(cardStyles.labelSpacing).toBe(sealedStyles.labelSpacing);expect(cardStyles.valueFont).toBe(sealedStyles.valueFont);
- await page.getByRole("button",{name:/Switch to light mode/}).click();await expect(page.locator("html")).toHaveAttribute("data-theme","light");
+ await page.getByRole("button",{name:"Display settings"}).click();await page.getByRole("button",{name:/Switch to light mode/}).click();await page.getByRole("button",{name:"Display settings"}).click();await expect(page.locator("html")).toHaveAttribute("data-theme","light");
  await openPopup();
 });
 

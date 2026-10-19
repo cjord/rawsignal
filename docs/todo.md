@@ -12,13 +12,37 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Accounts and collection saves — in progress (2026-10-19)
 
+- Current follow-up: quiet successful saves, highlighted login, appearance in Settings,
+  stacked provider/email entry with icons and 30-second resend, admin role foundation,
+  on-demand device/session controls, explicit conflict recovery and owner-scoped
+  same-tab pending-save recovery. Requested owner bootstrap is in ignored local
+  configuration; staging gets the grant, production activates it with its separate
+  account rollout. No account-table migration or market ingestion work added.
+- Remaining gaps: durable offline queue and safe backup import, account email/avatar
+  changes, audited role administration, cross-device idle refresh, retention/privacy,
+  bounded auth cleanup and email-abuse monitoring. See the account plan's recovery
+  limits; browser tab storage is not guaranteed persistence or encrypted storage.
+- Login/roles/recovery release gate passed: 566 unit tests (one skipped), 87 browser
+  checks, type checking and lint (same 21 existing warnings, none new).
+
 - Auth/save foundation on `codex/accounts-and-collections`, source `9ead83e` pushed
   and deployed to staging for testing; Google, Discord and email codes. Accounts
   default off but staging is explicitly enabled; migration 0024 is applied there only.
 - Guest saves must not upload. Sync logged-in game progress, preferences, favorites,
   buylist and the current Collectr import. Production remains unchanged. Local gate:
   560 unit tests, 81 browser checks; live staging UI/OAuth initialization passed.
-  User-completed provider sign-in and email inbox confirmation are still pending.
+  User confirmed Discord/email sign-in, inbox delivery and explicit Google linking.
+- Local UX follow-up (not pushed/deployed): branded unlinked-account recovery,
+  connected sign-in status, separate email resend/change controls with countdowns,
+  clearer profile/security/privacy sections, in-place name saves and confirmation
+  before logging out other devices. Keep explicit linking; do not auto-merge emails.
+- Next UX priorities: conflict-specific recovery, session/device listing, durable
+  offline recovery, verified email changes and avatar controls. One additional
+  private provider-list request is scoped to the signed-in account page only;
+  no new ingestion, upstream data calls or migration.
+- UX follow-up full gate passed: 562 unit tests (one skipped), 85 Chromium checks,
+  type checking, and lint with the same 21 existing warnings; desktop/mobile and
+  dark/light account layouts reviewed. Changes remain local pending release approval.
 - Remaining rollout, provider setup, security/recovery gaps and future real collection
   monitoring: [Accounts and collections](accounts-and-collections.md).
 

@@ -2,6 +2,7 @@ import {accountEnabled,accountProviders,createAccountAuth,type AccountEnv} from 
 import {accountDocuments,writeAccountDocument} from '../db/account-documents.ts';
 import type {D1DatabaseLike} from '../db/repository.ts';
 import {isAccountKey,validAccountValue} from '../core/domain/account-data.ts';
+import {accountRole} from './account-role.ts';
 
 const privateHeaders={'Cache-Control':'private, no-store','Vary':'Cookie','X-Content-Type-Options':'nosniff'};
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:privateHeaders});
@@ -20,6 +21,23 @@ async function boundedJson(request:Request){
  for(;;){const {done,value}=await reader.read();if(done)break;length+=value.length;if(length>1600000){await reader.cancel();throw new Error('Body too large')}chunks.push(value)}
  const bytes=new Uint8Array(length);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length}return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));
 }
+async function handleDevices(request:Request,env:AccountEnv,auth:ReturnType<typeof createAccountAuth>,session:{user:{id:string};session:{id:string;createdAt:Date}}){
+  if(request.method==='GET'){
+   const devices=await (env.DB as D1DatabaseLike).prepare('SELECT id, userAgent, createdAt, expiresAt FROM auth_session WHERE userId=? AND expiresAt>? ORDER BY createdAt DESC LIMIT 100').bind(session.user.id,new Date().toISOString()).all<{id:string;userAgent:string|null;createdAt:string;expiresAt:string}>();
+   if(!devices.results)throw new Error('Unable to list sessions');
+   return json({devices:devices.results.map(device=>({...device,current:device.id===session.session.id}))});
+  }
+  if(request.method==='DELETE'){
+   if(request.headers.get('Origin')!==new URL(env.AUTH_BASE_URL!).origin)return json({error:'Invalid origin'},403);
+   if(Date.now()-new Date(session.session.createdAt).getTime()>600000)return json({code:'SESSION_NOT_FRESH'},403);
+   const id=new URL(request.url).searchParams.get('id');
+   if(!id||id===session.session.id)return json({error:'Use Log Out to end this session'},400);
+   const target=await (env.DB as D1DatabaseLike).prepare('SELECT token FROM auth_session WHERE id=? AND userId=?').bind(id,session.user.id).first<{token:string}>();
+   if(!target)return json({error:'Device not found'},404);
+   await auth.api.revokeSession({headers:request.headers,body:{token:target.token}});return json({success:true});
+  }
+ return json({error:'Method not allowed'},405);
+}
 export async function handleAccountRoute(request:Request,env:AccountEnv):Promise<Response|null>{
  const path=new URL(request.url).pathname;if(!privateAccountPath(path))return null;
  if(!accountEnabled(env))return path==='/api/account/session'?json({enabled:false,user:null,providers:accountProviders(env)}):json({error:'Accounts are not enabled'},503);
@@ -27,11 +45,13 @@ export async function handleAccountRoute(request:Request,env:AccountEnv):Promise
   const auth=createAccountAuth(env);
   if(path.startsWith('/api/auth/')){const response=await auth.handler(request);const headers=new Headers(response.headers);for(const [key,value] of Object.entries(privateHeaders))headers.set(key,value);return new Response(response.body,{status:response.status,headers})}
   const session=await auth.api.getSession({headers:request.headers});
-  if(path==='/api/account/session'&&request.method==='GET')return json({enabled:true,providers:accountProviders(env),user:session?.user??null,documents:session?await accountDocuments(env.DB as D1DatabaseLike,session.user.id):[]});
+  if(path==='/api/account/session'&&request.method==='GET')return json({enabled:true,providers:accountProviders(env),user:session?{...session.user,role:accountRole(session.user,env)}:null,documents:session?await accountDocuments(env.DB as D1DatabaseLike,session.user.id):[]});
   if(!session)return json({error:'Sign in required'},401);
+  if(path==='/api/account/admin'&&request.method==='GET')return accountRole(session.user,env)==='admin'?json({role:'admin'}):json({error:'Administrator access required'},403);
+  if(path==='/api/account/devices')return await handleDevices(request,env,auth,session);
   if(path==='/api/account/data'&&request.method==='GET')return json({documents:await accountDocuments(env.DB as D1DatabaseLike,session.user.id)});
   if(path==='/api/account/data'&&request.method==='PUT'){
-   return saveDocument(request,env.DB as D1DatabaseLike,session.user.id,new URL(env.AUTH_BASE_URL!).origin);
+   return await saveDocument(request,env.DB as D1DatabaseLike,session.user.id,new URL(env.AUTH_BASE_URL!).origin);
   }
   return json({error:'Not found'},404);
  }catch{return json({error:'Account service is unavailable. Your existing saves have not been overwritten.'},503)}

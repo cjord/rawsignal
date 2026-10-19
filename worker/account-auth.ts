@@ -8,7 +8,7 @@ export type AccountEnv={
  DB?:Parameters<typeof betterAuth>[0]['database'];AUTH_ENABLED?:string;AUTH_BASE_URL?:string;AUTH_SECRET?:string;
  GOOGLE_CLIENT_ID?:string;GOOGLE_CLIENT_SECRET?:string;DISCORD_CLIENT_ID?:string;DISCORD_CLIENT_SECRET?:string;
  AUTH_EMAIL?:{send(message:{from:string;to:string;subject:string;text:string}):Promise<unknown>};
- AUTH_EMAIL_DAILY_LIMIT?:string;
+ AUTH_EMAIL_DAILY_LIMIT?:string;AUTH_ADMIN_EMAILS?:string;
 };
 export const accountEnabled=(env:AccountEnv)=>env.AUTH_ENABLED==='true';
 export function accountProviders(env:AccountEnv){return {google:!!(env.GOOGLE_CLIENT_ID&&env.GOOGLE_CLIENT_SECRET),discord:!!(env.DISCORD_CLIENT_ID&&env.DISCORD_CLIENT_SECRET),email:!!env.AUTH_EMAIL};}
@@ -19,6 +19,7 @@ export function createAccountAuth(env:AccountEnv){
  return betterAuth({
   appName:'Raw Signal',baseURL:base.origin,basePath:'/api/auth',secret:env.AUTH_SECRET,database:env.DB,
   trustedOrigins:[base.origin],telemetry:{enabled:false},
+  onAPIError:{errorURL:base.origin+'/account'},
   user:{modelName:'auth_user',deleteUser:{enabled:true},changeEmail:{enabled:false}},
   session:{modelName:'auth_session',expiresIn:60*60*24*30,updateAge:60*60*24,freshAge:600,cookieCache:{enabled:false}},
   account:{modelName:'auth_account',encryptOAuthTokens:true,accountLinking:{enabled:true,disableImplicitLinking:true}},
@@ -29,7 +30,7 @@ export function createAccountAuth(env:AccountEnv){
    ...(providers.google?{google:{clientId:env.GOOGLE_CLIENT_ID!,clientSecret:env.GOOGLE_CLIENT_SECRET!}}:{}),
    ...(providers.discord?{discord:{clientId:env.DISCORD_CLIENT_ID!,clientSecret:env.DISCORD_CLIENT_SECRET!}}:{}),
   },
-  plugins:[emailOTP({otpLength:6,expiresIn:300,allowedAttempts:3,storeOTP:'hashed',rateLimit:{window:60,max:1},
+  plugins:[emailOTP({otpLength:6,expiresIn:300,allowedAttempts:3,storeOTP:'hashed',rateLimit:{window:30,max:1},
    async sendVerificationOTP({email,otp,type}){
     if(type!=='sign-in')throw new Error('Unsupported email action');if(!env.AUTH_EMAIL)throw new Error('Email login unavailable');
     const configured=Number(env.AUTH_EMAIL_DAILY_LIMIT??100),limit=Number.isSafeInteger(configured)&&configured>0?configured:100;

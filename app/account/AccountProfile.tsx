@@ -1,0 +1,22 @@
+"use client";
+import {useState,type FormEvent} from 'react';
+import {authAction,signOutAccount,useAccount} from './AccountProvider';
+import AccountDataControls from './AccountDataControls';
+import SignInMethods from './SignInMethods';
+import AuctionDialog from '../games/AuctionDialog';
+import AccountDevices from './AccountDevices';
+
+function SecurityControls(){
+ const [confirm,setConfirm]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
+ const run=async(otherDevices:boolean)=>{setBusy(true);setError('');setMessage('');try{if(otherDevices){await authAction('revoke-other-sessions',{});setConfirm(false);setMessage('Other devices have been logged out. This device stays signed in.')}else await signOutAccount()}catch(cause){setError(cause instanceof Error?cause.message:'Unable to update sessions.')}finally{setBusy(false)}};
+ return <section className="account-section" aria-labelledby="account-security-title"><h2 id="account-security-title">Security</h2><p className="games-note">Lost access to another device? End its session without logging out here.</p><AccountDevices/><div className="account-social"><button className="game-control" type="button" disabled={busy} onClick={()=>setConfirm(true)}>Log Out Other Devices</button><button className="game-control" type="button" disabled={busy} onClick={()=>void run(false)}>Log Out</button></div>{message&&<p role="status">{message}</p>}{error&&<p role="alert" className="account-form-error">{error}</p>}
+  {confirm&&<AuctionDialog title="Log Out Other Devices?" onClose={()=>{if(!busy)setConfirm(false)}}><p>Other devices will need to sign in again. Save any changes on them first. This device stays signed in.</p><button className="game-control" type="button" disabled={busy} onClick={()=>void run(true)}>{busy?'Logging Out…':'Confirm Log Out Other Devices'}</button></AuctionDialog>}
+ </section>;
+}
+export default function AccountProfile(){
+ const {user,updateName}=useAccount(),[name,setName]=useState(user?.name??''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
+ const save=async(event:FormEvent)=>{event.preventDefault();const trimmed=name.trim();if(!trimmed||busy)return;setBusy(true);setError('');setMessage('');try{await authAction('update-user',{name:trimmed});setName(trimmed);updateName(trimmed);setMessage('Profile saved.')}catch(cause){setError(cause instanceof Error?cause.message:'Unable to save your profile.')}finally{setBusy(false)}};
+ return <div className="detail-section account-panel account-profile"><section className="account-section" aria-labelledby="account-profile-title"><h2 id="account-profile-title">Profile</h2><form onSubmit={event=>void save(event)}><label htmlFor="account-name">Display Name<input id="account-name" value={name} maxLength={40} autoComplete="nickname" required disabled={busy} onChange={event=>setName(event.target.value)}/></label><button className="game-control account-primary" type="submit" disabled={busy||!name.trim()||name.trim()===user?.name}>{busy?'Saving…':'Save Profile'}</button></form>{message&&<p role="status">{message}</p>}{error&&<p role="alert" className="account-form-error">{error}</p>}<div className="account-email"><span>Account Email<strong>{user?.email}</strong></span>{user?.emailVerified&&<span className="account-badge">Verified</span>}</div><p className="games-note">Your email stays private and is not included in shared game results or showcases. Changing your account email is not available yet.</p></section>
+  {user?.role==='admin'&&<p><span className="account-badge account-admin-badge">Administrator</span></p>}<SignInMethods/><SecurityControls/><section className="account-section" aria-labelledby="account-data-title"><h2 id="account-data-title">Data &amp; Privacy</h2><p className="games-note">Games, favorites, imports and preferences save to this account. Guest progress remains separate. Export a copy before deleting your account.</p><AccountDataControls/><p className="games-note">Cloud game saves are casual progress, not verified competitive records. Collection management and monitoring are planned next.</p></section>
+ </div>;
+}
