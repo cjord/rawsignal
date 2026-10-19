@@ -12,10 +12,13 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Accounts and collection saves — in progress (2026-10-19)
 
-- Local auth/save foundation on `codex/accounts-and-collections`; Google, Discord
-  and email codes. Accounts default off; migration 0024 has not been applied remotely.
+- Auth/save foundation on `codex/accounts-and-collections`, source `9ead83e` pushed
+  and deployed to staging for testing; Google, Discord and email codes. Accounts
+  default off but staging is explicitly enabled; migration 0024 is applied there only.
 - Guest saves must not upload. Sync logged-in game progress, preferences, favorites,
-  buylist and the current Collectr import. No push/deployment is authorized yet.
+  buylist and the current Collectr import. Production remains unchanged. Local gate:
+  560 unit tests, 81 browser checks; live staging UI/OAuth initialization passed.
+  User-completed provider sign-in and email inbox confirmation are still pending.
 - Remaining rollout, provider setup, security/recovery gaps and future real collection
   monitoring: [Accounts and collections](accounts-and-collections.md).
 

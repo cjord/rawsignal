@@ -1,16 +1,29 @@
 # Accounts and collections
 
-## Status — local implementation, 2026-10-19
+## Status — staging testing, 2026-10-19
 
 Branch: `codex/accounts-and-collections`, created from released main at `1a72935`.
-Accounts remain disabled unless `AUTH_ENABLED=true` is explicitly configured.
-Google/Discord development credentials have been provided in ignored local files.
-Local OAuth initialization checks passed without making external requests; actual
-provider sign-ins remain unverified. The user authorized a branch push and staging
-setup on 2026-10-19. Production changes remain unauthorized. Migration
-`0024_accounts.sql`, Worker secrets and the email binding are pending staging setup.
-The previously authorized Cloudflare Email Sending test reached the user's inbox.
-Automated account tests use a mock email binding, not real recipients.
+Application source `9ead83e` is pushed and deployed to staging. Accounts remain
+disabled by default but are explicitly enabled on the canonical staging hostname.
+Production code, secrets, bindings and database have not been changed.
+
+Staging version: `600ee3df-a0bf-4586-bd7e-033beaef7f3c`. Migration 0024 was applied
+only after the initial disabled-account deployment. A pre-migration database export
+and recovery bookmark were saved in ignored local storage. Five staging auth secrets
+and the restricted-sender native email binding are configured; staging still has no cron.
+The generated staging auth secret is retained in the ignored
+`.secrets/accounts-staging-auth-secret` file; preserve it for future configuration.
+
+Live checks passed: Google/Discord authorization initialization and exact callbacks,
+Secure OAuth state cookies, private/no-store responses, guest save rejection,
+login controls and Settings profile link, no guest uploads, desktop/mobile and both
+themes, and absence of the optional third-party affiliate loader. These checks do
+not complete provider authorization or prove client-secret validity during token exchange.
+
+One staging sign-in-code email to the previously approved test address was accepted
+by the native email binding. Inbox delivery and a complete email-code login still
+need user confirmation. The earlier standalone Email Sending test was inbox-confirmed.
+Automated local account tests continue to use mock email, not real recipients.
 
 ## Decisions
 
@@ -137,25 +150,27 @@ policy before public rollout; do not add an unbounded cron silently.
 
 ## Remaining before public account launch
 
-- Real Google/Discord callback and native email-binding checks.
+- Complete Google/Discord authorization and callback token exchange with the user;
+  confirm email inbox delivery and complete an email-code login.
 - Profile avatar controls and linked-method listing/unlink UX; verified email-address
   changes/recovery (currently disabled, not an unverified editable email field).
 - Durable offline queue/recovery and richer cross-device refresh/conflict UX.
 - Account-owned multi-import collection archive: current sync retains only the
   existing last-import view, not a history of every Collectr import.
 - Privacy/terms/account deletion disclosures and retention/budget monitoring.
-- Review third-party affiliate scripts and content-security policy before private
-  account data is enabled: same-origin scripts can access authenticated APIs.
+- The optional affiliate loader is already disabled in account-enabled environments;
+  finish content-security-policy and other third-party script review before public launch.
   Existing shared-D1 backup procedures will also contain personal account data;
   define backup access, retention and deletion disclosures before launch.
 - Full live account sync journeys; evaluate long game histories against document limits.
 - Label restored practice-round prices with their saved-round provenance rather than
   implying that every restored card was repriced on the latest page load.
 
-Local validation: `npm run check` passed with 559 unit tests (one skipped), 81
+Local validation: `npm run check` passed with 560 unit tests (one skipped), 81
 Chromium checks, type checking and lint (21 existing complexity warnings; no new
 warnings). This includes mocked account UI and real auth-library/SQLite adapter
-tests, not live Google/Discord authorization or native Worker email delivery.
+tests, not completed live Google/Discord authorization or inbox-confirmed native
+Worker email delivery. Live staging smoke checks are recorded above.
 
 ## Next: real collections and monitoring
 
