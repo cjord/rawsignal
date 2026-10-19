@@ -5,6 +5,9 @@ import {StrictnessControl} from "./SignalControls";
 import {setHoverPreviews,useHoverPreviews} from "./state/hover-previews";
 import {setScalperMode,useScalperMode} from "./state/scalper-mode";
 import type {SignalStrictness} from "../core/domain/types";
+import AccountControl from './account/AccountControl';
+import {useAccount} from './account/AccountProvider';
+import {setSavedItem} from './account/storage';
 
 const marketLinks=[
  {key:"cards",label:"Cards",href:"/",icon:"◫"},
@@ -17,6 +20,7 @@ const marketLinks=[
 export type TopBarActive=(typeof marketLinks)[number]["key"]|null;
 
 export default function TopBar({active=null,actions,strictness,onStrictness,settingsExtra,className=""}:{active?:TopBarActive;actions?:ReactNode;strictness:SignalStrictness;onStrictness:(value:SignalStrictness)=>void;settingsExtra?:ReactNode;className?:string}){
+ const account=useAccount();
  const [theme,setTheme]=useState<"dark"|"light">("dark");
  const [fontSize,setFontSize]=useState<"default"|"large">("default");
  const [settingsOpen,setSettingsOpen]=useState(false),settingsRef=useRef<HTMLDivElement>(null);
@@ -33,8 +37,8 @@ export default function TopBar({active=null,actions,strictness,onStrictness,sett
   window.addEventListener("pointerdown",close);
   return()=>window.removeEventListener("pointerdown",close);
  },[settingsOpen]);
- const toggleTheme=()=>setTheme(current=>{const next=current==="dark"?"light":"dark";document.documentElement.dataset.theme=next;try{localStorage.setItem("raw-signal-theme",next)}catch{/* Storage unavailable; applies for this visit only. */}return next});
- const changeFontSize=(next:"default"|"large")=>{setFontSize(next);document.documentElement.dataset.fontSize=next;try{localStorage.setItem("raw-signal-font-size",next)}catch{/* Storage unavailable; applies for this visit only. */}};
+ const toggleTheme=()=>setTheme(current=>{const next=current==="dark"?"light":"dark";document.documentElement.dataset.theme=next;try{setSavedItem("raw-signal-theme",next)}catch{/* Storage unavailable; applies for this visit only. */}return next});
+ const changeFontSize=(next:"default"|"large")=>{setFontSize(next);document.documentElement.dataset.fontSize=next;try{setSavedItem("raw-signal-font-size",next)}catch{/* Storage unavailable; applies for this visit only. */}};
  const scalper=useScalperMode();
  const changeScalper=setScalperMode;
  return <><nav className={`topbar ${className}`.trim()}>
@@ -42,9 +46,11 @@ export default function TopBar({active=null,actions,strictness,onStrictness,sett
   <div className="toplinks">
    {marketLinks.map(item=><a key={item.key} href={item.href} className={active===item.key?"active":""} aria-current={active===item.key?"page":undefined}>{item.label}</a>)}
    {actions}
+   <AccountControl/>
    <div className="display-settings" ref={settingsRef}>
     <button type="button" className="settings-toggle" onClick={()=>setSettingsOpen(value=>!value)} aria-label="Display settings" aria-expanded={settingsOpen} aria-haspopup="menu"><span aria-hidden="true">⚙</span></button>
     {settingsOpen&&<div className="settings-menu" role="menu" aria-label="Display settings">
+     {account.enabled&&<a className="account-settings-link" href="/account" role="menuitem">Profile &amp; Account</a>}
      <span>Font size</span>
      <div className="font-size-options" role="group" aria-label="Font size">
       <button type="button" className={fontSize==="default"?"active":""} aria-pressed={fontSize==="default"} onClick={()=>changeFontSize("default")}><b>Aa</b><small>Default</small></button>

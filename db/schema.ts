@@ -6,6 +6,19 @@ export const dailyAuctionManifests=sqliteTable('daily_auction_manifests',{
  manifestJson:text('manifest_json').notNull(),
  createdAt:text('created_at').notNull(),
 });
+export const accountUsers=sqliteTable('auth_user',{
+ id:text('id').primaryKey(),name:text('name').notNull(),email:text('email').notNull().unique(),
+ emailVerified:integer('emailVerified',{mode:'boolean'}).notNull().default(false),image:text('image'),createdAt:text('createdAt').notNull(),updatedAt:text('updatedAt').notNull(),
+});
+export const accountSessions=sqliteTable('auth_session',{
+ id:text('id').primaryKey(),userId:text('userId').notNull().references(()=>accountUsers.id,{onDelete:'cascade'}),token:text('token').notNull().unique(),expiresAt:text('expiresAt').notNull(),createdAt:text('createdAt').notNull(),updatedAt:text('updatedAt').notNull(),ipAddress:text('ipAddress'),userAgent:text('userAgent'),
+});
+export const accountIdentities=sqliteTable('auth_account',{
+ id:text('id').primaryKey(),accountId:text('accountId').notNull(),providerId:text('providerId').notNull(),userId:text('userId').notNull().references(()=>accountUsers.id,{onDelete:'cascade'}),accessToken:text('accessToken'),refreshToken:text('refreshToken'),idToken:text('idToken'),accessTokenExpiresAt:text('accessTokenExpiresAt'),refreshTokenExpiresAt:text('refreshTokenExpiresAt'),scope:text('scope'),password:text('password'),createdAt:text('createdAt').notNull(),updatedAt:text('updatedAt').notNull(),
+});
+export const accountVerifications=sqliteTable('auth_verification',{id:text('id').primaryKey(),identifier:text('identifier').notNull(),value:text('value').notNull(),expiresAt:text('expiresAt').notNull(),createdAt:text('createdAt').notNull(),updatedAt:text('updatedAt').notNull()});
+export const accountRateLimits=sqliteTable('auth_rate_limit',{id:text('id').primaryKey(),key:text('key').notNull().unique(),count:integer('count').notNull(),lastRequest:integer('lastRequest').notNull()});
+export const accountDocuments=sqliteTable('account_documents',{userId:text('user_id').notNull().references(()=>accountUsers.id,{onDelete:'cascade'}),key:text('document_key').notNull(),value:text('value_json').notNull(),revision:integer('revision').notNull(),updatedAt:text('updated_at').notNull()},table=>[primaryKey({columns:[table.userId,table.key]})]);
 export const dailyShowdownManifests=sqliteTable('daily_showdown_manifests',{
  challengeDate:text('challenge_date').primaryKey(),
  manifestJson:text('manifest_json').notNull(),

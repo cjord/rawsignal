@@ -1,4 +1,5 @@
 "use client";
+import {getSavedItem,setSavedItem} from '../account/storage';
 import {useEffect,useMemo,useState} from "react";
 import {BUYLIST_KEY,FAVORITES_KEY,addFavorites,parseBuyStates,parseFavorites,toggleFavorite,type BuyState,type FavoriteEntry} from "./favorites";
 
@@ -10,8 +11,8 @@ const listeners = new Set<() => void>();
 
 const read = () => {
   if (entries === null) {
-    try { entries = parseFavorites(localStorage.getItem(FAVORITES_KEY)); } catch { entries = []; }
-    try { buyStates = parseBuyStates(localStorage.getItem(BUYLIST_KEY)); } catch { buyStates = {}; }
+    try { entries = parseFavorites(getSavedItem(FAVORITES_KEY)); } catch { entries = []; }
+    try { buyStates = parseBuyStates(getSavedItem(BUYLIST_KEY)); } catch { buyStates = {}; }
   }
   return { entries: entries!, buyStates: buyStates! };
 };
@@ -19,8 +20,8 @@ const write = (nextEntries: FavoriteEntry[], nextStates: Record<string, BuyState
   entries = nextEntries;
   buyStates = nextStates;
   try {
-    localStorage.setItem(FAVORITES_KEY, JSON.stringify(nextEntries));
-    localStorage.setItem(BUYLIST_KEY, JSON.stringify(nextStates));
+    setSavedItem(FAVORITES_KEY, JSON.stringify(nextEntries));
+    setSavedItem(BUYLIST_KEY, JSON.stringify(nextStates));
   } catch { /* Storage unavailable; state stays tab-local. */ }
   listeners.forEach(listener => listener());
 };

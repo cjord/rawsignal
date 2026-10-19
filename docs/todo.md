@@ -10,6 +10,15 @@ Related documents: `docs/roadmap.md` (deferred infra work), `docs/model-gaps.md`
 (signal-model gaps register + review calendar), `docs/cloudflare-cutover.md` (D1
 runbook), `docs/todo-completed.md` (shipped items and the resolved decision log).
 
+## Accounts and collection saves — in progress (2026-10-19)
+
+- Local auth/save foundation on `codex/accounts-and-collections`; Google, Discord
+  and email codes. Accounts default off; migration 0024 has not been applied remotely.
+- Guest saves must not upload. Sync logged-in game progress, preferences, favorites,
+  buylist and the current Collectr import. No push/deployment is authorized yet.
+- Remaining rollout, provider setup, security/recovery gaps and future real collection
+  monitoring: [Accounts and collections](accounts-and-collections.md).
+
 ## Games — price comparison (2026-10-14)
 
 - **Showcase drag-first follow-up (2026-10-16), released to both environments:** retain the 20-card total cap,

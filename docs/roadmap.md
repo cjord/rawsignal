@@ -10,6 +10,15 @@ without re-deriving them. Update or remove entries as they land. The signal-mode
 `docs/todo.md` §P (open steps, priorities, scheduled tasks) and `docs/todo-completed.md`
 (shipped steps P1–P7 with build notes), with run evidence in `docs/backtests.md`.
 
+## Account-owned collections — after authentication (2026-10-19)
+
+Google, Discord and passwordless email sign-in precede collection management.
+The first local account save implementation is in progress, not deployed. Next:
+named real collections, multiple Collectr imports with reviewed diffs, quantities,
+printing/condition, optional cost basis and snapshot-based monitoring. Keep game
+inventory separate and real collections private by default. See
+[accounts and collections](accounts-and-collections.md) for decisions and rollout gates.
+
 ## Developer mode — FUTURE, staging only (2026-10-16)
 
 User-approved direction, **planning only**: a default-off Settings toggle on staging

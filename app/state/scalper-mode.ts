@@ -1,4 +1,5 @@
 "use client";
+import {getSavedItem,setSavedItem} from '../account/storage';
 import { useSyncExternalStore } from "react";
 
 // Scalper mode is a device preference shared by every page (the ⚙ toggle), stored
@@ -11,7 +12,7 @@ const toggleListeners = new Set<(next: ScalperMode) => void>();
 let hydrated = false, storageBound = false, mode: ScalperMode = "regular";
 
 function readStored(): ScalperMode {
-  try { return localStorage.getItem(KEY) === "scalper" ? "scalper" : "regular"; } catch { return "regular"; }
+  try { return getSavedItem(KEY) === "scalper" ? "scalper" : "regular"; } catch { return "regular"; }
 }
 function snapshot() {
   if (!hydrated && typeof window !== "undefined") { mode = readStored(); hydrated = true; }
@@ -58,7 +59,7 @@ export function onScalperToggle(listener: (next: ScalperMode) => void) {
 export function setScalperMode(next: ScalperMode) {
   const changed = snapshot() !== next;
   applyScalperMode(next);
-  try { localStorage.setItem(KEY, next); } catch { /* Storage unavailable; applies for this visit only. */ }
+  try { setSavedItem(KEY, next); } catch { /* Storage unavailable; applies for this visit only. */ }
   if (changed) for (const listener of toggleListeners) listener(next);
 }
 

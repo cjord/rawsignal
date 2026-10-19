@@ -7,6 +7,16 @@ import {decideScheduledAction} from "../worker/scheduled-decision.ts";
 const base={name:"raw-signal",main:"index.js",d1_databases:[{binding:"DB",database_name:"local",database_id:"00000000-0000-4000-8000-000000000000"}],assets:{directory:"../client"},triggers:{crons:["0 5 * * *"]}};
 const databaseId="123e4567-e89b-42d3-a456-426614174000";
 
+test('account deployments are explicit, isolate the auth origin and restrict their email sender',()=>{
+ const options={environment:'staging',databaseId,databaseName:'raw-signal-staging',workerName:'raw-signal-staging'};
+ const disabled=prepareDeploymentConfig({...base,vars:{AUTH_ENABLED:'true',AUTH_BASE_URL:'https://old.example'},send_email:[{name:'AUTH_EMAIL'}]},options);
+ assert.equal(disabled.vars.AUTH_ENABLED,'false');assert.equal(disabled.vars.AUTH_BASE_URL,undefined);assert.equal(disabled.send_email,undefined);
+ assert.throws(()=>prepareDeploymentConfig(base,{...options,accounts:true}),/HTTPS auth origin/);
+ for(const authBaseUrl of ['http://localhost:3000','https://user:secret@example.test','https://example.test/path'])assert.throws(()=>prepareDeploymentConfig(base,{...options,accounts:true,authBaseUrl}),/HTTPS auth origin/);
+ const enabled=prepareDeploymentConfig(base,{...options,accounts:true,authBaseUrl:'https://staging.example.test'});
+ assert.equal(enabled.vars.AUTH_ENABLED,'true');assert.equal(enabled.vars.AUTH_BASE_URL,'https://staging.example.test');assert.deepEqual(enabled.send_email,[{name:'AUTH_EMAIL',allowed_sender_addresses:['accounts@rawsignal.cards']}]);assert.deepEqual(enabled.triggers,{});
+});
+
 test("staging config keeps Cron disabled and binds assets plus an isolated D1 database",()=>{
  const config=prepareDeploymentConfig(base,{environment:"staging",databaseId,databaseName:"raw-signal-staging",workerName:"raw-signal-staging"});
  assert.equal(config.name,"raw-signal-staging");assert.equal(config.workers_dev,true);assert.equal(config.preview_urls,true);

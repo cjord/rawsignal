@@ -7,6 +7,8 @@ import PriceShowdownSkeleton from "./PriceShowdownSkeleton";
 import {preparePriceRound,type PriceGameImageLoader} from "../data/price-game-images";
 import {isTcgplayerPlaceholder} from "../../core/domain/image-availability";
 import {initialPriceGame,priceGameReducer,priceGameWinner,type PriceGameCard,type PriceGameDifficulty} from "../../core/domain/price-game";
+import {usePracticeSave,readPracticeSave} from './usePracticeSave';
+import {useAccount} from '../account/AccountProvider';
 
 const usd=(value:number)=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(value);
 
@@ -28,18 +30,21 @@ export function RoundChoices({round,difficulty,selected,preparing,onChoose,onFai
 }
 
 export default function GameSession({pool,difficulty,images,auto}:{pool:PriceGameCard[];difficulty:PriceGameDifficulty;images:PriceGameImageLoader;auto:boolean}){
- const [state,dispatch]=useReducer(priceGameReducer,initialPriceGame([]));
- const [preparing,setPreparing]=useState(true),[error,setError]=useState(false);
+ const {user}=useAccount();
+ const [state,dispatch]=useReducer(priceGameReducer,undefined,()=>user?readPracticeSave(difficulty)??initialPriceGame([]):initialPriceGame([]));
+ usePracticeSave(state,difficulty,true);
+ const [preparing,setPreparing]=useState(()=>!state.round.length),[error,setError]=useState(false);
  const firstButton=useRef<HTMLButtonElement|null>(null),restoreFocus=useRef(false),request=useRef<AbortController|null>(null);
  const winner=priceGameWinner(state.round),revealed=state.selected!=null,correct=state.selected===winner?.productId;
  useEffect(()=>{
+  if(state.round.length)return;
   const controller=new AbortController();request.current=controller;
   preparePriceRound(pool,difficulty,[],images,controller.signal).then(round=>{
    if(controller.signal.aborted)return;
    dispatch({type:"replace",round});setError(!round.length);setPreparing(false);
   }).catch(()=>{if(!controller.signal.aborted){setError(true);setPreparing(false)}});
   return()=>{request.current?.abort()};
- },[pool,difficulty,images]);
+ },[pool,difficulty,images,state.round.length]);
  const advance=useCallback(async()=>{
   request.current?.abort();const controller=new AbortController();request.current=controller;
   setPreparing(true);setError(false);

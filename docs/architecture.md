@@ -14,6 +14,17 @@ The migration direction documented in [ADR 001](adr/001-hosting-and-database.md)
 
 ## Application layers
 
+### Optional accounts
+
+The local account foundation is default-off. `worker/account-auth.ts` configures
+Better Auth and native email sending; `worker/account-routes.ts` intercepts private
+auth/save routes before public caches. `db/account-documents.ts` owns session-scoped
+revision-checked D1 writes; pure save validation lives in `core/domain/account-data.ts`.
+`app/account/` provides controls and the guest/account storage boundary. No account
+data is embedded in publicly cached market HTML, and unrelated market requests do
+not query auth tables. Deployment/remaining launch work:
+[Accounts and collections](accounts-and-collections.md).
+
 ### Domain
 
 `core/domain/` owns market types, runtime input contracts, display formatting, and dated-history calculations. Missing source values remain `null`; presentation code decides whether to render `N/A` or another established unavailable label.

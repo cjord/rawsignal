@@ -8,6 +8,8 @@ import { pageCacheSignature } from "./page-signature.ts";
 import type { D1DatabaseLike } from "../db/repository.ts";
 import { handleStagingJob, type StagingJobEnv } from "./staging-jobs.ts";
 import { EBAY_ACCOUNT_DELETION_PATH, handleEbayAccountDeletion, type EbayAccountDeletionEnv } from "./ebay-account-deletion.ts";
+import {handleAccountRoute} from './account-routes.ts';
+import type {AccountEnv} from './account-auth.ts';
 
 interface Env {
   ASSETS: Fetcher;
@@ -44,6 +46,8 @@ interface ExecutionContext {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    const accountResponse=await handleAccountRoute(request,env as AccountEnv);
+    if(accountResponse)return accountResponse;
 
     // eBay must reach this compliance callback without vinext routing or the colo cache.
     // GET proves endpoint ownership; POST verifies eBay's signed deletion notification.
