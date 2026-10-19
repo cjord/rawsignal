@@ -1,5 +1,5 @@
 .games-page{max-width:1100px;margin:0 auto;padding:28px 24px 48px;min-height:65vh}
-.auction-page-scene{position:relative}.auction-page-scene>.games-page{position:relative}.auction-page-art{position:absolute;inset:0;pointer-events:none}.auction-page-art>.auction-entry-backdrop{position:fixed;top:64px;height:calc(100dvh - 64px)}
+.auction-page-scene{position:relative;isolation:isolate}.auction-page-scene>.games-page{position:relative}.auction-page-art{position:absolute;inset:0;pointer-events:none}.auction-page-art>.auction-entry-backdrop{position:fixed;top:64px;height:calc(100dvh - 64px)}
 .game-control{display:inline-flex;align-items:center;justify-content:center;gap:8px;text-align:center;text-decoration:none;box-sizing:border-box}
 .game-control.game-control-primary{border-color:color-mix(in srgb,var(--blue) 65%,var(--line));background:color-mix(in srgb,var(--blue) 10%,var(--control))}
 .game-control.game-control-secondary{border-color:color-mix(in srgb,var(--purple) 55%,var(--line));background:color-mix(in srgb,var(--purple) 8%,var(--control))}

@@ -103,6 +103,11 @@ development was fixed and is now explicitly tested. The Guide request counter
 distinguishes root market endpoints from the bundled decorative JSON module.
 
 A private staging SQL export and recovery bookmark were saved before migration.
-Staging deployment/migration and live verification are pending at this source commit;
-production remains unchanged. Real authenticated visibility/username review uses
+Migration 0027 was applied and verified after the first staging-only, disabled-feature
+deployment, then existing account/community flags were re-enabled. Initial live
+public/guest authorization, layouts and notification settings passed. Visual review
+caught a negative-z-index backdrop escaping its old isolated container after moving
+to the common shell; the shared scene now provides that stacking boundary and tests
+assert it. Final same-source staging redeploy/visual verification is pending here.
+Production remains unchanged. Real authenticated visibility/username review uses
 the owner's staging session; automated live checks do not send mail or alter accounts.
