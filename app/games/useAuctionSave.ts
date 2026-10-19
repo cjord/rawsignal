@@ -5,15 +5,18 @@ import {useCallback,useEffect,useRef,useState} from 'react';
 import {AUCTION_STORAGE_KEY,parseAuctionSave} from '../../core/domain/auction-save';
 import {initialAuctionSave,type AuctionSave} from '../../core/domain/auction-types';
 import {notify} from '../notifications/store';
+import {useAccount} from '../account/context';
 
 export function useAuctionSave(){
+ const account=useAccount();
  const [save,setSave]=useState<AuctionSave|null>(null),[error,setError]=useState<string|null>(null),current=useRef<AuctionSave|null>(null);
  const adopt=useCallback((value:AuctionSave)=>{current.current=value;setSave(value)},[]);
  useEffect(()=>{
+  if(account.loading||account.error)return;
   try{adopt(parseAuctionSave(getSavedItem(AUCTION_STORAGE_KEY)))}catch{setError('Saved game could not be loaded. Your stored data has not been overwritten. Reset to start again, or enable browser storage.')}
   const receive=(event:StorageEvent)=>{if(event.key!==AUCTION_STORAGE_KEY)return;try{const incoming=parseAuctionSave(event.newValue);if(incoming.revision===current.current?.revision)return;adopt(incoming);setError(null);notify('Game updated in another tab. Review it before continuing.',{id:'auction-updated'})}catch{setError('Another tab changed the saved game to an invalid state.')}};
   window.addEventListener('storage',receive);return()=>window.removeEventListener('storage',receive);
- },[adopt]);
+ },[adopt,account.loading,account.error]);
  const transact=useCallback((update:(save:AuctionSave)=>AuctionSave)=>{
   const previous=current.current;if(!previous)return null;
   try{

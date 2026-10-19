@@ -12,6 +12,13 @@ without re-deriving them. Update or remove entries as they land. The signal-mode
 
 ## Account-owned collections — after authentication (2026-10-19)
 
+Auction UI follow-up plans are separate from real collections: a version-aware
+public catalog cache, optional private bootstrap response, Persistent Auction Shell,
+Auction Hub Navigation, a dedicated virtual Inventory Page, and Profile Studio
+preview/edit with optional chosen decorative cards. These remain unimplemented;
+navigation was explicitly requested as planning only. See
+[loading/inventory follow-up](auction-loading-and-inventory.md) and its linked plans.
+
 Google, Discord and passwordless email sign-in precede collection management.
 The first local account save implementation is in progress, not deployed. Next:
 named real collections, multiple Collectr imports with reviewed diffs, quantities,

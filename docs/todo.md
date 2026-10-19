@@ -12,6 +12,20 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Accounts and collection saves — in progress (2026-10-19)
 
+- Auction loading/inventory follow-up: account-ready catalog/save/background gating,
+  stable statistics explanation, disabled Showcase skeleton controls, lazy paged
+  inventory filters/sorting and confirmed selected/extra-copy sales. Full gate passed
+  (590 node passes, one skip; 105 browser journeys); staging release pending.
+  [Scope and performance findings](auction-loading-and-inventory.md).
+- Planning only: [version-aware public catalog cache](auction-catalog-cache-plan.md),
+  [combined private bootstrap alternative](auction-bootstrap-response-plan.md),
+  [persistent navigation, separate Inventory Page and clearer profile preview/edit
+  controls with optional decorative cards](auction-navigation-and-profile-plan.md).
+  Do not implement the navigation migration as part of this release. Use the
+  [UI feature names](ui-feature-map.md) to distinguish backgrounds, collections,
+  inventory, showcases and public/account profiles. Keep Refresh Market until
+  automatic pre-entry/return freshness validation exists.
+
 - Auction/profile UI follow-up: centered/tinted controls, shared auction artwork,
   coordinated Showcase loading, value-ranked showcase directory, profile-owned public
   username and configurable bottom-right notifications. Migration 0027 intentionally

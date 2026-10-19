@@ -24,6 +24,7 @@ import AuctionStatistics from './games/AuctionStatistics';
 import AuctionDaily from './games/AuctionDaily';
 import {dailyAuctionDate,updateDailyAuction} from '../core/domain/auction-daily';
 import {selectFollowUp} from '../core/domain/auction-follow-up';
+import {useAccount} from './account/context';
 
 const sources=allowedRarities.riftbound.map(section=>`/data/${section}.json`);
 function AuctionSaveFeedback({save,error,reset}:{save:AuctionSave|null;error:string|null;reset:()=>void}){
@@ -41,7 +42,8 @@ function AuctionDataNote({dailyMode}:{dailyMode:boolean}){
  return <p className="games-note">{dailyMode?'TCGCSV / TCGplayer Near Mint prices frozen in the shared UTC-day snapshot. Challenge wins auto-sell at those prices less a fixed 10% fee.':'TCGCSV / TCGplayer Near Mint market pricing. Auction contents/prices freeze on entry; owned inventory is repriced from the current loaded catalog. Price refreshes use existing cached feeds, not real-time sale quotes.'} Missing prices remain unavailable. Clearing browser storage removes progress. Casual single-player only; local saves and daily limits are not tamper-proof.</p>;
 }
 export default function RiftboundAuctionHouse({dailyMode=false}:{dailyMode?:boolean}){
- const {items,status,reload}=useCatalogPage({sources,parse:parseCards,keyOf:holdingKey});
+ const account=useAccount();
+ const {items,status,reload}=useCatalogPage({enabled:!account.loading&&!account.error,sources,parse:parseCards,keyOf:holdingKey});
  const catalog=useMemo(()=>auctionCatalog(items),[items]),{save:root,error,transact:saveRoot,reset}=useAuctionSave();
  const [now,setNow]=useState(()=>Date.now()),arena=useRef<HTMLDivElement>(null);
  const daily=root?.daily?.date===dailyAuctionDate(now)?root.daily:null;

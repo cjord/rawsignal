@@ -81,12 +81,14 @@ the safe code rollback; do not undo migrations or restore a database automatical
 
 ## Suggested next improvements (not implemented)
 
+The later [loading and inventory follow-up](auction-loading-and-inventory.md)
+implements inventory filters/sorting and stable loading controls, and provides
+detailed cache, combined-response, navigation and profile-control plans.
+
 - Showcase directory search, affordable/top-value filters and clearly dated price
   provenance alongside its current total; validate scale before adding more reads.
 - A clearer profile preview/edit split, with account preferences and public identity
   grouped separately from security and recovery controls.
-- Inventory filters/sorting and compact owned/displayed counts for large holdings;
-  retain protected showcase copies and accessible drag/keyboard/touch behavior.
 - A single measured, version-aware catalog cache if repeat-page timings justify it.
 - Keep public moderation, API throttling, full-account privacy export and verified
   competitive scoring as release hardening work, not decorative UI polish.

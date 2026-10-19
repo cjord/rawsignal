@@ -205,6 +205,13 @@ of hidden lots and fades after decode. Game link-buttons and native buttons cent
 their contents consistently; primary blue and sharing purple are muted token fills.
 Showcase loading reserves a coordinated statistics/gallery area and does not wait
 for artwork. Secondary sharing settings live in a native collapsed section.
+Own-showcase placeholders include disabled Edit/Share controls matching final
+buttons. Auction statistics provenance belongs in its definitions tooltip, not a
+paragraph that appears only for an empty save. Inventory filters use theme-token
+fields, visible focus and responsive columns; 24-printing pagination bounds the
+expanded list. Selection and filtered-extra sales require clear scope and confirmation;
+entire-inventory sales remain a separate collapsed group. Loading price notices
+reserve space instead of collapsing as prices arrive.
 Ephemeral site notices stack bottom-right without changing layout, with dismiss
 controls and configurable/pauseable duration. Important save errors remain inline.
 

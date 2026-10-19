@@ -19,7 +19,7 @@ import AuctionProfileSkeleton from './games/AuctionProfileSkeleton';
 import {useAccount} from './account/context';
 
 const sources=allowedRarities.riftbound.map(section=>`/data/${section}.json`);
-function ShowcasePending({error}:{error:string|null}){return error?<p role="alert">{error} Return to Auction House to review your saved game. Nothing has been overwritten.</p>:<AuctionProfileSkeleton/>;}
+function ShowcasePending({error}:{error:string|null}){return error?<p role="alert">{error} Return to Auction House to review your saved game. Nothing has been overwritten.</p>:<AuctionProfileSkeleton controls/>;}
 function ShowcaseBody({shared,save,error,editing,status,catalog,cards,transact,toggle,share,inspect}:{shared:AuctionProfileShare|null|undefined;save:ReturnType<typeof useAuctionSave>['save'];error:string|null;editing:boolean;status:string;catalog:AuctionCard[];cards:Parameters<typeof AuctionShowcaseGallery>[0]['cards'];transact:ReturnType<typeof useAuctionSave>['transact'];toggle:()=>void;share:(snapshot:AuctionProfileShare)=>void;inspect:(card:AuctionCard)=>void}){
  const account=useAccount(),canEdit=!shared&&!save?.auction;
  return <>   {!shared&&save&&<AuctionShowcaseControls save={save} error={error} editing={editing} loaded={status==='success'&&(!account.user||Boolean(account.user.publicUsername))} toggle={toggle} share={()=>share({...auctionProfileSnapshot(save,catalog),...(account.user?{name:account.user.publicUsername??''}:{})})}/>}

@@ -2,6 +2,7 @@ import {expect,test,type Page} from '@playwright/test';
 import {rolldown} from 'rolldown';
 import {resolve} from 'node:path';
 import {emptyAuctionStatistics} from '../../core/domain/auction-statistics';
+import {initialAuctionSave} from '../../core/domain/auction-types';
 let fixtureScript:string;
 const id='00000000-0000-4000-8000-000000000001';
 test.beforeAll(async()=>{const bundle=await rolldown({input:'tests/helpers/auction-community-browser.tsx',resolve:{alias:{'next/link':resolve('tests/helpers/account-link.tsx')}},platform:'browser',transform:{jsx:'react-jsx',define:{'process.env.NODE_ENV':JSON.stringify('production')}}});fixtureScript=(await bundle.generate({format:'iife'})).output.find(row=>row.type==='chunk')!.code;await bundle.close()});
@@ -45,4 +46,16 @@ test('decorative art remains transparent until decoded; signed-in users never se
  await page.route('**/api/account/session',async route=>{await sessionGate;await route.fulfill({json:{enabled:true,providers:{},user:{id:'owner-a',name:'Player'},documents:[]}})});
  await page.route('https://art.example/**',async route=>{await artGate;await route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280"><rect width="200" height="280" fill="#7557ff"/></svg>'})});
  await page.goto('/community-fixture?view=loading');await page.addScriptTag({content:fixtureScript});await expect(page.getByRole('heading',{name:'Auction Lobby Fixture'})).toBeVisible();await expect(page.locator('.account-guest-warning')).toHaveCount(0);const art=page.locator('.auction-entry-art-group img').first();await expect(art).toHaveCSS('opacity','0');releaseSession();await expect(page.getByRole('button',{name:'Log Out',exact:true})).toBeVisible();await expect(page.locator('.account-guest-warning')).toHaveCount(0);releaseArt();await expect(art).toHaveClass('is-decoded');await expect(art).toHaveCSS('opacity','1');
+});
+
+test('auction catalog waits for account bootstrap, loads one feed wave and never flashes empty account statistics',async({page})=>{
+ await page.goto('/games');let release!:()=>void;const gate=new Promise<void>(resolve=>release=resolve);let requests=0;
+ const styles=await page.evaluate(()=>Array.from(document.styleSheets).map(sheet=>Array.from(sheet.cssRules).map(rule=>rule.cssText).join('\n')).join('\n'));
+ await page.route('**/community-fixture**',route=>route.fulfill({contentType:'text/html',body:`<html data-theme="dark"><head><style>${styles}</style></head><body><div id="fixture"></div></body></html>`}));
+ const save={...initialAuctionSave(),statistics:{...emptyAuctionStatistics(),started:5,settled:4,won:2,profit:12000}};
+ await page.route('**/api/account/session',async route=>{await gate;await route.fulfill({json:{enabled:true,features:{recovery:false,audit:true,community:true},providers:{},user:{id:'owner-a',name:'Player'},documents:[{key:'raw-signal-auction-house-v1',value:JSON.stringify(save),revision:1,updatedAt:'2026-10-19T12:00:00Z'}]}})});
+ const rows=Array.from({length:8},(_,i)=>({game:'riftbound',productId:990000+i,name:'Account Card '+i,image:'https://art.example/card.svg',marketPrice:i+1,printing:'Normal',section:'rares',rarity:'Rare',set:'Origins',year:2025,number:String(i),url:'',lowPrice:null,midPrice:null,highPrice:null,priceChange:null}));
+ await page.route('**/data/*.json',route=>{requests++;return route.fulfill({json:rows})});await page.route('https://art.example/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280"/>'}));
+ await page.goto('/community-fixture?view=auction-loading');await page.addScriptTag({content:fixtureScript});await expect(page.getByText('Loading saved game…',{exact:true})).toBeVisible();expect(requests).toBe(0);await expect(page.locator('.auction-statistics')).toHaveCount(0);await expect(page.locator('.account-guest-warning')).toHaveCount(0);await expect(page.locator('.auction-page-art')).toHaveCount(0);
+ release();await expect(page.getByRole('button',{name:'Enter Bilgewater Auction House',exact:true})).toBeEnabled();expect(requests).toBe(11);await expect(page.locator('.auction-statistics-grid>div').first()).toContainText('Auctions Started5');await expect(page.locator('.auction-statistics>p')).toHaveCount(0);await expect(page.locator('.account-guest-warning')).toHaveCount(0);
 });
