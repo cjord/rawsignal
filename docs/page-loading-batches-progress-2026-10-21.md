@@ -16,7 +16,12 @@ existing Cloudflare 403 challenge from this computer. Deployment/version/binding
 verification passed, but custom-domain application rendering remains unverified
 from this connection. The challenge is not presented as a passing browser test.
 
-## New work: local only
+## New work: implementation batches
+
+Subsequently pushed as `cfc591b` and deployed to staging `01a13354` on the user's
+next request. The implementation notes below retain their original local-gate
+context; [live staging results and remaining work](page-loading-staging-results-2026-10-21.md)
+supersede the not-deployed status. Production remains on the earlier promotion.
 
 ### Batch 1 — Scope-Stable Page Body / Loading Geometry
 
@@ -134,8 +139,9 @@ behavior and shared navigation. The local fixture still emits its pre-existing
 missing-history-column diagnostics and Smart Links hydration warnings; the
 passing suite is not evidence that those separate issues are resolved.
 
-No new live before/after timing claim is made for this local implementation.
-The latest deployed measurements still belong to the prior Market Scope release.
+The original local gate made no live before/after timing claim. The subsequent
+staging measurement and ingestion-lifecycle limitation are recorded in the linked
+release report rather than extrapolated from tests.
 Ignored evidence: `outputs/page-loading-batches-check-verified-2026-10-21.log`,
-`outputs/page-loading-*` and normal Playwright test artifacts. This implementation
-has not been pushed or deployed; staging measurement remains the next release step.
+`outputs/page-loading-*` and normal Playwright test artifacts. Production promotion
+of these batches remains a separate release decision.

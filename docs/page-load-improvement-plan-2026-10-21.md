@@ -1,11 +1,12 @@
 # Page-load improvement plan — 2026-10-21
 
-Status: implementation began after the user's subsequent request. The prior
-staging-verified Market Scope changes were promoted to production first; the new
-loading-batch work remains local. No compact-catalog activation, data repair or
-schedule change has been performed. Progress and validation are recorded in
+Status: the prior staging-verified Market Scope changes were promoted to production
+first; the new loading batches were subsequently pushed and deployed to staging
+as `cfc591b` / `01a13354`. No compact-catalog activation, data repair or schedule
+change was performed. [Live staging results and remaining priorities](page-loading-staging-results-2026-10-21.md).
+Progress and validation are recorded in
 [loading batch implementation](page-loading-batches-progress-2026-10-21.md).
-Latest measured baseline: [staging reassessment](market-scope-staging-reassessment-2026-10-21.md).
+Earlier measured baseline: [staging reassessment](market-scope-staging-reassessment-2026-10-21.md).
 
 ## Recommendation
 

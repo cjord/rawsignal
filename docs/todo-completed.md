@@ -9,6 +9,21 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-21 — Page-loading batches, staging verified
+
+Application `cfc591b` pushed and deployed to staging `01a13354` after the complete
+662-unit/134-browser gate (one existing unit skip). Scope-Stable Page Body,
+public payload reuse/timings, shared catalog/freshness and stable backdrop slots.
+Five-sample live comparisons confirm Showdown 22→11 feeds, Sealed 3→2 reads and
+Sets mobile readiness 6.64→2.97 s with bounded CLS 0.512→0.001. Overall latency
+is mixed; mobile Cards still shifts and Auction Play still takes ~6.5 s in simulation.
+Four unfinished ingestion records bypass public payload reuse: no cache-hit benefit
+is claimed and no database repair/guard weakening occurred. Live scope/theme/no-JS
+checks and fifteen same-document/background-preserving hub transitions passed;
+two router-stream cancellations were retained as separate diagnostics. Production,
+bindings/flags and staging's empty cron schedule were preserved.
+[Measurements, limitations and remaining priorities](page-loading-staging-results-2026-10-21.md).
+
 ## 2026-10-21 — Market Scope production promotion
 
 Staging-verified application `be40c34` (documentation `0c94038`) was promoted to
@@ -20,7 +35,8 @@ secrets, DB/identity bindings, custom domain and `*/1` schedule were preserved;
 staging was unchanged. No migration, ingestion repair or Collections activation.
 Production requests from this test connection still encounter Cloudflare 403,
 so custom-domain application verification is not claimed. New page-loading
-batches started afterward and remain local, not part of this production version.
+batches started afterward and were subsequently released to staging (above), not
+part of this production version.
 [Promotion and follow-up record](page-loading-batches-progress-2026-10-21.md).
 
 ## 2026-10-21 — Collections interface polish, Sold History and Card Show Events
