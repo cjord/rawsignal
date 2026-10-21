@@ -5,23 +5,18 @@ import SlidingTabs from "./SlidingTabs";
 import {CheckboxGrid} from "./filters/CheckboxGrid";
 import GameSession from "./games/PriceShowdownSession";
 import PriceShowdownSkeleton from "./games/PriceShowdownSkeleton";
-import {useCatalogPage} from "./data/useCatalogPage";
+import {useRiftboundCatalog} from './data/useRiftboundCatalog';
 import {createPriceGameImageLoader} from "./data/price-game-images";
-import {parseCards} from "../core/domain/contracts";
-import type {Card} from "../core/domain/types";
-import {allowedRarities} from "../core/market-state";
 import {priceGamePool,type PriceGameDifficulty} from "../core/domain/price-game";
 import {resetPracticeSave} from './games/usePracticeSave';
 import {useAccount} from './account/AccountProvider';
 import {usePreference} from './state/usePreference';
 
-const sources=allowedRarities.riftbound.map(section=>`/data/${section}.json`);
-const cardKey=(card:Card)=>`${card.productId}:${card.printing}`;
 const difficultyOptions=[{key:"normal",label:"Normal · 2 cards"},{key:"hard",label:"Hard · 3 cards"}];
 
 export default function RiftboundPriceGame(){
  const account=useAccount();
- const {items,status,reload}=useCatalogPage({sources,parse:parseCards,keyOf:cardKey});
+ const {items,status,reload}=useRiftboundCatalog();
  const [difficulty,setDifficulty]=usePreference<PriceGameDifficulty>('raw-signal-showdown-difficulty',value=>value==='hard'?'hard':null,'normal',true),[session,setSession]=useState(0);
  const [autoMode,setAutoMode]=usePreference('raw-signal-showdown-auto-advance',value=>value==='off'?'off':null,'on',true),auto=autoMode==='on';
  const pool=useMemo(()=>priceGamePool(items,"riftbound"),[items]),images=useMemo(()=>createPriceGameImageLoader(),[]);

@@ -16,6 +16,7 @@ import {formatGameName,formatPercent} from "../core/domain/formatters";
 import type {SetDirectoryRow,SetsDirectoryPayload} from "../core/domain/sets";
 import {setLogoFor} from "./data/set-logos";
 import SetHeatmap from "./SetHeatmap";
+import MarketScopePlaceholder from './MarketScopePlaceholder';
 import type {SetHeatmapPayload} from "../core/domain/set-heatmap";
 
 const GAMES:Exclude<SetsMarket,"all">[]=["pokemon","riftbound","onepiece"];
@@ -86,9 +87,9 @@ const groupSort=(a:SetDirectoryRow,b:SetDirectoryRow)=>{
  return bDate.localeCompare(aDate)||a.set.localeCompare(b.set);
 };
 
-export default function SetsView({payload}:{payload:SetsDirectoryPayload|null}){
+export default function SetsView({payload,initialScope=null,serverTiming}:{payload:SetsDirectoryPayload|null;initialScope?:SetsScope|null;serverTiming?:string}){
  const [strictness,setStrictness]=usePreference(STRICTNESS_KEY,parseStrictness,"balanced");
- const [scope,setScope]=useState<SetsScope>(DEFAULT_SETS_SCOPE);
+ const [scope,setScope]=useState<SetsScope>(initialScope??DEFAULT_SETS_SCOPE);
  const [heatmap,setHeatmap]=useState<SetHeatmapPayload|null>(null);
  const [heatmapError,setHeatmapError]=useState(false);
  const {ready:scopeReady,write:writeScope}=useSetsScopeUrl(({requestedMarket,...rest})=>{
@@ -99,6 +100,7 @@ export default function SetsView({payload}:{payload:SetsDirectoryPayload|null}){
   setScope(restored);
   if(!valid)window.history.replaceState(null,"",`/sets?${serializeSetsScope(restored)}`);
  });
+ const bodyReady=initialScope!==null||scopeReady;
  const updateScope=(changes:Partial<SetsScope>,push=true)=>{
   const next={...scope,...changes};
   if(next.market!==scope.market)storeMarket(next.market);
@@ -123,17 +125,17 @@ export default function SetsView({payload}:{payload:SetsDirectoryPayload|null}){
  },[payload]);
  const games=market==="all"?GAMES:[market];
  const starredRows=useMemo(()=>(payload?.sets??[]).filter(row=>favorites.has(setFavoriteKey(row.game,row.set))&&(market==="all"||row.game===market)).sort(groupSort),[payload,favorites,market]);
- return <><main className="detail-page sets-page"><TopBar active="sets" strictness={strictness} onStrictness={setStrictness}/>
+ return <><main className="detail-page sets-page" data-server-timing={serverTiming}><TopBar active="sets" strictness={strictness} onStrictness={setStrictness}/>
   <header className="masthead" id="top">
    <p className="kicker">Every tracked set, by era</p>
    <h1>Sets, <span>mapped by market.</span></h1>
   </header>
-  <div className="signal-navigation sets-market-nav"><MarketTabs ready={scopeReady} className="sets-market-tabs" options={marketTabOptions} value={market} onChange={next=>updateScope({market:next as SetsMarket,group:"",tier:"all",selected:""})}/></div>
-  <article className="detail-content">
-   {!payload?<section className="detail-section"><header><span>Unavailable</span><h2>Sets need the database</h2></header><p className="detail-unavailable">This page reads set-level aggregates from the database-backed deployment. Feed-only deployments and local dev have no per-set metrics, so nothing is estimated here — visit the published site instead.</p></section>:<>
+  <div className="signal-navigation sets-market-nav"><MarketTabs ready={bodyReady} disabled={!scopeReady} className="sets-market-tabs" options={marketTabOptions} value={market} onChange={next=>updateScope({market:next as SetsMarket,group:"",tier:"all",selected:""})}/></div>
+  <article className="detail-content"><fieldset className="market-scope-content" disabled={!scopeReady} aria-label="Set market content">
+   {!payload?<section className="detail-section"><header><span>Unavailable</span><h2>Sets need the database</h2></header><p className="detail-unavailable">This page reads set-level aggregates from the database-backed deployment. Feed-only deployments and local dev have no per-set metrics, so nothing is estimated here — visit the published site instead.</p></section>:!bodyReady?<MarketScopePlaceholder kind="sets"/>:<>
    <div className="sets-view-toggle" role="group" aria-label="Sets view">
-    <button type="button" aria-pressed={scope.view==="tiles"} onClick={()=>updateScope({view:"tiles",selected:""})}>Tiles</button>
-    <button type="button" aria-pressed={scope.view==="heatmap"} onClick={()=>updateScope({view:"heatmap"})}>Heatmap</button>
+    <button type="button" disabled={!scopeReady} aria-pressed={scope.view==="tiles"} onClick={()=>updateScope({view:"tiles",selected:""})}>Tiles</button>
+    <button type="button" disabled={!scopeReady} aria-pressed={scope.view==="heatmap"} onClick={()=>updateScope({view:"heatmap"})}>Heatmap</button>
    </div>
    {scope.view==="heatmap"?<SetHeatmap payload={heatmap} loading={!heatmap&&!heatmapError} error={heatmapError} directory={payload.sets} scope={scope} onScope={updateScope} favorites={favorites}/>:<>
    <p className="detail-note sets-note">Set momentum is the median of member products&apos; price changes (singles where tracked, sealed otherwise) · signal counts read the balanced strictness hot boards.<InfoHint label="About set tiles">Each tile shows the set&apos;s tracked chase singles and sealed product counts, its 7 and 30 day median momentum, and how many of its singles currently sit on the Hot Buy or Hot Sell boards at balanced strictness. Stars pin sets to the Favorites shelf on this page.</InfoHint></p>
@@ -152,5 +154,5 @@ export default function SetsView({payload}:{payload:SetsDirectoryPayload|null}){
    })}
    </>}
    </>}
-  </article></main><SiteFooter/></>;
+  </fieldset></article></main><SiteFooter/></>;
 }

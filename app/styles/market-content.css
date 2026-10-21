@@ -299,3 +299,11 @@
 .detail-overview > .market-median-context {
   margin-bottom: 18px;
 }
+
+/* Scope restoration reserves content without mounting the wrong market first. */
+.market-scope-content{display:contents}
+.market-scope-placeholder{min-height:28rem;box-sizing:border-box}
+.scope-placeholder-heading{display:block;width:12rem;max-width:65%;height:2rem;margin-bottom:2rem;border-radius:var(--control-radius);background:var(--control)}
+.market-scope-placeholder>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.market-scope-placeholder>div>span{height:7rem;border:1px solid var(--line);border-radius:var(--control-radius);background:var(--control)}
+@media(max-width:759px){.market-scope-placeholder>div{grid-template-columns:repeat(2,minmax(0,1fr))}.market-scope-placeholder.is-metrics>div{grid-template-columns:1fr}.market-scope-placeholder.is-metrics>div>span{height:12rem}}

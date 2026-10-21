@@ -98,6 +98,13 @@ default. `SiteAccountProvider` keeps explicit read-only market paths mounted dur
 account bootstrap; private/game pages retain owner-keyed isolation. This adds no
 private HTML, auth query or ingestion work. [Behavior and validation](market-scope-loading.md).
 
+The next loading batches are implemented locally, not deployed: shared pure
+Sets/Metrics URL codecs seed server-rendered scope; device-only scope uses a
+neutral body. Bounded DB/version/config-keyed public payload reuse bypasses active
+ingestion and evicts failed builds. Public Riftbound catalog/freshness reads are
+coalesced independently of owner-specific game progress; decorative card groups
+retain stable slots. [Scope, limits and validation](page-loading-batches-progress-2026-10-21.md).
+
 ### Catalog service
 
 `core/catalog-query.ts` owns shared fuzzy search, filters, sorting, null ordering, deduplication, facets, signal filtering, sealed calculations, and pagination. Both UI adapters and server repositories call the same query engine.

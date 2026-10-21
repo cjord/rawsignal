@@ -9,6 +9,20 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-21 — Market Scope production promotion
+
+Staging-verified application `be40c34` (documentation `0c94038`) was promoted to
+production `cd4d0160-61c4-4b54-8ccc-c7ea170a5883` on the user's explicit request,
+using the full-gate build (655 unit passes, one skip, 131 browser passes). Public
+market pages retain one mount while account state resolves; URL/device scope is
+resolved once and hidden Singles loading on Sealed is removed. Production flags,
+secrets, DB/identity bindings, custom domain and `*/1` schedule were preserved;
+staging was unchanged. No migration, ingestion repair or Collections activation.
+Production requests from this test connection still encounter Cloudflare 403,
+so custom-domain application verification is not claimed. New page-loading
+batches started afterward and remain local, not part of this production version.
+[Promotion and follow-up record](page-loading-batches-progress-2026-10-21.md).
+
 ## 2026-10-21 — Collections interface polish, Sold History and Card Show Events
 
 Application `f2d222c`, including `5144e5f`, is pushed/deployed to staging `9f77be00`.

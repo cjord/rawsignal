@@ -6,6 +6,7 @@ import type { PricePoint, PullRateConfig } from "../core/domain/types.ts";
 import { pullRateFor } from "../core/catalog-repository.ts";
 import { readMetricSeries, type MetricPoint } from "./metrics-ingestion.ts";
 import { publishedIngestion, type D1DatabaseLike } from "./repository.ts";
+import {createPublicPayloadCache,timedPayload,type PayloadTimings} from './public-payload-cache.ts';
 
 // The /metrics service (docs/todo.md H3/H4): materialized daily series plus same-day
 // figures computed from current rows — the largest SQL surface in the repo, so it lives
@@ -311,17 +312,24 @@ async function loadMovers(db: D1DatabaseLike): Promise<MetricsMover[]> {
   }));
 }
 
-export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options: { pullRates?: PullRateConfig } = {}): Promise<MetricsPayload | null> {
+const cachedMetrics=createPublicPayloadCache<MetricsPayload|null>();
+export async function loadMetricsPayload(db:D1DatabaseLike|undefined,options:{pullRates?:PullRateConfig;timings?:PayloadTimings}={}):Promise<MetricsPayload|null>{
+ if(!db)return null;
+ return timedPayload(options.timings,'total',()=>cachedMetrics(db,JSON.stringify(options.pullRates??null),()=>buildMetricsPayload(db,options)));
+}
+async function buildMetricsPayload(db:D1DatabaseLike,options:{pullRates?:PullRateConfig;timings?:PayloadTimings}):Promise<MetricsPayload|null>{
   if (!db) return null;
   const published = await publishedIngestion(db, "metrics-rollup").catch(() => null);
   if (!published) return null;
-  const bySeries = await readMetricSeries(db);
+  const bySeries = await timedPayload(options.timings,'series',()=>readMetricSeries(db));
   const series = Object.fromEntries(Object.entries(bySeries).map(([key, points]) => [key, toPoints(points)]));
-  const overview = await loadOverview(db, series);
-  const sets = await loadSetRows(db, options.pullRates);
-  const sealedCategories = await loadSealedCategories(db);
-  const eras = await loadEras(db);
-  const momentum = await loadMomentum(db);
-  const movers = await loadMovers(db);
+  const [overview,sets,sealedCategories,eras,momentum,movers]=await Promise.all([
+   timedPayload(options.timings,'overview',()=>loadOverview(db,series)),
+   timedPayload(options.timings,'sets',()=>loadSetRows(db,options.pullRates)),
+   timedPayload(options.timings,'categories',()=>loadSealedCategories(db)),
+   timedPayload(options.timings,'eras',()=>loadEras(db)),
+   timedPayload(options.timings,'momentum',()=>loadMomentum(db)),
+   timedPayload(options.timings,'movers',()=>loadMovers(db)),
+  ]);
   return { generatedAt: new Date().toISOString(), rolledUpAt: published.lastSuccessAt, series, overview, sets, sealedCategories, eras, momentum, movers };
 }

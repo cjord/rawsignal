@@ -155,6 +155,13 @@
   .scenario-checks{display:contents}.scenario-checks label{align-self:end;min-width:0;height:44px!important;box-sizing:border-box}.scenario-checks label:has(input:checked){border-color:var(--blue)!important;background:color-mix(in srgb,var(--blue) 13%,var(--control))!important;box-shadow:0 0 0 1px color-mix(in srgb,var(--blue) 34%,transparent)}
   .sealed-filter-panel{grid-template-columns:1fr 1fr!important}.sealed-filter-panel>.set-filters,.sealed-filter-panel>.filter-actions{grid-column:1/-1}
   .leader-filter-summary{min-height:31px}.leader-filter-summary:not(.has-content){visibility:hidden;pointer-events:none}
+  /* Counts and dates settle inside the heading rather than moving its controls. */
+  .section-heading .section-aside{min-height:2.8em}
+  .view-medium>.row-skeletons>span{height:90px}
+  .view-text>.row-skeletons>span{height:58px}
+  .sealed-view-medium>.row-skeletons>span{height:82px}
+  .sealed-view-text>.row-skeletons>span{height:58px}
+  @media(max-width:759px){.section-heading{min-height:12rem;box-sizing:border-box}.section-heading h2{min-height:2.6em}.section-heading .section-aside{min-height:3em}.view-medium>.row-skeletons>span,.sealed-view-medium>.row-skeletons>span{height:90px}}
   @media(max-width:900px){.sale-scenario-controls{grid-template-columns:repeat(3,minmax(0,1fr))}}
   @media(max-width:759px){.sale-scenario-controls{grid-template-columns:1fr 1fr}.sealed-filter-panel{grid-template-columns:1fr!important}.sealed-filter-panel>.set-filters,.sealed-filter-panel>.filter-actions{grid-column:1}}
   @media(max-width:480px){.sale-scenario-controls{grid-template-columns:1fr}.multi-select-panel{position:fixed;top:auto;right:12px;bottom:12px;left:12px;width:auto;max-height:75vh}}

@@ -433,10 +433,13 @@ export function createD1CatalogRepository(db: D1DatabaseLike, ingestionRunId?: s
       // unit lookup), so it comes from one index seek (review §14 F1).
       const [ownKindRows,setKindRows,setMetrics]=await Promise.all([productRows(kind,row.game),setRows(row.game,row.setName),readSetRowMetrics(db,row.game,row.setName)]);
       const peerRows=kind==="single"?[...ownKindRows,...setKindRows.filter(item=>item.kind==="sealed")]:[...setKindRows.filter(item=>item.kind==="single"),...ownKindRows];
-      const cards=peerRows.map(toCard).filter((item):item is Card=>item!==null),sealed=peerRows.map(toSealed).filter((item):item is SealedProduct=>item!==null),detailRow=await db.prepare(`select category_id as categoryId,group_id as groupId,set_abbreviation as setAbbreviation,published_on as publishedOn,modified_on as modifiedOn,image_count as imageCount,is_presale as isPresale,presale_note as presaleNote,metadata_json as metadataJson,price_variants_json as priceVariantsJson,source_updated_at as sourceUpdatedAt from product_details where product_id=?`).bind(productId).first<DetailRow>();
+      const cards=peerRows.map(toCard).filter((item):item is Card=>item!==null),sealed=peerRows.map(toSealed).filter((item):item is SealedProduct=>item!==null);
+      const [detailRow,graded,peerAnchor]=await Promise.all([
+       db.prepare(`select category_id as categoryId,group_id as groupId,set_abbreviation as setAbbreviation,published_on as publishedOn,modified_on as modifiedOn,image_count as imageCount,is_presale as isPresale,presale_note as presaleNote,metadata_json as metadataJson,price_variants_json as priceVariantsJson,source_updated_at as sourceUpdatedAt from product_details where product_id=?`).bind(productId).first<DetailRow>(),
+       kind==='single'?readGradedCard(db,productId):Promise.resolve(null),
+       kind==='single'?readPeerAnchor(db,row.game,row.setName,row.rarity):Promise.resolve(null),
+      ]);
       let enrichments:CatalogDetailEnrichment[]=[];if(detailRow)try{enrichments=[{kind,productId,metadata:JSON.parse(detailRow.metadataJson) as DetailMetadataField[],priceVariants:JSON.parse(detailRow.priceVariantsJson) as DetailPriceVariant[],source:{categoryId:detailRow.categoryId,groupId:detailRow.groupId,setAbbreviation:detailRow.setAbbreviation,publishedOn:detailRow.publishedOn,modifiedOn:detailRow.modifiedOn,imageCount:detailRow.imageCount,isPresale:detailRow.isPresale==null?null:Boolean(detailRow.isPresale),presaleNote:detailRow.presaleNote,sourceUpdatedAt:detailRow.sourceUpdatedAt}}]}catch{/* Invalid optional detail JSON must not hide the core catalog record. */}
-      const graded=kind==="single"?await readGradedCard(db,productId):null;
-      const peerAnchor=kind==="single"?await readPeerAnchor(db,row.game,row.setName,row.rarity):null;
       const anchorKey=`${row.game}|${row.setName}|${row.rarity}`;
       const detail=await createMemoryCatalogRepository(cards,sealed,enrichments,pullRateConfig,graded?{[String(productId)]:graded}:undefined,peerAnchor?{[anchorKey]:peerAnchor}:undefined).getDetail(kind,productId,market);
       if(!detail)return null;

@@ -3,15 +3,19 @@ import type { Metadata } from "next";
 import SetsView from "../SetsView";
 import { loadSetsDirectory } from "../../db/sets-service.ts";
 import type { D1DatabaseLike } from "../../db/repository";
+import {initialSetsScope} from '../state/sets-scope';
+import {pageSearch,type PageSearch} from '../state/page-search';
+import {payloadServerTiming} from '../../db/public-payload-cache';
 
 export const metadata: Metadata = {
   title: "Sets — Raw Signal",
   description: "Every tracked Pokémon, Riftbound, and One Piece set grouped by era, with chase counts, sealed coverage, momentum, and live signal presence.",
 };
 
-export default async function SetsRoute() {
-  let payload = null;
-  try { payload = await loadSetsDirectory(env.DB as unknown as D1DatabaseLike | undefined); }
+export default async function SetsRoute({searchParams}:{searchParams:Promise<PageSearch>}) {
+  const scope=initialSetsScope(pageSearch(await searchParams));
+  let payload = null;const timings={stages:{}};
+  try { payload = await loadSetsDirectory(env.DB as unknown as D1DatabaseLike | undefined,{timings}); }
   catch { /* The view renders its explicit unavailable state. */ }
-  return <SetsView payload={payload} />;
+  return <SetsView payload={payload} initialScope={scope} serverTiming={payloadServerTiming(timings)}/>;
 }
