@@ -1,7 +1,8 @@
 "use client";
 /* eslint-disable react-hooks/set-state-in-effect -- initial URL hydration must complete before URL replacement */
 import {useCallback,useEffect,useRef,useState} from "react";
-import {getHistoryWriteMode,parseMarketQuery,serializeMarketQuery,type MarketQueryState} from "./market-query";
+import {getHistoryWriteMode,resolveMarketQuery,serializeMarketQuery,type MarketQueryState} from "./market-query";
+import {readStoredMarket} from './market-memory';
 
 // Detail pages read this to make "Back to results" return to the exact filtered leaderboard.
 const rememberListUrl=(url:string)=>{try{sessionStorage.setItem("raw-signal-last-list-url",url)}catch{/* Storage can be unavailable (private mode); the back button falls back to a default list. */}};
@@ -15,7 +16,7 @@ export function useMarketQueryState(onRestore:(state:MarketQueryState,rawSearch:
    // codec never serializes (e.g. a shared link's strictness), and restore callbacks
    // need to see what the visitor actually opened.
    const rawSearch=location.search;
-   const state=parseMarketQuery(rawSearch),serialized=serializeMarketQuery(state),url=`${location.pathname}?${serialized}${location.hash}`;
+   const state=resolveMarketQuery(rawSearch,readStoredMarket()),serialized=serializeMarketQuery(state),url=`${location.pathname}?${serialized}${location.hash}`;
    if(location.search.slice(1)!==serialized)window.history.replaceState(null,"",url);
    rememberListUrl(url);
    lastStateRef.current=state;restoringRef.current=serialized;restoreRef.current(state,rawSearch);

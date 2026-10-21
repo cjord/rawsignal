@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import AccountProvider from './account/AccountProvider';
+import AccountProvider from './account/SiteAccountProvider';
 import NotificationHost from './notifications/NotificationHost';
 // Fonts are self-hosted via app/styles/fonts.css — never next/font/google: the vinext loader
 // bakes absolute local cache paths into production builds (deployed sites then render the

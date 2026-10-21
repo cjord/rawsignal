@@ -5,6 +5,7 @@ import {readPendingDrafts,writePendingDrafts} from './pending-journal.ts';
 import {adoptRecovery,deleteRecovery,forgetRecoveryKey,initializeRecovery,persistentRecoveryReady,persistRecovery,readRecovery,recoveryState,recoveryUnavailable,subscribeRecovery,flushRecovery} from './recovery-vault.ts';
 
 type StorageMode='legacy'|'loading'|'guest'|'account'|'blocked';
+export const ACCOUNT_STORAGE_EVENT_URL='raw-signal:account-storage';
 let mode:StorageMode='legacy',owner='',records=new Map<AccountKey,AccountDocument>();
 const pending=new Map<AccountKey,string>(),listeners=new Set<()=>void>();
 let working=false,error='',generation=0,failure:'transient'|'conflict'|'session'|'invalid'|'recovered'|''='';
@@ -28,7 +29,7 @@ export function configureAccountStorage(next:StorageMode,userId='',documents:Acc
   }
   if(pending.size){failure=failure||'recovered';error=failure==='conflict'?'Recovered changes conflict with progress from another device. Export them before loading the cloud save.':'Unsaved changes recovered from this tab. Retry Save to sync them, or export a backup.'}void journal();
  }
- if(typeof window!=='undefined')for(const key of ACCOUNT_KEYS)window.dispatchEvent(new StorageEvent('storage',{key,newValue:getSavedItem(key)}));
+ if(typeof window!=='undefined')for(const key of ACCOUNT_KEYS)window.dispatchEvent(new StorageEvent('storage',{key,newValue:getSavedItem(key),url:ACCOUNT_STORAGE_EVENT_URL}));
  notify();
 }
 export function getSavedItem(key:string):string|null{

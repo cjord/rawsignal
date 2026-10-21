@@ -33,7 +33,7 @@ export default function TopBar({active=null,actions,strictness,onStrictness,sett
  useEffect(()=>{
   setTheme(document.documentElement.dataset.theme==="light"?"light":"dark");
   setFontSize(document.documentElement.dataset.fontSize==="large"?"large":"default");
- },[]);
+ },[account.user?.id,account.loading]);
  useEffect(()=>{
   if(!settingsOpen)return;
   const close=(event:PointerEvent)=>{if(!settingsRef.current?.contains(event.target as Node))setSettingsOpen(false)};
@@ -51,7 +51,7 @@ export default function TopBar({active=null,actions,strictness,onStrictness,sett
    {actions}
    <AccountControl/>
    <div className="display-settings" ref={settingsRef}>
-    <button type="button" className="settings-toggle" onClick={()=>setSettingsOpen(value=>!value)} aria-label="Display settings" aria-expanded={settingsOpen} aria-haspopup="menu"><span aria-hidden="true">⚙</span></button>
+    <button type="button" disabled={account.loading||!!account.error} className="settings-toggle" onClick={()=>setSettingsOpen(value=>!value)} aria-label="Display settings" aria-expanded={settingsOpen} aria-haspopup="menu"><span aria-hidden="true">⚙</span></button>
     {settingsOpen&&<div className="settings-menu" role="menu" aria-label="Display settings">
      {account.enabled&&<a className="account-settings-link" href="/account" role="menuitem">Profile &amp; Account</a>}
      {account.user?.role==='admin'&&<a className="account-settings-link" href="/admin" role="menuitem">Administration</a>}

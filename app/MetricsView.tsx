@@ -3,6 +3,7 @@ import {useCallback,useMemo,useState} from "react";
 import InfoHint from "./InfoHint";
 import MarketTabs from "./MarketTabs";
 import {readStoredMarket,storeMarket} from "./state/market-memory";
+import {resolveMarketScope} from './state/market-scope';
 import {METRICS_MARKETS,serializeMetricsScope,useMetricsScopeUrl,type MetricsMarket,type MetricsMode} from "./state/metrics-query";
 import {parseStrictness,STRICTNESS_KEY,usePreference} from "./state/usePreference";
 import PriceChart from "./PriceChart";
@@ -246,9 +247,8 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
  const [moversWindow,setMoversWindow]=useState<"7d"|"30d"|"90d">("7d");
  // Scope rides the URL through the shared push/popstate discipline (decision D14):
  // the URL wins; otherwise the market remembered from the other pages; else Pokémon.
- const writeScope=useMetricsScopeUrl(({mode:nextMode,requestedMarket})=>{
-  const requested=(requestedMarket??readStoredMarket())as Market|null;
-  const resolved=requested&&METRICS_MARKETS[nextMode].includes(requested)?requested:"pokemon";
+ const {ready:scopeReady,write:writeScope}=useMetricsScopeUrl(({mode:nextMode,requestedMarket})=>{
+  const resolved=resolveMarketScope(requestedMarket,readStoredMarket(),METRICS_MARKETS[nextMode],"pokemon");
   setMode(nextMode);
   setMarket(resolved);
   storeMarket(resolved);
@@ -291,8 +291,8 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
    <h1>The card market, <span>without the noise.</span></h1>
   </header>
   {payload&&<>
-   <div className="product-navigation"><SegmentedView value={mode} options={MODE_VIEWS} label="Product type" className="product-toggle" onChange={(next:Mode)=>setScope(next,market)}/></div>
-   <div className="signal-navigation metrics-market-nav"><MarketTabs className="metrics-market-tabs" options={marketTabOptions(mode)} value={market} onChange={next=>setScope(mode,next as Market)}/></div>
+   <div className="product-navigation"><SegmentedView ready={scopeReady} value={mode} options={MODE_VIEWS} label="Product type" className="product-toggle" onChange={(next:Mode)=>setScope(next,market)}/></div>
+   <div className="signal-navigation metrics-market-nav"><MarketTabs ready={scopeReady} className="metrics-market-tabs" options={marketTabOptions(mode)} value={market} onChange={next=>setScope(mode,next as Market)}/></div>
   </>}
   <article className="detail-content">
    {!payload?<section className="detail-section"><header><span>Unavailable</span><h2>Metrics need the database</h2></header><p className="detail-unavailable">This page reads the daily market rollups in the database-backed deployment. The local development server and feed-only deployments have no rollup data, so nothing is estimated here — visit the published site instead.</p></section>:<>

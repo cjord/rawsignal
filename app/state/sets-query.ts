@@ -1,5 +1,6 @@
 "use client";
-import { useCallback, useEffect, useRef } from "react";
+/* eslint-disable react-hooks/set-state-in-effect -- URL scope readiness follows the initial browser restore. */
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { HeatmapWindow } from "../../core/domain/set-heatmap.ts";
 
 // The sets page's URL scope through the same push/popstate discipline as
@@ -55,17 +56,18 @@ export function serializeSetsScope(input: SetsMarket | SetsScope) {
 }
 
 export function useSetsScopeUrl(onRestore: (scope: ReturnType<typeof parseSetsScope>) => void) {
-  const restoreRef = useRef(onRestore);
+  const restoreRef = useRef(onRestore),[ready,setReady]=useState(false);
   useEffect(() => { restoreRef.current = onRestore; }, [onRestore]);
   useEffect(() => {
     const restore = () => restoreRef.current(parseSetsScope(location.search));
-    restore();
+    restore();setReady(true);
     window.addEventListener("popstate", restore);
     return () => window.removeEventListener("popstate", restore);
   }, []);
-  return useCallback((scope: SetsScope, { push = true } = {}) => {
+  const write=useCallback((scope: SetsScope, { push = true } = {}) => {
     const url = `/sets?${serializeSetsScope(scope)}`;
     if (push) window.history.pushState(null, "", url);
     else window.history.replaceState(null, "", url);
   }, []);
+  return {ready,write};
 }

@@ -6,6 +6,8 @@ import MarketTabs from "./MarketTabs";
 import TopBar from "./TopBar";
 import SiteFooter from "./SiteFooter";
 import {readStoredMarket,storeMarket} from "./state/market-memory";
+import {resolveMarketScope} from './state/market-scope';
+import {useAccount} from './account/context';
 import {DEFAULT_SETS_SCOPE,SETS_MARKETS,serializeSetsScope,useSetsScopeUrl,type SetsMarket,type SetsScope} from "./state/sets-query";
 import {setFavoriteKey,toggleSetFavorite,useSetFavorites} from "./state/set-favorites";
 import {parseStrictness,STRICTNESS_KEY,usePreference} from "./state/usePreference";
@@ -35,6 +37,7 @@ const pctLabel=(value:number|null)=>value==null?"N/A":formatPercent(value);
 const toneOf=(value:number|null)=>value==null||value===0?undefined:value<0?"down":"up";
 
 function SetTile({row,asOf,starred}:{row:SetDirectoryRow;asOf:string;starred:boolean}){
+ const account=useAccount();
  const logo=setLogoFor(row.game,row.set);
  const release=releaseLine(row,asOf);
  return <a className="set-tile" href={`/sets/${row.game}/${row.slug}`}>
@@ -43,7 +46,7 @@ function SetTile({row,asOf,starred}:{row:SetDirectoryRow;asOf:string;starred:boo
     :row.cover?<span className="set-tile-logo set-tile-cover"><DeferredImage src={row.cover} alt={`${row.set} cover art`} className="set-cover-image"/></span>
     :<span className={`set-tile-mark mark-${row.game}`} aria-hidden="true">{row.set}</span>}
    <span className="set-tile-title"><b>{row.set}</b>{release&&<small>{release}</small>}</span>
-   <button type="button" className={`set-star ${starred?"is-starred":""}`} aria-label={starred?`Unstar ${row.set}`:`Star ${row.set}`} aria-pressed={starred}
+   <button type="button" disabled={account.loading||!!account.error} className={`set-star ${starred?"is-starred":""}`} aria-label={starred?`Unstar ${row.set}`:`Star ${row.set}`} aria-pressed={starred}
     onClick={event=>{event.preventDefault();event.stopPropagation();toggleSetFavorite(row.game,row.set)}}>{starred?"★":"☆"}</button>
   </div>
   <div className="set-tile-foot">
@@ -88,10 +91,10 @@ export default function SetsView({payload}:{payload:SetsDirectoryPayload|null}){
  const [scope,setScope]=useState<SetsScope>(DEFAULT_SETS_SCOPE);
  const [heatmap,setHeatmap]=useState<SetHeatmapPayload|null>(null);
  const [heatmapError,setHeatmapError]=useState(false);
- const writeScope=useSetsScopeUrl(({requestedMarket,...rest})=>{
+ const {ready:scopeReady,write:writeScope}=useSetsScopeUrl(({requestedMarket,...rest})=>{
   const valid=SETS_MARKETS.includes(requestedMarket as SetsMarket)?requestedMarket as SetsMarket:null;
   const stored=readStoredMarket();
-  const next=valid??(stored&&SETS_MARKETS.includes(stored)?stored:"all");
+  const next=resolveMarketScope(requestedMarket,stored,SETS_MARKETS,"all");
   const restored={...rest,market:next};
   setScope(restored);
   if(!valid)window.history.replaceState(null,"",`/sets?${serializeSetsScope(restored)}`);
@@ -125,7 +128,7 @@ export default function SetsView({payload}:{payload:SetsDirectoryPayload|null}){
    <p className="kicker">Every tracked set, by era</p>
    <h1>Sets, <span>mapped by market.</span></h1>
   </header>
-  <div className="signal-navigation sets-market-nav"><MarketTabs className="sets-market-tabs" options={marketTabOptions} value={market} onChange={next=>updateScope({market:next as SetsMarket,group:"",tier:"all",selected:""})}/></div>
+  <div className="signal-navigation sets-market-nav"><MarketTabs ready={scopeReady} className="sets-market-tabs" options={marketTabOptions} value={market} onChange={next=>updateScope({market:next as SetsMarket,group:"",tier:"all",selected:""})}/></div>
   <article className="detail-content">
    {!payload?<section className="detail-section"><header><span>Unavailable</span><h2>Sets need the database</h2></header><p className="detail-unavailable">This page reads set-level aggregates from the database-backed deployment. Feed-only deployments and local dev have no per-set metrics, so nothing is estimated here — visit the published site instead.</p></section>:<>
    <div className="sets-view-toggle" role="group" aria-label="Sets view">

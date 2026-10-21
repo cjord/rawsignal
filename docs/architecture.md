@@ -91,6 +91,13 @@ production browser verification (Cloudflare challenge) remain separate acceptanc
 
 `app/state/market-query.ts` is the canonical parser and serializer for Singles and Sealed URL state. `app/state/useMarketQueryState.ts` synchronizes meaningful changes with browser history and replaces rapid search edits so Back/Forward navigation remains useful.
 
+Local Market Scope loading follow-up (2026-10-21) resolves valid URL → supported
+device market → surface fallback once, before rarity defaults/catalog loading.
+The selector retains a neutral first-render shell instead of highlighting a false
+default. `SiteAccountProvider` keeps explicit read-only market paths mounted during
+account bootstrap; private/game pages retain owner-keyed isolation. This adds no
+private HTML, auth query or ingestion work. [Behavior and validation](market-scope-loading.md).
+
 ### Catalog service
 
 `core/catalog-query.ts` owns shared fuzzy search, filters, sorting, null ordering, deduplication, facets, signal filtering, sealed calculations, and pagination. Both UI adapters and server repositories call the same query engine.

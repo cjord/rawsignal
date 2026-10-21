@@ -12,7 +12,7 @@ import {requestJson} from '../data/request-json';
 export {authAction} from './auth-client';
 export async function signOutAccount(){await flushCloud();if(cloudStatus().pending)throw new Error('Wait for cloud saves to finish before logging out.');await flushDeviceRecovery();await authAction('sign-out',{});location.assign('/');}
 function downloadBackup(){const url=URL.createObjectURL(new Blob([pendingBackup()],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download='raw-signal-unsynced-backup.json';link.click();URL.revokeObjectURL(url);}
-export default function AccountProvider({enabled,children,collectionsEnabled=false}:{enabled:boolean;children:ReactNode;collectionsEnabled?:boolean}){
+export default function AccountProvider({enabled,children,collectionsEnabled=false,publicMarket=false}:{enabled:boolean;children:ReactNode;collectionsEnabled?:boolean;publicMarket?:boolean}){
  const [account,setAccount]=useState<AccountState>({...defaults,enabled,loading:enabled,...(collectionsEnabled?{features:{recovery:false,audit:false,collections:true}}:{})}),[scope,setScope]=useState('initial'),[cloud,setCloud]=useState(cloudStatus);
  const [confirmReload,setConfirmReload]=useState(false);
  const updateName=useCallback((name:string,publicUsername?:string)=>setAccount(current=>({...current,user:current.user?{...current.user,name,...(publicUsername===undefined?{}:{publicUsername})}:null})),[]);
@@ -45,6 +45,6 @@ export default function AccountProvider({enabled,children,collectionsEnabled=fal
   {account.user&&(cloud.pending>0||cloud.error)&&<div className="account-status" role={cloud.error?'alert':'status'}>{cloud.error||'Saving to your account…'}{cloud.error&&<>{!['conflict','session','invalid'].includes(cloud.failure)&&<button className="game-control" type="button" onClick={retryCloud}>Retry Save</button>}<button className="game-control" type="button" onClick={downloadBackup}>Export Pending Changes</button><button className="game-control" type="button" disabled={cloud.working} onClick={()=>setConfirmReload(true)}>Load Cloud Save</button></>}</div>}
   {account.user&&!cloud.pending&&cloud.recovery.drafts.length>0&&<div className="account-status" role="status">Unsynced progress was found on this device. <a href="/account#recovery">Review Recovery</a></div>}
   {confirmReload&&<AuctionDialog title="Load the Cloud Save?" onClose={()=>setConfirmReload(false)}><p>This discards this tab’s unsynced changes and loads the latest saved account. Export Pending Changes first if you want to keep a copy. Money and inventory will not be merged.</p><button className="game-control" type="button" onClick={downloadBackup}>Export Pending Changes</button><button className="game-control account-delete" type="button" disabled={cloud.working} onClick={()=>void discardCloudPending().then(()=>location.reload())}>Discard Local Changes &amp; Reload</button></AuctionDialog>}
-  <div key={scope} inert={account.loading||!!account.error||!!cloud.error}>{children}</div>
+  <div key={publicMarket?'public-market':scope} inert={(!publicMarket&&account.loading)||!!account.error||!!cloud.error}>{children}</div>
  </AccountContext.Provider>;
 }

@@ -1,5 +1,6 @@
 "use client";
-import { useCallback, useEffect, useRef } from "react";
+/* eslint-disable react-hooks/set-state-in-effect -- URL scope readiness follows the initial browser restore. */
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // The metrics page's URL scope (mode + market) through the same push/popstate
 // discipline as the leaderboard codec (decision D14): scope changes create history
@@ -25,17 +26,18 @@ export function serializeMetricsScope(mode: MetricsMode, market: MetricsMarket) 
 }
 
 export function useMetricsScopeUrl(onRestore: (scope: { mode: MetricsMode; requestedMarket: string | null }) => void) {
-  const restoreRef = useRef(onRestore);
+  const restoreRef = useRef(onRestore),[ready,setReady]=useState(false);
   useEffect(() => { restoreRef.current = onRestore; }, [onRestore]);
   useEffect(() => {
     const restore = () => restoreRef.current(parseMetricsScope(location.search));
-    restore();
+    restore();setReady(true);
     window.addEventListener("popstate", restore);
     return () => window.removeEventListener("popstate", restore);
   }, []);
-  return useCallback((mode: MetricsMode, market: MetricsMarket, { push = true } = {}) => {
+  const write=useCallback((mode: MetricsMode, market: MetricsMarket, { push = true } = {}) => {
     const url = `/metrics?${serializeMetricsScope(mode, market)}`;
     if (push) window.history.pushState(null, "", url);
     else window.history.replaceState(null, "", url);
   }, []);
+  return {ready,write};
 }

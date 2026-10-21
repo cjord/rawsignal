@@ -1,5 +1,6 @@
 import type {SealedView,SignalSide,SignalStrictness,SinglesMarket,SinglesView} from "../../core/domain/types.ts";
 import {allowedRarities,defaultRarities,type Direction,type MarketQueryState,type SealedSort,type SinglesSort} from "../../core/market-state.ts";
+import {resolveMarketScope} from './market-scope.ts';
 
 // The URL codec for the leaderboard surfaces. The state shapes and section registry
 // live in core/market-state.ts (shared with the query engine, D1 repositories, and the
@@ -17,6 +18,12 @@ const choice=<T extends string>(value:string|null,allowed:readonly T[],fallback:
 const positiveInt=(value:string|null,fallback:number)=>{const parsed=Number(value);return Number.isInteger(parsed)&&parsed>0?parsed:fallback};
 const finiteNumber=(value:string|null,fallback:number)=>{const parsed=Number(value);return value!==null&&Number.isFinite(parsed)?parsed:fallback};
 const shared=(params:URLSearchParams)=>({signal:choice(params.get("signal"),signals,"leaderboard"),strictness:choice(params.get("strictness"),strictnesses,"balanced"),favorites:params.has("favorites"),regimes:list(params.get("regime")).filter(value=>regimeValues.includes(value))});
+
+export function resolveMarketQuery(search:string,stored:string|null):MarketQueryState {
+ const params=new URLSearchParams(search),allowed=params.get('mode')==='sealed'?['pokemon','riftbound','onepiece','scalping','all'] as const:['pokemon','riftbound','all'] as const;
+ params.set('market',resolveMarketScope(params.get('market'),stored,allowed,'pokemon'));
+ return parseMarketQuery(params);
+}
 
 export function parseMarketQuery(input:string|URLSearchParams):MarketQueryState{
  const params=typeof input==="string"?new URLSearchParams(input.startsWith("?")?input.slice(1):input):input;
