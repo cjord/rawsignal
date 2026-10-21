@@ -19,7 +19,16 @@ test('account controls preserve guest saves, isolate cloud data, save preference
  await expect(page.getByRole('button',{name:'Retry Save'})).toHaveCount(0);await page.getByRole('button',{name:'Load Cloud Save'}).click();await expect(page.getByRole('dialog',{name:'Load the Cloud Save?'})).toBeVisible();await page.getByRole('button',{name:'Close',exact:true}).click();expect(writes).toHaveLength(2);
 });
 
-type FixtureOptions={signedIn?:boolean;query?:string;owner?:string;role?:'member'|'admin';features?:{recovery:boolean;audit:boolean;community?:boolean};documents?:{key:string;value:string;revision:number;updatedAt:string}[]};
+type FixtureOptions={signedIn?:boolean;query?:string;owner?:string;role?:'member'|'admin';features?:{recovery:boolean;audit:boolean;community?:boolean;sharedIdentity?:boolean;identityReadOnly?:boolean};documents?:{key:string;value:string;revision:number;updatedAt:string}[]};
+test('shared staging identity explains isolation and keeps global security actions on production',async({page},testInfo)=>{
+ await page.route('**/api/auth/list-accounts',route=>route.fulfill({json:[{providerId:'discord'}]}));
+ await accountFixture(page,{signedIn:true,role:'admin',features:{recovery:false,audit:false,community:true,sharedIdentity:true,identityReadOnly:true}});
+ await expect(page.getByText('One sign-in identity works across production and staging.',{exact:false})).toBeVisible();
+ for(const name of ['Link Google','Delete Account','View Signed-In Devices','Log Out Other Devices'])await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
+ await expect(page.getByRole('link',{name:'Manage Account on Production'})).toHaveAttribute('href','https://rawsignal.cards/account');
+ await expect(page.getByRole('button',{name:'Save Profile',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Export Account Data',exact:true})).toBeVisible();
+ for(const width of [1440,390])for(const theme of ['dark','light']){await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:testInfo.outputPath(`shared-staging-account-${width}-${theme}.png`),fullPage:true,animations:'disabled'});}
+});
 test('two isolated devices preserve a conflicting favorite draft instead of merging or overwriting it',async({browser})=>{
  const contexts=await Promise.all([browser.newContext(),browser.newContext()]),pages=await Promise.all(contexts.map(context=>context.newPage()));let revision=3,value='[]',writes=0;
  try{

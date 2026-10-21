@@ -6,6 +6,7 @@ import {communityQuery,publicProfileId,validPublicSettings} from '../core/domain
 import {accountJson as json} from './account-http.ts';
 import {boundedJson} from './bounded-json.ts';
 import {communityLimit} from './community-limits.ts';
+import {identityDatabase,sharedIdentity} from './account-identity.ts';
 export async function handleOwnAuctionProfile(request:Request,env:AccountEnv,userId:string){
  if(env.AUTH_COMMUNITY_ENABLED!=='true')return json({error:'Account showcases are not enabled yet'},503);
  const db=env.DB as D1DatabaseLike;
@@ -25,9 +26,10 @@ export async function handleAuctionCommunity(request:Request,env:AccountEnv){
  const limited=await communityLimit(env,'read',request.headers.get('cf-connecting-ip'));if(limited)return limited;
  try{
   const url=new URL(request.url),tail=url.pathname.slice('/api/games/auction-community'.length),db=env.DB as D1DatabaseLike;
-  if(!tail){const query=communityQuery(url.searchParams);if(!query)return json({error:'Invalid community query'},400);return json(await auctionCommunityPage(db,query.view,query.cursor,env.AUTH_COMMUNITY_MODERATION_ENABLED==='true'))}
+  const identity=sharedIdentity(env)?identityDatabase(env):undefined;
+  if(!tail){const query=communityQuery(url.searchParams);if(!query)return json({error:'Invalid community query'},400);return json(await auctionCommunityPage(db,query.view,query.cursor,env.AUTH_COMMUNITY_MODERATION_ENABLED==='true',identity))}
   if(url.search)return json({error:'Profile API does not accept query parameters'},400);
   const id=tail.slice(1);if(!publicProfileId(id))return json({error:'Showcase not found or private'},404);
-  const profile=await publicAuctionProfile(db,id,env.AUTH_COMMUNITY_MODERATION_ENABLED==='true');return profile?json(profile):json({error:'Showcase not found or private'},404);
+  const profile=await publicAuctionProfile(db,id,env.AUTH_COMMUNITY_MODERATION_ENABLED==='true',identity);return profile?json(profile):json({error:'Showcase not found or private'},404);
  }catch(cause){return json({error:cause instanceof Error&&cause.message==='Invalid community cursor'?'Invalid page cursor':'Community data is temporarily unavailable'},cause instanceof Error&&cause.message==='Invalid community cursor'?400:503)}
 }

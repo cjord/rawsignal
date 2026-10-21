@@ -18,6 +18,11 @@ export const accountIdentities=sqliteTable('auth_account',{
 });
 export const accountVerifications=sqliteTable('auth_verification',{id:text('id').primaryKey(),identifier:text('identifier').notNull(),value:text('value').notNull(),expiresAt:text('expiresAt').notNull(),createdAt:text('createdAt').notNull(),updatedAt:text('updatedAt').notNull()});
 export const accountRateLimits=sqliteTable('auth_rate_limit',{id:text('id').primaryKey(),key:text('key').notNull().unique(),count:integer('count').notNull(),lastRequest:integer('lastRequest').notNull()});
+// Shared identity database only (drizzle/identity). Local auth_user remains a save-owner
+// mirror; local sessions/provider tokens are never used after shared identity activation.
+export type SharedIdentityUser={id:string;name:string;email:string;emailVerified:boolean;image:string|null;createdAt:string;updatedAt:string};
+export type SharedIdentitySession={id:string;userId:string;token:string;environment:'staging'|'production';expiresAt:string;createdAt:string;updatedAt:string;ipAddress:string|null;userAgent:string|null};
+export type IdentityDeletionTask={user_id:string;created_at:string;staging_cleaned:0|1;production_cleaned:0|1};
 export const accountDocuments=sqliteTable('account_documents',{userId:text('user_id').notNull().references(()=>accountUsers.id,{onDelete:'cascade'}),key:text('document_key').notNull(),value:text('value_json').notNull(),revision:integer('revision').notNull(),updatedAt:text('updated_at').notNull()},table=>[primaryKey({columns:[table.userId,table.key]})]);
 export const accountRecoveryKeys=sqliteTable('account_recovery_keys',{userId:text('user_id').primaryKey().references(()=>accountUsers.id,{onDelete:'cascade'}),keyId:text('key_id').notNull().unique(),wrappedKey:text('wrapped_key').notNull(),iv:text('iv').notNull(),createdAt:text('created_at').notNull()});
 export const accountSyncHealth=sqliteTable('account_sync_health',{userId:text('user_id').notNull().references(()=>accountUsers.id,{onDelete:'cascade'}),usageDate:text('usage_date').notNull(),documentKey:text('document_key').notNull(),outcome:text('outcome').notNull(),count:integer('count').notNull().default(1),updatedAt:text('updated_at').notNull()},table=>[primaryKey({columns:[table.userId,table.usageDate,table.documentKey,table.outcome]})]);

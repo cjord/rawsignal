@@ -1,7 +1,12 @@
 import type {D1DatabaseLike} from './repository.ts';
 import type {AdminRun} from '../core/domain/admin.ts';
-export async function adminAccountSummary(db:D1DatabaseLike){
+export async function adminAccountSummary(db:D1DatabaseLike,identity:D1DatabaseLike=db){
  const now=new Date().toISOString();
+ if(identity!==db){
+  const owners=await identity.prepare(`SELECT (SELECT COUNT(*) FROM auth_user) AS accounts,(SELECT COUNT(*) FROM auth_session WHERE expiresAt>?) AS activeSessions,(SELECT COALESCE(MAX(count),0) FROM auth_rate_limit WHERE key=?) AS emailAttemptsToday`).bind(now,'otp-day:'+now.slice(0,10)).first<{accounts:number;activeSessions:number;emailAttemptsToday:number}>();
+  const saves=await db.prepare('SELECT COUNT(*) AS documents,COALESCE(SUM(length(CAST(value_json AS BLOB))),0) AS documentBytes FROM account_documents').first<{documents:number;documentBytes:number}>();
+  if(!owners||!saves)throw new Error('Account summary unavailable');return {...owners,...saves};
+ }
  const row=await db.prepare(`SELECT (SELECT COUNT(*) FROM auth_user) AS accounts,
  (SELECT COUNT(*) FROM auth_session WHERE expiresAt>?) AS activeSessions,
  (SELECT COUNT(*) FROM account_documents) AS documents,

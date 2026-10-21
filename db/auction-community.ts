@@ -23,7 +23,7 @@ function communityCursor(raw:string|null,mode:string){
  if(!raw)return null;
  try{const row=JSON.parse(raw);if(!Array.isArray(row)||row.length!==5||row[0]!==mode||!Number.isSafeInteger(row[1])||!Number.isSafeInteger(row[2])||row[2]<0||!publicProfileId(String(row[3]))||!Number.isSafeInteger(row[4])||row[4]<0||row[4]>10000)throw new Error();return row as [string,number,number,string,number]}catch{throw new Error('Invalid community cursor')}
 }
-export async function auctionCommunityPage(db:D1DatabaseLike,mode:'leaderboard'|'showcases',rawCursor:string|null,moderation=false):Promise<AuctionCommunityPage>{
+export async function auctionCommunityPage(db:D1DatabaseLike,mode:'leaderboard'|'showcases',rawCursor:string|null,moderation=false,identity?:D1DatabaseLike):Promise<AuctionCommunityPage>{
  const cursor=communityCursor(rawCursor,mode),offset=cursor?.[4]??0,args:unknown[]=[];
  // Only opted-in showcase slots (maximum 20 per account), never inventory or
  // auction history. Prices are joined on read; daily ingestion has no new writes.
@@ -42,15 +42,26 @@ export async function auctionCommunityPage(db:D1DatabaseLike,mode:'leaderboard'|
  const tie=mode==='leaderboard'?'settled':'0',where=cursor?`WHERE (sort_value<? OR (sort_value=? AND ${tie}<?) OR (sort_value=? AND ${tie}=? AND id>?))`:'';
  if(cursor)args.push(cursor[1],cursor[1],cursor[2],cursor[1],cursor[2],cursor[3]);
  const extra=mode==='showcases'?',CASE WHEN sort_value>=0 THEN sort_value ELSE NULL END AS showcaseValue,knownValue,cardCount,unpriced':'';
- const result=await db.prepare(`${valueCte} SELECT id,username AS displayName,showcase_public AS showcasePublic,profit_cents AS profit,settled,won,updated_at AS updatedAt${extra} FROM ranked ${where} ORDER BY sort_value DESC,${mode==='leaderboard'?'settled DESC,':''}id LIMIT 26`).bind(...args).all<AuctionCommunityRow>();
+ const result=await db.prepare(`${valueCte} SELECT id,user_id AS ownerId,username AS displayName,showcase_public AS showcasePublic,profit_cents AS profit,settled,won,updated_at AS updatedAt${extra} FROM ranked ${where} ORDER BY sort_value DESC,${mode==='leaderboard'?'settled DESC,':''}id LIMIT 26`).bind(...args).all<AuctionCommunityRow&{ownerId:string}>();
  if(!result.results)throw new Error('Community unavailable');
- const rows=result.results.slice(0,25).map(row=>({...row,showcasePublic:!!row.showcasePublic})),last=rows.at(-1);
- return {rows,offset,nextCursor:result.results.length>25&&last?JSON.stringify([mode,mode==='leaderboard'?last.profit:last.showcaseValue??-1,mode==='leaderboard'?last.settled:0,last.id,offset+rows.length]):null};
+ const page=result.results.slice(0,25),last=page.at(-1);
+ const rows=await visibleCommunityRows(page,identity);
+ return {rows,offset,nextCursor:result.results.length>25&&last?JSON.stringify([mode,mode==='leaderboard'?last.profit:last.showcaseValue??-1,mode==='leaderboard'?last.settled:0,last.id,offset+page.length]):null};
 }
-export async function publicAuctionProfile(db:D1DatabaseLike,id:string,moderation=false):Promise<PublicAuctionProfile|null>{
+async function visibleCommunityRows(page:(AuctionCommunityRow&{ownerId:string})[],identity?:D1DatabaseLike){
+ const owners=identity&&page.length?await identity.prepare(`SELECT id FROM auth_user WHERE id IN (${page.map(()=>'?').join(',')})`).bind(...page.map(row=>row.ownerId)).all<{id:string}>():null;
+ if(owners&&!owners.results)throw new Error('Identity visibility unavailable');
+ const live=owners?new Set(owners.results!.map(row=>row.id)):null;
+ return page.filter(row=>!live||live.has(row.ownerId)).map(({ownerId,...row})=>{void ownerId;return {...row,showcasePublic:!!row.showcasePublic}});
+}
+export async function publicAuctionProfile(db:D1DatabaseLike,id:string,moderation=false,identity?:D1DatabaseLike):Promise<PublicAuctionProfile|null>{
  const visible=moderation?' AND NOT EXISTS(SELECT 1 FROM auction_profile_moderation m WHERE m.profile_id=p.id AND m.hidden=1)':'';
  const row=await db.prepare(`SELECT p.id,u.public_username AS displayName,p.showcase_public AS showcasePublic,p.updated_at AS updatedAt,d.value_json AS value,a.value_json AS appearance FROM auction_public_profiles p JOIN auth_user u ON u.id=p.user_id AND length(trim(u.public_username))>0 LEFT JOIN account_documents d ON d.user_id=p.user_id AND d.document_key=? LEFT JOIN account_documents a ON a.user_id=p.user_id AND a.document_key=? WHERE p.id=? AND (p.showcase_public=1 OR p.leaderboard_public=1)${visible}`).bind(gameKey,AUCTION_APPEARANCE_KEY,id).first<{id:string;displayName:string;showcasePublic:number;updatedAt:string;value:string|null;appearance:string|null}>();
  if(!row)return null;
+ if(identity){
+  const owner=await db.prepare('SELECT user_id AS id FROM auction_public_profiles WHERE id=?').bind(id).first<{id:string}>();
+  if(!owner||!await identity.prepare('SELECT id FROM auth_user WHERE id=?').bind(owner.id).first())return null;
+ }
  const save=row.value?parseAuctionSave(row.value):null,stored=save?.statistics??emptyAuctionStatistics(),stats=Object.fromEntries(Object.keys(emptyAuctionStatistics()).map(key=>[key,stored[key as keyof typeof stored]])) as typeof stored,holdings=row.showcasePublic?save?.showcase??[]:[];
  const decoration=publicBackdropHoldings(!!row.showcasePublic,row.appearance);
  const ids=[...new Set([...holdings,...decoration].map(card=>card.productId))],published=ids.length?await readyCatalogRun(db):null;

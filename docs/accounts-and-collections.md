@@ -1,5 +1,54 @@
 # Accounts and collections
 
+## Confirmed production direction — 2026-10-21
+
+The user now explicitly authorizes the account production rollout and reuse of the
+existing Google/Discord OAuth applications. This supersedes the earlier preference
+for separate provider applications; it does not share browser cookies across the
+production custom domain and staging workers.dev hostname.
+
+The user confirmed **shared identity, separate staging saves**. Google/Discord links
+and the canonical account belong to one identity boundary. Game progress, cash,
+inventory/showcase holdings, favorites, imports and preferences remain isolated by
+environment. No automatic copying/merging of guest progress or environment saves.
+Staging authenticated access is admin-only, verified by the server, not a UI filter.
+Sharing provider applications alone does not implement shared identity.
+
+The [shared identity implementation](shared-account-identity.md) now separates
+Better Auth's canonical identity/session store from environment-local documents.
+It includes save-owner mirroring, separate recovery wrapping, environment-tagged
+sessions/cookies, production-only global identity/security mutations, deletion
+reconciliation and per-request staging administrator enforcement. Remote activation
+still requires the approved private backups, identity-only migration/import and
+staging-first deployment. Never point staging's `DB` at production or copy production
+saves into staging. Guest market browsing is not made private by this account rule.
+
+Provider prerequisites: retain existing staging callbacks and add these callbacks
+in the same provider applications:
+
+```text
+https://rawsignal.cards/api/auth/callback/google
+https://rawsignal.cards/api/auth/callback/discord
+```
+
+The user confirmed both production callbacks were added on 2026-10-21. The older
+saved Google JSON does not list that callback; it is a historical download, not the
+provider dashboard's current state. Full production OAuth exchange remains to test.
+Credentials can be reused with the user's permission; never paste them into chat.
+Production has no auth secrets or account migrations provisioned as of the read-only
+preflight. Preserve existing staging recovery data and take approved backups before
+any identity migration. Existing admin IDs/provider links are preserved, but old
+sessions are deliberately not copied; sign in again after switching stores.
+
+On 2026-10-21 the user requested two verified-email admin grants. The operator-managed
+`AUTH_ADMIN_EMAILS` secret was updated on both existing Workers, preserving the prior
+local allowlist. Requested addresses remain in ignored `.secrets/accounts-admin-emails`,
+not the public documentation. Secret presence and unchanged database bindings, flags
+and schedules were verified after the updates. The role evaluator still requires
+verified server-session email; no account was created, email verification bypassed,
+session assumed or account-enabled flag changed. Production's grant is provisioned
+for activation; accounts and the shared-identity boundary are not live there yet.
+
 ## Status — staging testing, 2026-10-19
 
 Latest staging application source is `19bc36e`, version

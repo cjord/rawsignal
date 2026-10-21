@@ -8,6 +8,7 @@ import {adminAccountHealth,adminCatalogQuality,adminJobs} from '../db/admin-heal
 import {SUPPORT_PURPOSES,type AdminAction} from '../core/domain/admin.ts';
 import {boundedJson} from './bounded-json.ts';
 import {handleCommunityModeration} from './community-moderation.ts';
+import {identityDatabase,sharedIdentity} from './account-identity.ts';
 type AdminUser={id:string;email:string;emailVerified:boolean};
 export async function handleAdminManagement(request:Request,env:AccountEnv,user:AdminUser,sessionCreatedAt?:Date|string){
  const db=env.DB as D1DatabaseLike,role=accountRole(user,env),requestId=crypto.randomUUID();
@@ -28,8 +29,8 @@ export async function handleAdminManagement(request:Request,env:AccountEnv,user:
  const configured=Number(env.AUTH_EMAIL_DAILY_LIMIT??100);
  const emailDailyLimit=Number.isSafeInteger(configured)&&configured>0?configured:100;
  if(tab==='quality')return json(await adminCatalogQuality(db));
- if(tab==='jobs')return json(await adminJobs(db,emailDailyLimit));
- return json({...await adminAccountSummary(db),environment:env.ENVIRONMENT??'development',auditEnabled:true,recoveryEnabled:env.AUTH_RECOVERY_ENABLED==='true',emailDailyLimit,asOf:new Date().toISOString()});
+ if(tab==='jobs')return json(await adminJobs(db,emailDailyLimit,identityDatabase(env)));
+ return json({...await adminAccountSummary(db,identityDatabase(env)),identityScope:sharedIdentity(env)?'Shared accounts and sessions; saves and audits belong to this environment.':'This environment',environment:env.ENVIRONMENT??'development',auditEnabled:true,recoveryEnabled:env.AUTH_RECOVERY_ENABLED==='true',emailDailyLimit,asOf:new Date().toISOString()});
 }
 async function accountLookup(request:Request,env:AccountEnv,actorId:string,requestId:string){
  if(request.method!=='POST')return json({error:'Use the account lookup form'},405);
@@ -38,5 +39,5 @@ async function accountLookup(request:Request,env:AccountEnv,actorId:string,reque
  if(typeof body?.accountId!=='string'||!/^[a-zA-Z0-9_-]{1,128}$/.test(body.accountId)||!SUPPORT_PURPOSES.includes(body.purpose))return json({error:'An exact account ID and support purpose are required'},400);
  const db=env.DB as D1DatabaseLike;
  await appendAdminAudit(db,{actorId,actorRole:'admin',action:'admin.accounts.read',outcome:'allowed',requestId,targetId:body.accountId,reasonCode:body.purpose});
- return json(await adminAccountHealth(db,body.accountId));
+ return json(await adminAccountHealth(db,body.accountId,identityDatabase(env)));
 }

@@ -21,7 +21,11 @@ export default function AccountProvider({enabled,children}:{enabled:boolean;chil
   if(cloudStatus().pending){setAccount(current=>({...current,error:'Unsynced changes are still in this tab. Export them before reloading or changing accounts.'}));return}
   configureAccountStorage('loading');setAccount(current=>({...current,loading:true,error:''}));
   try{
-   const {response,data:payload}=await requestJson('/api/account/session',{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw new Error('Account service unavailable. Retry before making changes.');
+   const {response,data:payload}=await requestJson('/api/account/session',{credentials:'same-origin',cache:'no-store'});
+   if(response.status===403&&(payload as {code?:string})?.code==='STAGING_ADMIN_ONLY'){
+    configureAccountStorage('blocked');setAccount(current=>({...current,loading:false,restricted:true,error:'Staging accounts are limited to administrators. Use rawsignal.cards for your account; production saves are unchanged.'}));return;
+   }
+   if(!response.ok)throw new Error('Account service unavailable. Retry before making changes.');
    const data=payload as AccountState&{documents:AccountDocument[]};
    configureAccountStorage(data.user?'account':'guest',data.user?.id,data.documents??[]);
    if(data.user)await initializeAccountRecovery(data.features?.recovery===true);
@@ -37,7 +41,7 @@ export default function AccountProvider({enabled,children}:{enabled:boolean;chil
  useEffect(()=>{const warn=(event:BeforeUnloadEvent)=>{if(cloudStatus().pending){event.preventDefault();event.returnValue=''}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn)},[]);
  if(!enabled)return children;
  return <AccountContext.Provider value={context}>
-  {account.error&&<div className="account-status" role="alert">{account.error} {cloud.pending?<button type="button" className="game-control" onClick={downloadBackup}>Export Pending Changes</button>:<button type="button" className="game-control" onClick={()=>void bootstrap()}>Retry Account</button>}</div>}
+  {account.error&&<div className="account-status" role="alert">{account.error} {account.restricted?<><a className="game-control" href="https://rawsignal.cards/account">Production Account</a><button type="button" className="game-control" onClick={()=>void authAction('sign-out',{}).then(()=>location.assign('/'))}>Log Out of Staging</button></>:cloud.pending?<button type="button" className="game-control" onClick={downloadBackup}>Export Pending Changes</button>:<button type="button" className="game-control" onClick={()=>void bootstrap()}>Retry Account</button>}</div>}
   {account.user&&(cloud.pending>0||cloud.error)&&<div className="account-status" role={cloud.error?'alert':'status'}>{cloud.error||'Saving to your account…'}{cloud.error&&<>{!['conflict','session','invalid'].includes(cloud.failure)&&<button className="game-control" type="button" onClick={retryCloud}>Retry Save</button>}<button className="game-control" type="button" onClick={downloadBackup}>Export Pending Changes</button><button className="game-control" type="button" disabled={cloud.working} onClick={()=>setConfirmReload(true)}>Load Cloud Save</button></>}</div>}
   {account.user&&!cloud.pending&&cloud.recovery.drafts.length>0&&<div className="account-status" role="status">Unsynced progress was found on this device. <a href="/account#recovery">Review Recovery</a></div>}
   {confirmReload&&<AuctionDialog title="Load the Cloud Save?" onClose={()=>setConfirmReload(false)}><p>This discards this tab’s unsynced changes and loads the latest saved account. Export Pending Changes first if you want to keep a copy. Money and inventory will not be merged.</p><button className="game-control" type="button" onClick={downloadBackup}>Export Pending Changes</button><button className="game-control account-delete" type="button" disabled={cloud.working} onClick={()=>void discardCloudPending().then(()=>location.reload())}>Discard Local Changes &amp; Reload</button></AuctionDialog>}

@@ -5,7 +5,7 @@ import {pathToFileURL} from "node:url";
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const clone=value=>structuredClone(value);
 
-export function prepareDeploymentConfig(base,{environment,databaseId,databaseName,workerName,route,cron,accounts=false,authBaseUrl,accountTools=false,accountCommunity=false,auctionCatalogCache=false,communityLimits,communityReadNamespace,accountWriteNamespace,communityModeration}){
+export function prepareDeploymentConfig(base,{environment,databaseId,databaseName,workerName,route,cron,accounts=false,authBaseUrl,accountTools=false,accountCommunity=false,auctionCatalogCache=false,communityLimits,communityReadNamespace,accountWriteNamespace,communityModeration,sharedIdentity,identityDatabaseId}){
  if(environment!=="staging"&&environment!=="production")throw new Error("Environment must be staging or production");
  if(!uuid.test(databaseId??""))throw new Error("A valid Cloudflare D1 database UUID is required");
  if(!databaseName?.trim()||!workerName?.trim())throw new Error("Database and Worker names are required");
@@ -23,13 +23,14 @@ export function prepareDeploymentConfig(base,{environment,databaseId,databaseNam
  config.vars={...(config.vars??{}),ENVIRONMENT:environment};
  configureAuctionCatalog(config,environment,auctionCatalogCache);
  configureAccounts(config,{accounts,authBaseUrl,accountTools,accountCommunity});
+ configureIdentity(config,{accounts,sharedIdentity,identityDatabaseId,databaseId});
  configureCommunityProtection(config,{accounts,accountTools,accountCommunity,communityLimits,communityReadNamespace,accountWriteNamespace,communityModeration});
  if(environment==="production")config.vars.EBAY_DELETION_ENDPOINT_URL=`https://${route.trim()}/api/ebay/account-deletion`;
  else delete config.vars.EBAY_DELETION_ENDPOINT_URL;
  // A schedule exists only when explicitly requested (--cron / env) — never inherited from
  // the base config. Since the 2026-08-28 split, production is ingestion's home and carries
  // the guard cron; staging runs one only while deliberately testing ingestion changes.
- config.triggers=cron?.trim()?{crons:[cron.trim()]}:{};
+ config.triggers={crons:cron?.trim()?[cron.trim()]:[]};
  config.observability={...(config.observability??{}),enabled:true};
  // Service binding to the standalone Browser Rendering worker that walks the full Collectr
  // showcase API (workers/collectr-fetch). A binding — not a public workers.dev fetch — is
@@ -38,6 +39,14 @@ export function prepareDeploymentConfig(base,{environment,databaseId,databaseNam
  config.services=[{binding:"COLLECTR_FETCH",service:"raw-signal-collectr"}];
  if(environment==="production")config.routes=[{pattern:route.trim(),custom_domain:true}];else delete config.routes;
  return config;
+}
+
+function configureIdentity(config,{accounts,sharedIdentity,identityDatabaseId,databaseId}){
+ config.vars.AUTH_SHARED_IDENTITY_ENABLED='false';
+ if(!sharedIdentity)return;
+ if(!accounts||!uuid.test(identityDatabaseId??'')||identityDatabaseId===databaseId)throw new Error('Shared identity requires accounts and a distinct identity-only D1 database');
+ config.vars.AUTH_SHARED_IDENTITY_ENABLED='true';
+ config.d1_databases.push({binding:'IDENTITY_DB',database_name:'raw-signal-identity',database_id:identityDatabaseId,migrations_dir:'../../drizzle/identity'});
 }
 
 function configureAuctionCatalog(config,environment,enabled){
@@ -90,6 +99,7 @@ async function main(){
   cron:option("cron")??process.env.RAW_SIGNAL_STAGING_CRON,
   accounts:option('accounts')==='true',authBaseUrl:option('auth-base-url'),accountTools:option('account-tools')==='true',accountCommunity:option('account-community')==='true',auctionCatalogCache:option('auction-catalog-cache')==='true',
   communityLimits:option('community-limits')==='true',communityReadNamespace:option('community-read-namespace'),accountWriteNamespace:option('account-write-namespace'),communityModeration:option('community-moderation')==='true',
+  sharedIdentity:option('shared-identity')==='true',identityDatabaseId:option('identity-database-id')??process.env.RAW_SIGNAL_IDENTITY_D1_DATABASE_ID,
  });
  await fs.mkdir(path.dirname(outPath),{recursive:true});await fs.writeFile(outPath,`${JSON.stringify(config,null,2)}\n`);
  console.log(outPath);

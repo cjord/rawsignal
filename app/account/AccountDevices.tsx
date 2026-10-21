@@ -1,7 +1,7 @@
 "use client";
 import {useState} from 'react';
 import AuctionDialog from '../games/AuctionDialog';
-type Device={id:string;current:boolean;userAgent:string|null;createdAt:string;expiresAt:string};
+type Device={id:string;current:boolean;userAgent:string|null;createdAt:string;expiresAt:string;environment?:string};
 function deviceName(agent:string|null){if(!agent)return 'Unknown Device';const browser=/Edg\//.test(agent)?'Edge':/Firefox\//.test(agent)?'Firefox':/Chrome\//.test(agent)?'Chrome':/Safari\//.test(agent)?'Safari':'Browser';const system=/iPhone|iPad/.test(agent)?'iOS':/Android/.test(agent)?'Android':/Windows/.test(agent)?'Windows':/Mac/.test(agent)?'macOS':'Other';return `${browser} · ${system}`}
 export default function AccountDevices(){
  const [devices,setDevices]=useState<Device[]|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[target,setTarget]=useState<Device|null>(null);

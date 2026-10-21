@@ -12,6 +12,22 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Accounts and collection saves — in progress (2026-10-19)
 
+- Production account rollout is now authorized (2026-10-21). Reuse Google/Discord
+  applications, with shared canonical identity but **separate environment saves**;
+  only verified admin accounts may authenticate/use accounts on staging. This is a
+  new identity boundary, not implemented by sharing OAuth client credentials. Keep
+  staging's market/game database isolated; plan owner references, wrapped recovery
+  keys, deletion/linking/revocation and preservation of existing staging identity.
+  Both production callbacks are user-confirmed; the two requested verified-email
+  admin grants are provisioned through the secret allowlist on both Workers.
+  Shared identity, staging admin-only enforcement, isolated recovery/saves and the
+  production-only security boundary are implemented locally. Identity-only schema,
+  narrow token-free admin import and a staging-first release procedure are documented
+  in [Shared account identity](shared-account-identity.md). Remote migration/activation
+  still follows approved private backups and the complete release gate; no source-only
+  implementation should be mistaken for live production activation.
+  [Confirmed direction and prerequisites](accounts-and-collections.md#confirmed-production-direction--2026-10-21).
+
 - **Release checkpoint 2026-10-21:** application `44ecc7a` is pushed and deployed to
   staging and production after the full 622-node/117-browser gate and live staging
   checks. Navigation, loading, Inventory/Profile Studio and save hardening shipped.
