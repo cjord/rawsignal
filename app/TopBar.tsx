@@ -15,6 +15,7 @@ const marketLinks=[
  {key:"sets",label:"Sets",href:"/sets",icon:"▦"},
  {key:"metrics",label:"Metrics",href:"/metrics",icon:"∿"},
  {key:"games",label:"Games",href:"/games",icon:"◇"},
+ {key:"collections",label:"Collections",href:"/collections",icon:"▧"},
  {key:"buylist",label:"Buy List",href:"/buylist",icon:"≡"},
  {key:"import",label:"Import",href:"/import",icon:"⇪"},
 ] as const;
@@ -22,6 +23,7 @@ export type TopBarActive=(typeof marketLinks)[number]["key"]|null;
 
 export default function TopBar({active=null,actions,strictness,onStrictness,settingsExtra,className=""}:{active?:TopBarActive;actions?:ReactNode;strictness:SignalStrictness;onStrictness:(value:SignalStrictness)=>void;settingsExtra?:ReactNode;className?:string}){
  const account=useAccount();
+ const visibleLinks=marketLinks.filter(item=>item.key!=='collections'||account.features?.collections);
  const [theme,setTheme]=useState<"dark"|"light">("dark");
  const [fontSize,setFontSize]=useState<"default"|"large">("default");
  const [settingsOpen,setSettingsOpen]=useState(false),settingsRef=useRef<HTMLDivElement>(null);
@@ -45,7 +47,7 @@ export default function TopBar({active=null,actions,strictness,onStrictness,sett
  return <><nav className={`topbar ${className}`.trim()}>
   <a className="brand" href="/"><span>R</span> Raw Signal</a>
   <div className="toplinks">
-   {marketLinks.map(item=><a key={item.key} href={item.href} className={active===item.key?"active":""} aria-current={active===item.key?"page":undefined}>{item.label}</a>)}
+   {visibleLinks.map(item=><a key={item.key} href={item.href} className={active===item.key?"active":""} aria-current={active===item.key?"page":undefined}>{item.label}</a>)}
    {actions}
    <AccountControl/>
    <div className="display-settings" ref={settingsRef}>
@@ -83,6 +85,6 @@ export default function TopBar({active=null,actions,strictness,onStrictness,sett
  {/* Phones hide the topbar links (space); destinations move to a bottom tab bar — the
      thumb-first pattern for a handful of top-level pages. Hidden above 560px. */}
  <nav className="tabbar" aria-label="Primary">
-  {marketLinks.map(item=><a key={item.key} href={item.href} className={active===item.key?"active":""} aria-current={active===item.key?"page":undefined}><span aria-hidden="true">{item.icon}</span><b>{item.label}</b></a>)}
+  {visibleLinks.map(item=><a key={item.key} href={item.href} aria-label={item.label} className={active===item.key?"active":""} aria-current={active===item.key?"page":undefined}><span aria-hidden="true">{item.icon}</span><b>{item.key==='collections'?'Holdings':item.label}</b></a>)}
  </nav></>;
 }

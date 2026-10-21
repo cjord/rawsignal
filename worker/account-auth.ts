@@ -7,7 +7,7 @@ import type {CommunityLimitsEnv} from './community-limits.ts';
 import {identityDatabase,identityRealm,sharedIdentity,stagingAccountAllowed} from './account-identity.ts';
 
 export type AccountEnv=CommunityLimitsEnv&{
- DB?:Parameters<typeof betterAuth>[0]['database'];AUTH_ENABLED?:string;AUTH_BASE_URL?:string;AUTH_SECRET?:string;
+ DB?:Parameters<typeof betterAuth>[0]['database'];AUTH_ENABLED?:string;AUTH_BASE_URL?:string;AUTH_SECRET?:string;AUTH_COLLECTIONS_ENABLED?:string;
  IDENTITY_DB?:Parameters<typeof betterAuth>[0]['database'];IDENTITY_AUTH_SECRET?:string;AUTH_SHARED_IDENTITY_ENABLED?:string;
  GOOGLE_CLIENT_ID?:string;GOOGLE_CLIENT_SECRET?:string;DISCORD_CLIENT_ID?:string;DISCORD_CLIENT_SECRET?:string;
  AUTH_EMAIL?:{send(message:{from:string;to:string;subject:string;text:string}):Promise<unknown>};

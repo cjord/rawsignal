@@ -5,7 +5,7 @@ import {pathToFileURL} from "node:url";
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const clone=value=>structuredClone(value);
 
-export function prepareDeploymentConfig(base,{environment,databaseId,databaseName,workerName,route,cron,accounts=false,authBaseUrl,accountTools=false,accountCommunity=false,auctionCatalogCache=false,communityLimits,communityReadNamespace,accountWriteNamespace,communityModeration,sharedIdentity,identityDatabaseId}){
+export function prepareDeploymentConfig(base,{environment,databaseId,databaseName,workerName,route,cron,accounts=false,authBaseUrl,accountTools=false,accountCommunity=false,auctionCatalogCache=false,communityLimits,communityReadNamespace,accountWriteNamespace,communityModeration,sharedIdentity,identityDatabaseId,collections}){
  if(environment!=="staging"&&environment!=="production")throw new Error("Environment must be staging or production");
  if(!uuid.test(databaseId??""))throw new Error("A valid Cloudflare D1 database UUID is required");
  if(!databaseName?.trim()||!workerName?.trim())throw new Error("Database and Worker names are required");
@@ -24,6 +24,7 @@ export function prepareDeploymentConfig(base,{environment,databaseId,databaseNam
  configureAuctionCatalog(config,environment,auctionCatalogCache);
  configureAccounts(config,{accounts,authBaseUrl,accountTools,accountCommunity});
  configureIdentity(config,{accounts,sharedIdentity,identityDatabaseId,databaseId});
+ configureCollections(config,accounts,collections);
  configureCommunityProtection(config,{accounts,accountTools,accountCommunity,communityLimits,communityReadNamespace,accountWriteNamespace,communityModeration});
  if(environment==="production")config.vars.EBAY_DELETION_ENDPOINT_URL=`https://${route.trim()}/api/ebay/account-deletion`;
  else delete config.vars.EBAY_DELETION_ENDPOINT_URL;
@@ -39,6 +40,10 @@ export function prepareDeploymentConfig(base,{environment,databaseId,databaseNam
  config.services=[{binding:"COLLECTR_FETCH",service:"raw-signal-collectr"}];
  if(environment==="production")config.routes=[{pattern:route.trim(),custom_domain:true}];else delete config.routes;
  return config;
+}
+function configureCollections(config,accounts,enabled){
+ if(enabled&&!accounts)throw new Error('Collections require account authentication');
+ config.vars.AUTH_COLLECTIONS_ENABLED=enabled?'true':'false';
 }
 
 function configureIdentity(config,{accounts,sharedIdentity,identityDatabaseId,databaseId}){
@@ -100,6 +105,7 @@ async function main(){
   accounts:option('accounts')==='true',authBaseUrl:option('auth-base-url'),accountTools:option('account-tools')==='true',accountCommunity:option('account-community')==='true',auctionCatalogCache:option('auction-catalog-cache')==='true',
   communityLimits:option('community-limits')==='true',communityReadNamespace:option('community-read-namespace'),accountWriteNamespace:option('account-write-namespace'),communityModeration:option('community-moderation')==='true',
   sharedIdentity:option('shared-identity')==='true',identityDatabaseId:option('identity-database-id')??process.env.RAW_SIGNAL_IDENTITY_D1_DATABASE_ID,
+  collections:option('collections')==='true',
  });
  await fs.mkdir(path.dirname(outPath),{recursive:true});await fs.writeFile(outPath,`${JSON.stringify(config,null,2)}\n`);
  console.log(outPath);

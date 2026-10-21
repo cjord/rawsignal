@@ -12,6 +12,29 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Accounts and collection saves — in progress (2026-10-19)
 
+- **Real-world Collections first release (2026-10-21):** implementation and full
+  gate complete (639 unit tests, one skip, 122 browser journeys); source push/staging
+  verification pending. Multiple named
+  collections, dated lots, baseline-aware metrics, explicit three-day review history,
+  table/grid holdings, reviewed Collectr imports, FIFO sales and optional Card Show
+  sticker prices. No new migration/cron; production flag remains off. See
+  [scope and acceptance](owned-collections.md). Follow-up: signed-in staging acceptance,
+  alternate detail-only printings/conditions, holdings-aware historical charts,
+  transfers/bulk edits and offline collection recovery before increasing storage limits.
+
+- **New-set coverage audit (2026-10-21, diagnosis only):** production's stored catalog
+  has Radiance 228 singles/153 priced + 11 sealed/8 priced; Delta Reign 21 sealed/15
+  priced and no eligible source singles; 30th Celebration 40 singles/40 priced + 52
+  sealed/52 priced. New Pokémon labels Pikachu Rare (30 source cards), Futuristic Rare
+  (2), RGB Rare (3) and Classic Collection (30) are rejected by the current rarity
+  allowlist. Decide explicit sections/heatmap tiers and fold Classic Collection into
+  its parent for heatmap aggregation; do not silently map them to an unrelated rarity.
+  Radiance art/main-set heatmap support already exists, but its singles are absent
+  from bundled feeds: local singles generation still excludes future groups, whereas
+  live ingestion allows 120-day presales. Align that policy deliberately and regenerate
+  feeds with review; no source refresh or rarity-policy mutation was made in this audit.
+  Uncurated pull rates and insufficient history must remain unavailable.
+
 - **Accounts live on staging and production (2026-10-21):** shared canonical identity
   with separate environment saves/recovery, verified admin-only staging access and
   production-only shared security controls shipped as `77537b5`. Approved private

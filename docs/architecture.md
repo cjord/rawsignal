@@ -16,6 +16,12 @@ The migration direction documented in [ADR 001](adr/001-hosting-and-database.md)
 
 ### Optional accounts
 
+Real-world account Collections uses a separate, on-demand private document/actions
+endpoint rather than the game-save client queue. Server-captured dated market
+baselines, FIFO sales and explicit review snapshots reuse `account_documents` without
+a migration. The default-off Collections flag requires accounts; there is no guest
+or public portfolio. [Contracts, math, limits and rollout](owned-collections.md).
+
 The local account foundation is default-off. `worker/account-auth.ts` configures
 Better Auth and native email sending; `worker/account-routes.ts` intercepts private
 auth/save routes before public caches. `db/account-documents.ts` owns session-scoped

@@ -12,8 +12,8 @@ import {requestJson} from '../data/request-json';
 export {authAction} from './auth-client';
 export async function signOutAccount(){await flushCloud();if(cloudStatus().pending)throw new Error('Wait for cloud saves to finish before logging out.');await flushDeviceRecovery();await authAction('sign-out',{});location.assign('/');}
 function downloadBackup(){const url=URL.createObjectURL(new Blob([pendingBackup()],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download='raw-signal-unsynced-backup.json';link.click();URL.revokeObjectURL(url);}
-export default function AccountProvider({enabled,children}:{enabled:boolean;children:ReactNode}){
- const [account,setAccount]=useState<AccountState>({...defaults,enabled,loading:enabled}),[scope,setScope]=useState('initial'),[cloud,setCloud]=useState(cloudStatus);
+export default function AccountProvider({enabled,children,collectionsEnabled=false}:{enabled:boolean;children:ReactNode;collectionsEnabled?:boolean}){
+ const [account,setAccount]=useState<AccountState>({...defaults,enabled,loading:enabled,...(collectionsEnabled?{features:{recovery:false,audit:false,collections:true}}:{})}),[scope,setScope]=useState('initial'),[cloud,setCloud]=useState(cloudStatus);
  const [confirmReload,setConfirmReload]=useState(false);
  const updateName=useCallback((name:string,publicUsername?:string)=>setAccount(current=>({...current,user:current.user?{...current.user,name,...(publicUsername===undefined?{}:{publicUsername})}:null})),[]);
  const context=useMemo(()=>({...account,updateName}),[account,updateName]);

@@ -12,17 +12,20 @@ import {handleOwnAuctionProfile} from './auction-community.ts';
 import {accountUsername,handleAccountProfile} from './account-profile.ts';
 import {handleAccountExport} from './account-export.ts';
 import {communityLimit} from './community-limits.ts';
+import {collectionsEnabled,handleCollections} from './collection-routes.ts';
+import {COLLECTIONS_KEY} from '../core/domain/owned-collections.ts';
 import {identityDatabase,identityRealm,identitySessionAllowed,prepareIdentityOwner,reconcileIdentityDeletes,sharedIdentity,stagingAccountAllowed,stagingAuthPathAllowed,stagingIdentityReadOnly} from './account-identity.ts';
 
 export function privateAccountPath(path:string){return path==='/api/auth'||path.startsWith('/api/auth/')||path==='/api/account'||path.startsWith('/api/account/');}
 async function sessionResponse(env:AccountEnv,user:{id:string;name:string;email:string;emailVerified:boolean}|null){
- return json({enabled:true,features:{recovery:env.AUTH_RECOVERY_ENABLED==='true',audit:env.AUTH_AUDIT_ENABLED==='true',community:env.AUTH_COMMUNITY_ENABLED==='true',...(sharedIdentity(env)?{sharedIdentity:true,identityReadOnly:stagingIdentityReadOnly(env)}:{})},providers:accountProviders(env),user:user?{...user,publicUsername:env.AUTH_COMMUNITY_ENABLED==='true'?await accountUsername(env.DB as D1DatabaseLike,user.id):null,role:accountRole(user,env)}:null,documents:user?await accountDocuments(env.DB as D1DatabaseLike,user.id):[]});
+ return json({enabled:true,features:{recovery:env.AUTH_RECOVERY_ENABLED==='true',audit:env.AUTH_AUDIT_ENABLED==='true',community:env.AUTH_COMMUNITY_ENABLED==='true',...(collectionsEnabled(env)?{collections:true}:{}),...(sharedIdentity(env)?{sharedIdentity:true,identityReadOnly:stagingIdentityReadOnly(env)}:{})},providers:accountProviders(env),user:user?{...user,publicUsername:env.AUTH_COMMUNITY_ENABLED==='true'?await accountUsername(env.DB as D1DatabaseLike,user.id):null,role:accountRole(user,env)}:null,documents:user?await accountDocuments(env.DB as D1DatabaseLike,user.id,false):[]});
 }
 async function saveDocument(request:Request,db:D1DatabaseLike,userId:string,origin:string,audit:boolean){
  if(request.headers.get('Origin')!==origin)return json({error:'Invalid origin'},403);
  if(!request.headers.get('Content-Type')?.startsWith('application/json'))return json({error:'JSON required'},415);
  let body;try{body=await boundedJson(request)}catch{return json({error:'Invalid or oversized JSON'},400)}
  if(body?.owner!==userId)return json({error:'The signed-in account changed. Reload before continuing.'},401);
+ if(body?.key===COLLECTIONS_KEY)return json({error:'Use the collection actions endpoint to preserve dated baselines and history.'},400);
  if(!body||!isAccountKey(body.key)||!validAccountValue(body.key,body.value)||!Number.isSafeInteger(body.revision)||body.revision<0){if(audit)await recordSyncHealth(db,userId,isAccountKey(body?.key)?body.key:'invalid','invalid');return json({error:'Invalid save'},400)}
  const document=await writeAccountDocument(db,userId,body.key,body.value,body.revision);
  if(audit)await recordSyncHealth(db,userId,body.key,document?'saved':'conflict');
@@ -71,6 +74,7 @@ async function limitedSave(request:Request,env:AccountEnv,userId:string){
 }
 type AccountSession=NonNullable<Awaited<ReturnType<ReturnType<typeof createAccountAuth>['api']['getSession']>>>;
 async function authenticatedRoute(request:Request,env:AccountEnv,auth:ReturnType<typeof createAccountAuth>,session:AccountSession,path:string){
+ if(path==='/api/account/collections')return handleCollections(request,env,session.user.id);
  if(path==='/api/account/export')return await handleAccountExport(request,env.DB as D1DatabaseLike,session.user,env.AUTH_COMMUNITY_ENABLED==='true');
  if(path==='/api/account/profile')return await handleAccountProfile(request,env,session.user.id);
  if(path==='/api/account/admin'&&request.method==='GET')return accountRole(session.user,env)==='admin'?json({role:'admin'}):json({error:'Administrator access required'},403);

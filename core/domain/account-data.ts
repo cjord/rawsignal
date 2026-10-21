@@ -1,6 +1,7 @@
 import {parseAuctionSave} from './auction-save.ts';
 import {parseDailyShowdown} from './showdown-daily.ts';
 import {validAuctionAppearance,AUCTION_APPEARANCE_KEY} from './auction-appearance.ts';
+import {COLLECTIONS_KEY,parseCollections} from './owned-collections.ts';
 
 // Explicit user-owned domains only. Never synchronize navigation URLs, credentials,
 // cached market feeds, or developer flags. Real collections stay separate from game money.
@@ -11,6 +12,7 @@ export const ACCOUNT_KEYS=[
  'raw-signal-strictness','raw-signal-auction-sound','raw-signal-auction-auto-advance','raw-signal-buylist-size',
  'raw-signal-showdown-difficulty','raw-signal-showdown-auto-advance','raw-signal-notification-duration',
  AUCTION_APPEARANCE_KEY,
+ COLLECTIONS_KEY,
 ] as const;
 export type AccountKey=typeof ACCOUNT_KEYS[number];
 export type AccountDocument={key:AccountKey;value:string;revision:number;updatedAt:string};
@@ -32,6 +34,7 @@ export function validAccountValue(key:AccountKey,value:unknown):value is string{
  if(choices[key])return choices[key].includes(value);
  try{
   if(key===AUCTION_APPEARANCE_KEY)return validAuctionAppearance(JSON.parse(value));
+  if(key===COLLECTIONS_KEY){parseCollections(value);return true}
   if(key==='raw-signal-auction-house-v1'){parseAuctionSave(value);return true}
   if(key==='raw-signal-showdown-daily-v1'){parseDailyShowdown(value);return true}
   const parsed:unknown=JSON.parse(value);

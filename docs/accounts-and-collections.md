@@ -339,6 +339,12 @@ and live smoke checks are recorded above. Production remains unchanged.
 
 ## Next: real collections and monitoring
 
+The initial account-only Collections implementation is documented separately in
+[Account Collections](owned-collections.md): dated lots, explicit review checkpoints,
+reviewed imports, FIFO sales, and optional Card Show sticker pricing. The broader
+monitoring/archive/history-chart work below remains deferred; it is not a claim that
+those later capabilities are included in the first release.
+
 After auth/save reliability, introduce account-owned named real collections with
 explicit printing, condition, quantity, optional cost basis and import provenance.
 Support multiple Collectr imports with a preview/diff and deduplication decisions,
