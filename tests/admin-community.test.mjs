@@ -11,6 +11,7 @@ import {adminAccountHealth,adminCatalogQuality,adminJobs,recordSyncHealth} from 
 import {handleAdminManagement} from '../worker/admin-routes.ts';
 import {prepareDeploymentConfig} from '../scripts/cloudflare/prepare-deployment.mjs';
 import {handleAccountProfile} from '../worker/account-profile.ts';
+import {AUCTION_APPEARANCE_KEY} from '../core/domain/auction-appearance.ts';
 const origin='https://staging.example',key='raw-signal-auction-house-v1',now=new Date().toISOString();
 function fixture(){
  const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');
@@ -138,4 +139,24 @@ test('community configuration is default-off and never inherited from another re
  assert.equal(prepareDeploymentConfig({vars:{AUTH_COMMUNITY_ENABLED:'true'}},options).vars.AUTH_COMMUNITY_ENABLED,'false');
  assert.throws(()=>prepareDeploymentConfig({}, {...options,accountCommunity:true}));
  assert.equal(prepareDeploymentConfig({}, {...options,accounts:true,accountTools:true,accountCommunity:true,authBaseUrl:origin}).vars.AUTH_COMMUNITY_ENABLED,'true');
+});
+
+test('malformed public community queries are rejected before profile/catalog reads',async()=>{
+ const f=fixture();try{for(const query of ['?view=showcases&view=leaderboard','?cursor='+('x'.repeat(513)),'?unknown=1']){
+  const before=f.statements.length,response=await handleAuctionCommunity(req('/api/games/auction-community'+query),f.env);assert.equal(response.status,400);assert.equal(f.statements.length,before);
+ }}finally{f.sqlite.close()}
+});
+
+test('public cosmetic backgrounds resolve canonical exact-printing artwork only and disappear with private showcases',async()=>{
+ const f=fixture();try{
+  const appearance={version:1,cards:[{productId:7,printing:'Normal'},{productId:8,printing:'Foil'}]};
+  await writeAccountDocument(f.db,'owner-a',AUCTION_APPEARANCE_KEY,JSON.stringify(appearance),0);
+  const profile=await writePublicAuctionSettings(f.db,'owner-a',{...settings,leaderboardPublic:true});
+  f.sqlite.exec(`INSERT INTO ingestion_runs(id,source,status,started_at,completed_at,records_written,source_updated_at) VALUES('published','tcgcsv','succeeded','${now}','${now}',2,'${now}');INSERT INTO refresh_state(key,ingestion_run_id,last_success_at) VALUES('daily-market','published','${now}');`);
+  for(const id of [7,8])f.sqlite.prepare("INSERT INTO catalog_products(product_id,kind,game,name,set_name,rarity,printing,image_url,source_updated_at,ingestion_run_id) VALUES(?,'single','riftbound','Not Owned','Origins','Rare','Normal',?,?,'published')").run(id,'https://images.example/'+id,now);
+  const data=await publicAuctionProfile(f.db,profile.id);assert.deepEqual(data.backdrop,[{image:'https://images.example/7',rarity:'Rare',section:''}]);assert.equal(data.cards.length,0);assert.ok(!JSON.stringify(data).includes('owner-a'));
+  await writePublicAuctionSettings(f.db,'owner-a',{showcasePublic:false,leaderboardPublic:true});assert.deepEqual((await publicAuctionProfile(f.db,profile.id)).backdrop,[]);
+  f.sqlite.prepare('UPDATE account_documents SET value_json=? WHERE user_id=? AND document_key=?').run('{"version":1,"cards":[{"image":"https://untrusted.test"}]}','owner-a',AUCTION_APPEARANCE_KEY);
+  await writePublicAuctionSettings(f.db,'owner-a',{...settings,leaderboardPublic:true});assert.deepEqual((await publicAuctionProfile(f.db,profile.id)).backdrop,[]);
+ }finally{f.sqlite.close()}
 });

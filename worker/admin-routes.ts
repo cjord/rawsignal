@@ -7,8 +7,9 @@ import {accountJson as json} from './account-http.ts';
 import {adminAccountHealth,adminCatalogQuality,adminJobs} from '../db/admin-health.ts';
 import {SUPPORT_PURPOSES,type AdminAction} from '../core/domain/admin.ts';
 import {boundedJson} from './bounded-json.ts';
+import {handleCommunityModeration} from './community-moderation.ts';
 type AdminUser={id:string;email:string;emailVerified:boolean};
-export async function handleAdminManagement(request:Request,env:AccountEnv,user:AdminUser){
+export async function handleAdminManagement(request:Request,env:AccountEnv,user:AdminUser,sessionCreatedAt?:Date|string){
  const db=env.DB as D1DatabaseLike,role=accountRole(user,env),requestId=crypto.randomUUID();
  if(role!=='admin'){
   if(env.AUTH_AUDIT_ENABLED==='true')try{await appendAdminAudit(db,{actorId:user.id,actorRole:role,action:'admin.access.denied',outcome:'denied',requestId})}catch{/* A failed audit must not turn a denial into access. */}
@@ -17,6 +18,7 @@ export async function handleAdminManagement(request:Request,env:AccountEnv,user:
  if(env.AUTH_AUDIT_ENABLED!=='true')return json({error:'Management auditing is not enabled. Apply the pending migration before activation.'},503);
  const url=new URL(request.url),tab=url.pathname.split('/').at(-1);
  if(tab==='accounts')return accountLookup(request,env,user.id,requestId);
+ if(tab==='community')return handleCommunityModeration(request,env,user.id,requestId,sessionCreatedAt);
  if(request.method!=='GET')return json({error:'These management tools are read-only'},405);
  const actions:Record<string,AdminAction>={overview:'admin.overview.read',data:'admin.data.read',audit:'admin.audit.read',quality:'admin.quality.read',jobs:'admin.jobs.read'};
  const action=actions[tab??''];if(!action)return json({error:'Not found'},404);

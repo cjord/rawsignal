@@ -10,8 +10,13 @@ import {boundedJson} from './bounded-json.ts';
 import {recordSyncHealth} from '../db/admin-health.ts';
 import {handleOwnAuctionProfile} from './auction-community.ts';
 import {accountUsername,handleAccountProfile} from './account-profile.ts';
+import {handleAccountExport} from './account-export.ts';
+import {communityLimit} from './community-limits.ts';
 
 export function privateAccountPath(path:string){return path==='/api/auth'||path.startsWith('/api/auth/')||path==='/api/account'||path.startsWith('/api/account/');}
+async function sessionResponse(env:AccountEnv,user:{id:string;name:string;email:string;emailVerified:boolean}|null){
+ return json({enabled:true,features:{recovery:env.AUTH_RECOVERY_ENABLED==='true',audit:env.AUTH_AUDIT_ENABLED==='true',community:env.AUTH_COMMUNITY_ENABLED==='true'},providers:accountProviders(env),user:user?{...user,publicUsername:env.AUTH_COMMUNITY_ENABLED==='true'?await accountUsername(env.DB as D1DatabaseLike,user.id):null,role:accountRole(user,env)}:null,documents:user?await accountDocuments(env.DB as D1DatabaseLike,user.id):[]});
+}
 async function saveDocument(request:Request,db:D1DatabaseLike,userId:string,origin:string,audit:boolean){
  if(request.headers.get('Origin')!==origin)return json({error:'Invalid origin'},403);
  if(!request.headers.get('Content-Type')?.startsWith('application/json'))return json({error:'JSON required'},415);
@@ -39,6 +44,11 @@ async function handleDevices(request:Request,env:AccountEnv,auth:ReturnType<type
   }
  return json({error:'Method not allowed'},405);
 }
+async function limitedSave(request:Request,env:AccountEnv,userId:string){
+ if(request.headers.get('Origin')!==new URL(env.AUTH_BASE_URL!).origin)return json({error:'Invalid origin'},403);
+ const limited=await communityLimit(env,'write',userId);if(limited)return limited;
+ return saveDocument(request,env.DB as D1DatabaseLike,userId,new URL(env.AUTH_BASE_URL!).origin,env.AUTH_AUDIT_ENABLED==='true');
+}
 export async function handleAccountRoute(request:Request,env:AccountEnv):Promise<Response|null>{
  const path=new URL(request.url).pathname;if(!privateAccountPath(path))return null;
  if(!accountEnabled(env))return path==='/api/account/session'?json({enabled:false,user:null,providers:accountProviders(env)}):json({error:'Accounts are not enabled'},503);
@@ -46,17 +56,18 @@ export async function handleAccountRoute(request:Request,env:AccountEnv):Promise
   const auth=createAccountAuth(env);
   if(path.startsWith('/api/auth/')){const response=await auth.handler(request);const headers=new Headers(response.headers);for(const [key,value] of Object.entries(privateHeaders))headers.set(key,value);return new Response(response.body,{status:response.status,headers})}
   const session=await auth.api.getSession({headers:request.headers});
-  if(path==='/api/account/session'&&request.method==='GET')return json({enabled:true,features:{recovery:env.AUTH_RECOVERY_ENABLED==='true',audit:env.AUTH_AUDIT_ENABLED==='true',community:env.AUTH_COMMUNITY_ENABLED==='true'},providers:accountProviders(env),user:session?{...session.user,publicUsername:env.AUTH_COMMUNITY_ENABLED==='true'?await accountUsername(env.DB as D1DatabaseLike,session.user.id):null,role:accountRole(session.user,env)}:null,documents:session?await accountDocuments(env.DB as D1DatabaseLike,session.user.id):[]});
+  if(path==='/api/account/session'&&request.method==='GET')return await sessionResponse(env,session?.user??null);
   if(!session)return json({error:'Sign in required'},401);
+  if(path==='/api/account/export')return await handleAccountExport(request,env.DB as D1DatabaseLike,session.user,env.AUTH_COMMUNITY_ENABLED==='true');
   if(path==='/api/account/profile')return await handleAccountProfile(request,env,session.user.id);
   if(path==='/api/account/admin'&&request.method==='GET')return accountRole(session.user,env)==='admin'?json({role:'admin'}):json({error:'Administrator access required'},403);
-  if(path.startsWith('/api/account/admin/'))return await handleAdminManagement(request,env,session.user);
+  if(path.startsWith('/api/account/admin/'))return await handleAdminManagement(request,env,session.user,session.session.createdAt);
   if(path==='/api/account/auction-profile')return await handleOwnAuctionProfile(request,env,session.user.id);
   if(path==='/api/account/recovery-key')return await handleRecoveryKey(request,env,session.user);
   if(path==='/api/account/devices')return await handleDevices(request,env,auth,session);
   if(path==='/api/account/data'&&request.method==='GET')return json({documents:await accountDocuments(env.DB as D1DatabaseLike,session.user.id)});
   if(path==='/api/account/data'&&request.method==='PUT'){
-   return await saveDocument(request,env.DB as D1DatabaseLike,session.user.id,new URL(env.AUTH_BASE_URL!).origin,env.AUTH_AUDIT_ENABLED==='true');
+   return await limitedSave(request,env,session.user.id);
   }
   return json({error:'Not found'},404);
  }catch{return json({error:'Account service is unavailable. Your existing saves have not been overwritten.'},503)}

@@ -3,12 +3,13 @@ import {emailOTP} from 'better-auth/plugins/email-otp';
 import {APIError} from 'better-auth/api';
 import {claimAccountEmail} from '../db/account-email-budget.ts';
 import type {D1DatabaseLike} from '../db/repository.ts';
+import type {CommunityLimitsEnv} from './community-limits.ts';
 
-export type AccountEnv={
+export type AccountEnv=CommunityLimitsEnv&{
  DB?:Parameters<typeof betterAuth>[0]['database'];AUTH_ENABLED?:string;AUTH_BASE_URL?:string;AUTH_SECRET?:string;
  GOOGLE_CLIENT_ID?:string;GOOGLE_CLIENT_SECRET?:string;DISCORD_CLIENT_ID?:string;DISCORD_CLIENT_SECRET?:string;
  AUTH_EMAIL?:{send(message:{from:string;to:string;subject:string;text:string}):Promise<unknown>};
- AUTH_EMAIL_DAILY_LIMIT?:string;AUTH_ADMIN_EMAILS?:string;AUTH_AUDIT_ENABLED?:string;AUTH_RECOVERY_ENABLED?:string;AUTH_COMMUNITY_ENABLED?:string;ENVIRONMENT?:string;
+ AUTH_EMAIL_DAILY_LIMIT?:string;AUTH_ADMIN_EMAILS?:string;AUTH_AUDIT_ENABLED?:string;AUTH_RECOVERY_ENABLED?:string;AUTH_COMMUNITY_ENABLED?:string;AUTH_COMMUNITY_MODERATION_ENABLED?:string;ENVIRONMENT?:string;
 };
 export const accountEnabled=(env:AccountEnv)=>env.AUTH_ENABLED==='true';
 export function accountProviders(env:AccountEnv){return {google:!!(env.GOOGLE_CLIENT_ID&&env.GOOGLE_CLIENT_SECRET),discord:!!(env.DISCORD_CLIENT_ID&&env.DISCORD_CLIENT_SECRET),email:!!env.AUTH_EMAIL};}

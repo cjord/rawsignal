@@ -5,7 +5,7 @@ import {pathToFileURL} from "node:url";
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const clone=value=>structuredClone(value);
 
-export function prepareDeploymentConfig(base,{environment,databaseId,databaseName,workerName,route,cron,accounts=false,authBaseUrl,accountTools=false,accountCommunity=false}){
+export function prepareDeploymentConfig(base,{environment,databaseId,databaseName,workerName,route,cron,accounts=false,authBaseUrl,accountTools=false,accountCommunity=false,auctionCatalogCache=false,communityLimits,communityReadNamespace,accountWriteNamespace,communityModeration}){
  if(environment!=="staging"&&environment!=="production")throw new Error("Environment must be staging or production");
  if(!uuid.test(databaseId??""))throw new Error("A valid Cloudflare D1 database UUID is required");
  if(!databaseName?.trim()||!workerName?.trim())throw new Error("Database and Worker names are required");
@@ -21,7 +21,9 @@ export function prepareDeploymentConfig(base,{environment,databaseId,databaseNam
  config.images={binding:"IMAGES"};
  config.version_metadata={binding:"CF_VERSION_METADATA"};
  config.vars={...(config.vars??{}),ENVIRONMENT:environment};
+ configureAuctionCatalog(config,environment,auctionCatalogCache);
  configureAccounts(config,{accounts,authBaseUrl,accountTools,accountCommunity});
+ configureCommunityProtection(config,{accounts,accountTools,accountCommunity,communityLimits,communityReadNamespace,accountWriteNamespace,communityModeration});
  if(environment==="production")config.vars.EBAY_DELETION_ENDPOINT_URL=`https://${route.trim()}/api/ebay/account-deletion`;
  else delete config.vars.EBAY_DELETION_ENDPOINT_URL;
  // A schedule exists only when explicitly requested (--cron / env) — never inherited from
@@ -36,6 +38,22 @@ export function prepareDeploymentConfig(base,{environment,databaseId,databaseNam
  config.services=[{binding:"COLLECTR_FETCH",service:"raw-signal-collectr"}];
  if(environment==="production")config.routes=[{pattern:route.trim(),custom_domain:true}];else delete config.routes;
  return config;
+}
+
+function configureAuctionCatalog(config,environment,enabled){
+ if(enabled&&environment!=='staging')throw new Error('Auction catalog cache is staging-only during rollout');
+ config.vars.AUCTION_CATALOG_CACHE_ENABLED=enabled?'true':'false';
+}
+function configureCommunityProtection(config,{accounts,accountTools,accountCommunity,communityLimits,communityReadNamespace,accountWriteNamespace,communityModeration}){
+ config.vars.AUTH_COMMUNITY_LIMITS_ENABLED='false';config.vars.AUTH_COMMUNITY_MODERATION_ENABLED='false';
+ config.ratelimits=(config.ratelimits??[]).filter(binding=>!['COMMUNITY_READ_LIMITER','ACCOUNT_WRITE_LIMITER'].includes(binding.name));
+ if(!config.ratelimits.length)delete config.ratelimits;
+ if((communityLimits||communityModeration)&&(!accounts||!accountCommunity||!accountTools))throw new Error('Community protection requires accounts, tools and community');
+ if(communityModeration)config.vars.AUTH_COMMUNITY_MODERATION_ENABLED='true';
+ if(!communityLimits)return;
+ if(![communityReadNamespace,accountWriteNamespace].every(value=>typeof value==='string'&&/^[1-9][0-9]{0,15}$/.test(value))||communityReadNamespace===accountWriteNamespace)throw new Error('Choose distinct rate-limit namespace integers; keep staging and production separate');
+ config.vars.AUTH_COMMUNITY_LIMITS_ENABLED='true';
+ config.ratelimits=[...(config.ratelimits??[]),{name:'COMMUNITY_READ_LIMITER',namespace_id:communityReadNamespace,simple:{limit:120,period:60}},{name:'ACCOUNT_WRITE_LIMITER',namespace_id:accountWriteNamespace,simple:{limit:60,period:60}}];
 }
 
 function configureAccounts(config,{accounts,authBaseUrl,accountTools,accountCommunity}){
@@ -70,7 +88,8 @@ async function main(){
   environment,databaseId,databaseName:option("database-name")??defaults.databaseName,
   workerName:option("worker-name")??defaults.workerName,route:option("route"),
   cron:option("cron")??process.env.RAW_SIGNAL_STAGING_CRON,
-  accounts:option('accounts')==='true',authBaseUrl:option('auth-base-url'),accountTools:option('account-tools')==='true',accountCommunity:option('account-community')==='true',
+  accounts:option('accounts')==='true',authBaseUrl:option('auth-base-url'),accountTools:option('account-tools')==='true',accountCommunity:option('account-community')==='true',auctionCatalogCache:option('auction-catalog-cache')==='true',
+  communityLimits:option('community-limits')==='true',communityReadNamespace:option('community-read-namespace'),accountWriteNamespace:option('account-write-namespace'),communityModeration:option('community-moderation')==='true',
  });
  await fs.mkdir(path.dirname(outPath),{recursive:true});await fs.writeFile(outPath,`${JSON.stringify(config,null,2)}\n`);
  console.log(outPath);

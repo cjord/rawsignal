@@ -1,4 +1,12 @@
-# Catalog Snapshot Cache — proposal, not implemented
+# Catalog Snapshot Cache — staged implementation design
+
+Update 2026-10-19: implementation has begun. The compact versioned endpoint,
+database consistency guard, shared memory cache and gated consumers are implemented
+locally, including transaction revalidation and changed-sale-quote confirmation.
+Read-cost measurement, live parity and activation remain.
+The switch is off by default and production cannot enable it. See
+[implementation progress](auction-implementation-progress.md). The original design
+below remains the target; it is not a claim that every stage is shipped.
 
 ## Current behavior and evidence
 

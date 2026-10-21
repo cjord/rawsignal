@@ -8,6 +8,7 @@ import type {AccountDocument} from '../../core/domain/account-data';
 import {AccountContext,accountDefaults as defaults,type AccountState} from './context';
 export {useAccount,type AccountUser} from './context';
 import {authAction} from './auth-client';
+import {requestJson} from '../data/request-json';
 export {authAction} from './auth-client';
 export async function signOutAccount(){await flushCloud();if(cloudStatus().pending)throw new Error('Wait for cloud saves to finish before logging out.');await flushDeviceRecovery();await authAction('sign-out',{});location.assign('/');}
 function downloadBackup(){const url=URL.createObjectURL(new Blob([pendingBackup()],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download='raw-signal-unsynced-backup.json';link.click();URL.revokeObjectURL(url);}
@@ -20,8 +21,8 @@ export default function AccountProvider({enabled,children}:{enabled:boolean;chil
   if(cloudStatus().pending){setAccount(current=>({...current,error:'Unsynced changes are still in this tab. Export them before reloading or changing accounts.'}));return}
   configureAccountStorage('loading');setAccount(current=>({...current,loading:true,error:''}));
   try{
-   const response=await fetch('/api/account/session',{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw new Error('Account service unavailable. Retry before making changes.');
-   const data=await response.json() as AccountState&{documents:AccountDocument[]};
+   const {response,data:payload}=await requestJson('/api/account/session',{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw new Error('Account service unavailable. Retry before making changes.');
+   const data=payload as AccountState&{documents:AccountDocument[]};
    configureAccountStorage(data.user?'account':'guest',data.user?.id,data.documents??[]);
    if(data.user)await initializeAccountRecovery(data.features?.recovery===true);
    if(data.user){document.documentElement.dataset.theme=getSavedItem('raw-signal-theme')==='light'?'light':'dark';document.documentElement.dataset.fontSize=getSavedItem('raw-signal-font-size')==='large'?'large':'default';}

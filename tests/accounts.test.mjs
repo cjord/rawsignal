@@ -13,8 +13,27 @@ import {accountRole} from '../worker/account-role.ts';
 import {handleAdminPage,isAdminPage} from '../worker/admin-pages.ts';
 import {appendAdminAudit,readAdminAudit,pruneExpiredAdminAudit} from '../db/admin-audit.ts';
 import {accountRecoveryKey} from '../db/account-recovery.ts';
+import {writeAccountDocument} from '../db/account-documents.ts';
+import {writePublicAuctionSettings} from '../db/auction-community.ts';
 
 const origin='http://localhost:3000';
+test('cloud export is session-owned, complete for saved preferences/visibility and excludes internal fields',async()=>{
+ const f=fixture();try{
+  f.env.AUTH_COMMUNITY_ENABLED='true';const a=await login(f,'export-a@example.test'),b=await login(f,'export-b@example.test','192.0.2.2');
+  f.sqlite.prepare('UPDATE auth_user SET public_username=? WHERE id=?').run('Export Player',a.userId);
+  await writeAccountDocument(f.db,a.userId,'raw-signal-theme','light',0);await writeAccountDocument(f.db,b.userId,'raw-signal-theme','dark',0);
+  await writeAccountDocument(f.db,a.userId,'raw-signal-auction-appearance-v1',JSON.stringify({version:1,cards:[{productId:123,printing:'Normal'}]}),0);
+  await writePublicAuctionSettings(f.db,a.userId,{showcasePublic:true,leaderboardPublic:false});
+  f.sqlite.prepare('INSERT INTO account_documents(user_id,document_key,value_json,revision,updated_at) VALUES(?,?,?,?,?)').run(a.userId,'internal-only','INTERNAL SECRET',1,new Date().toISOString());
+  assert.equal((await handleAccountRoute(request('/api/account/export'),f.env)).status,401);
+  assert.equal((await handleAccountRoute(request('/api/account/export?owner='+b.userId,undefined,a.cookie),f.env)).status,400);
+  assert.equal((await handleAccountRoute(request('/api/account/export',{},a.cookie),f.env)).status,405);
+  const response=await handleAccountRoute(request('/api/account/export',undefined,a.cookie),f.env),data=await response.json();assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'private, no-store');assert.equal(response.headers.get('vary'),'Cookie');
+  assert.equal(data.version,1);assert.equal(data.profile.id,a.userId);assert.equal(data.documents.length,2);assert.equal(data.publicProfile.displayName,'Export Player');assert.equal(data.publicProfile.showcasePublic,true);assert.equal(data.publicProfile.leaderboardPublic,false);
+  const text=JSON.stringify(data);for(const secret of [b.userId,'export-b@example.test','INTERNAL SECRET','session_token',f.env.AUTH_SECRET])assert.ok(!text.includes(secret));assert.ok(data.documents.some(row=>row.key==='raw-signal-auction-appearance-v1'));
+  f.env.AUTH_COMMUNITY_ENABLED='false';assert.equal((await(await handleAccountRoute(request('/api/account/export',undefined,a.cookie),f.env)).json()).publicProfile,null);
+ }finally{f.sqlite.close()}
+});
 test('sign-in problems provide safe recovery without exposing arbitrary provider errors',()=>{
  assert.equal(accountProblem('ACCOUNT_NOT_LINKED').linking,true);
  assert.match(accountProblem('account_not_linked').message,/existing method/);
@@ -24,6 +43,22 @@ test('sign-in problems provide safe recovery without exposing arbitrary provider
  assert.match(accountProblem('state_expired').title,/Again/);
  assert.match(accountRequestMessage(400,'INVALID_OTP'),/newest email/);
  assert.match(accountRequestMessage(429),/Wait/);assert.match(accountRequestMessage(503),/temporarily unavailable/);
+});
+test('two authenticated local sessions share recovery ownership, reject lost-response replay and honor revocation',async()=>{
+ const f=fixture();try{
+  f.env.AUTH_RECOVERY_ENABLED='true';f.env.AUTH_AUDIT_ENABLED='true';const a=await login(f,'two-devices@example.test');
+  // Reset fixture-only email cooldowns; this test exercises sessions, not rate limits.
+  f.sqlite.exec('DELETE FROM auth_rate_limit');const b=await login(f,'two-devices@example.test','192.0.2.2');assert.equal(a.userId,b.userId);assert.notEqual(a.cookie,b.cookie);
+  const recovery=async cookie=>(await(await handleAccountRoute(request('/api/account/recovery-key',{},cookie),f.env)).json());const ka=await recovery(a.cookie),kb=await recovery(b.cookie);assert.equal(ka.owner,kb.owner);assert.equal(ka.keyId,kb.keyId);assert.equal(ka.key,kb.key);
+  const put=(cookie,revision)=>handleAccountRoute(new Request(origin+'/api/account/data',{method:'PUT',headers:{Origin:origin,'Content-Type':'application/json',Cookie:cookie},body:JSON.stringify({key:'raw-signal-theme',value:'light',revision,owner:a.userId})}),f.env);
+  assert.equal((await put(a.cookie,0)).status,200);assert.equal((await put(b.cookie,0)).status,409);assert.equal((await(await handleAccountRoute(request('/api/account/session',undefined,b.cookie),f.env)).json()).documents[0].revision,1);
+  const signedOut=await handleAccountRoute(request('/api/auth/sign-out',{},b.cookie),f.env);assert.equal(signedOut.status,200);assert.equal((await handleAccountRoute(request('/api/account/data',undefined,b.cookie),f.env)).status,401);assert.equal((await handleAccountRoute(request('/api/account/data',undefined,a.cookie),f.env)).status,200);
+ }finally{f.sqlite.close()}
+});
+test('account-write burst limits preserve cloud state until an explicit allowed retry',async()=>{
+ const f=fixture();try{const a=await login(f,'write-limit@example.test');let allowed=false;f.env.AUTH_COMMUNITY_LIMITS_ENABLED='true';f.env.ACCOUNT_WRITE_LIMITER={async limit(){return {success:allowed}}};const put=()=>handleAccountRoute(new Request(origin+'/api/account/data',{method:'PUT',headers:{Origin:origin,'Content-Type':'application/json',Cookie:a.cookie},body:JSON.stringify({key:'raw-signal-theme',value:'light',revision:0,owner:a.userId})}),f.env);
+  const limited=await put();assert.equal(limited.status,429);assert.equal(limited.headers.get('retry-after'),'60');assert.equal(f.sqlite.prepare('SELECT COUNT(*) AS n FROM account_documents').get().n,0);allowed=true;assert.equal((await put()).status,200);
+ }finally{f.sqlite.close()}
 });
 test('auth errors redirect to the branded account page with private response headers',async()=>{
  const f=fixture(),response=await handleAccountRoute(request('/api/auth/error?error=account_not_linked'),f.env);

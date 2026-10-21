@@ -1,5 +1,10 @@
 # Auction Bootstrap Response — proposal, not implemented
 
+Implementation decision 2026-10-19: reuse the existing private account/session
+bootstrap and add a separately cached public catalog. No additional personalized
+bootstrap endpoint is being built; avoid a duplicate owner-data read and private
+copies of public cards. This document retains the alternative design for reference.
+
 Goal: coordinate account progress and public market readiness, avoiding fragmented
 loading without leaking personal data through shared caches.
 

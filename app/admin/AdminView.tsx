@@ -6,8 +6,9 @@ import {useAccount} from '../account/context';
 import {usePreference,STRICTNESS_KEY,parseStrictness} from '../state/usePreference';
 import {ADMIN_ACTIONS,type AdminOverview,type AdminDataHealth,type AuditEvent} from '../../core/domain/admin';
 import AdminHealth from './AdminHealth';
-type Tab='overview'|'audit'|'data'|'accounts'|'quality'|'jobs';
-const tabs={overview:'Overview',accounts:'Accounts & Sync',quality:'Catalog Quality',jobs:'Jobs & Budgets',audit:'Audit History',data:'Data Health'};
+import AdminCommunity from './AdminCommunity';
+type Tab='overview'|'audit'|'data'|'accounts'|'quality'|'jobs'|'community';
+const tabs={overview:'Overview',accounts:'Accounts & Sync',quality:'Catalog Quality',jobs:'Jobs & Budgets',community:'Community',audit:'Audit History',data:'Data Health'};
 type AuditPage={events:AuditEvent[];nextCursor:string|null;retentionDays:number};
 const moment=(value:string|null)=>value&&Number.isFinite(Date.parse(value))?new Date(value).toLocaleString(undefined,{timeZone:'UTC'})+' UTC':'Unavailable';
 function Overview({data}:{data:AdminOverview}){
@@ -36,5 +37,5 @@ function AdminContent({tab}:{tab:Tab}){
 }
 export default function AdminView({tab}:{tab:Tab}){
  const account=useAccount(),[strictness,setStrictness]=usePreference(STRICTNESS_KEY,parseStrictness,'balanced');
- return <><TopBar strictness={strictness} onStrictness={setStrictness}/><main className="detail-content admin-content"><header className="games-heading"><span className="games-eyebrow">Raw Signal · Administration</span><h1>{tab==='overview'?'Administration':tabs[tab]}</h1></header>{account.loading?<p role="status">Checking Access…</p>:account.user?.role!=='admin'?<section className="detail-section"><p>Administrator access is required.</p><a className="game-control" href="/account">Profile &amp; Account</a></section>:<><nav className="account-social admin-tabs" aria-label="Administration">{Object.entries(tabs).map(([key,label])=><a key={key} className="game-control" href={key==='overview'?'/admin':`/admin/${key}`} aria-current={tab===key?'page':undefined}>{label}</a>)}</nav>{tab==='accounts'||tab==='quality'||tab==='jobs'?<AdminHealth tab={tab}/>:<AdminContent tab={tab}/>}</>}</main><SiteFooter/></>;
+ return <><TopBar strictness={strictness} onStrictness={setStrictness}/><main className="detail-content admin-content"><header className="games-heading"><span className="games-eyebrow">Raw Signal · Administration</span><h1>{tab==='overview'?'Administration':tabs[tab]}</h1></header>{account.loading?<p role="status">Checking Access…</p>:account.user?.role!=='admin'?<section className="detail-section"><p>Administrator access is required.</p><a className="game-control" href="/account">Profile &amp; Account</a></section>:<><nav className="account-social admin-tabs" aria-label="Administration">{Object.entries(tabs).map(([key,label])=><a key={key} className="game-control" href={key==='overview'?'/admin':`/admin/${key}`} aria-current={tab===key?'page':undefined}>{label}</a>)}</nav>{tab==='community'?<AdminCommunity/>:tab==='accounts'||tab==='quality'||tab==='jobs'?<AdminHealth tab={tab}/>:<AdminContent tab={tab}/>}</>}</main><SiteFooter/></>;
 }

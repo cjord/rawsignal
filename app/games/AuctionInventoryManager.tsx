@@ -1,22 +1,27 @@
 "use client";
-import {useMemo,useState} from 'react';
+import {useCallback,useMemo,useState} from 'react';
 import type {AuctionCard,AuctionSave} from '../../core/domain/auction-types';
 import type {Card} from '../../core/domain/types';
 import {initialInventoryFilters,managedInventory,inventorySalePlan,sellInventorySelection,type InventoryFilters} from '../../core/domain/auction-inventory-management';
 import {auctionRarity} from '../../core/domain/auction-display';
 import DeferredImage from '../DeferredImage';
-import AuctionDialog from './AuctionDialog';
+import AuctionSaleConfirmation,{type AuctionMarketCheck} from './AuctionSaleConfirmation';
 import AuctionInventorySales from './AuctionInventorySales';
 import {auctionUsd} from './AuctionWallet';
+import InventoryFiltersPanel from './AuctionInventoryFilters';
+import {useAuctionInventoryControls} from './useAuctionInventoryControls';
+import AuctionInventorySkeleton from './AuctionInventorySkeleton';
 
 const PAGE_SIZE=24;
-type Props={save:AuctionSave;catalog:AuctionCard[];cards:Card[];loading:boolean;transact:(update:(save:AuctionSave)=>AuctionSave)=>void};
-export default function AuctionInventoryManager({save,catalog,cards,loading,transact}:Props){
- const [filters,setFilters]=useState(initialInventoryFilters),[page,setPage]=useState(0),[selected,setSelected]=useState<string[]>([]),[sale,setSale]=useState<{keys:string[];keep:number}|null>(null);
+type Props={save:AuctionSave;catalog:AuctionCard[];cards:Card[];loading:boolean;transact:(update:(save:AuctionSave)=>AuctionSave)=>void;urlState?:boolean;checkMarket?:AuctionMarketCheck};
+export default function AuctionInventoryManager({save,catalog,cards,loading,transact,urlState=false,checkMarket}:Props){
+ const [selected,setSelected]=useState<string[]>([]),[sale,setSale]=useState<{keys:string[];keep:number}|null>(null),resetSelection=useCallback(()=>setSelected([]),[setSelected]);
+ const controls=useAuctionInventoryControls(urlState,resetSelection),{filters,page,setPage}=controls;
  const inventory=useMemo(()=>managedInventory(save,catalog,cards,filters),[save,catalog,cards,filters]),pages=Math.max(1,Math.ceil(inventory.rows.length/PAGE_SIZE)),current=Math.min(page,pages-1),rows=inventory.rows.slice(current*PAGE_SIZE,(current+1)*PAGE_SIZE);
  const disabled=loading||Boolean(save.auction),eligible=inventory.rows.filter(row=>row.net!==null),validKeys=new Set(eligible.map(row=>row.key)),selection=selected.filter(key=>validKeys.has(key));
- const plan=sale?inventorySalePlan(save,catalog,sale.keys,sale.keep):null,selectedPlan=inventorySalePlan(save,catalog,selection);
- const change=(patch:Partial<InventoryFilters>)=>{setFilters(value=>({...value,...patch}));setPage(0);setSelected([])};
+ const selectedPlan=inventorySalePlan(save,catalog,selection);
+ const change=(patch:Partial<InventoryFilters>)=>{controls.change(patch);setSelected([])};
+ if(!controls.ready)return <AuctionInventorySkeleton/>;
  return <div className="auction-inventory-manager" role="region" aria-label="Auction Inventory Manager">
   <InventoryFiltersPanel filters={filters} rarities={inventory.rarities} sets={inventory.sets} change={change}/>
   <p className="games-note" role="status">{inventory.rows.length} Matching Printings · {inventory.totalCopies} Total Sellable Copies · Page {current+1} of {pages}. Showcase cards are protected and are not listed here.</p>
@@ -25,10 +30,7 @@ export default function AuctionInventoryManager({save,catalog,cards,loading,tran
   <div className="auction-inventory-grid">{rows.map(row=><label className="auction-owned-card" data-rarity={auctionRarity(row.metadata??undefined)} key={row.key}><input type="checkbox" aria-label={`Select ${row.name} (${row.holding.printing})`} checked={selection.includes(row.key)} disabled={disabled||row.net===null} onChange={event=>setSelected(event.target.checked?[...selection,row.key]:selection.filter(key=>key!==row.key))}/><DeferredImage src={row.image} alt=""/><div><b>{row.name}</b><small>{row.holding.printing} · Near Mint · ×{row.holding.quantity}</small><small>{row.set||'Set Unavailable'} · {row.rarity}</small><strong>{!loading&&row.net!==null?auctionUsd(row.net):'N/A'} after fee</strong></div></label>)}</div>
   {!rows.length&&<p className="games-note">No inventory matches these filters. <button className="game-control" type="button" onClick={()=>change(initialInventoryFilters)}>Clear Filters</button></p>}
   <div className="auction-actions" aria-label="Inventory Pages"><button className="game-control" type="button" disabled={current===0} onClick={()=>setPage(current-1)}>Previous Inventory Page</button><button className="game-control" type="button" disabled={current+1>=pages} onClick={()=>setPage(current+1)}>Next Inventory Page</button></div>
-  <details className="auction-inventory-quick-sales"><summary>Sell by Rarity or Sell All (Entire Inventory)</summary><AuctionInventorySales save={save} catalog={catalog} loading={loading} transact={transact}/></details>
-  {sale&&plan&&<AuctionDialog title={sale.keep?'Sell Filtered Extra Copies?':'Sell Selected Inventory?'} onClose={()=>setSale(null)}><p>Sell {plan.copies} copies for {loading?'N/A':auctionUsd(plan.net)} virtual cash after the fixed 10% selling fee. {sale.keep?'Keep at least three of each matching printing in sellable inventory. ':''}Unpriced cards, unselected printings and showcase cards remain owned. This cannot be undone.</p><button className="game-control" type="button" disabled={disabled||!plan.copies} onClick={()=>{transact(current=>sellInventorySelection(current,catalog,sale.keys,sale.keep));setSale(null);setSelected([])}}>Confirm Inventory Sale</button></AuctionDialog>}
+  <details className="auction-inventory-quick-sales"><summary>Sell by Rarity or Sell All (Entire Inventory)</summary><AuctionInventorySales save={save} catalog={catalog} loading={loading} transact={transact} checkMarket={checkMarket}/></details>
+  {sale&&<AuctionSaleConfirmation title={sale.keep?'Sell Filtered Extra Copies?':'Sell Selected Inventory?'} label="Confirm Inventory Sale" save={save} catalog={catalog} disabled={disabled} transact={transact} checkMarket={checkMarket} close={()=>{setSale(null);setSelected([])}} quote={(current,prices)=>inventorySalePlan(current,prices,sale.keys,sale.keep)} commit={(current,prices)=>sellInventorySelection(current,prices,sale.keys,sale.keep)}><p>{sale.keep?'Keep at least three of each matching printing in sellable inventory. ':''}Unpriced cards, unselected printings and showcase cards remain owned. This cannot be undone.</p></AuctionSaleConfirmation>}
  </div>;
-}
-function InventoryFiltersPanel({filters,rarities,sets,change}:{filters:InventoryFilters;rarities:string[];sets:string[];change:(patch:Partial<InventoryFilters>)=>void}){
- return <div className="auction-inventory-controls"><label>Find Cards<input type="search" value={filters.search} onChange={event=>change({search:event.target.value})} placeholder="Name, set or printing"/></label><label>Rarity<select value={filters.rarity} onChange={event=>change({rarity:event.target.value})}><option value="">All Rarities</option>{rarities.map(rarity=><option key={rarity}>{rarity}</option>)}</select></label><label>Set<select value={filters.set} onChange={event=>change({set:event.target.value})}><option value="">All Sets</option>{sets.map(set=><option key={set}>{set}</option>)}</select></label><label>Price Availability<select value={filters.availability} onChange={event=>change({availability:event.target.value as InventoryFilters['availability']})}><option value="all">All Cards</option><option value="priced">Priced Cards</option><option value="unpriced">Unpriced Cards</option></select></label><label>Sort Inventory<select value={filters.sort} onChange={event=>change({sort:event.target.value as InventoryFilters['sort']})}><option value="value-desc">Holding Value: High to Low</option><option value="value-asc">Holding Value: Low to High</option><option value="unit-desc">Card Price: High to Low</option><option value="quantity-desc">Quantity: High to Low</option><option value="rarity-desc">Rarity: High to Low</option><option value="name">Name: A–Z</option></select></label></div>;
 }

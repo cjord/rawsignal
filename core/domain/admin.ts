@@ -1,4 +1,4 @@
-export const ADMIN_ACTIONS=['admin.overview.read','admin.audit.read','admin.data.read','admin.accounts.read','admin.quality.read','admin.jobs.read','admin.access.denied','recovery.key.access'] as const;
+export const ADMIN_ACTIONS=['admin.overview.read','admin.audit.read','admin.data.read','admin.accounts.read','admin.quality.read','admin.jobs.read','admin.access.denied','recovery.key.access','admin.community.read','admin.community.hide','admin.community.restore'] as const;
 export type AdminAction=typeof ADMIN_ACTIONS[number];
 export type AuditEvent={id:string;occurredAt:string;actorId:string;actorRole:'admin'|'member';action:AdminAction;targetType:string;targetId:string|null;outcome:'allowed'|'denied';requestId:string;reasonCode:string};
 export const AUDIT_RETENTION_DAYS=90;

@@ -28,6 +28,9 @@ export const dailyShowdownManifests=sqliteTable('daily_showdown_manifests',{
  manifestJson:text('manifest_json').notNull(),
  createdAt:text('created_at').notNull(),
 });
+export const auctionProfileModeration=sqliteTable('auction_profile_moderation',{
+ profileId:text('profile_id').primaryKey().references(()=>auctionPublicProfiles.id,{onDelete:'cascade'}),hidden:integer('hidden',{mode:'boolean'}).notNull(),revision:integer('revision').notNull(),reasonCode:text('reason_code').notNull(),updatedAt:text('updated_at').notNull(),actorId:text('actor_id').notNull(),lastRequestId:text('last_request_id').notNull(),
+});
 
 export const ingestionRuns = sqliteTable("ingestion_runs", {
   id: text("id").primaryKey(),

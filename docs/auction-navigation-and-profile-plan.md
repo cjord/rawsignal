@@ -1,11 +1,20 @@
-# Auction Hub, Inventory Page and Profile Studio — plans only
+# Auction Hub, Inventory Page and Profile Studio — design and implementation
+
+Update 2026-10-19: the user has now authorized beginning implementation, superseding
+the previous planning-only restriction. The local implementation now includes the
+persistent shell, compact icon-and-text tabs, separate Inventory Page with URL-backed
+filters, owner Profile Preview and Save/Cancel cosmetic editor. The user selected
+any Riftbound catalog artwork, independent of ownership, and last-good valid prices
+on refresh failure. None of this turn's work is pushed or deployed.
+[Current progress and remaining rollout gates](auction-implementation-progress.md).
+The sections below retain the original design rationale, not a live release claim.
 
 ## Persistent Auction Shell
 
-Current auction links use full document navigation, and each route renders its own
+Before this implementation auction links used full document navigation, and each route rendered its own
 Games shell/background. Switching to client links alone would not guarantee that
 duplicated route shells stay mounted. The user explicitly requested **planning,
-not implementation**, for changing this behavior.
+not implementation**, for changing this behavior; the later authorization above supersedes that restriction.
 
 Proposed sequence:
 
@@ -46,7 +55,7 @@ Show an active state and preserve descriptive text; avoid icon-only mysteries.
 On mobile use an accessible wrapping strip or compact Community menu, not five
 large competing buttons. Auction entry remains the strongest primary action.
 Implement this together with—or just before—the persistent shell, after validating
-the navigation hierarchy. Current links are unchanged in this release.
+the navigation hierarchy. The local implementation now follows this structure.
 
 ## Auction Inventory Page
 

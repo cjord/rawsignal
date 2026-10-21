@@ -14,11 +14,21 @@ This is a naming reference, not a change to the repository's agent instructions.
 | Public Auction Profile | The account-linked public username, statistics and opted-in showcase. No wallet or private inventory. |
 | Showcase Snapshot | A frozen, self-contained share link; not the live account profile. |
 | Account Profile | Private account username, authentication and account settings. |
-| Auction Hub Navigation | Proposed navigation grouping for Play, Inventory, My Showcase, Community and Guide. Not implemented in this release. |
-| Persistent Auction Shell | Proposed shared page layout that keeps the Auction Card Backdrop mounted across auction routes. Planning only. |
-| Catalog Snapshot Cache | Proposed version-aware cache of public catalog data for repeat visits. Planning only. |
+| Auction Hub Navigation | Local compact icon-and-text tabs: Play, Inventory, My Showcase, Community and Guide. Not deployed yet. |
+| Persistent Auction Shell | Local nested auction layout preserving document/background across internal navigation. Not deployed yet. |
+| Auction Inventory Page | `/games/riftbound-auction/inventory`; full virtual inventory workspace with URL-backed display filters. Local, not deployed. |
+| Catalog Snapshot Cache | Experimental version-aware public catalog cache. First slice is local, off by default, not activated. |
+| Market Snapshot Status | Shared owner-page loading/source/date/retry feedback; legacy feeds explicitly lack a source date. Local, not deployed. Not hidden collection value. |
+| Inventory Loading Shell | Reserved overview/filter/action structure while account and prices resolve; disabled sales and failure/retry states. Local. |
+| Auction Loading Shell | Reserved lobby wallet, entry choices and statistics before saved progress is ready; no fake wallet values. Local. |
+| Data-First Artwork | Nearby card images schedule independently of the window load event; metadata/prices never wait for unrelated images. Shared image component, local. |
+| Legacy Catalog Reuse | Auction-only public memory store: one eleven-file wave, five-minute reuse on internal navigation and last-good retry. Not the versioned compact endpoint. Local. |
+| Community Burst Protection | Default-off platform hooks for coarse anonymous community reads and owner-scoped account writes; not a global quota or market-wide limiter. Local. |
+| Community Moderation | `/admin/community`: audited, confirmed, revision-checked public Hide/Restore; never private wallet/inventory changes. Local, 0028 pending. |
+| Saved Account Export | Private server-owned cloud documents, basic profile and community visibility/appearance; not pending device drafts or auth secrets. Local. |
+| Performance Benchmark / Read Cost Meter | Opt-in guest browser sampling and metadata from existing staging catalog SQL reads; no visitor telemetry or extra SQL. Local. |
 | Auction Bootstrap Response | Proposed owner-only combined initial state response. Planning only. |
-| Profile Studio / Profile Card Backdrop | Proposed public-profile preview/edit workspace and optional chosen decorative cards. Planning only. |
+| Profile Studio / Profile Card Backdrop | `/games/riftbound-auction/profile`; owner preview and Save/Cancel cosmetic editor for up to 12 Riftbound catalog printings, independent of ownership. Local, not deployed. |
 
 Plans: [loading and inventory](auction-loading-and-inventory.md),
 [catalog cache](auction-catalog-cache-plan.md),

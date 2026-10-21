@@ -12,16 +12,49 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Accounts and collection saves — in progress (2026-10-19)
 
+- Loading/safety follow-up now local: traced and removed late lobby insertion and
+  Inventory filter-shell collapse; Data-First Artwork no longer waits for unrelated
+  window images. Five-minute public Legacy Catalog Reuse removes repeated waves on
+  internal navigation (fresh document still eleven files). Local bounded shift medians
+  are ~0.00091 Play / 0.00044 Inventory, versus ~0.185 / 0.234 before. Same-data local
+  transport test checks legacy 11 vs snapshot 2 requests and exact price/null parity.
+  Staging API probe is 404, so no deployed cache comparison is claimed. Added real
+  local authenticated-session recovery/revocation tests; physical devices pending.
+  Community Burst Protection and `/admin/community` Hide/Restore are local/default-off.
+  Migration 0028 is pending; no persistent database or deployment changes. Full gate
+  passed: 622 node tests / one skip, 117 browser journeys, build/types/lint with 21
+  existing complexity warnings. Personal Chrome-to-Chrome plus desktop Chrome/Firefox
+  to Safari acceptance is documented, not physically run.
+  [Goals, evidence, costs and next gates](auction-loading-and-safety-follow-up.md).
+
+- Quality follow-up implemented locally: bounded catalog/account requests, stricter
+  save acknowledgements and old-owner isolation, server-owned Saved Account Export,
+  public query guards, Market Snapshot Status and Inventory Loading Shell. Added
+  opt-in Performance Benchmark and staging Read Cost Meter. Local cache-off sampling
+  still finds cold Play/Inventory movement and eleven legacy catalog requests; no
+  live speed/read-cost improvement claimed. Real provider/two-device checks, public
+  quotas/moderation and staging cache activation remain. Full gate passed: 613 node
+  tests / one skip and 113 browser journeys; build/types/lint passed with 21 existing
+  complexity warnings. Not pushed/deployed. [Plan and evidence](auction-quality-improvement-plan.md).
+
 - Auction loading and Inventory Manager are released to staging as `b0ae632`,
   version `8d90dbd3-9c64-45e9-81a5-fc3dab2f4bbd`. Full gate and live guest/UI checks
   passed. Cold duplicate catalog calls reduced from 22 to 11; timing samples are
   inconclusive, not a claimed speedup. Production unchanged.
   [Scope, evidence and remaining loading work](auction-loading-and-inventory.md).
-- Planning only: [version-aware public catalog cache](auction-catalog-cache-plan.md),
+- Implementation authorized 2026-10-19: the public catalog-cache foundation is now
+  local, behind an off-by-default staging-only switch. Existing private bootstrap is
+  reused. Persistent shell/compact tabs, the separate Inventory Page, cosmetic
+  Profile Studio and cache-gated transaction-time checks are implemented locally.
+  Three design questions are resolved. Full gate passed: 604 node tests, one skip
+  and 109 browser journeys; build/lint/types passed with 21 existing lint warnings.
+  Real read-cost measurement and authorized staging parity/activation remain.
+  No new push/deploy authorization. [Exact progress and rollout gates](auction-implementation-progress.md).
+  Designs: [version-aware public catalog cache](auction-catalog-cache-plan.md),
   [combined private bootstrap alternative](auction-bootstrap-response-plan.md),
   [persistent navigation, separate Inventory Page and clearer profile preview/edit
   controls with optional decorative cards](auction-navigation-and-profile-plan.md).
-  Do not implement the navigation migration as part of this release. Use the
+  The newer request authorizes beginning navigation after design choices. Use the
   [UI feature names](ui-feature-map.md) to distinguish backgrounds, collections,
   inventory, showcases and public/account profiles. Keep Refresh Market until
   automatic pre-entry/return freshness validation exists.
