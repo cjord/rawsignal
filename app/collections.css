@@ -54,6 +54,15 @@ grid-template-columns:repeat(4,minmax(0,1fr));
 gap:12px;
 margin-top:16px}
 .collection-overview-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}
+.collection-export-control{display:inline-flex;align-items:center;gap:8px;margin-left:auto}
+.collection-reload-status{font:500 var(--text-xs) var(--font-mono);color:var(--gray);min-width:180px;min-height:1.6em}
+.collection-scope-note{font-size:var(--text-xs);color:var(--gray);margin:14px 0}
+.collection-onboarding{border-color:color-mix(in srgb,var(--blue) 30%,var(--line));background:color-mix(in srgb,var(--blue) 4%,var(--surface));margin:20px 0}
+.collection-onboarding li{padding:6px 0;line-height:1.6}
+.collection-coverage{border:1px solid color-mix(in srgb,var(--tone-warn) 35%,var(--line));border-radius:var(--panel-radius);background:color-mix(in srgb,var(--tone-warn) 5%,var(--surface));padding:16px 20px;margin:18px 0;font-size:var(--text-sm)}
+.collection-coverage>strong{color:var(--tone-warn)}
+.collection-coverage>p{color:var(--gray);line-height:1.6}
+.collection-coverage>div{display:flex;gap:10px;flex-wrap:wrap}
 .collection-metric.tone-neutral{--collection-accent:var(--gray)}
 .collection-events,.collection-sales{margin-top:24px}
 .collection-event{margin:18px 0;border-color:color-mix(in srgb,var(--purple) 25%,var(--line));background:color-mix(in srgb,var(--purple) 3%,var(--surface))}
@@ -185,6 +194,13 @@ text-align:right;
 overflow-wrap:anywhere}
 .collection-number>small{
 display:none}
+.collection-number>.collection-unit-price{display:block;font:500 var(--text-xs) var(--font-mono);color:var(--gray);margin-top:6px}
+.collection-holding-group{border:1px solid var(--line);border-radius:var(--panel-radius);margin-top:10px;background:var(--surface);min-width:0}
+.collection-holding-group:hover{border-color:var(--blue)}
+.collection-holding-group>.collection-holding{border:0;margin-top:0;background:transparent}
+.collection-lot-expansion{padding:0 12px 8px}
+.collection-lot-expansion .collection-lots>summary{padding:10px 0}
+.collection-lot-expansion .collection-lot{background:var(--control);padding:12px;border-radius:var(--control-radius);margin-top:8px}
 .collection-row-actions{
 display:flex;
 flex-direction:column;

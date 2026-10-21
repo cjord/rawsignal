@@ -7,9 +7,9 @@ import {stickerSaleSuggestion} from '../../core/domain/collection-sales';
 import {moneyInput} from './CollectionAddDialog';
 type Props={onClose:()=>void;onSave:(action:unknown)=>Promise<unknown>};
 function saleAllocations(lots:CollectionLot[],quantity:number){let remaining=Math.max(0,quantity);const result=[];for(const lot of lots){const amount=Math.min(remaining,lot.quantity);remaining-=amount;if(amount>0)result.push({lot,amount})}return result}
-export function CollectionSettingsDialog({collection,onClose,onSave}:Props&{collection?:OwnedCollection}){
+export function CollectionSettingsDialog({collection,onClose,onSave,onCreated}:Props&{collection?:OwnedCollection;onCreated?:()=>void}){
  const [name,setName]=useState(collection?.name??''),[show,setShow]=useState(collection?.cardShow??false),[busy,setBusy]=useState(false),[error,setError]=useState('');
- const submit=async(event:FormEvent)=>{event.preventDefault();setBusy(true);try{await onSave(collection?{type:'update',collectionId:collection.id,name,cardShow:show}:{type:'create',name});onClose()}catch(cause){setError(cause instanceof Error?cause.message:'Unable to save collection')}finally{setBusy(false)}};
+ const submit=async(event:FormEvent)=>{event.preventDefault();setBusy(true);try{await onSave(collection?{type:'update',collectionId:collection.id,name,cardShow:show}:{type:'create',name});if(!collection&&onCreated)onCreated();else onClose()}catch(cause){setError(cause instanceof Error?cause.message:'Unable to save collection')}finally{setBusy(false)}};
  return <AuctionDialog title={collection?'Collection Settings':'New Collection'} onClose={()=>{if(!busy)onClose()}}>
 <form className="collection-form" onSubmit={event=>void submit(event)}>
 <label>Collection Name<input required maxLength={80} value={name} onChange={event=>setName(event.target.value)} disabled={busy}/>

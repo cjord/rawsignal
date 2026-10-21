@@ -1,7 +1,10 @@
 "use client";
 import {useState} from 'react';
 import {groupedSales} from '../../core/domain/collection-sales';
-import type {CardShowEvent,CollectionSale} from '../../core/domain/owned-collections';
+import type {CardShowEvent,CollectionSale,OwnedCollection} from '../../core/domain/owned-collections';
+import type {CollectionFilters} from '../state/collection-query';
+import {soldCsv} from '../../core/domain/collection-export';
+import CollectionExportButton from './CollectionExportButton';
 import ProductIdentity from '../leaderboard/ProductIdentity';
 import AuctionDialog from '../games/AuctionDialog';
 import {NumberedPagination,SortToolbar} from '../MarketUI';
@@ -26,19 +29,19 @@ function SaleCard({group,event,onAssign}:{group:SaleGroup;event?:CardShowEvent;o
  </article>;
 }
 const columns=[{key:'date',label:'Sale Date'},{key:'proceeds',label:'Net Proceeds'},{key:'profit',label:'Card Profit'}] as const;
-export default function CollectionSales({sales,events,onSave}:{sales:CollectionSale[];events:CardShowEvent[];onSave:(action:unknown)=>Promise<unknown>}){
- const [query,setQuery]=useState(''),[eventId,setEventId]=useState('all'),[sort,setSort]=useState<'date'|'proceeds'|'profit'>('date'),[direction,setDirection]=useState<'asc'|'desc'>('desc'),[page,setPage]=useState(1),[selected,setSelected]=useState<SaleGroup|null>(null);
+export default function CollectionSales({sales,events,collections,filter,change,onSave}:{sales:CollectionSale[];events:CardShowEvent[];collections:OwnedCollection[];filter:CollectionFilters;change:(patch:Partial<CollectionFilters>)=>void;onSave:(action:unknown)=>Promise<unknown>}){
+ const [selected,setSelected]=useState<SaleGroup|null>(null),{soldQ:query,soldEvent:eventId,soldSort:sort,soldDirection:direction,page}=filter;
  const groups=groupedSales(sales).filter(group=>group.first.name.toLowerCase().includes(query.toLowerCase())&&(eventId==='all'||(group.first.eventId??'none')===eventId));
  groups.sort((a,b)=>{const av=sort==='date'?a.first.date:a[sort],bv=sort==='date'?b.first.date:b[sort];if(av===null)return bv===null?0:1;if(bv===null)return -1;const result=typeof av==='string'?av.localeCompare(String(bv)):av-Number(bv);return result*(direction==='asc'?1:-1)});
  const pages=Math.max(1,Math.ceil(groups.length/20)),current=Math.min(page,pages);
- const changeSort=(next:typeof sort)=>{setDirection(next===sort&&direction==='desc'?'asc':'desc');setSort(next);setPage(1)};
- return <section className="detail-section collection-sales" aria-label="Sold History"><h2>Sold History</h2>
+ const changeSort=(next:typeof sort)=>change({soldDirection:next===sort&&direction==='desc'?'asc':'desc',soldSort:next});
+ return <section className="detail-section collection-sales" aria-label="Sold History"><div className="collection-section-heading"><h2>Sold History</h2><CollectionExportButton label="Export Sold CSV" filename="raw-signal-sold-history.csv" disabled={!groups.length} build={()=>soldCsv(groups.flatMap(group=>group.rows),collections,events)}/></div>
  <p className="games-note">Completed sales stay in your account after the holding is sold out or removed. New sales group FIFO allocations into one record; older records remain separate because their original sale grouping was not saved. Figures use recorded proceeds and costs, not today’s market.</p>
- <div className="collection-toolbar"><label>Search Sold Items<input value={query} onChange={e=>{setQuery(e.target.value);setPage(1)}}/></label><label>Filter Sales by Event<select value={eventId} onChange={e=>{setEventId(e.target.value);setPage(1)}}><option value="all">All Events</option><option value="none">No Event</option>{events.map(event=><option key={event.id} value={event.id}>{event.name}</option>)}</select></label><small>{groups.length} {groups.length===1?'sale':'sales'}</small></div>
+ <div className="collection-toolbar"><label>Search Sold Items<input value={query} onChange={e=>change({soldQ:e.target.value})}/></label><label>Filter Sales by Event<select value={eventId} onChange={e=>change({soldEvent:e.target.value})}><option value="all">All Events</option><option value="none">No Event</option>{events.map(event=><option key={event.id} value={event.id}>{event.name}</option>)}</select></label><button className="game-control" onClick={()=>change({soldQ:'',soldEvent:'all'})}>Clear Sale Filters</button><small>{groups.length} {groups.length===1?'sale':'sales'}</small></div>
  <SortToolbar label="Sort Sold History" items={columns} sort={sort} direction={direction} onSort={changeSort}/>
  {groups.slice((current-1)*20,current*20).map(group=><SaleCard key={group.key} group={group} event={events.find(event=>event.id===group.first.eventId)} onAssign={()=>setSelected(group)}/>)}
  {!groups.length&&<p className="collection-empty">No completed sales match this view.</p>}
- {pages>1&&<NumberedPagination page={current} pages={pages} onChange={setPage} label="Sold History Pages"/>}
+ {pages>1&&<NumberedPagination page={current} pages={pages} onChange={page=>change({page})} label="Sold History Pages"/>}
  {selected&&<AssignmentDialog group={selected} events={events} onSave={onSave} onClose={()=>setSelected(null)}/>}
  </section>;
 }

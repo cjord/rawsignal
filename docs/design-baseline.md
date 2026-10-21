@@ -50,6 +50,11 @@ to a compact thumbnail table; its card grid contains artwork without cropping. P
 holdings and account gates reserve in-page loading space independently of image loads.
 Card Show sticker prices use the existing purple accent and do not replace market
 values. Overview/mover tones use the shared blue/up/down palette in both themes.
+Expanded dated lots span a separate row below the compact holding. Quantity-weighted
+market totals have a quieter per-item value. A warning-token coverage panel links to
+missing-data filters; it never changes the overview's collection scope. Successful
+saves/reloads use existing site notifications and reserve reload progress space,
+while critical errors persist near the workflow. CSV actions reuse ordinary controls.
 
 Auction Guide follows the existing Games shell and section tiles: token-based
 surfaces/borders, responsive two-column roster/investigation cards (one column on

@@ -58,7 +58,7 @@ The sale timestamp is the time recorded in this release; custom historical dates
 not supported yet. Remove/Correct Entry is not a sale. Card Show sticker prices never
 rewrite market values, performance baselines or already recorded sale proceeds.
 
-### Sold History and Card Show Events follow-up (local, 2026-10-21)
+### Sold History and Card Show Events follow-up (2026-10-21)
 
 The follow-up retains completed sales, not hypothetical future resale estimates.
 New sales save a common transaction ID across FIFO allocations and a card/product
@@ -120,9 +120,23 @@ ownership/revision/export, editable FIFO sticker suggestions, assignment and exp
 edits, reload persistence, and desktop/mobile dark/light views. This is browser
 automation, not real-device or signed-in staging acceptance.
 
-This follow-up is local-only until separately pushed/deployed. No hosting settings
-or databases were changed. The staging release record later in this document refers
-to the preceding Collections release.
+This follow-up is included in the interface-polish staging release. Its original
+focused validation is recorded above; the combined release passes 652 unit tests
+(one skip) and 126 Chromium journeys. No schema migration is required.
+
+### Collections interface polish (2026-10-21)
+
+The [ten-area interface review](collections-interface-review.md) adds first-use
+setup continuation, explicit unit prices, compact full-width dated-lot expansion,
+actionable data-coverage filters, URL-backed filtering/sorting/pagination, stable
+reloads and confirmed-save notifications. An uncertain save blocks subsequent writes
+until a successful explicit reload; it never automatically replays a sale.
+
+Private Holdings and Sold CSV downloads cover all matching rows, not just the visible
+page. Holdings export is per dated lot; Sold export is per recorded allocation.
+Unit prices, quantity, optional costs/stickers and market provenance are explicit;
+unavailable values stay blank. Untrusted text is protected against spreadsheet-formula
+injection. Downloads contain private financial information and are user-initiated.
 
 ## Performance and review math
 
@@ -148,7 +162,7 @@ distinct **UTC review days**; another review that day replaces that day's point.
 Movers compare only quantities present at both the review and now (minimum of the two),
 exclude newly added lots/copies, and separately report additions. Sales/removals do
 not appear as negative market movement. A holdings-aware history chart, transfers,
-collection deletion, CSV export and bulk sticker editing are not in this release.
+collection deletion and bulk sticker editing are not in this release.
 Full collection records are included in the existing account export.
 
 ## Storage, privacy and loading

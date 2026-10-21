@@ -1,26 +1,28 @@
 import {expect,test,type Page} from '@playwright/test';
 import {rolldown} from 'rolldown';
 import {resolve} from 'node:path';
+import {readFile} from 'node:fs/promises';
 import {emptyCollections,type OwnedCollections,type CollectionProduct,productKey} from '../../core/domain/owned-collections';
 import {applyCollectionAction} from '../../core/domain/collection-actions';
 let script:string;
 test.beforeAll(async()=>{const bundle=await rolldown({input:'tests/helpers/collections-browser.tsx',resolve:{alias:{'next/link':resolve('tests/helpers/account-link.tsx')}},platform:'browser',transform:{jsx:'react-jsx',define:{'process.env.NODE_ENV':JSON.stringify('production')}}});script=(await bundle.generate({format:'iife'})).output.find(row=>row.type==='chunk')!.code;await bundle.close()});
 const card:CollectionProduct={kind:'single',game:'riftbound',productId:1,printing:'Normal',name:'Test Card',set:'Origins',rarity:'Rare',image:null,cents:1000,source:'database',asOf:'2026-10-21T00:00:00Z'};
 const box:CollectionProduct={...card,kind:'sealed',game:'pokemon',productId:2,printing:'Sealed',name:'Booster Box',rarity:'Booster Boxes',cents:20000};
-async function setup(page:Page,{guest=false,seed=emptyCollections()}:{guest?:boolean;seed?:OwnedCollections}={}){
- let state=seed,revision=0,serial=0,price=1000,conflict=false;const calls:{method:string;body?:Record<string,unknown>}[]=[];
+async function setup(page:Page,{guest=false,seed=emptyCollections(),query=''}:{guest?:boolean;seed?:OwnedCollections;query?:string}={}){
+ let state=seed,revision=0,serial=0,price=1000,conflict=false,dropResponse=false,gate:Promise<void>|null=null,release=()=>{};const calls:{method:string;body?:Record<string,unknown>}[]=[];
  const market=()=>[{...card,cents:price},box];
  await page.goto('/collections');const styles=await page.evaluate(()=>Array.from(document.styleSheets).map(sheet=>Array.from(sheet.cssRules).map(rule=>rule.cssText).join('\n')).join('\n'));
  await page.route('**/collection-fixture**',route=>route.fulfill({contentType:'text/html',body:`<html data-theme="dark"><head><style>${styles}</style></head><body><div id="fixture"></div></body></html>`}));
- await page.route('**/api/account/collections',async route=>{const method=route.request().method(),body=method==='POST'?route.request().postDataJSON():undefined;calls.push({method,body});if(method==='POST'){
+ await page.route('**/api/account/collections',async route=>{const method=route.request().method(),body=method==='POST'?route.request().postDataJSON():undefined;calls.push({method,body});if(method==='GET'&&gate)await gate;if(method==='POST'){
   if(conflict)return route.fulfill({status:409,json:{error:'Your collection changed on another device. Reload first.'}});
   expect(body.owner).toBe('collection-owner');expect(body.revision).toBe(revision);
   if(body.action.type==='preview')return route.fulfill({json:{owner:'collection-owner',prices:market().filter(row=>body.action.items.some((item:CollectionProduct)=>productKey(item)===productKey(row)))}});
-  state=applyCollectionAction(state,body.action,market(),`2026-10-21T12:00:${String(serial%60).padStart(2,'0')}Z`,()=>`entry${++serial}`);revision++;
+  state=applyCollectionAction(state,body.action,market(),`2026-10-21T12:00:${String(serial%60).padStart(2,'0')}Z`,()=>`entry${++serial}`);revision++;if(dropResponse){dropResponse=false;return route.abort('failed')}
  }return route.fulfill({json:{owner:'collection-owner',state,revision,prices:market(),pricingUnavailable:false}})});
  await page.route('**/api/catalog?**',route=>route.fulfill({json:{source:'database',items:[{...card,marketPrice:price/100}],total:1}}));
- await page.goto('/collection-fixture'+(guest?'?guest=1':''));await page.addScriptTag({content:script});
- return {calls,state:()=>state,setPrice(value:number){price=value},setConflict(value:boolean){conflict=value}};
+ await page.route('**/api/catalog/detail?**',route=>route.fulfill({json:{...card,marketPrice:price/100}}));
+ const params=new URLSearchParams(query);if(guest)params.set('guest','1');await page.goto('/collection-fixture?'+params);await page.addScriptTag({content:script});
+ return {calls,state:()=>state,setPrice(value:number){price=value},setConflict(value:boolean){conflict=value},dropNextResponse(){dropResponse=true},holdReload(){gate=new Promise<void>(resolve=>{release=resolve})},resumeReload(){gate=null;release()}};
 }
 async function create(page:Page){await page.getByRole('button',{name:'New Collection',exact:true}).click();const dialog=page.getByRole('dialog',{name:'New Collection'});await dialog.getByLabel('Collection Name').fill('Personal');await dialog.getByRole('button',{name:'Create Collection',exact:true}).click();await expect(dialog).toHaveCount(0)}
 async function add(page:Page,quantity='2'){await page.getByRole('button',{name:'Add Item',exact:true}).click();const dialog=page.getByRole('dialog',{name:'Add to Collection'});await dialog.getByLabel('Find a Card or Product').fill('Test');await dialog.getByRole('button',{name:/Test Card/}).click();await dialog.getByLabel('Quantity',{exact:true}).fill(quantity);await dialog.getByLabel('Purchase Cost per Copy (Optional, USD)').fill('7');await dialog.getByRole('button',{name:'Add Item',exact:true}).click();await expect(dialog).toHaveCount(0)}
@@ -57,4 +59,22 @@ test('reviewed Collectr imports skip existing holdings and only save after confi
  let seed=applyCollectionAction(emptyCollections(),{type:'create',name:'Personal'},[card,box],'2026-10-21T00:00:00Z',()=> 'personal');seed=applyCollectionAction(seed,{type:'add',collectionId:'personal',items:[{...card,quantity:1}]},[card,box],'2026-10-21T00:00:00Z',()=> 'old-lot');const f=await setup(page,{seed});
  await page.evaluate(({card,box})=>localStorage.setItem('raw-signal-collectr-import',JSON.stringify({version:1,payload:{profile:{handle:'test'},partial:false,cards:[card,box,box].map(item=>({...item,condition:'Near Mint',quantity:1,matched:{...item,marketPrice:item.cents===null?null:item.cents/100}}))}})),{card,box});
  await page.getByRole('button',{name:'Review Collectr Import'}).click();const dialog=page.getByRole('dialog',{name:'Review Collectr Import'});await dialog.getByRole('button',{name:'Check Matching Printings'}).click();await expect(dialog).toContainText('1 existing printings skipped');expect(f.state().lots).toHaveLength(1);await dialog.getByRole('button',{name:'Import 1 Dated Lots'}).click();await expect(dialog).toHaveCount(0);expect(f.state().lots).toHaveLength(2);expect(f.state().lots[1].product.kind).toBe('sealed');expect(f.state().lots[1].quantity).toBe(2);
+});
+
+test('first-use guidance continues a requested product after collection creation and search clearing never leaves a spinner',async({page})=>{
+ await setup(page,{query:'add=1&kind=single&game=riftbound&printing=Normal'});await expect(page.getByRole('heading',{name:'Start Your First Collection'})).toBeVisible();await page.getByRole('button',{name:'Create Your First Collection'}).click();const create=page.getByRole('dialog',{name:'New Collection'});await create.getByLabel('Collection Name').fill('First Collection');await create.getByRole('button',{name:'Create Collection',exact:true}).click();const add=page.getByRole('dialog',{name:'Add to Collection'});await expect(add.getByRole('button',{name:/Test Card/})).toBeVisible();await add.getByLabel('Find a Card or Product').fill('');await expect(add.getByText('Searching Catalog…')).toHaveCount(0);await add.getByRole('button',{name:'Close',exact:true}).click();await expect(page).not.toHaveURL(/add=1/);
+});
+
+test('reloading preserves the ledger and a lost save response cannot be replayed until explicitly reconciled',async({page})=>{
+ const f=await setup(page);await create(page);f.dropNextResponse();await page.getByRole('button',{name:'Add Item',exact:true}).click();const add=page.getByRole('dialog',{name:'Add to Collection'});await add.getByLabel('Find a Card or Product').fill('Test');await add.getByRole('button',{name:/Test Card/}).click();await add.getByRole('button',{name:'Add Item',exact:true}).click();await expect(add.getByRole('alert')).toContainText('could not be confirmed');await add.getByRole('button',{name:'Add Item',exact:true}).click();await expect(add.getByRole('alert')).toContainText('Reload your saved collection');expect(f.calls.filter(call=>(call.body?.action as {type?:string})?.type==='add')).toHaveLength(1);expect(f.state().lots).toHaveLength(1);await add.getByRole('button',{name:'Close',exact:true}).click();
+ f.holdReload();await page.getByLabel('Search Your Holdings').fill('Test');await page.getByRole('button',{name:'Reload Saved Collection'}).click();await expect(page.getByRole('heading',{name:'Holdings Ledger'})).toBeVisible();await expect(page.getByRole('region',{name:'Loading Collections'})).toHaveCount(0);await expect(page.getByLabel('Search Your Holdings')).toHaveValue('Test');f.resumeReload();await expect(page.locator('.collection-holding')).toHaveCount(1);await expect(page.getByRole('log',{name:'Site Notifications'})).toContainText('Latest saved collection loaded');
+});
+
+test('coverage filters reset pagination, full-width lots keep compact rows, and CSV exports all matching rows',async({page},info)=>{
+ const seed:OwnedCollections={...emptyCollections(),collections:[{id:'stock',name:'Stock',cardShow:true,createdAt:'2026-10-21T00:00:00Z'}],lots:Array.from({length:35},(_,i)=>({id:`lot${i}`,collectionId:'stock',product:{...card,productId:100+i,name:`Card ${i+1}`},quantity:1,addedAt:'2026-10-21T00:00:00Z',costCents:i%2?null:500,stickerCents:null,source:'manual' as const}))};
+ await setup(page,{seed});await page.setViewportSize({width:1440,height:1000});await expect(page.locator('.collection-holding')).toHaveCount(30);const before=await page.locator('.collection-holding').first().boundingBox();await page.locator('.collection-lots summary').first().click();const after=await page.locator('.collection-holding').first().boundingBox();expect(after!.height).toBeCloseTo(before!.height,0);
+ const allDownload=page.waitForEvent('download');await page.getByRole('button',{name:'Export Holdings CSV'}).click();const allFile=info.outputPath('all-holdings.csv');await(await allDownload).saveAs(allFile);expect((await readFile(allFile,'utf8')).trim().split('\r\n')).toHaveLength(36);
+ await page.getByRole('navigation',{name:'Collection Holdings Pages'}).getByRole('button',{name:'Next →'}).click();await expect(page).toHaveURL(/page=2/);await page.getByLabel('Search Your Holdings').fill('Card 1');await expect(page).not.toHaveURL(/page=2/);await expect(page.locator('.collection-holding')).toHaveCount(11);
+ const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Export Holdings CSV'}).click();const download=await downloadPromise,path=info.outputPath('holdings.csv');await download.saveAs(path);const csv=await readFile(path,'utf8');expect(csv.trim().split('\r\n')).toHaveLength(12);expect(csv).toContain('Unit Market USD');
+ await page.getByRole('button',{name:'Clear Filters',exact:true}).click();await page.getByRole('button',{name:'17 Printings Missing Costs',exact:true}).click();await expect(page).toHaveURL(/health=missing-cost/);await expect(page.locator('.collection-holding')).toHaveCount(17);await expect(page.getByRole('complementary',{name:'Collection Data Coverage'})).toContainText('Partial Coverage');
 });

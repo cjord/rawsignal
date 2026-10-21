@@ -31,14 +31,14 @@ function EventCard({event,sales,onEdit}:{event:CardShowEvent;sales:CollectionSal
  </div>{totals.costedQuantity<totals.quantity&&<p className="games-note">Profit excludes sales with unknown purchase costs, including their proceeds. It is a partial figure; known event expenses are deducted in full.</p>}
  </article>;
 }
-export default function CollectionEvents({events,sales,onSave}:{events:CardShowEvent[];sales:CollectionSale[];onSave:(action:unknown)=>Promise<unknown>}){
- const [dialog,setDialog]=useState<CardShowEvent|null|undefined>(undefined),[page,setPage]=useState(1),pages=Math.max(1,Math.ceil(events.length/10)),current=Math.min(page,pages),sorted=[...events].sort((a,b)=>b.date.localeCompare(a.date)||a.name.localeCompare(b.name));
+export default function CollectionEvents({events,sales,page,onPage,onSave}:{events:CardShowEvent[];sales:CollectionSale[];page:number;onPage:(page:number)=>void;onSave:(action:unknown)=>Promise<unknown>}){
+ const [dialog,setDialog]=useState<CardShowEvent|null|undefined>(undefined),pages=Math.max(1,Math.ceil(events.length/10)),current=Math.min(page,pages),sorted=[...events].sort((a,b)=>b.date.localeCompare(a.date)||a.name.localeCompare(b.name));
  return <section className="collection-events" aria-label="Card Show Events">
  <div className="collection-section-heading"><h2>Card Show Events</h2><button className="game-control account-primary" onClick={()=>setDialog(null)}>New Card Show Event</button></div>
  <p className="games-note">Account-wide events can combine sales from several collections. Assign a show when recording a sale or later in Sold History. Expenses affect the account-wide combined total, never each collection separately.</p>
  {sorted.slice((current-1)*10,current*10).map(event=><EventCard key={event.id} event={event} sales={sales.filter(row=>row.eventId===event.id)} onEdit={()=>setDialog(event)}/>)}
  {!events.length&&<p className="collection-empty">No events yet. Create a named show and record its date and optional paid expenses.</p>}
- {pages>1&&<NumberedPagination page={current} pages={pages} onChange={setPage} label="Card Show Event Pages"/>}
+ {pages>1&&<NumberedPagination page={current} pages={pages} onChange={onPage} label="Card Show Event Pages"/>}
  {dialog!==undefined&&<EventDialog event={dialog} onSave={onSave} onClose={()=>setDialog(undefined)}/>}
  </section>;
 }
