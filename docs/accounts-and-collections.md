@@ -18,9 +18,9 @@ The [shared identity implementation](shared-account-identity.md) now separates
 Better Auth's canonical identity/session store from environment-local documents.
 It includes save-owner mirroring, separate recovery wrapping, environment-tagged
 sessions/cookies, production-only global identity/security mutations, deletion
-reconciliation and per-request staging administrator enforcement. Remote activation
-still requires the approved private backups, identity-only migration/import and
-staging-first deployment. Never point staging's `DB` at production or copy production
+reconciliation and per-request staging administrator enforcement. Approved private
+backups, identity-only migration/import and staging-first activation are complete.
+Never point staging's `DB` at production or copy production
 saves into staging. Guest market browsing is not made private by this account rule.
 
 Provider prerequisites: retain existing staging callbacks and add these callbacks
@@ -35,9 +35,9 @@ The user confirmed both production callbacks were added on 2026-10-21. The older
 saved Google JSON does not list that callback; it is a historical download, not the
 provider dashboard's current state. Full production OAuth exchange remains to test.
 Credentials can be reused with the user's permission; never paste them into chat.
-Production has no auth secrets or account migrations provisioned as of the read-only
-preflight. Preserve existing staging recovery data and take approved backups before
-any identity migration. Existing admin IDs/provider links are preserved, but old
+Production's required auth secrets and account migrations are provisioned after
+approved private backups. Existing staging recovery data and admin IDs/provider links
+are preserved, but old
 sessions are deliberately not copied; sign in again after switching stores.
 
 On 2026-10-21 the user requested two verified-email admin grants. The operator-managed
@@ -46,10 +46,24 @@ local allowlist. Requested addresses remain in ignored `.secrets/accounts-admin-
 not the public documentation. Secret presence and unchanged database bindings, flags
 and schedules were verified after the updates. The role evaluator still requires
 verified server-session email; no account was created, email verification bypassed,
-session assumed or account-enabled flag changed. Production's grant is provisioned
-for activation; accounts and the shared-identity boundary are not live there yet.
+session assumed or account-enabled flag changed during that initial grant. Both
+requested verified identities were subsequently migrated, and accounts/shared identity
+are now active on staging and production.
 
-## Status — staging testing, 2026-10-19
+## Status — production accounts live, 2026-10-21
+
+Application `77537b5` is deployed as staging `d049f771` and production `be504bb9`.
+Identity is shared; saves, recovery keys and public profiles remain separate. Staging
+requires a verified admin on every account request. Shared security management belongs
+to production. Both approved backups, the identity import and production migrations
+are complete. Local checks passed 630 unit tests (one skip) and 118 browser journeys.
+Live staging and production API/preview checks passed; real provider sign-in after
+migration and physical-device recovery remain to confirm. Production's custom domain
+still challenges automated browsers; no security rules were changed. Sign in again;
+production does not import staging saves.
+[Release evidence](shared-account-identity.md#live-release--2026-10-21).
+
+## Historical status — staging testing, 2026-10-19
 
 Latest staging application source is `19bc36e`, version
 `05b35536-032a-4995-87b5-1eb0ba2887d4`. Migrations 0025/0026 and explicit tool/community

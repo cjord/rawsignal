@@ -78,7 +78,37 @@ The deployment generator defaults accounts/sharing/protection off, rejects an
 identity binding pointing to the environment's save DB, uses a separate identity
 migration directory, and explicitly clears staging crons.
 
-## Rollback and remaining work
+## Live release — 2026-10-21
+
+Application `77537b5` is pushed/deployed as staging `d049f771` and production
+`be504bb9`. Accounts, shared identity, recovery, audit, moderation and separate
+environment burst limits are active. Compact catalog cache remains OFF. Both original
+market/save bindings and prior secrets are preserved; staging has no cron and
+production retains `*/1`. Email is restricted to `accounts@rawsignal.cards`.
+
+With explicit approval, both databases were exported privately, with Time Travel
+bookmarks and SHA-256 manifests kept in ignored local folders. Production migrations
+0024–0028 and the identity-only schema were applied after a disabled deploy; ledgers
+were verified. Two verified admin identities and two provider links were imported
+and compared to source, preserving IDs. No sessions, OAuth tokens, verification codes
+or game saves were copied. Staging's recovery key is unchanged; production has its own.
+
+Staging live checks passed admin-only access, guest private-route denial, restricted
+identity mutations, both provider callback URLs, private headers and responsive login.
+Five market catalogs and persistent auction navigation also passed. Production's
+canonical APIs passed account flags, private access, public projections and provider
+initiation/callback URLs. Its exact deployed preview passed desktop/mobile dark/light
+login, Singles/Sealed and auction pages, persistent navigation, zero guest save writes
+and zero page errors. All five production catalog samples now serve database data;
+staging honestly retains stale-feed fallback. No ingestion was manually triggered.
+
+The production custom domain still challenges the automated browser (HTTP 403,
+Bot Fight Mode), while API checks work. No security rules were changed. Real provider
+sign-in after migration and physical-device recovery remain human acceptance checks.
+No live test emails or authenticated save writes were performed. Sign in again: old
+sessions were not transferred, and production progress starts separately from staging.
+
+## Validation and remaining work
 
 Local verification (2026-10-21): `npm run check` passed the production build,
 628 unit tests (one existing skip), lint/type checks and all 118 Chromium journeys.
@@ -88,7 +118,7 @@ new warnings. The new account screen was reviewed in both themes on desktop/mobi
 Three in-memory databases exercise shared IDs, separate saves/recovery, staging role
 revocation, cross-environment session rejection, deletion and immediate public hiding.
 These are not real-provider consent or physical-device recovery verification.
-Remote backup/migration/activation remains a separate release step.
+Remote activation and verification are recorded above.
 
 Disable account flags if activation fails; keep all databases and secrets. Do not
 roll back to legacy staging authentication after new shared identities have been

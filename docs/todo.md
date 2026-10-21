@@ -12,36 +12,34 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Accounts and collection saves — in progress (2026-10-19)
 
-- Production account rollout is now authorized (2026-10-21). Reuse Google/Discord
-  applications, with shared canonical identity but **separate environment saves**;
-  only verified admin accounts may authenticate/use accounts on staging. This is a
-  new identity boundary, not implemented by sharing OAuth client credentials. Keep
-  staging's market/game database isolated; plan owner references, wrapped recovery
-  keys, deletion/linking/revocation and preservation of existing staging identity.
-  Both production callbacks are user-confirmed; the two requested verified-email
-  admin grants are provisioned through the secret allowlist on both Workers.
-  Shared identity, staging admin-only enforcement, isolated recovery/saves and the
-  production-only security boundary are implemented locally. Identity-only schema,
-  narrow token-free admin import and a staging-first release procedure are documented
-  in [Shared account identity](shared-account-identity.md). Remote migration/activation
-  still follows approved private backups and the complete release gate; no source-only
-  implementation should be mistaken for live production activation.
-  [Confirmed direction and prerequisites](accounts-and-collections.md#confirmed-production-direction--2026-10-21).
+- **Accounts live on staging and production (2026-10-21):** shared canonical identity
+  with separate environment saves/recovery, verified admin-only staging access and
+  production-only shared security controls shipped as `77537b5`. Approved private
+  backups, two verified admin identity imports, production migrations and live
+  staging/API/production-preview checks are complete. See
+  [release evidence](shared-account-identity.md#live-release--2026-10-21).
+  Remaining: human provider sign-in after migration, Administrator badge/linked-method
+  acceptance, physical Chrome/Firefox/Safari recovery, privacy/backup retention review,
+  and deletion-outbox monitoring. Production's custom domain still challenges automated
+  browsers; API/preview checks pass without security-rule changes. Production progress
+  starts separately; existing staging IDs and recovery keys remain.
 
-- **Release checkpoint 2026-10-21:** application `44ecc7a` is pushed and deployed to
+- **Earlier release checkpoint 2026-10-21:** application `44ecc7a` was pushed/deployed to
   staging and production after the full 622-node/117-browser gate and live staging
   checks. Navigation, loading, Inventory/Profile Studio and save hardening shipped.
-  Accounts remain staging-only; migration 0028, moderation and burst bindings are
-  enabled there. Compact caching is OFF in both environments: live staging parity
+  Accounts were staging-only then; the later account release above supersedes that
+  activation status. Compact caching is OFF in both environments: live staging parity
   failed (1,333 bundled snapshot cards vs 1,583 section-feed printings). Resolve
   partial-run/fallback consistency before another activation trial; do not weaken
   readiness guards. Production catalog API was using its honest fallback during an
   already-running live ingestion. Investigate the publication/read-availability gap.
-  Physical Chrome/Firefox/Safari recovery and signed-in moderation acceptance remain.
+  Production now serves database data again after that existing ingestion completed;
+  the publication/read-availability gap still merits follow-up. Physical
+  Chrome/Firefox/Safari recovery and signed-in moderation acceptance remain.
   Production preview UI passed; the custom domain challenged automated browsers.
   An unexpected staging cron was explicitly cleared and the remote schedule verified
-  empty. Follow up: make deployment preparation emit `triggers: {crons: []}` rather
-  than `{}` for schedule removal, with a regression test. Production keeps `*/1`.
+  empty. Deployment preparation now emits `triggers: {crons: []}` rather than `{}`
+  for schedule removal, with regression coverage. Production keeps `*/1`.
   [Release evidence and remaining gates](auction-loading-and-safety-follow-up.md#release-results--2026-10-21).
 
 Earlier local checkpoints below are historical; the release checkpoint above supersedes

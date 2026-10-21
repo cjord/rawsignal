@@ -9,6 +9,28 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-21 — Shared account identity production launch
+
+Application `77537b5` is pushed/deployed to staging `d049f771` and production
+`be504bb9`. Shared identity uses a dedicated identity-only database; each Worker keeps
+its own market/save database and recovery wrapping. Staging requires a verified admin
+on sign-in and every account request. Global identity/security management is production-only.
+Google/Discord applications are reused with exact callbacks; email uses the restricted
+domain sender. Two verified admin identities and two provider links were preserved
+without copying sessions, tokens or saves. Private backups/bookmarks were approved
+and verified first. Production migrations 0024–0028 and the identity schema are applied.
+
+Local validation: full release gate plus final unit rerun, 630 passing unit tests
+(one skip), 118 browser journeys, no new lint warnings. Staging live access/provider/UI
+checks and production canonical APIs/deployed-preview checks passed, with zero guest
+save writes. The production custom-domain automated browser remains challenged by
+Cloudflare; security rules were unchanged. Prior secrets and market bindings are
+preserved; staging has no cron and production retains `*/1`. Explicit empty-cron
+config generation is regression-tested. Compact catalog cache remains OFF.
+
+Real provider sign-in after migration, signed-in acceptance and physical-device
+recovery remain human checks. See [release evidence](shared-account-identity.md#live-release--2026-10-21).
+
 ## 2026-10-21 — Auction navigation, loading and safety release
 
 Application `44ecc7a` (initial feature source `6774350`) is pushed on
