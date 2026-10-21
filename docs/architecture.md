@@ -91,7 +91,7 @@ production browser verification (Cloudflare challenge) remain separate acceptanc
 
 `app/state/market-query.ts` is the canonical parser and serializer for Singles and Sealed URL state. `app/state/useMarketQueryState.ts` synchronizes meaningful changes with browser history and replaces rapid search edits so Back/Forward navigation remains useful.
 
-Local Market Scope loading follow-up (2026-10-21) resolves valid URL → supported
+Market Scope loading follow-up (2026-10-21) resolves valid URL → supported
 device market → surface fallback once, before rarity defaults/catalog loading.
 The selector retains a neutral first-render shell instead of highlighting a false
 default. `SiteAccountProvider` keeps explicit read-only market paths mounted during

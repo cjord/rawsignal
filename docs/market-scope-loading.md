@@ -58,3 +58,24 @@ both themes. No push/deployment is requested in this task.
 These are controlled local tests, not a new deployed timing benchmark,
 physical-device verification or a claim that all remaining page loading is eliminated.
 No server/auth query, ingestion pass, database migration or Cloudflare resource is added.
+
+## Staging release and reassessment
+
+On the user's subsequent release request, the full gate passed again (655 unit
+tests, one skip, 131 browser checks, 21 existing lint warnings/no new warnings).
+Source commit `be40c34` was pushed to `codex/accounts-and-collections` and deployed
+to staging as `98299ef7-23bd-4e1e-83c8-0c5bbee8eb5e`. Production was not deployed.
+Existing account/identity/save bindings and feature flags were preserved; remote
+inspection confirmed no staging cron. No migration or data repair was performed.
+
+Live delayed-session checks confirmed one mount/one correct market selection on
+Cards, Sealed, Sets and Metrics, public content usable before account resolution,
+and account write controls still gated. Desktop/mobile dark/light checks passed.
+Measured feed requests fell 4→2 for Riftbound Cards, 6→3 for Pokémon Cards and
+10→3 for Sealed, with no unrelated Singles feeds on Sealed. These counts include
+freshness requests; they are not counts of D1 queries or billed Worker executions.
+
+The initial All-market body on Sets/Metrics still changes after hydration;
+eliminating the second mount did not eliminate that separate layout shift.
+The deployed timing comparison and remaining work are recorded in
+[staging reassessment](market-scope-staging-reassessment-2026-10-21.md).
