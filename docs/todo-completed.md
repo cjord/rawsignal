@@ -9,6 +9,22 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-21 — Collections interface polish, Sold History and Card Show Events
+
+Application `f2d222c`, including `5144e5f`, is pushed/deployed to staging `9f77be00`.
+Seven interface improvements cover first-use continuation, explicit unit prices,
+compact full-width dated-lot expansion, actionable coverage filters, stable reloads
+and confirmed-save feedback, URL-backed state and private formula-safe CSV exports.
+Uncertain saves require reconciliation before another write; no automatic sale replay.
+Completed sales retain identity and grouped FIFO allocations, with sticker suggestions,
+named/date card-show events, paid expenses and partial-cost-aware combined profit.
+
+Full gate passed: 652 unit tests (one skip), 126 browser journeys and no new lint
+warnings. Live staging guest/private API and both-theme desktop/mobile checks passed
+with no account writes or browser errors. Identity/save bindings and secrets remain,
+staging has no cron, production is unchanged; no migration. Real signed-in acceptance
+remains a human check. [Ten-area review](collections-interface-review.md).
+
 ## 2026-10-21 — Account Collections staging release
 
 Application `b784a9e` is pushed/deployed to staging `db580987`. New account-only

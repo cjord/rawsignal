@@ -211,6 +211,15 @@ remain intact. No migration rollback is needed.
 
 ## Validation and release status
 
+Interface-polish application `f2d222c`, including Sold History and Card Show Events
+from `5144e5f`, is pushed and deployed to staging as version
+`9f77be00-cab6-4396-a972-8c615a7fdd84` (2026-10-21). Full gate passed: 652 unit
+tests (one skip), 126 Chromium journeys, type check and no new lint warnings.
+Live guest/privacy/theme/layout checks passed with no browser errors, account writes
+or guest collection reads. Identity/save bindings and secrets remain preserved;
+staging has no cron, catalog compact caching remains off, production is unchanged,
+and no migration was needed. [Ten-area review and rollout](collections-interface-review.md).
+
 Focused checks cover baseline/contribution math, missing/older-source handling, exact
 identity, review retention, FIFO/cent allocation, sticker independence, import atomicity,
 authentication/owner isolation, origin checks, revision conflicts, server-owned baselines,

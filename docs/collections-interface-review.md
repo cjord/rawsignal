@@ -47,7 +47,12 @@ FIFO sales, card-show expenses, and dark/light desktop/mobile layouts.
 
 Full `npm run check` passed: 652 unit tests (one skip), 126 Chromium journeys,
 type check and lint with 21 existing complexity warnings and no new warnings.
-Exact source push and staging deployment/verification are pending. Keep
-the shared identity/save bindings and secrets unchanged, staging cron empty, compact
-catalog caching off, and production unchanged. Signed-in live acceptance remains a
-real admin/user check; local fixtures are not impersonation or physical-device proof.
+Application `f2d222c` and the preceding Sold History/Card Show Events commit `5144e5f`
+are pushed to GitHub and deployed to staging as version
+`9f77be00-cab6-4396-a972-8c615a7fdd84`. Live guest access, private/no-store 401 API
+protection, desktop/mobile dark/light layouts and representative Singles/Sealed views
+passed, with zero browser errors, account writes or guest collection reads.
+Shared identity/save bindings and existing secrets are preserved, staging cron is
+empty, compact catalog caching remains off, and production is unchanged. No migration
+was needed. Signed-in live acceptance remains a real admin/user check; local fixtures
+are not impersonation or physical-device proof.

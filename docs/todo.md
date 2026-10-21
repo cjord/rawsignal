@@ -12,22 +12,12 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Accounts and collection saves — in progress (2026-10-19)
 
-- **Collections interface review (2026-10-21):** seven targeted improvements implemented
-  locally: setup continuation, unit prices, compact full-width dated lots, coverage
-  filters, stable reload/confirmed-save notifications, URL state and private CSV
-  exports. Full gate passed: 652 unit tests (one skip), 126 browser journeys,
-  no new lint warnings. Push/staging release pending. Three priorities remain deferred:
+- **Collections interface follow-up:** seven improvements plus Sold History/Card Show
+  Events shipped to staging `9f77be00` from `f2d222c`; full gate passed (652 unit
+  tests, one skip, 126 browser journeys), followed by live guest/privacy/layout checks.
+  Production unchanged. Open priorities: real signed-in/multi-device acceptance,
   audited sale corrections/refunds, collection lifecycle/bulk work, and broader
   exact-printing/condition/new-rarity coverage. [Ten-area review](collections-interface-review.md).
-
-- **Sold History / Card Show Events follow-up (2026-10-21):** implemented
-  persistent grouped completed-sale records, retained identity snapshots, editable
-  FIFO sticker suggestions, named/date shows with optional paid expenses, event
-  assignment and partial-cost-aware realized/unrealized/combined profit. Shared event
-  expenses count once at account scope; no SQL migration. Full gate passed: 647 unit
-  tests (one skip), 123 browser journeys and no new lint warnings; the combined
-  interface release passes 652/126. Included in the authorized staging release.
-  [Behavior and math](owned-collections.md#sold-history-and-card-show-events-follow-up-2026-10-21).
 
 - **Real-world Collections first release (2026-10-21):** `b784a9e` pushed and deployed
   to staging `db580987`; full gate passed (639 unit tests, one skip, 122 browser
