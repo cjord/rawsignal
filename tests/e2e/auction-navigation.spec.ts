@@ -2,6 +2,7 @@ import {expect,test} from '@playwright/test';
 import {initialAuctionSave} from '../../core/domain/auction-types';
 const key='raw-signal-auction-house-v1';
 test('auction hub preserves the document and decorative background, restores inventory URLs and retains an active auction',async({page},testInfo)=>{
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
  const rows=Array.from({length:35},(_,i)=>({game:'riftbound',productId:992000+i,name:`Navigation Card ${i}`,image:`https://art.example/${i}.svg`,marketPrice:i+1,printing:'Normal',section:'rares',set:'Origins',rarity:'Rare',year:2025,number:String(i),url:'',lowPrice:null,midPrice:null,highPrice:null,priceChange:null}));
  await page.route('**/data/*.json',route=>route.fulfill({json:rows}));await page.route('https://art.example/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280"><rect width="200" height="280" fill="#7557ff"/></svg>'}));
  const initial=initialAuctionSave();initial.wallet.inventory=rows.map(row=>({productId:row.productId,printing:'Normal',quantity:5}));await page.addInitScript(({key,initial})=>{if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify(initial))},{key,initial});
@@ -14,4 +15,5 @@ test('auction hub preserves the document and decorative background, restores inv
  await hub.getByRole('link',{name:'Auction Guide',exact:true}).click();await expect(page.getByRole('heading',{name:'Auction Guide',exact:true})).toBeVisible();await page.goBack();await expect(page.getByLabel('Find Cards')).toHaveValue('Navigation Card 1');await expect(page.getByRole('combobox',{name:'Sort Inventory',exact:true})).toHaveValue('quantity-desc');
  await hub.getByRole('link',{name:'Play',exact:true}).click();await page.getByRole('button',{name:'Enter Bilgewater Auction House',exact:true}).click();await page.getByRole('button',{name:'Skip Intro',exact:true}).click();await expect(page.getByLabel('Bid (virtual USD)')).toBeVisible();const seed=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)!).auction.seed,key);
  await hub.getByRole('link',{name:'Auction Guide',exact:true}).click();await expect(page.getByRole('heading',{name:'Auction Guide',exact:true})).toBeVisible();await hub.getByRole('link',{name:'Play',exact:true}).click();await expect(page.getByLabel('Bid (virtual USD)')).toBeVisible();expect(await page.evaluate(key=>JSON.parse(localStorage.getItem(key)!).auction.seed,key)).toBe(seed);expect(await page.evaluate(()=>performance.timeOrigin)).toBe(origin);expect(await page.evaluate(()=>document.querySelector('.auction-page-art')===(window as unknown as {auctionBackdrop:Element|null}).auctionBackdrop)).toBe(true);
+ expect(errors).toEqual([]);
 });

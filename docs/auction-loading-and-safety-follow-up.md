@@ -206,6 +206,26 @@ Do not add a new state/query framework merely to reduce line count or warning to
 
 ## Final verification
 
+### Release follow-up — 2026-10-20
+
+The user authorized GitHub, staging validation and subsequent production promotion.
+Application `6774350` passed the complete 622-node/117-browser gate and reached
+staging first. Live built-code navigation exposed a vinext Link dynamic-export
+failure that the dev-server journeys did not reproduce. Auction Hub links now use
+the shell's public router callback, retain native modified/target/download clicks,
+and perform no speculative prefetch. A separate built-preview/deployed navigation
+smoke command checks that three tab changes preserve the document and backdrop
+without browser errors:
+
+```powershell
+node scripts/cloudflare/auction-navigation-smoke.mjs http://localhost:4184
+```
+
+Staging's private full export and Time Travel bookmark were captured with explicit
+approval before migration 0028, which is now applied and verified there. Production
+account migrations and account activation remain out of this release. Final deployed
+versions, protection/cache state and live results will be recorded after verification.
+
 `npm run check` passed on the final source: production build; 622 passing node tests,
 one skip; lint with the same 21 existing complexity warnings; type check; all 117
 Chromium browser journeys (6.2 minutes). Dark/light and desktop/mobile checks cover
