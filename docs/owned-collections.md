@@ -134,9 +134,15 @@ private bootstrap/export/deletion, explicit feature flags, and browser interacti
 Browser fixtures cover dark/light desktop/mobile, import confirmation, and conflicts
 retaining inputs without automatic replay. These are not physical-device acceptance.
 
-Full gate passed: 639 unit tests (one skip), 122 Chromium journeys, type check and
-lint with 21 existing complexity warnings and no new warnings. Exact source push
-and staging live verification are pending for this release.
+Application `b784a9e` is pushed to GitHub and deployed to staging as version
+`db580987-d9a0-4da8-a21e-5aae074c5a36` (2026-10-21). Full gate passed: 639 unit
+tests (one skip), 122 Chromium journeys, type check and lint with 21 existing
+complexity warnings and no new warnings. Live guest Collections rendering,
+private/no-store 401 API behavior, explicit feature/shared-identity flags,
+desktop/mobile dark/light layouts and representative Singles/Sealed views passed.
+There were no browser errors, guest collection reads or account writes during live
+verification. Original identity/save bindings and secret names are preserved;
+staging has no cron. Production's deployed version is unchanged. No migration was needed.
 Signed-in staging acceptance must use the user's real admin login, not impersonation.
 Production deployment is not authorized as part of this task.
 

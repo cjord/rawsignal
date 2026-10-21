@@ -12,9 +12,9 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Accounts and collection saves — in progress (2026-10-19)
 
-- **Real-world Collections first release (2026-10-21):** implementation and full
-  gate complete (639 unit tests, one skip, 122 browser journeys); source push/staging
-  verification pending. Multiple named
+- **Real-world Collections first release (2026-10-21):** `b784a9e` pushed and deployed
+  to staging `db580987`; full gate passed (639 unit tests, one skip, 122 browser
+  journeys), followed by live guest/privacy/theme/layout checks. Multiple named
   collections, dated lots, baseline-aware metrics, explicit three-day review history,
   table/grid holdings, reviewed Collectr imports, FIFO sales and optional Card Show
   sticker prices. No new migration/cron; production flag remains off. See

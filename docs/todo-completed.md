@@ -9,6 +9,21 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-21 — Account Collections staging release
+
+Application `b784a9e` is pushed/deployed to staging `db580987`. New account-only
+Collections adds named collections/overview, exact catalog additions, reviewed
+Collectr imports, independent dated lots and server-captured market baselines,
+quantity-aware review movers, sortable table/grid holdings, optional Card Show
+stickers, corrections and FIFO recorded sales. It reuses existing account storage,
+private access controls and site UI; no migration, cron or ingestion expansion.
+
+The full gate passed: 639 unit tests (one skip), 122 browser journeys, type check
+and lint with no new warnings. Live staging guest/API/privacy and desktop/mobile
+dark/light checks passed; identity/save bindings and secrets remain, staging has no
+cron and production is unchanged. Real signed-in/multi-device acceptance remains a
+human check. [Scope, limits, math and release evidence](owned-collections.md).
+
 ## 2026-10-21 — Shared account identity production launch
 
 Application `77537b5` is pushed/deployed to staging `d049f771` and production
