@@ -2,7 +2,8 @@
 import {useState,type FormEvent} from 'react';
 import AuctionDialog from '../games/AuctionDialog';
 import {formatUsd} from '../../core/domain/formatters';
-import type {CollectionLot,Holding,OwnedCollection} from '../../core/domain/owned-collections';
+import type {CardShowEvent,CollectionLot,Holding,OwnedCollection} from '../../core/domain/owned-collections';
+import {stickerSaleSuggestion} from '../../core/domain/collection-sales';
 import {moneyInput} from './CollectionAddDialog';
 type Props={onClose:()=>void;onSave:(action:unknown)=>Promise<unknown>};
 function saleAllocations(lots:CollectionLot[],quantity:number){let remaining=Math.max(0,quantity);const result=[];for(const lot of lots){const amount=Math.min(remaining,lot.quantity);remaining-=amount;if(amount>0)result.push({lot,amount})}return result}
@@ -35,17 +36,20 @@ export function CollectionLotDialog({lot,cardShow,onClose,onSave}:Props&{lot:Col
 </form>
 </AuctionDialog>;
 }
-export function CollectionSaleDialog({holding,collectionId,onClose,onSave}:Props&{holding:Holding;collectionId:string}){
- const [quantity,setQuantity]=useState('1'),[proceeds,setProceeds]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+export function CollectionSaleDialog({holding,collectionId,events=[],onClose,onSave}:Props&{holding:Holding;collectionId:string;events?:CardShowEvent[]}){
+ const [quantity,setQuantity]=useState('1'),[proceeds,setProceeds]=useState(''),[manual,setManual]=useState(false),[eventId,setEventId]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ const suggested=stickerSaleSuggestion(holding.lots,Number(quantity)),amount=manual?proceeds:suggested===null?'':(suggested/100).toFixed(2);
  const allocations=saleAllocations(holding.lots,Number(quantity));
- const save=async(event:FormEvent)=>{event.preventDefault();setBusy(true);try{await onSave({type:'sell',collectionId,key:holding.key,quantity:Number(quantity),netCents:moneyInput(proceeds)});onClose()}catch(cause){setError(cause instanceof Error?cause.message:'Unable to record sale')}finally{setBusy(false)}};
+ const save=async(event:FormEvent)=>{event.preventDefault();setBusy(true);try{await onSave({type:'sell',collectionId,key:holding.key,quantity:Number(quantity),netCents:moneyInput(amount),eventId:eventId||null});onClose()}catch(cause){setError(cause instanceof Error?cause.message:'Unable to record sale')}finally{setBusy(false)}};
  return <AuctionDialog title="Record Sale" onClose={()=>{if(!busy)onClose()}}>
 <p>{holding.product.name} · {holding.product.printing}</p>
 <form className="collection-form" onSubmit={event=>void save(event)}>
 <label>Quantity Sold<input required type="number" step="1" min="1" max={Math.min(1000,holding.quantity)} value={quantity} onChange={event=>setQuantity(event.target.value)} disabled={busy}/>
 </label>
-<label>Total Net Proceeds (USD, After Fees)<input required type="number" step="0.01" min="0" value={proceeds} onChange={event=>setProceeds(event.target.value)} disabled={busy}/>
+<label>Total Net Proceeds (USD, After Fees)<input required type="number" step="0.01" min="0" value={amount} onChange={event=>{setProceeds(event.target.value);setManual(true)}} disabled={busy}/>
 </label>
+{suggested!==null&&<p className="games-note">Sticker total: {(suggested/100).toFixed(2)} USD. Adjust for the negotiated price and any fees; no fees are deducted automatically. {manual&&<button className="game-control" type="button" disabled={busy} onClick={()=>setManual(false)}>Use Sticker Total</button>}</p>}
+<label>Card Show Event (Optional)<select value={eventId} disabled={busy} onChange={event=>setEventId(event.target.value)}><option value="">No Event</option>{events.map(row=><option key={row.id} value={row.id}>{row.name} · {row.date}</option>)}</select></label>
 <p className="games-note">Oldest additions first. This records your sale; it does not list or sell anything online.</p>
 <ul>{allocations.map(({lot,amount})=>
 <li key={lot.id}>{amount} from {lot.addedAt.slice(0,10)} · cost {lot.costCents===null?'N/A':formatUsd(lot.costCents*amount/100)}</li>)}</ul>{error&&<p role="alert">{error}</p>}<button className="game-control account-primary" disabled={busy}>{busy?'Saving…':'Confirm Sale'}</button>

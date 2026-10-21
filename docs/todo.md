@@ -12,6 +12,14 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Accounts and collection saves — in progress (2026-10-19)
 
+- **Sold History / Card Show Events follow-up (local, 2026-10-21):** implemented
+  persistent grouped completed-sale records, retained identity snapshots, editable
+  FIFO sticker suggestions, named/date shows with optional paid expenses, event
+  assignment and partial-cost-aware realized/unrealized/combined profit. Shared event
+  expenses count once at account scope; no SQL migration. Full gate passed: 647 unit
+  tests (one skip), 123 browser journeys and no new lint warnings. Separate push/deployment
+  authorization is needed for this follow-up. [Behavior and math](owned-collections.md#sold-history-and-card-show-events-follow-up-local-2026-10-21).
+
 - **Real-world Collections first release (2026-10-21):** `b784a9e` pushed and deployed
   to staging `db580987`; full gate passed (639 unit tests, one skip, 122 browser
   journeys), followed by live guest/privacy/theme/layout checks. Multiple named

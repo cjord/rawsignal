@@ -22,6 +22,10 @@ Feature names for future feedback:
 - **Visit Movers:** expandable changes since an explicitly acknowledged review,
   ranked by absolute owned-quantity dollar impact or percentage change.
 - **Card Show Mode:** optional per-collection manual sticker price per copy.
+- **Sold History:** completed-sale records with retained identity, recorded proceeds,
+  purchase-cost coverage, search, event filter, sorting and 20-sale pagination.
+- **Card Show Events:** account-wide named/date events with paid shared expenses,
+  event proceeds, known purchase costs and net profit/loss; ten events per page.
 
 ## Adding and managing holdings
 
@@ -52,7 +56,73 @@ Record Sale previews oldest-lot-first (FIFO) allocation and accepts quantity plu
 their original purchase-cost basis even after a later correction/removal of the lot.
 The sale timestamp is the time recorded in this release; custom historical dates are
 not supported yet. Remove/Correct Entry is not a sale. Card Show sticker prices never
-change market values, performance or sale proceeds.
+rewrite market values, performance baselines or already recorded sale proceeds.
+
+### Sold History and Card Show Events follow-up (local, 2026-10-21)
+
+The follow-up retains completed sales, not hypothetical future resale estimates.
+New sales save a common transaction ID across FIFO allocations and a card/product
+identity snapshot. They appear as one sale and remain readable after the last owned
+copy is sold or its lot is removed. Historic cost/proceeds do not change when market
+prices or the remaining lot's cost change. Older sales without a transaction ID remain
+separate allocation records; grouping is not guessed from matching names/timestamps.
+
+The sale form suggests a sticker total for the selected FIFO quantities only when
+every allocated item has a sticker price. Changing quantity updates an untouched
+suggestion; typing a negotiated total takes control and is not silently overwritten.
+Use Sticker Total explicitly restores the suggestion. Missing sticker values leave
+the amount blank, and a zero sticker value is valid. The final entry is **net proceeds
+after fees**: sticker suggestions do not automatically subtract selling fees.
+
+Card Show Events have a name, explicit calendar date and optional total expenses
+already paid (table, travel, supplies). Sale-level fees already deducted from proceeds
+must not be entered again. Up to 100 events reuse the same account document; no SQL
+migration, new database resource or public profile is introduced. Event fields and
+sale references are server-validated, revision-protected and owner-scoped. Existing
+version-1 documents without optional event/transaction/snapshot fields remain valid.
+Account export/deletion continue to include the whole document automatically.
+
+Choose an event when recording a sale, or assign/reassign it later in Sold History.
+Assignment changes the entire original transaction across all its lot/collection
+allocations, not quantities, proceeds or cost basis. Events may span several named
+collections. Shared expenses are therefore deducted **once in All Collections**, not
+arbitrarily split across collections. Individual collection totals show card profit
+before shared event expenses. Event summaries always show the complete account-wide
+event, regardless of the selected collection.
+
+Overview now shows realized card gain/loss, unrealized purchase gain/loss and combined
+profit/loss separately. Each eligible owned lot contributes independently, even if
+another lot of that printing lacks a cost. Sold gains include only recorded sales with
+known purchase costs; excluded sales' proceeds are not treated as pure profit. Both
+figures disclose cost/price coverage counts. Combined profit sums the known realized
+and unrealized portions, then deducts paid event expenses once at account scope.
+It is explicitly partial when coverage is incomplete. An empty side contributes zero;
+if all existing holdings/sales lack usable costs, profit is unavailable, not a guessed
+zero. An empty portfolio with actual event expenses correctly shows an expense loss.
+
+Event profit likewise uses known-cost sales profit minus all its paid event expenses.
+The proceeds tile includes all event sales, but missing-cost sales and their proceeds
+are excluded from the profit calculation. Coverage and partial-result explanations
+remain visible. Event expense edits update summaries without rewriting sale history.
+Refunds, cancellations, historical sale editing and per-expense itemization remain
+future work; this is a personal ledger, not tax reporting or a marketplace checkout.
+
+Unrealized gains use current market value before any future sale fees; combined
+profit is not a cash balance. For example, a completed sale with $70.01 net proceeds
+and $22 purchase cost has $48.01 realized card profit. A $5 paid show expense leaves
+$43.01 combined/event profit when no other holdings or sales are present.
+
+Validation passed: full `npm run check`, 647 passing unit tests (one skip), 123
+Chromium journeys, type check and lint with 21 existing warnings and no new warnings.
+Focused coverage includes legacy document compatibility, canonical retained sale
+identity, cross-lot grouping, exact proceeds cents, unknown costs, event validation,
+ownership/revision/export, editable FIFO sticker suggestions, assignment and expense
+edits, reload persistence, and desktop/mobile dark/light views. This is browser
+automation, not real-device or signed-in staging acceptance.
+
+This follow-up is local-only until separately pushed/deployed. No hosting settings
+or databases were changed. The staging release record later in this document refers
+to the preceding Collections release.
 
 ## Performance and review math
 

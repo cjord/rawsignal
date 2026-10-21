@@ -42,3 +42,16 @@ test('preview never saves; review points are explicit and unknown printings are 
   f.env.AUTH_COLLECTIONS_ENABLED='false';assert.equal((await route(f,'/api/account/collections',undefined,user.cookie)).status,404);
  }finally{f.sqlite.close()}
 });
+
+test('card show events and sale assignments stay owner isolated, revision checked and included in export',async()=>{
+ const f=fixture();try{
+  const user=await login(f,'shows@example.test'),other=await login(f,'other-shows@example.test');let revision=0;
+  const write=async action=>{const response=await change(f,user,revision,action);assert.equal(response.status,200,await response.clone().text());revision++;return response.json()};
+  const created=await write({type:'create',name:'Stock'}),collectionId=created.state.collections[0].id;await write({type:'add',collectionId,items:[{...ref,quantity:2,costCents:500,stickerCents:1500}]});
+  const event=await write({type:'event',name:'Local Show',date:'2026-10-21',expensesCents:500}),eventId=event.state.events[0].id;
+  assert.equal((await change(f,other,0,{type:'sale-event',groupKey:'missing',eventId})).status,400);
+  const sold=await write({type:'sell',collectionId,key:JSON.stringify(['single','riftbound',1,'Normal']),quantity:1,netCents:1400,eventId,product:{name:'Forged'}});assert.equal(sold.state.sales[0].product.name,'Canonical Card');assert.equal(sold.state.sales[0].eventId,eventId);assert.equal(sold.state.sales[0].costCents,500);
+  assert.equal((await change(f,user,revision-1,{type:'event',eventId,name:'Stale',date:'2026-10-21',expensesCents:0})).status,409);
+  const exported=await(await route(f,'/api/account/export',undefined,user.cookie)).json(),document=JSON.parse(exported.documents.find(row=>row.key===COLLECTIONS_KEY).value);assert.equal(document.events[0].expensesCents,500);assert.equal(document.sales[0].netCents,1400);
+ }finally{f.sqlite.close()}
+});

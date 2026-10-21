@@ -1,24 +1,22 @@
 "use client";
 import {useState} from 'react';
 import {collectionTotals,reviewMovers,type Holding,type CollectionReview,type CollectionSale} from '../../core/domain/owned-collections';
+import {collectionPerformance} from '../../core/domain/collection-sales';
 import {formatPercent} from '../../core/domain/formatters';
 import InfoHint from '../InfoHint';
 import SlidingTabs from '../SlidingTabs';
 import {collectionMoney} from './CollectionLedger';
-export function CollectionOverview({holdings,sales}:{holdings:Holding[];sales:CollectionSale[]}){
- const totals=collectionTotals(holdings),knownSales=sales.filter(row=>row.costCents!==null),realized=knownSales.length?knownSales.reduce((sum,row)=>sum+row.netCents-row.costCents!,0):null;
- const metrics=[{label:'Known Market Value',value:collectionMoney(totals.value),hint:`${totals.priced}/${totals.total} printings priced`,tone:'blue'},{label:'Market Movement Since Added',value:formatPercent(totals.percent,'N/A'),hint:`${collectionMoney(totals.change)} · ${totals.compared}/${totals.total} printings comparable`,tone:totals.change!==null&&totals.change<0?'down':'up'},{label:'Unrealized Purchase Gain / Loss',value:collectionMoney(totals.profit),hint:'Only holdings with known purchase costs',tone:totals.profit!==null&&totals.profit<0?'down':'up'},{label:'Realized Gain / Loss',value:collectionMoney(realized),hint:`${totals.quantity} owned copies · ${sales.reduce((sum,row)=>sum+row.quantity,0)} sold copies`,tone:realized!==null&&realized<0?'down':'purple'}];
+const profitTone=(value:number|null)=>value===null||value===0?'neutral':value<0?'down':'up';
+export function CollectionMetric({label,value,hint,tone='blue'}:{label:string;value:string;hint:string;tone?:string}){return <div className={`detail-metric collection-metric tone-${tone}`}><small>{label}</small><strong>{value}</strong><span>{hint}</span></div>}
+export function CollectionOverview({holdings,sales,expenses=0,allCollections=true}:{holdings:Holding[];sales:CollectionSale[];expenses?:number;allCollections?:boolean}){
+ const totals=collectionTotals(holdings),profit=collectionPerformance(holdings,sales,expenses);
+ const metrics=[{label:'Known Market Value',value:collectionMoney(totals.value),hint:`${totals.priced}/${totals.total} printings priced`,tone:'blue'},{label:'Market Movement Since Added',value:formatPercent(totals.percent,'N/A'),hint:`${collectionMoney(totals.change)} · ${totals.compared}/${totals.total} printings comparable`,tone:profitTone(totals.change)},{label:'Unrealized Purchase Gain / Loss',value:collectionMoney(profit.unrealized),hint:`${profit.costedQuantity}/${profit.quantity} owned cards have prices and costs`,tone:profitTone(profit.unrealized)},{label:'Realized Card Gain / Loss',value:collectionMoney(profit.realized),hint:`${profit.costedSoldQuantity}/${profit.soldQuantity} sold cards costed · before event expenses`,tone:profitTone(profit.realized)},{label:'Card Show Expenses',value:allCollections?collectionMoney(expenses):'Account-wide',hint:allCollections?'Paid expenses deducted once from combined profit':'See All Collections or Card Show Events',tone:expenses?'down':'neutral'},{label:'Combined Profit / Loss',value:collectionMoney(profit.combined),hint:allCollections?'Known realized + unrealized − event expenses':'Known card profit · before shared event expenses',tone:profitTone(profit.combined)}];
  return <section className="collection-overview" aria-label="Collection Overview">
 <div className="collection-metric-heading">
 <h2>Collection Overview</h2>
-<InfoHint label="How collection performance is calculated">Market movement compares current prices with each dated lot’s market price when added, for copies still owned. Adding stock is not a gain. Purchase gains use your optional cost. Sales use total net proceeds and oldest lots first. Missing prices/costs are excluded, not estimated; realized gains include only costed sales. USD; raw singles use Near Mint, sealed uses unopened pricing.</InfoHint>
+<InfoHint label="How collection performance is calculated">Market movement compares current prices with each dated lot’s starting market, for copies still owned. Adding stock is not a gain. Purchase gains use optional costs; sales use net proceeds and oldest lots first. Combined profit adds known realized and unrealized gains, deducting paid event expenses once in All Collections. Individual collections show card profit before shared expenses. Missing price/cost pairs are excluded with coverage counts, not assumed zero; partial totals are not complete portfolio profit. USD; Near Mint singles / unopened sealed.</InfoHint>
 </div>
-<div className="collection-metrics">{metrics.map(metric=>
-<div key={metric.label} className={`detail-metric collection-metric tone-${metric.tone}`}>
-<small>{metric.label}</small>
-<strong>{metric.value}</strong>
-<span>{metric.hint}</span>
-</div>)}</div>
+<div className="collection-metrics collection-overview-metrics">{metrics.map(metric=><CollectionMetric key={metric.label} {...metric}/>)}</div>
 </section>;
 }
 export function VisitMovers({holdings,reviews,busy,onReview}:{holdings:Holding[];reviews:CollectionReview[];busy:boolean;onReview:()=>void}){

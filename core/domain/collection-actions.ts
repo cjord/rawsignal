@@ -1,6 +1,7 @@
 import {collectionHoldings,productKey,recordReview,validCents,validProductRef,type OwnedCollections,type CollectionProduct,type ProductRef} from './owned-collections.ts';
+import {applyEventAction} from './collection-sales.ts';
 type AddItem=ProductRef&{quantity:number;costCents?:number|null;stickerCents?:number|null};
-type Action={type:string;collectionId?:string;name?:string;cardShow?:boolean;items?:AddItem[];skipExisting?:boolean;source?:'manual'|'collectr';lotId?:string;quantity?:number;costCents?:number|null;stickerCents?:number|null;key?:string;netCents?:number};
+type Action={type:string;collectionId?:string;name?:string;cardShow?:boolean;items?:AddItem[];skipExisting?:boolean;source?:'manual'|'collectr';lotId?:string;quantity?:number;costCents?:number|null;stickerCents?:number|null;key?:string;netCents?:number;eventId?:string|null;date?:string;expensesCents?:number;groupKey?:string};
 const quantity=(value:unknown)=>Number.isSafeInteger(value)&&Number(value)>0&&Number(value)<=1000;
 const optionalMoney=(value:unknown)=>value===undefined||value===null||validCents(value);
 function collectionExists(state:OwnedCollections,id:unknown){if(!state.collections.some(row=>row.id===id))throw new Error('Choose an existing collection')}
@@ -19,13 +20,14 @@ function addLots(state:OwnedCollections,action:Action,market:CollectionProduct[]
 }
 function sell(state:OwnedCollections,action:Action,market:CollectionProduct[],now:string,newId:()=>string){
  if(!quantity(action.quantity)||!validCents(action.netCents))throw new Error('Enter a valid quantity and total net proceeds');
+ if(action.eventId!=null&&!(state.events??[]).some(row=>row.id===action.eventId))throw new Error('Choose an existing card show event');
  const holding=collectionHoldings(state,market,action.collectionId??'all').find(row=>row.key===action.key);
  if(!holding||holding.quantity<action.quantity!)throw new Error('Not enough owned copies');
- let remaining=action.quantity!,allocated=0;const changes=new Map<string,number>(),sales=[...state.sales];
+ let remaining=action.quantity!,allocated=0;const changes=new Map<string,number>(),sales=[...state.sales],saleId=newId();
  for(const lot of holding.lots){
   if(!remaining)break;const count=Math.min(lot.quantity,remaining);remaining-=count;
   const net=remaining===0?action.netCents!-allocated:Math.floor(action.netCents!*count/action.quantity!);allocated+=net;changes.set(lot.id,lot.quantity-count);
-  sales.push({id:newId(),collectionId:lot.collectionId,lotId:lot.id,quantity:count,netCents:net,costCents:lot.costCents===null?null:lot.costCents*count,date:now,name:lot.product.name});
+  sales.push({id:newId(),saleId,eventId:action.eventId??null,collectionId:lot.collectionId,lotId:lot.id,quantity:count,netCents:net,costCents:lot.costCents===null?null:lot.costCents*count,date:now,name:lot.product.name,product:lot.product});
  }
  if(sales.length>1000)throw new Error('Sales history limit reached; export your records before continuing');
  return {...state,sales,lots:state.lots.map(row=>changes.has(row.id)?{...row,quantity:changes.get(row.id)!}:row)};
@@ -38,6 +40,7 @@ export function applyCollectionAction(state:OwnedCollections,input:unknown,marke
  }
  if(action.type==='add')return addLots(state,action,market,now,newId);
  if(action.type==='sell')return sell(state,action,market,now,newId);
+ if(['event','sale-event'].includes(action.type))return applyEventAction(state,action,now,newId);
  if(action.type==='review'){if(action.collectionId!=='all')collectionExists(state,action.collectionId);return recordReview(state,market,action.collectionId!,now)}
  if(action.type==='update'){
   collectionExists(state,action.collectionId);if(typeof action.name!=='string'||!action.name.trim()||action.name.trim().length>80||typeof action.cardShow!=='boolean')throw new Error('Invalid collection settings');
