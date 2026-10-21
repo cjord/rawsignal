@@ -68,6 +68,15 @@ exclude hidden profiles only when enabled. Server-admin/fresh-session/origin che
 protect writes. Private account saves and owner visibility choices are untouched.
 [Goals, measurements, deployment gates and costs](auction-loading-and-safety-follow-up.md).
 
+Release 2026-10-21 (`44ecc7a`) supersedes the local-only status: moderation migration
+0028 and burst bindings are enabled on staging only. Production accounts remain off.
+Compact catalog activation failed live fallback parity and is disabled in both
+environments. Persistent Auction Shell, Inventory/Profile Studio and loading/save
+hardening are deployed. Auction links use a public-router callback to avoid the
+installed framework Link's built-only dynamic-export failure. Remote schedules were
+verified: staging empty, production minutely. Physical-device recovery and direct
+production browser verification (Cloudflare challenge) remain separate acceptance.
+
 ### Domain
 
 `core/domain/` owns market types, runtime input contracts, display formatting, and dated-history calculations. Missing source values remain `null`; presentation code decides whether to render `N/A` or another established unavailable label.

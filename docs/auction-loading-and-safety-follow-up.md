@@ -247,3 +247,57 @@ cleared before the successful full run.
 No generated feeds, dependency lockfile or repository instructions were changed.
 Source whitespace/known-credential review passed. No GitHub push, deployment, real
 email/provider action, physical-device test or persistent database migration occurred.
+
+## Release results — 2026-10-21
+
+The later release authorization supersedes the original local-only boundary above.
+Application `44ecc7a` is pushed to GitHub and deployed in both environments. Final
+full gate: 622 node passes, one skip, all 117 browser journeys (5.8 minutes), build,
+types and lint with the same 21 warnings. Built-preview navigation and deployed
+staging checks preserve the document/backdrop with no browser errors. Live staging
+confirmed eleven initial catalog calls and zero added by internal navigation;
+Play/Inventory/Showcase/Profile were checked at desktop/mobile widths in both themes.
+Singles/Sealed checks and private/admin guest boundaries passed. No account saves,
+emails, OAuth authorizations, inventory sales or challenge attempts were submitted.
+
+Staging migration 0028 is applied and independently verified after the private full
+export and Time Travel bookmark. Moderation and isolated burst bindings are enabled
+there. A bounded invalid-query read test returned 121 HTTP 400 responses followed by
+429 with Retry-After 60; these requests did not execute the community profile query.
+This verifies the read binding, not live account-scoped write limiting or a global quota.
+Signed-in Hide/Restore/fresh-session behavior still relies on the local integration
+tests until manual staging acceptance. Physical-device recovery remains unperformed.
+
+The temporary compact-catalog trial was rejected and switched OFF again: snapshot
+fallback 1,333 cards versus 1,583 exact printings from the section feeds, with 252
+missing, two extra and 1,219 changed field tuples. These are different fallback/source
+paths, not a valid same-catalog timing comparison. No cache-on speed result or successful
+database snapshot was claimed. Staging logs measured two readiness-fallback rebuilds:
+two SQL reads each, 7,226/7,220 rows read, zero writes, about 0.85/0.65 ms SQL duration.
+These are incomplete-readiness costs, not a forecast for a successful full snapshot.
+
+Production accounts/tools/community and compact caching stay OFF; no production
+migration or new auth secret/email binding was added. Database and existing secret
+bindings were verified unchanged. Production preview UI/API checks passed, including
+zero guest account writes, navigation persistence and responsive themes. The direct
+domain returned HTTP 403, `cf-mitigated: challenge` and “Just a moment...” to the
+isolated automated browser. No WAF/IP exception was changed. Preview success is not
+proof that the production zone permits the test runner.
+
+The production catalog API returned `source: feed` during validation. Read-only D1
+inspection found the already-running `tcgcsv-live` job (started 2026-10-20 20:05 UTC,
+before this release) advancing about 18,691 writes, while the previous published
+run expected 19,276 rows but only 297 then 271 still carried that run ID. The existing
+readiness check correctly refused to call this a complete database catalog. Staging
+likewise had only 7,118 rows matching its published 19,276-row run. Do not relax that
+guard or label fallback prices live. Publication/read-availability and consistent
+fallback transport are open follow-ups; no ingestion/market-data mutations were made
+to pass this release check.
+
+Remote schedule inspection unexpectedly found `*/2` still attached to staging despite
+the generated `{}` schedule section. The release generated an explicit `crons: []`,
+redeployed the same application and verified the remote schedule empty. Production's
+`*/1` schedule is verified unchanged. Permanently pin explicit empty schedules in the
+preparation script/tests next; an absent cron field does not remove a remote schedule.
+Final application versions are retained in private release logs; backups, generated
+configs, credentials and the user's unrelated overlay image were not committed.

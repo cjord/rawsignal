@@ -12,6 +12,25 @@ runbook), `docs/todo-completed.md` (shipped items and the resolved decision log)
 
 ## Accounts and collection saves — in progress (2026-10-19)
 
+- **Release checkpoint 2026-10-21:** application `44ecc7a` is pushed and deployed to
+  staging and production after the full 622-node/117-browser gate and live staging
+  checks. Navigation, loading, Inventory/Profile Studio and save hardening shipped.
+  Accounts remain staging-only; migration 0028, moderation and burst bindings are
+  enabled there. Compact caching is OFF in both environments: live staging parity
+  failed (1,333 bundled snapshot cards vs 1,583 section-feed printings). Resolve
+  partial-run/fallback consistency before another activation trial; do not weaken
+  readiness guards. Production catalog API was using its honest fallback during an
+  already-running live ingestion. Investigate the publication/read-availability gap.
+  Physical Chrome/Firefox/Safari recovery and signed-in moderation acceptance remain.
+  Production preview UI passed; the custom domain challenged automated browsers.
+  An unexpected staging cron was explicitly cleared and the remote schedule verified
+  empty. Follow up: make deployment preparation emit `triggers: {crons: []}` rather
+  than `{}` for schedule removal, with a regression test. Production keeps `*/1`.
+  [Release evidence and remaining gates](auction-loading-and-safety-follow-up.md#release-results--2026-10-21).
+
+Earlier local checkpoints below are historical; the release checkpoint above supersedes
+their not-deployed/migration-pending statements.
+
 - Loading/safety follow-up now local: traced and removed late lobby insertion and
   Inventory filter-shell collapse; Data-First Artwork no longer waits for unrelated
   window images. Five-minute public Legacy Catalog Reuse removes repeated waves on

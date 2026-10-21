@@ -1,5 +1,12 @@
 # Auction platform implementation — 2026-10-19
 
+**Release update 2026-10-21:** application `44ecc7a` is pushed and deployed to staging
+and production after full regression and live staging checks. The historical local-only
+notes below are superseded by [release evidence and remaining gates](auction-loading-and-safety-follow-up.md#release-results--2026-10-21).
+Accounts/moderation remain staging-only, migration 0028 is applied there, and compact
+caching is off in both environments after failed live parity. Physical-device recovery
+and production custom-domain browser verification remain pending.
+
 The user authorized beginning the previously documented plans on 2026-10-19.
 This supersedes the earlier planning-only restriction for navigation. Implementation
 is phased; **no GitHub push, staging deployment or production change is authorized

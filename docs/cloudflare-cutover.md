@@ -37,6 +37,14 @@ npx wrangler deploy --dry-run --config dist/server/wrangler.staging.json
 
 The generated file is ignored by Git. Inspect it before deployment and verify that `triggers` is empty, `workers_dev` is true, the `DB` binding references staging, there is no production route, and the injected bindings are present: `images` → `IMAGES`, `version_metadata` → `CF_VERSION_METADATA`, and the service binding `COLLECTR_FETCH` → `raw-signal-collectr`. Production preparation also pins `EBAY_DELETION_ENDPOINT_URL` to the exact custom-domain callback URL; it is public configuration, not a credential.
 
+**2026-10-21 schedule correction:** `triggers: {}` does not clear an already-attached
+remote cron. An unexpected staging `*/2` survived deployments until this release
+explicitly generated `triggers: {crons: []}` and deployed it. Remote schedule inspection
+then confirmed an empty list; production retains `*/1`. Until the preparation-script
+regression fix is completed, require an explicit empty cron list when clearing a
+schedule and verify remote state after deploy. Do not infer cronlessness from an
+absent/empty config section or a generic “triggers deployed” success message.
+
 ## 3. Migrate and seed staging
 
 Apply committed migrations to staging:

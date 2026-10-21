@@ -9,6 +9,39 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-21 — Auction navigation, loading and safety release
+
+Application `44ecc7a` (initial feature source `6774350`) is pushed on
+`codex/accounts-and-collections` and deployed to staging and production. Persistent
+Auction Hub/background, separate Inventory Page, Profile Studio, reserved loading
+space, independent artwork loading, public in-memory feed reuse, bounded requests,
+save acknowledgements and server-owned account export are shipped. Account features
+remain enabled only on staging; no production account migration or credential setup.
+
+The final complete gate passed 622 node tests (one skip), 117 Chromium journeys,
+build/types/lint with 21 existing warnings. Staging live checks passed desktop/mobile
+and both themes, access/privacy boundaries, zero guest account writes and zero extra
+catalog requests on internal navigation. A built-only vinext Link export failure was
+fixed before production promotion; the new release smoke tool preserves document and
+background identity across three tab changes. Production preview repeated the UI/API
+checks successfully. The custom domain returned a Cloudflare challenge to automated
+browser requests, so direct-domain browser verification remains pending.
+
+Staging migration 0028 followed an explicitly approved private SQL backup and recovery
+bookmark. Moderation and platform burst bindings are enabled there; a bounded invalid
+read test observed 429/Retry-After 60 without account writes. Signed-in moderation and
+physical-device recovery remain separate manual acceptance. Existing database/secret
+bindings were verified preserved. An unexpected staging `*/2` schedule was removed via
+an explicit empty cron list and remote state verified empty; production retains `*/1`.
+
+Compact caching remains disabled in both environments after live parity failed. The
+staging compact path selected a 1,333-card bundled fallback while existing feeds exposed
+1,583 printings. No successful live snapshot/read-speed claim. Two failed-readiness
+rebuilds recorded 7,226/7,220 database rows read and zero writes. Production catalog
+queries also used fallback while the pre-existing live ingestion advanced; no manual
+ingestion, source refresh or production migration was performed.
+[Detailed evidence and open follow-ups](auction-loading-and-safety-follow-up.md#release-results--2026-10-21).
+
 ## 2026-10-19 — Auction loading and Inventory Manager (staging)
 
 Application `b0ae632`, staging version `8d90dbd3-9c64-45e9-81a5-fc3dab2f4bbd`.
