@@ -4,7 +4,7 @@ import {DatabaseSync} from "node:sqlite";
 import test from "node:test";
 import {METRIC_SERIES,metricsBackfillStatements,readMetricSeries,runMetricsRollup} from "../db/metrics-ingestion.ts";
 import {publishedIngestion,readCohortStats,startIngestion,upsertCard,upsertHistory,upsertSealedProduct} from "../db/repository.ts";
-import {loadMetricsPayload} from "../db/metrics-service.ts";
+import {loadMetricsPayload,loadSetEvData} from "../db/metrics-service.ts";
 
 class LocalStatement{
   constructor(statement){this.statement=statement;this.values=[]}
@@ -157,7 +157,7 @@ test('shared set summaries retain non-leading sets in eras and exact game-scoped
   assert.equal(payload.sets.find(row=>row.game==='riftbound').trackedValue,900);
   const leading=payload.sets.find(row=>row.game==='pokemon'&&row.set==='Set 54');assert.equal(leading.medianPrice,55);assert.equal(leading.change30,1);
   const era=payload.eras.find(row=>row.era==='me');assert.equal(era.cards,165);assert.equal(era.sets,55);assert.equal(era.trackedValue,4620);assert.equal(era.change30,1);
-  assert.equal(queries.filter(sql=>sql.includes('with ranked as (')&&sql.includes('p.set_name, p.game')).length,1);
+  assert.equal(queries.filter(sql=>sql.includes('with price_groups as (')&&sql.includes('p.set_name, p.game')).length,1);
   assert.equal(queries.filter(sql=>sql.includes('with totals as (')).length,0);
  }finally{database.close()}
 });
@@ -186,6 +186,52 @@ test('optimized breadth and materialized Movers retain exact populations, ties a
   const movers=queries.find(sql=>sql.startsWith('with eligible as materialized'));
   const plan=database.prepare('EXPLAIN QUERY PLAN '+movers).all().map(row=>row.detail);
   assert.ok(plan.includes('MATERIALIZE eligible'));assert.equal(plan.filter(line=>line.includes('SEARCH cp ')).length,1);
+ }finally{database.close()}
+});
+
+test('grouped medians retain odd/even, zero, null and independently missing movement populations',async()=>{
+ const database=await migratedDatabase(),db=new LocalD1(database);
+ const median=values=>{const sorted=values.filter(v=>v!=null).sort((a,b)=>a-b),n=sorted.length;return n?(sorted[Math.floor((n-1)/2)]+sorted[Math.floor(n/2)])/2:null};
+ try{
+  await startIngestion(db,'grouped-medians','fixture','2026-10-22',{});
+  const groups=[{game:'pokemon',name:'Odd',prices:[101,303,901,null,0]}, {game:'pokemon',name:'Even',prices:[101,302,703,904]}, {game:'riftbound',name:'Odd',prices:[99999,201,201]}, {game:'pokemon',name:'No movement',prices:[500]}, {game:'pokemon',name:'Unpriced',prices:[null]}];
+  let next=6000;
+  for(const group of groups){group.movements=[];
+   for(const [index,cents]of group.prices.entries()){
+    const id=next++,move=group.name==='No movement'?[null,null,null]:[index%2?null:index*200-300,index===0?0:null,index===1?-155:null];group.movements.push(move);
+    await upsertCard(db,{...card(id,cents==null?null:cents/100),game:group.game,set:group.name},'2026-10-22','grouped-medians');
+    await upsertSealedProduct(db,{game:group.game,productId:id+10000,name:`Pack ${id}`,set:group.name,category:group.name,image:null,url:'',msrp:null,marketPrice:cents==null?null:cents/100,midPrice:null,profit:null,profitPct:null,msrpSource:null},'2026-10-22','grouped-medians');
+    // Singles set momentum intentionally retains its existing variant-only semantics.
+    await db.prepare("insert into market_metrics(product_id,variant,condition,as_of_date,coverage,change_30_bps,updated_at) values (?,'Holofoil','Near Mint','2026-10-22','exact',?,'now')").bind(id,move[1]).run();
+    for(const [variant,condition,multiplier]of [['Sealed','Unopened',1],['Sealed','Near Mint',9],['Normal','Unopened',7]])await db.prepare("insert into market_metrics(product_id,variant,condition,as_of_date,coverage,change_7_bps,change_30_bps,change_90_bps,updated_at) values (?,?,?,'2026-10-22','exact',?,?,?,'now')").bind(id+10000,variant,condition,...move.map(v=>v==null?null:v*multiplier)).run();
+   }
+  }
+  // A group larger than ordinary fixture sets checks internal JSON aggregation.
+  for(let i=0;i<1001;i++)await upsertCard(db,{...card(30000+i,(i+1)/100),set:'Large cohort'},'2026-10-22','grouped-medians');
+  await runMetricsRollup(db,{mode:'backfill',series:[]});
+  const payload=await loadMetricsPayload(db);
+  assert.equal(payload.sets.find(row=>row.set==='Large cohort').medianPrice,5.01);
+  for(const group of groups){
+   const priceMedian=median(group.prices),set=payload.sets.find(row=>row.game===group.game&&row.set===group.name),category=payload.sealedCategories.find(row=>row.game===group.game&&row.category===group.name);
+   if(priceMedian==null){assert.equal(set,undefined);assert.equal(category,undefined);continue}
+   assert.equal(set.medianPrice,priceMedian/100);assert.equal(category.medianPrice,priceMedian/100);
+   assert.equal(category.products,group.prices.filter(v=>v!=null).length);assert.equal(category.trackedValue,group.prices.reduce((sum,v)=>sum+(v??0),0)/100);
+   for(const [index,key]of ['change7','change30','change90'].entries()){const expected=median(group.movements.map(row=>row[index]));assert.equal(category[key],expected==null?null:expected/100)}
+  }
+ }finally{database.close()}
+});
+
+test('pack EV starts its independent price and tier reads together; absent pull rates still skip tiers',async()=>{
+ const database=await migratedDatabase(),db=new LocalD1(database);let tierStarted=false;
+ try{
+  const concurrent={prepare(sql){const statement=db.prepare(sql),all=statement.all.bind(statement);statement.all=async()=>{
+   if(sql.includes('min(cp.market_cents)')){await new Promise(resolve=>setTimeout(resolve,20));assert.equal(tierStarted,true)}
+   if(sql.includes('p.rarity, p.section'))tierStarted=true;
+   return all();
+  };return statement}};
+  await loadSetEvData(concurrent,{note:'',sources:[],games:{}});
+  const queries=[],withoutRates={prepare(sql){queries.push(sql);return db.prepare(sql)}};
+  await loadSetEvData(withoutRates);assert.equal(queries.length,1);assert.ok(queries[0].includes('min(cp.market_cents)'));
  }finally{database.close()}
 });
 

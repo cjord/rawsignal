@@ -41,6 +41,12 @@ Defined in `app/styles/tokens.css` (dimensions/motion/stacking) and `app/globals
   nearest token, and only extend the ramp deliberately.
 - Font files are self-hosted (`public/fonts/` + `app/styles/fonts.css`), never loaded via
   `next/font` — the vinext loader bakes absolute local cache paths into production builds.
+- Sans fonts use optional delivery: promptly available/cached Geist remains the
+  preferred face, but a late download does not replace already visible fallback
+  text during the visit. Weight-specific local regular/bold fallbacks keep labels
+  readable without hiding content. Mono retains swap with a matched fixed-width
+  fallback. This prioritizes stable controls/headings over a guaranteed first-visit
+  web-font replacement; no artwork/font readiness gate is added.
 
 ## Component anatomy
 

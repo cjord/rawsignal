@@ -222,10 +222,11 @@ readable large Sealed prices, real wrappers/charts and matching loading frames.
 Live release results will be recorded below. Staging-only deployment must preserve the already-enabled compact catalog,
 identity/save/limiter bindings and empty cron; production stays unchanged.
 
-Next: Optional Module Budget with real built-chunk evidence and retryable loading,
-then populated owner fixtures and the physical recovery runbook. Deliberately late
-sans fonts and cold Metrics latency remain open measurements, not solved by these
-query changes. Physical Safari/second-device acceptance requires human participation.
+Updated priority, 2026-10-22: Optional Module Budget, populated owner fixtures and
+physical recovery are now deferred by the user. The next active batch is
+[Cold Metrics Performance and Layout Stability](cold-metrics-layout-stability.md).
+The preceding query changes did not solve deliberately late sans fonts or prove
+cold-load speed gains. Physical Safari/second-device acceptance requires human participation.
 
 **Deferred at the user's request, 2026-10-22:** no iPhone/iPad with Safari is
 currently available. Retain the physical recovery runbook for a later device

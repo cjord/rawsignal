@@ -35,6 +35,13 @@ type CategoryRow = { category: string; game: string; totalCents: number; product
 type MomentumRow = { game: string; kind: "single" | "sealed"; tracked: number; advancers7: number; decliners7: number; advancers30: number; decliners30: number; atHigh: number; atLow: number };
 type MoverRow = { productId: number; name: string; number: string | null; setName: string; game: string; kind: "single" | "sealed"; printing: string | null; image: string | null; cents: number; midCents: number | null; changeBps: number; win: "7d" | "30d" | "90d"; direction: "up" | "down"; snapshotId: string | null };
 
+// Internal, ORDERED numeric JSON groups only; never interpolate user input here.
+// Integer indices pick the same two middle ranks as the window implementation.
+// Empty movement groups stay null, not zero; arrays never leave the SQL statement.
+const groupedMedian = (column: string) => `case when json_array_length(${column})>0 then
+  (json_extract(${column},'$['||((json_array_length(${column})-1)/2)||']')+
+   json_extract(${column},'$['||(json_array_length(${column})/2)||']'))/2.0 end`;
+
 const gameLabel: Record<string, string> = { pokemon: "Pokémon", riftbound: "Riftbound", onepiece: "One Piece" };
 
 // Pack EV inputs (audit Phase C / H1): the cheapest live booster-pack price per set, and
@@ -47,17 +54,21 @@ const gameSetKey = (game: string, set: string) => `${game}|${set}`;
 
 export async function loadSetEvData(db: D1DatabaseLike, pullRates?: PullRateConfig, sets?:readonly QuerySet[]) {
   const scope=setQueryScope(sets);
-  const packRows = (await db.prepare(`select p.game, p.set_name setName, min(cp.market_cents) packCents
+  // Independent reads: do not add a pack-price round trip before reading tiers.
+  const packRead = db.prepare(`select p.game, p.set_name setName, min(cp.market_cents) packCents
       from ${scope.from} join current_prices cp on cp.product_id=p.product_id
       where p.kind='sealed' and p.product_type='Booster Packs' and cp.market_cents > 0
-      group by p.game, p.set_name`).bind(...scope.params).all<{ game: string; setName: string; packCents: number }>()).results ?? [];
+      group by p.game, p.set_name`).bind(...scope.params).all<{ game: string; setName: string; packCents: number }>();
+  const tierRead = pullRates ? db.prepare(`select p.set_name setName, p.game, p.rarity, p.section, avg(cp.market_cents) avgCents, count(*) n
+        from ${scope.from} join current_prices cp on cp.product_id=p.product_id
+        where p.kind='single' and cp.market_cents is not null
+        group by p.set_name, p.game, p.rarity, p.section`).bind(...scope.params).all<{ setName: string; game: string; rarity: string; section: string | null; avgCents: number; n: number }>() : Promise.resolve(null);
+  const [packResult,tierResult]=await Promise.all([packRead,tierRead]);
+  const packRows=packResult.results??[];
   const packPriceBySet = new Map(packRows.map(row => [gameSetKey(row.game, row.setName), row.packCents / 100]));
   const evBySet = new Map<string, number | null>();
   if (pullRates) {
-    const tierRows = (await db.prepare(`select p.set_name setName, p.game, p.rarity, p.section, avg(cp.market_cents) avgCents, count(*) n
-        from ${scope.from} join current_prices cp on cp.product_id=p.product_id
-        where p.kind='single' and cp.market_cents is not null
-        group by p.set_name, p.game, p.rarity, p.section`).bind(...scope.params).all<{ setName: string; game: string; rarity: string; section: string | null; avgCents: number; n: number }>()).results ?? [];
+    const tierRows = tierResult?.results ?? [];
     const tiersBySet = new Map<string, Map<string, { packsPerHit: number; weighted: number; count: number }>>();
     for (const row of tierRows) {
       const resolved = pullRateFor(pullRates, row.game, row.setName, { rarity: row.rarity, section: row.section ?? undefined });
@@ -116,17 +127,16 @@ async function loadOverview(db: D1DatabaseLike, series: Record<string, PricePoin
 // singles divergence (audit H2) reads each set's sealed products' median 30D change the
 // same middle-rank way.
 async function loadSetSummaries(db:D1DatabaseLike):Promise<SetRow[]> {
-  return (await db.prepare(`with ranked as (
-      select p.set_name, p.game, cp.market_cents v,
-        row_number() over (partition by p.game, p.set_name order by cp.market_cents desc) rn,
-        count(*) over (partition by p.game, p.set_name) total,
-        sum(cp.market_cents) over (partition by p.game, p.set_name) sumv,
-        max(p.release_year) over (partition by p.game, p.set_name) year
+  return (await db.prepare(`with price_groups as (
+      select p.set_name, p.game, count(*) cards, sum(cp.market_cents) totalCents,
+        max(p.release_year) year,
+        json_group_array(cp.market_cents order by cp.market_cents desc) prices
       from catalog_products p join current_prices cp on cp.product_id=p.product_id
       where p.kind='single' and cp.market_cents is not null
+      group by p.set_name, p.game
     ), medians as (
-      select set_name, game, max(total) cards, max(sumv) totalCents, avg(v) medianCents, max(year) year
-      from ranked where rn=(total+1)/2 or rn=total/2+1 group by set_name, game
+      select set_name, game, cards, totalCents, year, ${groupedMedian('prices')} medianCents
+      from price_groups
     ), momentum as (
       select p.set_name, p.game, mm.change_30_bps b,
         row_number() over (partition by p.game, p.set_name order by mm.change_30_bps) rn,
@@ -149,16 +159,18 @@ async function loadSetRows(db:D1DatabaseLike,pullRates:PullRateConfig|undefined,
   const setRows=summaries.filter(row=>row.gameRank<=50);
 
   const scope=setQueryScope(setRows);
-  const sealedSetRows = (await db.prepare(`with momentum as (
+  const sealedSetRead = db.prepare(`with momentum as (
       select p.set_name setName, p.game, mm.change_30_bps b,
         row_number() over (partition by p.game, p.set_name order by mm.change_30_bps) rn,
         count(*) over (partition by p.game, p.set_name) total
       from ${scope.from} ${metricsJoin}
       where p.kind='sealed' and mm.change_30_bps is not null
-    ) select setName, game, avg(b) as change30Bps from momentum where rn=(total+1)/2 or rn=total/2+1 group by setName, game`).bind(...scope.params).all<{ setName: string; game: string; change30Bps: number | null }>()).results ?? [];
+    ) select setName, game, avg(b) as change30Bps from momentum where rn=(total+1)/2 or rn=total/2+1 group by setName, game`).bind(...scope.params).all<{ setName: string; game: string; change30Bps: number | null }>();
+  const [sealedResult,{packPriceBySet,evBySet}]=await Promise.all([
+    sealedSetRead,loadSetEvData(db,pullRates,setRows),
+  ]);
+  const sealedSetRows=sealedResult.results??[];
   const sealedChangeBySet = new Map(sealedSetRows.map(row => [gameSetKey(row.game, row.setName), row.change30Bps]));
-
-  const { packPriceBySet, evBySet } = await loadSetEvData(db, pullRates,setRows);
 
   return setRows.map(row => {
     const key = gameSetKey(row.game, row.setName);
@@ -173,50 +185,32 @@ async function loadSetRows(db:D1DatabaseLike,pullRates:PullRateConfig|undefined,
   });
 }
 
-// Sealed groups by product category — sets barely exist as a sealed concept. Each
-// momentum window is aggregated once and joined (never a correlated subselect against
-// a window CTE — the pattern that made this payload pathological before).
+// Sealed groups by product category. Aggregate the three independent non-null
+// movement populations in one exact printing/condition join, not three windows.
 async function loadSealedCategories(db: D1DatabaseLike): Promise<MetricsCategoryRow[]> {
-  const categoryRows = (await db.prepare(`with ranked as (
-      select p.product_type category, p.game, cp.market_cents v,
-        row_number() over (partition by p.game, p.product_type order by cp.market_cents desc) rn,
-        count(*) over (partition by p.game, p.product_type) total,
-        sum(cp.market_cents) over (partition by p.game, p.product_type) sumv
+  const categoryRows = (await db.prepare(`with price_groups as (
+      select p.product_type category, p.game, count(*) products,
+        sum(cp.market_cents) totalCents,
+        json_group_array(cp.market_cents order by cp.market_cents desc) prices
       from catalog_products p join current_prices cp on cp.product_id=p.product_id
       where p.kind='sealed' and cp.market_cents is not null
+      group by p.game, p.product_type
     ), medians as (
-      select category, game, max(total) products, max(sumv) totalCents, avg(v) medianCents
-      from ranked where rn=(total+1)/2 or rn=total/2+1 group by game, category
-    ), m7 as (
-      select p.game, p.product_type category, mm.change_7_bps b,
-        row_number() over (partition by p.game, p.product_type order by mm.change_7_bps) rn,
-        count(*) over (partition by p.game, p.product_type) total
-      from catalog_products p ${metricsJoin}
-      where p.kind='sealed' and mm.change_7_bps is not null
-    ), m30 as (
-      select p.game, p.product_type category, mm.change_30_bps b,
-        row_number() over (partition by p.game, p.product_type order by mm.change_30_bps) rn,
-        count(*) over (partition by p.game, p.product_type) total
-      from catalog_products p ${metricsJoin}
-      where p.kind='sealed' and mm.change_30_bps is not null
-    ), m90 as (
-      select p.game, p.product_type category, mm.change_90_bps b,
-        row_number() over (partition by p.game, p.product_type order by mm.change_90_bps) rn,
-        count(*) over (partition by p.game, p.product_type) total
-      from catalog_products p ${metricsJoin}
-      where p.kind='sealed' and mm.change_90_bps is not null
-    ), c7 as (
-      select game, category, avg(b) as change7Bps from m7 where rn=(total+1)/2 or rn=total/2+1 group by game, category
-    ), c30 as (
-      select game, category, avg(b) as change30Bps from m30 where rn=(total+1)/2 or rn=total/2+1 group by game, category
-    ), c90 as (
-      select game, category, avg(b) as change90Bps from m90 where rn=(total+1)/2 or rn=total/2+1 group by game, category
+      select category, game, products, totalCents, ${groupedMedian('prices')} medianCents
+      from price_groups
+    ), movements as (
+      select p.game, p.product_type category,
+        json_group_array(mm.change_7_bps order by mm.change_7_bps) filter(where mm.change_7_bps is not null) c7,
+        json_group_array(mm.change_30_bps order by mm.change_30_bps) filter(where mm.change_30_bps is not null) c30,
+        json_group_array(mm.change_90_bps order by mm.change_90_bps) filter(where mm.change_90_bps is not null) c90
+      from catalog_products p join market_metrics mm
+        on mm.product_id=p.product_id and mm.variant='Sealed' and mm.condition='Unopened'
+      where p.kind='sealed' group by p.game, p.product_type
     )
-    select m.category, m.game, m.totalCents, m.products, m.medianCents, c7.change7Bps, c30.change30Bps, c90.change90Bps
+    select m.category, m.game, m.totalCents, m.products, m.medianCents,
+      ${groupedMedian('c7')} change7Bps, ${groupedMedian('c30')} change30Bps, ${groupedMedian('c90')} change90Bps
     from medians m
-    left join c7 on c7.game=m.game and c7.category=m.category
-    left join c30 on c30.game=m.game and c30.category=m.category
-    left join c90 on c90.game=m.game and c90.category=m.category
+    left join movements c on c.game=m.game and c.category=m.category
     order by m.totalCents desc`).bind().all<CategoryRow>()).results ?? [];
   return categoryRows.map(row => ({
     category: row.category, game: row.game, trackedValue: row.totalCents / 100, medianPrice: row.medianCents / 100, products: row.products,

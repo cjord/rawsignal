@@ -10,6 +10,31 @@ Related documents: `docs/roadmap.md` (deferred infra work), `docs/model-gaps.md`
 (signal-model gaps register + review calendar), `docs/cloudflare-cutover.md` (D1
 runbook), `docs/todo-completed.md` (shipped items and the resolved decision log).
 
+## Loading acceptance deferrals — 2026-10-22
+
+- **Optional Module Budget — deferred by user, 2026-10-22:** defer bundle tracing
+  and optional editor/share/marketplace splitting. Revisit only after measuring
+  meaningful initial-download/CPU savings; avoid tiny chunks, slower first clicks,
+  lost editor state and failed-download dead ends. Preserve primary market data,
+  timers/save logic, accessible placeholders/retry and old-tab deployment behavior.
+  Expected gains are incremental, especially where code is already on demand.
+- **Physical Recovery Testing — deferred by user, 2026-10-22:** retain the real
+  desktop Chrome/Firefox + mobile Safari runbook for later reprioritization and
+  available hardware. Cover offline/conflicting saves, accepted-write response loss,
+  session expiry, reopen/export and wrong-owner isolation. Goal: no lost progress
+  or duplicated cash/inventory. Automated checks do not establish physical Safari
+  acceptance. No reminder scheduled; existing recovery regression checks remain.
+  [Acceptance boundaries](page-loading-next-checkpoint.md).
+
+- **Populated Account Acceptance — deferred by user, 2026-10-22:** postpone the
+  dedicated large-account test batch. When resumed, use disposable fixtures with
+  many holdings/imports/favorites and pending saves; check pagination, rendering
+  cost, owner switching and recovery without accessing real personal inventories.
+  This does not waive existing account/privacy/save regression checks or establish
+  large-account readiness. Resume only when reprioritized; no reminder scheduled.
+  Physical Safari/two-device recovery remains separately deferred until hardware
+  is available. [Loading plan and acceptance boundaries](page-loading-next-checkpoint.md).
+
 ## Accounts and collection saves — in progress (2026-10-19)
 
 - **Collections interface follow-up:** seven improvements plus Sold History/Card Show
