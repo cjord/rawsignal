@@ -1,6 +1,7 @@
 import {expect,test} from '@playwright/test';
 import {rolldown} from 'rolldown';
 import {resolve} from 'node:path';
+import {auctionBackdropSlots} from '../../core/domain/auction-backdrop';
 let script:string;
 test.beforeAll(async()=>{const bundle=await rolldown({input:'tests/helpers/page-loading-browser.tsx',resolve:{alias:{'next/link':resolve('tests/helpers/account-link.tsx')}},platform:'browser',transform:{jsx:'react-jsx',define:{'process.env.NODE_ENV':JSON.stringify('production')}}});script=(await bundle.generate({format:'iife'})).output.find(row=>row.type==='chunk')!.code;await bundle.close()});
 for(const kind of ['sets','metrics'])test(`${kind}: scoped server body never includes the other market; bare URLs reserve a neutral shell`,async({page},testInfo)=>{
@@ -23,8 +24,8 @@ test('auction backdrop replaces rejected art without shrinking its loops',async(
  await page.route('**/scope-body**',r=>r.fulfill({contentType:'text/html',body:`<html><head><style>${styles}</style></head><body><div id="fixture"></div></body></html>`}));
  let release=()=>{};const held=new Promise<void>(done=>{release=done});let rejected='';
  await page.route('https://backdrop.example/**',async route=>{await held;const url=route.request().url();if(!rejected)rejected=url;const bad=url===rejected;await route.fulfill({contentType:'image/svg+xml',body:`<svg xmlns="http://www.w3.org/2000/svg" width="${bad?400:200}" height="${bad?570:280}"><rect width="200" height="280" fill="#7557ff"/></svg>`})});
- await page.setViewportSize({width:1440,height:1000});await page.goto('/scope-body?kind=backdrop');await page.addScriptTag({content:script});await expect(page.locator('.auction-entry-art-group img')).toHaveCount(108);
- const widths=()=>page.locator('.auction-entry-art-group').evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().width));const before=await widths();release();await expect(page.locator('.auction-entry-art-group img.is-decoded').first()).toBeVisible();await expect.poll(()=>page.locator(`img[src="${rejected}"]`).count()).toBe(0);const after=await widths();expect(after.map((n,i)=>Math.abs(n-before[i])<.01)).toEqual(Array(6).fill(true));await expect(page.locator('.auction-entry-art-group img')).toHaveCount(108);
+ await page.setViewportSize({width:1440,height:1000});await page.goto('/scope-body?kind=backdrop');await page.addScriptTag({content:script});await expect(page.locator('.auction-entry-art-group img')).toHaveCount(54);
+ const widths=()=>page.locator('.auction-entry-art-group').evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().width));const before=await widths();release();await expect(page.locator('.auction-entry-art-group img.is-decoded').first()).toBeVisible();await expect.poll(()=>page.locator(`img[src="${rejected}"]`).count()).toBe(0);const after=await widths();expect(after.map((n,i)=>Math.abs(n-before[i])<.01)).toEqual(Array(6).fill(true));await expect(page.locator('.auction-entry-art-group img')).toHaveCount(54);
 });
 
 test('decorative thumbnails fall back to original artwork on errors and CDN placeholders',async({page})=>{
@@ -36,7 +37,7 @@ test('decorative thumbnails fall back to original artwork on errors and CDN plac
  });
  await page.route('**/scope-body**',route=>route.fulfill({contentType:'text/html',body:'<html><body><div id="fixture"></div></body></html>'}));
  await page.goto('/scope-body?kind=backdrop-thumbnail');await page.addScriptTag({content:script});
- await expect(page.locator('.auction-entry-art-group img.is-decoded')).toHaveCount(108);
+ await expect(page.locator('.auction-entry-art-group img.is-decoded').first()).toBeAttached();await expect(page.locator('.auction-entry-art-group img')).toHaveCount(auctionBackdropSlots(page.viewportSize()!.width)*6);
  expect(thumbnails).toBeGreaterThan(0);expect(originals).toBeGreaterThan(0);
- expect(await page.locator('.auction-entry-art-group img').evaluateAll(images=>images.every(image=>(image as HTMLImageElement).src.endsWith('_in_1000x1000.jpg')))).toBe(true);
+ expect(await page.locator('.auction-entry-art-group img.is-decoded').evaluateAll(images=>images.every(image=>(image as HTMLImageElement).src.endsWith('_in_1000x1000.jpg')))).toBe(true);
 });

@@ -198,7 +198,9 @@ html[data-theme="light"] .auction-bidder[data-bidder="The Analyst"]{--bidder-col
 .auction-lobby-scene{position:relative;isolation:isolate}
 .auction-lobby-backdrop{position:fixed;inset:0;z-index:-1;opacity:.09}
 .auction-lobby-backdrop .auction-entry-art-lane{animation-duration:70s}
-.auction-entry-art-lane{height:33.333%;gap:0;transform:none}
+.auction-entry-art-lane{height:33.333%;gap:0;transform:none;animation-name:auction-backdrop-loop}
+@keyframes auction-backdrop-loop{from{translate:0 0}to{translate:-50% 0}}
+@media(prefers-reduced-motion:reduce){.auction-entry-art-lane{animation:none}}
 .auction-entry-art-group{display:flex;align-items:center;justify-content:space-around;flex-shrink:0;gap:28px;padding-right:28px;min-width:100vw;box-sizing:border-box}
 .auction-entry-art-group img{flex-shrink:0;height:min(calc(clamp(110px,15vw,190px) * 1.4),27vh);max-height:27vh;object-fit:contain;transform:rotate(-8deg)}
 @keyframes auction-entry-drift{from{translate:0 0}to{translate:-50% 0}}

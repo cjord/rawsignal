@@ -1,4 +1,23 @@
 /* Shared Singles and Sealed row, disclosure, and popover presentation. */
+.market-card-skeletons{display:grid;gap:16px;grid-column:1/-1;min-width:0}
+.market-card-skeletons.is-large{grid-template-columns:subgrid;gap:inherit}
+.market-loading-card{pointer-events:none}
+.market-loading-art>*{visibility:hidden}
+.market-loading-card .position{color:transparent}
+.market-loading-line{display:block;height:.85em;min-height:.65rem;width:90%;border-radius:4px;background:color-mix(in srgb,var(--gray) 15%,var(--surface));margin:.35em 0}
+.market-loading-line.is-short{width:55%}
+.market-loading-art{background:color-mix(in srgb,var(--gray) 15%,var(--surface));border-radius:8px}
+.view-large .market-loading-card .identity>.market-loading-art{background:color-mix(in srgb,var(--gray) 15%,var(--surface))!important}
+.market-loading-card .full-title{min-height:3.8rem}
+.market-loading-chart{display:block;padding:8px 0;min-width:0}
+.market-loading-chart>i:last-child{display:block;height:100px;margin-top:12px;border-radius:8px;background:color-mix(in srgb,var(--gray) 15%,var(--surface))}
+.market-loading-card .full-prices>span{min-height:3.5rem}
+.market-loading-card .full-prices{margin-bottom:6px}
+.market-loading-card .change-pair{min-height:2.6rem}
+.market-loading-card .market-loading-art{animation:market-card-loading 1.4s ease-in-out infinite alternate}
+@keyframes market-card-loading{to{opacity:.5}}
+@media(prefers-reduced-motion:reduce){.market-loading-card .market-loading-art{animation:none}}
+
 .market-row-shell {
   position: relative;
   min-width: 0;

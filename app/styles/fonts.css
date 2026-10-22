@@ -112,11 +112,13 @@
 
 @font-face {
   font-family: 'Geist Mono Fallback';
-  src: local("Arial");
-  ascent-override: 74.67%;
-  descent-override: 21.92%;
+  /* Both have Geist Mono's .6em advance. Proportional Arial enlarged prices by
+     ~25% before the font arrived, shifting inline metrics on detail pages. */
+  src: local("Courier New"), local("Liberation Mono");
+  ascent-override: 100.50%;
+  descent-override: 29.50%;
   line-gap-override: 0.00%;
-  size-adjust: 134.59%;
+  size-adjust: 100%;
 }
 
 :root{--font-sans:'Geist','Geist Fallback',ui-sans-serif,system-ui,sans-serif;--font-mono:'Geist Mono','Geist Mono Fallback',ui-monospace,monospace}

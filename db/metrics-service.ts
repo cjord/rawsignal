@@ -27,7 +27,7 @@ const changes = (points: PricePoint[]) => {
 const metricsJoin = "join market_metrics mm on mm.product_id=p.product_id and ((mm.variant=p.printing and mm.condition='Near Mint' and p.kind='single') or (mm.variant='Sealed' and mm.condition='Unopened' and p.kind='sealed'))";
 
 type TotalsRow = { game: string; kind: "single" | "sealed"; totalCents: number; products: number };
-type SetRow = { setName: string; game: string; totalCents: number; cards: number; medianCents: number; change30Bps: number | null };
+type SetRow = { setName: string; game: string; totalCents: number; cards: number; medianCents: number; change30Bps: number | null; year:number|null; gameRank:number };
 type CategoryRow = { category: string; game: string; totalCents: number; products: number; medianCents: number; change7Bps: number | null; change30Bps: number | null; change90Bps: number | null };
 type MomentumRow = { game: string; kind: "single" | "sealed"; tracked: number; advancers7: number; decliners7: number; advancers30: number; decliners30: number; atHigh: number; atLow: number };
 type MoverRow = { productId: number; name: string; number: string | null; setName: string; game: string; kind: "single" | "sealed"; printing: string | null; image: string | null; cents: number; midCents: number | null; changeBps: number; win: "7d" | "30d" | "90d"; direction: "up" | "down"; snapshotId: string | null };
@@ -112,16 +112,17 @@ async function loadOverview(db: D1DatabaseLike, series: Record<string, PricePoin
 // scope has a full table (the ALL view re-ranks the union by tracked value). Sealed-vs-
 // singles divergence (audit H2) reads each set's sealed products' median 30D change the
 // same middle-rank way.
-async function loadSetRows(db: D1DatabaseLike, pullRates?: PullRateConfig): Promise<MetricsSetRow[]> {
-  const setRows = (await db.prepare(`with ranked as (
+async function loadSetSummaries(db:D1DatabaseLike):Promise<SetRow[]> {
+  return (await db.prepare(`with ranked as (
       select p.set_name, p.game, cp.market_cents v,
         row_number() over (partition by p.game, p.set_name order by cp.market_cents desc) rn,
         count(*) over (partition by p.game, p.set_name) total,
-        sum(cp.market_cents) over (partition by p.game, p.set_name) sumv
+        sum(cp.market_cents) over (partition by p.game, p.set_name) sumv,
+        max(p.release_year) over (partition by p.game, p.set_name) year
       from catalog_products p join current_prices cp on cp.product_id=p.product_id
       where p.kind='single' and cp.market_cents is not null
     ), medians as (
-      select set_name, game, max(total) cards, max(sumv) totalCents, avg(v) medianCents
+      select set_name, game, max(total) cards, max(sumv) totalCents, avg(v) medianCents, max(year) year
       from ranked where rn=(total+1)/2 or rn=total/2+1 group by set_name, game
     ), momentum as (
       select p.set_name, p.game, mm.change_30_bps b,
@@ -134,11 +135,15 @@ async function loadSetRows(db: D1DatabaseLike, pullRates?: PullRateConfig): Prom
       -- the whole window per outer row in SQLite, which turned this payload pathological.
       select set_name, game, avg(b) as change30Bps from momentum where rn=(total+1)/2 or rn=total/2+1 group by set_name, game
     ), sized as (
-      select m.set_name as setName, m.game, m.totalCents, m.cards, m.medianCents, c.change30Bps,
+      select m.set_name as setName, m.game, m.totalCents, m.cards, m.medianCents, m.year, c.change30Bps,
         row_number() over (partition by m.game order by m.totalCents desc) as gameRank
       from medians m left join setChange c on c.set_name=m.set_name and c.game=m.game
     )
-    select setName, game, totalCents, cards, medianCents, change30Bps from sized where gameRank <= 50 order by totalCents desc`).bind().all<SetRow>()).results ?? [];
+    select setName, game, totalCents, cards, medianCents, year, change30Bps, gameRank from sized order by totalCents desc`).bind().all<SetRow>()).results ?? [];
+}
+
+async function loadSetRows(db:D1DatabaseLike,pullRates:PullRateConfig|undefined,summaries:readonly SetRow[]):Promise<MetricsSetRow[]> {
+  const setRows=summaries.filter(row=>row.gameRank<=50);
 
   const scope=setQueryScope(setRows);
   const sealedSetRows = (await db.prepare(`with momentum as (
@@ -221,22 +226,10 @@ async function loadSealedCategories(db: D1DatabaseLike): Promise<MetricsCategory
 // Era performance (audit R2 / Phase D): every Pokémon set's totals and 30D median fold
 // into collector eras in JS (prefix + year mapping) — era momentum is the tracked-value-
 // weighted mean of member sets' median changes, honest to what each set contributes.
-async function loadEras(db: D1DatabaseLike): Promise<MetricsEraRow[]> {
-  const eraSetRows = (await db.prepare(`with totals as (
-      select p.set_name setName, max(p.release_year) year, sum(cp.market_cents) totalCents, count(*) cards
-      from catalog_products p join current_prices cp on cp.product_id=p.product_id
-      where p.kind='single' and p.game='pokemon' and cp.market_cents is not null group by p.set_name
-    ), momentum as (
-      select p.set_name setName, mm.change_30_bps b,
-        row_number() over (partition by p.set_name order by mm.change_30_bps) rn,
-        count(*) over (partition by p.set_name) total
-      from catalog_products p join market_metrics mm on mm.product_id=p.product_id and mm.variant=p.printing
-      where p.kind='single' and p.game='pokemon' and mm.change_30_bps is not null
-    ), setChange as (
-      select setName, avg(b) as change30Bps from momentum where rn=(total+1)/2 or rn=total/2+1 group by setName
-    )
-    select t.setName, t.year, t.totalCents, t.cards, c.change30Bps
-    from totals t left join setChange c on c.setName=t.setName`).bind().all<{ setName: string; year: number | null; totalCents: number; cards: number; change30Bps: number | null }>()).results ?? [];
+function loadEras(summaries:readonly SetRow[]):MetricsEraRow[] {
+  // Reuse ALL sets, not only the top-50 table. Retain the former binary set-name
+  // fold order so floating-point accumulation and the era display order stay stable.
+  const eraSetRows=summaries.filter(row=>row.game==='pokemon').sort((a,b)=>a.setName<b.setName?-1:a.setName>b.setName?1:0);
   const eraFold = new Map<string, { trackedValue: number; cards: number; sets: number; weighted: number; weight: number }>();
   for (const row of eraSetRows) {
     const era = pokemonEra(row.setName, row.year);
@@ -326,11 +319,14 @@ async function buildMetricsPayload(db:D1DatabaseLike,options:{pullRates?:PullRat
   if (!published) return null;
   const bySeries = await timedPayload(options.timings,'series',()=>readMetricSeries(db));
   const series = Object.fromEntries(Object.entries(bySeries).map(([key, points]) => [key, toPoints(points)]));
+  // Sets and eras previously repeated the same price/momentum aggregation. Share
+  // this request-local promise without changing publication cache boundaries.
+  const summaries=loadSetSummaries(db);
   const [overview,sets,sealedCategories,eras,momentum,movers]=await Promise.all([
    timedPayload(options.timings,'overview',()=>loadOverview(db,series)),
-   timedPayload(options.timings,'sets',()=>loadSetRows(db,options.pullRates)),
+   timedPayload(options.timings,'sets',async()=>loadSetRows(db,options.pullRates,await summaries)),
    timedPayload(options.timings,'categories',()=>loadSealedCategories(db)),
-   timedPayload(options.timings,'eras',()=>loadEras(db)),
+   timedPayload(options.timings,'eras',async()=>loadEras(await summaries)),
    timedPayload(options.timings,'momentum',()=>loadMomentum(db)),
    timedPayload(options.timings,'movers',()=>loadMovers(db)),
   ]);

@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {auctionBackdropImages,auctionBackdropThumbnail} from '../core/domain/auction-backdrop.ts';
+import {auctionBackdropImages,auctionBackdropSlots,auctionBackdropThumbnail} from '../core/domain/auction-backdrop.ts';
+test('decorative loop budgets cover the viewport with two incoming cards',()=>{
+ for(const width of [320,390,768,1440,1920,3840]){const slots=auctionBackdropSlots(width),card=Math.min(190,Math.max(110,width*.15));assert.ok((slots-2)*(card+28)>=width);assert.ok(slots>=5)}
+ assert.equal(auctionBackdropSlots(390),5);assert.equal(auctionBackdropSlots(1440),9);assert.equal(auctionBackdropSlots(NaN),9);
+});
 const catalog=Array.from({length:40},(_,index)=>({image:`https://images.example/${index}.jpg`}));
 
 test('decorative thumbnails rewrite only the verified product CDN shape',()=>{

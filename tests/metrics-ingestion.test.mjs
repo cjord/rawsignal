@@ -140,6 +140,28 @@ test("even cohorts take the mean of the two middle ranks as the median",async()=
   assert.equal(series["median:test"][0].value,50);
 });
 
+test('shared set summaries retain non-leading sets in eras and exact game-scoped medians',async()=>{
+ const database=await migratedDatabase(),db=new LocalD1(database);
+ try{
+  await startIngestion(db,'shared-sets','fixture','2026-10-21',{});
+  for(let index=0;index<55;index++)for(let copy=0;copy<3;copy++){
+   const id=1000+index*3+copy;
+   await upsertCard(db,{...card(id,index+copy),set:`Set ${String(index).padStart(2,'0')}`},'2026-10-21','shared-sets');
+   await db.prepare("insert into market_metrics(product_id,variant,condition,as_of_date,coverage,change_30_bps,updated_at) values (?,'Holofoil','Near Mint','2026-10-21','exact',?,'now')").bind(id,copy*200-100).run();
+  }
+  await upsertCard(db,{...card(2000,900),game:'riftbound',set:'Set 00'},'2026-10-21','shared-sets');
+  await runMetricsRollup(db,{mode:'backfill',series:[]});
+  const queries=[],monitored={prepare(sql){queries.push(sql);return db.prepare(sql)},batch:statements=>db.batch(statements)};
+  const payload=await loadMetricsPayload(monitored);
+  assert.equal(payload.sets.filter(row=>row.game==='pokemon').length,50);
+  assert.equal(payload.sets.find(row=>row.game==='riftbound').trackedValue,900);
+  const leading=payload.sets.find(row=>row.game==='pokemon'&&row.set==='Set 54');assert.equal(leading.medianPrice,55);assert.equal(leading.change30,1);
+  const era=payload.eras.find(row=>row.era==='me');assert.equal(era.cards,165);assert.equal(era.sets,55);assert.equal(era.trackedValue,4620);assert.equal(era.change30,1);
+  assert.equal(queries.filter(sql=>sql.includes('with ranked as (')&&sql.includes('p.set_name, p.game')).length,1);
+  assert.equal(queries.filter(sql=>sql.includes('with totals as (')).length,0);
+ }finally{database.close()}
+});
+
 test("an explicit asOfDate keys the run id and the snapshot day (R1: rollups follow the live run's date)",async()=>{
   const database=await migratedDatabase(),db=new LocalD1(database);
   await startIngestion(db,"live-daily:2026-08-27","tcgcsv-live","2026-08-27T20:10:00Z",{});

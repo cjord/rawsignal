@@ -1,5 +1,13 @@
 import {auctionRandom,type AuctionCard} from './auction-types.ts';
 
+// A group covers the viewport plus two incoming cards; its identical twin makes
+// the -50% lane translation seamless. Match the CSS clamp(110px,15vw,190px)/28px gap.
+export function auctionBackdropSlots(viewportWidth:number){
+ const width=Number.isFinite(viewportWidth)?Math.max(0,viewportWidth):1440;
+ const cardWidth=Math.min(190,Math.max(110,width*.15));
+ return Math.max(5,Math.ceil(width/(cardWidth+28))+2);
+}
+
 // Decoration is at most 190 CSS pixels wide. Only rewrite the verified CDN format;
 // callers retain the original for one fallback attempt if its thumbnail is missing.
 export function auctionBackdropThumbnail(image:string){
