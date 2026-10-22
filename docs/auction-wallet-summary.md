@@ -104,5 +104,5 @@ themes: all HTTP 200, no overflow/page errors, no API writes. Hub navigation ret
 the background with zero catalog reads. Compact delivery remains enabled and
 unchanged at 1,583 exact printings, including 128 unavailable prices. Evidence:
 `outputs/wallet-staging-verification.json`, `outputs/wallet-release-live-smoke.log`,
-`outputs/loading-followup-wallet-release.json` and private release setting/version
+`outputs/loading-followup-live-wallet-release.json` and private release setting/version
 snapshots under ignored `outputs/wallet-summary-staging-release-*`.
