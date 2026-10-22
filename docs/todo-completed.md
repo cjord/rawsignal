@@ -9,6 +9,20 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-22 — Compact Auction Wallet and backdrop assessment, staging verified
+
+Application `ef48bd2` pushed and deployed staging `ec0eff58`. Reset is styled red;
+redundant wallet navigation/Refresh Market are removed, with automatic snapshot
+checks and failure retries retained. Compact Total Net Worth / Showcase Value,
+inline card counts, one valuation explanation and matching Guide button fill.
+Full gate: 675 unit passes (one skip), all 165 Chromium journeys, build/lint/types,
+no new complexity warnings. Live wallet and nine-surface smoke passed with stable
+Hub navigation and no new catalog reads, overflow, page errors or writes. Production
+unchanged. Backdrop assessment reproduced all-slot image replacement after local
+error injection, but not a true periodic reload across a normal 70-second loop.
+Stable Artwork Slots, phase/compositor follow-up and calmer palette options are
+documented plans, not implemented fixes. [Details and evidence](auction-wallet-refinement-and-backdrop-plan.md).
+
 ## 2026-10-22 — Auction Wallet Summary and navigation polish, staging verified
 
 Application `60607db` pushed and deployed staging `d3533f03`. Cash-first green

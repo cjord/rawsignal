@@ -125,3 +125,33 @@ The follow-up six-case loading/wallet suite passed. Desktop/phone, both themes,
 320px and large-font screenshots were reviewed. Evidence remains ignored under
 `outputs/wallet-compact-release-check.log`, `outputs/wallet-compact-focused.log`,
 `outputs/wallet-compact-layout-retry.log` and `test-results/`.
+
+## Staging release and live verification
+
+Application `ef48bd2` pushed to `codex/accounts-and-collections` and deployed to
+staging `ec0eff58`. Identity/save bindings, account flags, secrets and limiter
+namespaces were preserved. Staging still has no cron; production is unchanged.
+No migration, catalog ingestion or account writes.
+
+Live isolated-guest checks with local-only test holdings passed exact existing
+valuation totals, compact labels/counts, one tooltip, red reset border, no wallet
+navigation/refresh controls, and matching inactive Guide/Inventory backgrounds.
+All four desktop/phone dark/light large-text views had no overflow. The first live
+style comparison sampled a mobile theme transition mid-animation; comparing both
+controls in one frame after the existing transition completed passed. This needed
+only a verification-script timing correction, not another application change.
+Hub Inventory/My Showcase navigation retained the document with zero additional
+catalog reads. No page errors or non-GET API attempts occurred.
+
+The nine-surface market/auction smoke also passed desktop/phone and both themes:
+all HTTP 200, no overflow/page errors/writes. Background/document retention and
+zero catalog reads passed Hub navigation. The compact snapshot remains unchanged
+at 1,583 printings, 128 with unavailable prices. Evidence is ignored under
+`outputs/wallet-compact-staging-verification.json`,
+`outputs/wallet-compact-staging-initial-theme-transition.json`,
+`outputs/wallet-compact-live-smoke.log`,
+`outputs/loading-followup-live-wallet-compact.json` and private
+`outputs/wallet-compact-staging-release-*` setting/version records.
+
+Backdrop behavior and the broad lobby palette are **not changed** in this release;
+the findings/recommended next implementation and palette choices above remain plans.
