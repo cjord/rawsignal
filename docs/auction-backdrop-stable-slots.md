@@ -176,3 +176,43 @@ request count, and callback timing while the test suite runs is not a GPU metric
 Evidence: ignored `outputs/auction-accent-staging-gate-final.log`,
 `outputs/auction-accent-focused.log`, `outputs/backdrop-cycles-local-final.json`
 and `test-results/`. Live deployment/verification results follow after release.
+
+## Deployed staging verification
+
+Application **`3d065e9`** pushed to `codex/accounts-and-collections` and deployed to
+staging version **`eaf82818`**. Settings/binding verification passed: identity/save
+databases, account features, secrets and limiter namespaces preserved, compact
+catalog still enabled, no staging cron, production version unchanged. No migration
+or ingestion was run. Private before/after/deploy records remain ignored under
+`outputs/auction-accent-staging-release-*`.
+
+Isolated live guest checks passed desktop/phone and dark/light views, including
+large text: retained green/blue parent gradients, matching neutral metric fills
+and borders, neutral wallet amounts, readable gain/loss values, exact wallet
+totals and no horizontal overflow. Hub navigation retained the document and
+backdrop with zero additional catalog reads. The Daily Challenge tile opened
+rules without requesting a daily lineup or starting an attempt. No page errors
+or non-GET API attempts occurred. The initial verification fixture assumed optional
+statistics already existed; it was corrected to initialize test statistics, then
+passed without changing the deployed application.
+
+The deployed 150-second observation retained the same root, all image nodes and
+all three animation objects, crossing both 70-second boundaries. All 54 images
+were ready by the 15-second sample; source/resource counts then stayed unchanged
+through 150 seconds. It recorded 9,006 animation-frame callbacks, no gap above
+50ms and a near-boundary 99th percentile of about 16.8ms. No page errors or writes.
+
+The user clarified **desktop Chrome, background-only small jump**. A separate
+deployed geometric handoff check at 1440px/DPR 1, 1234px/DPR 1.25 and 1440px/DPR 2
+retained identical visible card identities on each lane before/after reset. The
+largest measured coordinate difference was under 0.00013 CSS pixels, not a visible
+layout jump. This and callback cadence do not establish physical GPU-presented
+smoothness: the reported visual hitch has **not been reproduced or proven fixed**.
+Refresh the open staging page to load the newly deployed fixes before rechecking.
+If it remains, capture a Chrome Performance/rendering trace on the affected desktop
+and assess compositor/raster-layer handoff; do not keep changing image-fetch logic
+without evidence of source churn. Existing physical Safari testing remains deferred.
+
+Evidence is ignored under `outputs/auction-accent-staging-verification.json`,
+`outputs/auction-accent-live-check.log`, `outputs/auction-accent-staging-*.png`,
+`outputs/backdrop-cycles-deployed.json` and `outputs/backdrop-boundary-staging.json`.

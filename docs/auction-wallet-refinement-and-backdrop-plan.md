@@ -1,10 +1,11 @@
 # Auction lobby refinement and Backdrop Loop Track follow-up
 
-**Follow-up:** the user prefers existing site-native plain panels with selective
-green/red/blue accents, rather than any mockup palette. Broad palette changes are
-on hold. Stable artwork assignments and Daily Challenge placement are being
-implemented locally; see [the follow-up record](auction-backdrop-stable-slots.md).
-The shipped verification/release sections below describe the preceding release.
+**Follow-up shipped to staging:** smaller wallet/statistics tiles use site-native
+plain surfaces, with green/red financial results. The existing green Wallet and
+blue Your Next Collection parent backgrounds are retained by explicit request.
+Stable artwork assignments and Daily Challenge placement are deployed; see
+[the follow-up record](auction-backdrop-stable-slots.md). The verification/release
+sections below describe the preceding release, not the latest follow-up.
 
 ## Shipped UI intent
 
