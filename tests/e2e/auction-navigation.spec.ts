@@ -2,6 +2,21 @@ import {expect,test} from '@playwright/test';
 import {initialAuctionSave} from '../../core/domain/auction-types';
 const key='raw-signal-auction-house-v1';
 
+test('Daily Challenge is an entry tile, not a top mode link, and navigation does not start an attempt',async({page},testInfo)=>{
+ let dailyReads=0;await page.route('**/api/auction/daily',route=>{dailyReads++;return route.fulfill({status:503,json:{error:'must not fetch before starting'}})});
+ await page.route('https://tcgplayer-cdn.tcgplayer.com/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280"/>'}));
+ await page.goto('/games/riftbound-auction');const lobby=page.locator('.auction-lobby');
+ await expect(lobby.getByRole('link',{name:'Daily Challenge',exact:true})).toHaveAttribute('href','/games/riftbound-auction/daily');await expect(page.getByRole('navigation',{name:'Auction Play Modes'})).toHaveCount(0);await expect(page.getByText('Normal Auctions',{exact:true})).toHaveCount(0);
+ const origin=await page.evaluate(()=>performance.timeOrigin);
+ for(const width of [1440,390])for(const theme of ['dark','light']){
+  await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+  const entry=lobby.getByRole('link',{name:'Daily Challenge',exact:true}),box=await entry.boundingBox();expect(box!.width).toBeGreaterThan(200);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await entry.focus();await expect(entry).toBeFocused();await page.screenshot({path:testInfo.outputPath(`daily-entry-${width}-${theme}.png`),fullPage:true,animations:'disabled'});
+ }
+ await page.keyboard.press('Enter');await expect(page).toHaveURL(/\/riftbound-auction\/daily$/);await expect(page.getByRole('button',{name:'Start Daily Challenge',exact:true})).toBeVisible();expect(dailyReads).toBe(0);expect(await page.evaluate(()=>performance.timeOrigin)).toBe(origin);
+ const daily=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)??'null')?.daily,key);expect(daily?.save?.auction??null).toBeNull();
+});
+
 test('community slider keeps the Auction Shell and selected-tab clicks do not refresh it',async({page})=>{
  let reads=0;await page.route('**/api/games/auction-community?**',route=>{reads++;return route.fulfill({json:{rows:[],offset:0,nextCursor:null}})});
  await page.route('https://tcgplayer-cdn.tcgplayer.com/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280"/>'}));

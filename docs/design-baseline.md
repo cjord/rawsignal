@@ -199,9 +199,9 @@ table on phones. Emoji grids have accessible per-round labels. No new color syst
 Auction investigation offers show icon, name, plain-language description and price,
 without Count / Locate / Value headings or disclosure tags. Round findings retain
 their blue public/purple private treatment. Statistics use shared tile typography,
-a softly purple-tinted outer section and four-column desktop/two-column mobile
-metric tiles: blue counts, purple rates/buyouts, green gains, red losses, amber
-spending and neutral zero amounts. Colors derive from theme tokens.
+plain site-native outer/metric surfaces and four-column desktop/two-column mobile
+metric tiles. Ordinary counts, rates and spending remain neutral; financial gains
+are green and losses red. Colors derive from theme tokens.
 The normal auction lobby reuses the faded, noninteractive drifting catalog-art
 background, with a new random decorative selection per visit (never hidden lot
 contents). Both lobby and entry motion stop under reduced motion. Normal entry
@@ -209,6 +209,11 @@ lasts seven seconds, giving two extra seconds to review the locked table; Skip
 Intro remains available and no fee/timer starts during preparation.
 Daily Challenge reuses the auction arena and entry briefing; only its separate
 bankroll/progress header and lobby rules differ. No new decorative art is needed.
+The **Daily Challenge Entry Tile** sits inside Your Next Collection, below the
+Bilgewater/Piltover entry tiles, using the existing neutral control surface. It
+opens challenge rules without starting an attempt. The redundant Normal Auctions /
+Daily Challenge text-link row below the Auction Hub is removed; Play remains the
+main Hub destination and the daily page retains its return link.
 
 Auction lobby/profile decorative artwork is transparent until decoded, then fades
 in without moving content; reduced motion removes that transition. Account guest
@@ -221,6 +226,11 @@ All auction routes share the same noninteractive three-lane catalog-art backgrou
 including gameplay, guide, showcases and public profiles. Decoration is independent
 of hidden lots and fades after decode. Game link-buttons and native buttons center
 their contents consistently; primary blue and sharing purple are muted token fills.
+The **Backdrop Loop Track** keeps fixed logical artwork assignments and shares
+decoded thumbnail/original fallback state across repeated copies. A failed source
+changes only its own slots, never shifts healthy cards. Background decoding is
+bounded and independent of foreground data; resizing preserves the directed pixel
+offset modulo the new repeat width. Reduced motion still stops the lanes.
 Showcase loading reserves a coordinated statistics/gallery area and does not wait
 for artwork. Sharing & Visibility stays expanded below the owner showcase gallery;
 the separate profile-preview visibility disclosure may still collapse.
@@ -233,8 +243,8 @@ entire-inventory sales remain a separate, clearly labeled visible section. Loadi
 reserve space instead of collapsing as prices arrive.
 Auction pagination uses left Previous / centered page status / right Next controls.
 The Auction Wallet Summary makes normal-game spendable cash the headline in a
-subtle green panel, with total after-fee net worth and blue sellable-inventory /
-purple showcase-value sections below. Total Net Worth is the combined after-fee
+subtle green panel, with total after-fee net worth and neutral sellable-inventory /
+showcase-value sections below. Total Net Worth is the combined after-fee
 figure; card quantities sit inline beside inventory/showcase amounts. One wallet
 tooltip consolidates gross values and fee/protection definitions, without repeated
 taglines or sum descriptions. Missing prices show N/A plus a compact known subtotal,
@@ -248,6 +258,12 @@ with Refresh aligned top-right inside each directory tile. Account actions reser
 one fixed-size neutral slot until the real session resolves, never a guessed login.
 Ephemeral site notices stack bottom-right without changing layout, with dismiss
 controls and configurable/pauseable duration. Important save errors remain inline.
+
+**Site-Native Auction Accents:** preserve the green Wallet and blue Your Next
+Collection outer backgrounds. The smaller wallet/statistics tiles use the site's
+plain surfaces/lines/text, with blue interaction states, red/green financial
+outcomes and red destructive controls. Do not introduce a separate graphite
+palette or flatten rarity cues. See `auction-backdrop-stable-slots.md`.
 
 - Dark is the default (`data-theme="dark"` pre-hydration via the head script); both themes
   ship complete token sets. Any new color must be specified for both or derived via

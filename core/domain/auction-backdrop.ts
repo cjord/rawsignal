@@ -8,6 +8,15 @@ export function auctionBackdropSlots(viewportWidth:number){
  return Math.max(5,Math.ceil(width/(cardWidth+28))+2);
 }
 
+// Keep the directed pixel offset (modulo the new repeat width) on resize rather
+// than jumping back to the start. Does not restart the animation object.
+export function backdropResizeTime(time:number,duration:number,previousWidth:number,nextWidth:number,reverse=false){
+ if(![time,duration,previousWidth,nextWidth].every(Number.isFinite)||time<0||duration<=0||previousWidth<=0||nextWidth<=0)return time;
+ const iteration=Math.floor(time/duration),fraction=time/duration-iteration,progress=reverse?1-fraction:fraction;
+ const nextProgress=(progress*previousWidth%nextWidth)/nextWidth;
+ return (iteration+(reverse?1-nextProgress:nextProgress))*duration;
+}
+
 // Decoration is at most 190 CSS pixels wide. Only rewrite the verified CDN format;
 // callers retain the original for one fallback attempt if its thumbnail is missing.
 export function auctionBackdropThumbnail(image:string){

@@ -18,6 +18,9 @@ test('compact wallet separates card counts and keeps one valuation hint with onl
   await page.mouse.move(0,0);await page.evaluate(()=>{if(document.activeElement instanceof HTMLElement)document.activeElement.blur()});
   await page.setViewportSize({width,height:1100});await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;document.documentElement.dataset.fontSize='large'},theme);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  const palette=await wallet.evaluate(element=>{
+   const metric=element.querySelector('.auction-wallet-metric')!,style=getComputedStyle(metric),probe=document.createElement('span');probe.style.background='var(--control)';probe.style.border='1px solid var(--line)';probe.style.color='var(--text)';metric.append(probe);const expected=getComputedStyle(probe),matches=style.backgroundColor===expected.backgroundColor&&style.borderTopColor===expected.borderTopColor&&getComputedStyle(element.querySelector('.auction-inventory-value')!).color===expected.color&&getComputedStyle(element.querySelector('.auction-showcase-value')!).color===expected.color;probe.remove();return {matches,wallet:getComputedStyle(element).backgroundImage,lobby:getComputedStyle(document.querySelector('.auction-lobby')!).backgroundImage};
+  });expect(palette.matches).toBe(true);expect(palette.wallet).toContain('linear-gradient');expect(palette.lobby).toContain('linear-gradient');
   await wallet.getByRole('button',{name:'Wallet valuation',exact:true}).click();await expect(wallet.getByRole('tooltip')).toContainText('inventory $20.00; showcase $30.00');await expect(wallet.getByRole('tooltip')).toContainText('10% selling fee');await page.keyboard.press('Escape');
   await page.mouse.move(0,0);await page.getByRole('heading',{name:'Available Cash',exact:true}).click();await wallet.screenshot({path:testInfo.outputPath(`wallet-${width}-${theme}.png`),animations:'disabled'});
  }
