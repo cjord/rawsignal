@@ -33,3 +33,19 @@ test('sealed shared links do not load singles or lose Scalper mode when account 
  const {release,feeds}=await fixture(page,'?mode=sealed&market=scalping&view=text&type=Cases&keepPct=75',true);
  await expect(page.getByRole('tab',{name:'Obey Products',exact:true})).toHaveAttribute('aria-selected','true');release();await expect(page.getByLabel('Account Phase')).toHaveText('market-owner');await expect(page.getByRole('tab',{name:'Obey Products',exact:true})).toHaveAttribute('aria-selected','true');await expect(page).toHaveURL(/keepPct=75/);expect(feeds.some(path=>/overnumbered|illustration-rares/.test(path))).toBe(false);await expect(page.locator('html')).toHaveAttribute('data-market-mounts','1');
 });
+
+test('Cards header has no false server market and its count/date slots stay fixed on phones',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ let reveal=()=>{};const held=new Promise<void>(done=>reveal=done);
+ const rows=Array.from({length:101},(_,i)=>({game:'riftbound',section:'overnumbered',productId:997000+i,name:`Geometry ${i}`,set:'Origins',year:2025,rarity:'Showcase',number:String(i),printing:'Foil',image:'',url:'',marketPrice:10,lowPrice:null,midPrice:null,highPrice:null,priceChange:null}));
+ await page.route('**/data/overnumbered.json',async route=>{await held;await route.fulfill({json:rows})});
+ await page.route('**/data/freshness.json',async route=>{await held;await route.fulfill({json:{sourceUpdatedAt:'2026-10-21T00:00:00Z'}})});
+ const {release}=await fixture(page,'?market=riftbound');release();await expect(page.getByRole('tab',{name:'Riftbound',exact:true})).toHaveAttribute('aria-selected','true');
+ const server=await page.evaluate(()=>new DOMParser().parseFromString((window as unknown as {marketServerMarkup:string}).marketServerMarkup,'text/html').querySelector('.section-heading')?.textContent);
+ expect(server).toContain('Loading market');expect(server).not.toContain('Pokémon');
+ await expect(page.locator('.section-heading h2')).toContainText('Overnumbered');
+ const before=await page.locator('.controls').boundingBox(),aside=await page.locator('.section-aside').boundingBox();
+ reveal();await expect(page.locator('.section-aside')).toContainText('101 cards');await expect(page.locator('.section-aside')).toContainText('Oct 21, 2026');
+ const after=await page.locator('.controls').boundingBox(),nextAside=await page.locator('.section-aside').boundingBox();
+ expect(Math.abs(after!.y-before!.y)).toBeLessThan(1);expect(Math.abs(nextAside!.x-aside!.x)).toBeLessThan(1);expect(Math.abs(nextAside!.height-aside!.height)).toBeLessThan(1);
+});

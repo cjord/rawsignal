@@ -2,11 +2,14 @@
 /* eslint-disable @next/next/no-img-element -- decorative, lazy catalog artwork */
 import {useEffect,useMemo,useState} from 'react';
 import type {AuctionCard} from '../../core/domain/auction-types';
-import {auctionBackdropImages} from '../../core/domain/auction-backdrop';
+import {auctionBackdropImages,auctionBackdropThumbnail} from '../../core/domain/auction-backdrop';
+import {isTcgplayerPlaceholder} from '../../core/domain/image-availability';
 
 function BackdropImage({src,failed}:{src:string|undefined;failed:()=>void}){
- const [decoded,setDecoded]=useState<string>();
- return <img className={src&&decoded===src?'is-decoded':''} src={src} alt="" width="160" height="224" loading="eager" decoding="async" fetchPriority="low" onLoad={async event=>{const image=event.currentTarget;try{await image.decode();if(image.naturalWidth===400&&image.naturalHeight===570){failed();return}setDecoded(src)}catch{failed()}}} onError={failed}/>;
+ const [decoded,setDecoded]=useState<string>(),[original,setOriginal]=useState<string>();
+ const current=src&&(original===src?src:auctionBackdropThumbnail(src));
+ const reject=()=>{if(current&&current!==src)setOriginal(src);else failed()};
+ return <img className={current&&decoded===current?'is-decoded':''} src={current} alt="" width="160" height="224" loading="eager" decoding="async" fetchPriority="low" onLoad={async event=>{const image=event.currentTarget;try{await image.decode();if(isTcgplayerPlaceholder(image)||(image.naturalWidth===400&&image.naturalHeight===570)){reject();return}setDecoded(current)}catch{reject()}}} onError={reject}/>;
 }
 
 export default function AuctionBackdrop({catalog,seed,lobby=false}:{catalog:(Pick<AuctionCard,'image'>&Partial<Pick<AuctionCard,'rarity'|'section'>>)[];seed?:number;lobby?:boolean;fill?:boolean}){

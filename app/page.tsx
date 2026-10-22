@@ -804,6 +804,7 @@ export default function Home() {
           historyStatus={historyStatus}
           header={
             <LeaderboardHeader
+              ready={urlReady}
               className="section-heading is-filtered"
               kicker={game === "all" ? "Cross-market ranking" : `${formatGameName(game)} market ranking`}
               title={`${rarityLabel} ${signalView === "leaderboard" ? (selectedRarities.length > 1 && !allRarities ? "Leaderboards" : "Leaderboard") : signalView === "buy" ? "Hot Buys" : "Hot Sells"}`}

@@ -5,7 +5,7 @@ import test from "node:test";
 import { parseCard, parseSealedProduct } from "../core/domain/contracts.ts";
 import { createMemoryCatalogRepository } from "../core/catalog-repository.ts";
 import { createD1CatalogRepository, readSectionFeed } from "../db/catalog-repository.ts";
-import { completeIngestion, startIngestion, upsertCard, upsertSealedProduct } from "../db/repository.ts";
+import { checkpointIngestion, completeIngestion, startIngestion, upsertCard, upsertSealedProduct } from "../db/repository.ts";
 import { loadMetricsPayload } from "../db/metrics-service.ts";
 import { loadSetsDirectory } from "../db/sets-service.ts";
 
@@ -40,6 +40,34 @@ async function migratedDatabase() {
 // --- fuzzy targets, tie prices, off-vocabulary and case-variant categories.   ---
 
 const RUN_ID = "parity-run", STALE_RUN_ID = "parity-stale", OBSERVED = "2026-08-30T12:00:00.000Z";
+
+test('checkpoint replacement retires only its exclusively referenced unfinished predecessor',async()=>{
+ const database=await migratedDatabase(),db=new LocalD1(database);
+ try{
+  for(const id of ['old','next','third'])await startIngestion(db,id,'fixture',OBSERVED);
+  await checkpointIngestion(db,'old','progress',3,1,'1');
+  await checkpointIngestion(db,'next','progress',3,2,'2');
+  assert.equal(database.prepare('select status from ingestion_runs where id=?').get('old').status,'failed');
+  database.prepare("insert into refresh_state(key,ingestion_run_id) values ('another-progress','next')").run();
+  await checkpointIngestion(db,'third','progress',3,3,'3');
+  assert.equal(database.prepare('select status from ingestion_runs where id=?').get('next').status,'running');
+  assert.equal(database.prepare('select ingestion_run_id from refresh_state where key=?').get('progress').ingestion_run_id,'third');
+ }finally{database.close()}
+});
+
+test('detail peer reuse is isolated by database and invalidates on publication without a pinned run',async()=>{
+ const first=await seededDatabase(),second=await seededDatabase();
+ try{
+  second.database.prepare('update current_prices set market_cents=99999 where product_id=101').run();
+  const a=createD1CatalogRepository(first.db),b=createD1CatalogRepository(second.db);
+  assert.equal((await a.getDetail('single',101)).marketPrice,402.15);
+  assert.equal((await b.getDetail('single',101)).marketPrice,999.99);
+  second.database.prepare('update current_prices set market_cents=77777 where product_id=101').run();
+  await startIngestion(second.db,'detail-next','fixture',OBSERVED);await completeIngestion(second.db,'detail-next','daily-market',OBSERVED,1,1);
+  assert.equal((await b.getDetail('single',101)).marketPrice,777.77);
+  assert.equal((await a.getDetail('single',101)).marketPrice,402.15);
+ }finally{first.database.close();second.database.close()}
+});
 
 test("existing D1 Metal rows and feed-only detail rows share regular artwork without repricing",async()=>{
  const {database,db}=await seededDatabase();

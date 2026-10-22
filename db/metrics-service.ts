@@ -7,6 +7,7 @@ import { pullRateFor } from "../core/catalog-repository.ts";
 import { readMetricSeries, type MetricPoint } from "./metrics-ingestion.ts";
 import { publishedIngestion, type D1DatabaseLike } from "./repository.ts";
 import {createPublicPayloadCache,timedPayload,type PayloadTimings} from './public-payload-cache.ts';
+import {setQueryScope,type QuerySet} from './set-query-scope.ts';
 
 // The /metrics service (docs/todo.md H3/H4): materialized daily series plus same-day
 // figures computed from current rows — the largest SQL surface in the repo, so it lives
@@ -41,18 +42,19 @@ const gameLabel: Record<string, string> = { pokemon: "Pokémon", riftbound: "Rif
 // bucket), so every per-set map in this module is keyed `${game}|${set}`.
 const gameSetKey = (game: string, set: string) => `${game}|${set}`;
 
-export async function loadSetEvData(db: D1DatabaseLike, pullRates?: PullRateConfig) {
+export async function loadSetEvData(db: D1DatabaseLike, pullRates?: PullRateConfig, sets?:readonly QuerySet[]) {
+  const scope=setQueryScope(sets);
   const packRows = (await db.prepare(`select p.game, p.set_name setName, min(cp.market_cents) packCents
-      from catalog_products p join current_prices cp on cp.product_id=p.product_id
+      from ${scope.from} join current_prices cp on cp.product_id=p.product_id
       where p.kind='sealed' and p.product_type='Booster Packs' and cp.market_cents > 0
-      group by p.game, p.set_name`).bind().all<{ game: string; setName: string; packCents: number }>()).results ?? [];
+      group by p.game, p.set_name`).bind(...scope.params).all<{ game: string; setName: string; packCents: number }>()).results ?? [];
   const packPriceBySet = new Map(packRows.map(row => [gameSetKey(row.game, row.setName), row.packCents / 100]));
   const evBySet = new Map<string, number | null>();
   if (pullRates) {
     const tierRows = (await db.prepare(`select p.set_name setName, p.game, p.rarity, p.section, avg(cp.market_cents) avgCents, count(*) n
-        from catalog_products p join current_prices cp on cp.product_id=p.product_id
+        from ${scope.from} join current_prices cp on cp.product_id=p.product_id
         where p.kind='single' and cp.market_cents is not null
-        group by p.set_name, p.game, p.rarity, p.section`).bind().all<{ setName: string; game: string; rarity: string; section: string | null; avgCents: number; n: number }>()).results ?? [];
+        group by p.set_name, p.game, p.rarity, p.section`).bind(...scope.params).all<{ setName: string; game: string; rarity: string; section: string | null; avgCents: number; n: number }>()).results ?? [];
     const tiersBySet = new Map<string, Map<string, { packsPerHit: number; weighted: number; count: number }>>();
     for (const row of tierRows) {
       const resolved = pullRateFor(pullRates, row.game, row.setName, { rarity: row.rarity, section: row.section ?? undefined });
@@ -138,16 +140,17 @@ async function loadSetRows(db: D1DatabaseLike, pullRates?: PullRateConfig): Prom
     )
     select setName, game, totalCents, cards, medianCents, change30Bps from sized where gameRank <= 50 order by totalCents desc`).bind().all<SetRow>()).results ?? [];
 
+  const scope=setQueryScope(setRows);
   const sealedSetRows = (await db.prepare(`with momentum as (
       select p.set_name setName, p.game, mm.change_30_bps b,
         row_number() over (partition by p.game, p.set_name order by mm.change_30_bps) rn,
         count(*) over (partition by p.game, p.set_name) total
-      from catalog_products p ${metricsJoin}
+      from ${scope.from} ${metricsJoin}
       where p.kind='sealed' and mm.change_30_bps is not null
-    ) select setName, game, avg(b) as change30Bps from momentum where rn=(total+1)/2 or rn=total/2+1 group by setName, game`).bind().all<{ setName: string; game: string; change30Bps: number | null }>()).results ?? [];
+    ) select setName, game, avg(b) as change30Bps from momentum where rn=(total+1)/2 or rn=total/2+1 group by setName, game`).bind(...scope.params).all<{ setName: string; game: string; change30Bps: number | null }>()).results ?? [];
   const sealedChangeBySet = new Map(sealedSetRows.map(row => [gameSetKey(row.game, row.setName), row.change30Bps]));
 
-  const { packPriceBySet, evBySet } = await loadSetEvData(db, pullRates);
+  const { packPriceBySet, evBySet } = await loadSetEvData(db, pullRates,setRows);
 
   return setRows.map(row => {
     const key = gameSetKey(row.game, row.setName);

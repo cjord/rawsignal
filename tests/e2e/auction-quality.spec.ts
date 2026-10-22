@@ -2,6 +2,22 @@ import {expect,test} from '@playwright/test';
 import {initialAuctionSave} from '../../core/domain/auction-types';
 import {collectBenchmarkSample,installBenchmarkObserver,benchmarkReport} from '../../scripts/performance/auction-benchmark.mjs';
 const rows=Array.from({length:35},(_,i)=>({game:'riftbound',productId:995000+i,name:`Quality Card ${i}`,image:`https://art.example/${i}.svg`,marketPrice:i+1,printing:'Normal',section:'rares',set:'Origins',rarity:'Rare',year:2025,number:String(i),url:'',lowPrice:null,midPrice:null,highPrice:null,priceChange:null}));
+
+test('wallet summary keeps its mobile rows through pricing and knows empty inventory is worth zero',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.route('https://art.example/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280"/>'}));
+ for(const owned of [false,true]){
+  let release=()=>{};const held=new Promise<void>(done=>release=done);await page.route('**/data/*.json',async route=>{await held;await route.fulfill({json:rows})});
+  const save=initialAuctionSave();if(owned)save.wallet.inventory=[{productId:rows[0].productId,printing:'Normal',quantity:1}];
+  await page.addInitScript(save=>localStorage.setItem('raw-signal-auction-house-v1',JSON.stringify(save)),save);
+  await page.goto('/games/riftbound-auction');await expect(page.locator('.auction-wallet .auction-net-worth')).toBeVisible();
+  await expect(page.locator('.auction-wallet .auction-inventory-value')).toContainText(owned?'Loading…':'$0.00');
+  const before=await page.locator('.auction-wallet>.auction-actions').boundingBox();release();
+  await expect(page.getByRole('button',{name:'Enter Bilgewater Auction House',exact:true})).toBeEnabled();
+  await expect(page.locator('.auction-wallet .auction-inventory-value')).toContainText(owned?'$0.90':'$0.00');
+  const after=await page.locator('.auction-wallet>.auction-actions').boundingBox();expect(Math.abs(after!.y-before!.y)).toBeLessThan(1);
+ }
+});
 test('inventory loading reserves controls, never flashes a zero wallet and exits into retry on failure',async({page},testInfo)=>{
  let release!:()=>void;const gate=new Promise<void>(resolve=>release=resolve);let failing=false,requests=0;
  await page.route('**/data/*.json',async route=>{requests++;await gate;return route.fulfill(failing?{status:503,json:{error:'offline'}}:{json:rows})});await page.route('https://art.example/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280"/>'}));

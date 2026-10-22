@@ -187,3 +187,7 @@ Ignored local artifacts, never publish their private deployment/config contents:
 
 Implementation details and original gate record:
 [loading batch progress](page-loading-batches-progress-2026-10-21.md).
+
+Subsequent work, independently authorized staging repair and remaining boundaries:
+[loading follow-up](page-loading-followup-2026-10-21.md). The figures above remain
+the historical results of the earlier release, not measurements of that follow-up.

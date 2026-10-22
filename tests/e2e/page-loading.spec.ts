@@ -26,3 +26,17 @@ test('auction backdrop replaces rejected art without shrinking its loops',async(
  await page.setViewportSize({width:1440,height:1000});await page.goto('/scope-body?kind=backdrop');await page.addScriptTag({content:script});await expect(page.locator('.auction-entry-art-group img')).toHaveCount(108);
  const widths=()=>page.locator('.auction-entry-art-group').evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().width));const before=await widths();release();await expect(page.locator('.auction-entry-art-group img.is-decoded').first()).toBeVisible();await expect.poll(()=>page.locator(`img[src="${rejected}"]`).count()).toBe(0);const after=await widths();expect(after.map((n,i)=>Math.abs(n-before[i])<.01)).toEqual(Array(6).fill(true));await expect(page.locator('.auction-entry-art-group img')).toHaveCount(108);
 });
+
+test('decorative thumbnails fall back to original artwork on errors and CDN placeholders',async({page})=>{
+ await page.goto('/games');let thumbnails=0,originals=0;
+ await page.route('https://tcgplayer-cdn.tcgplayer.com/product/**',route=>{
+  const url=route.request().url(),small=url.endsWith('_200w.jpg');if(small)thumbnails++;else originals++;
+  if(small&&Number(url.match(/product\/(\d+)/)?.[1])%2===0)return route.fulfill({status:404,body:''});
+  return route.fulfill({contentType:'image/svg+xml',body:`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="${small?285:280}"><rect width="200" height="280" fill="#7557ff"/></svg>`});
+ });
+ await page.route('**/scope-body**',route=>route.fulfill({contentType:'text/html',body:'<html><body><div id="fixture"></div></body></html>'}));
+ await page.goto('/scope-body?kind=backdrop-thumbnail');await page.addScriptTag({content:script});
+ await expect(page.locator('.auction-entry-art-group img.is-decoded')).toHaveCount(108);
+ expect(thumbnails).toBeGreaterThan(0);expect(originals).toBeGreaterThan(0);
+ expect(await page.locator('.auction-entry-art-group img').evaluateAll(images=>images.every(image=>(image as HTMLImageElement).src.endsWith('_in_1000x1000.jpg')))).toBe(true);
+});

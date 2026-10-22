@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {auctionBackdropImages} from '../core/domain/auction-backdrop.ts';
+import {auctionBackdropImages,auctionBackdropThumbnail} from '../core/domain/auction-backdrop.ts';
 const catalog=Array.from({length:40},(_,index)=>({image:`https://images.example/${index}.jpg`}));
+
+test('decorative thumbnails rewrite only the verified product CDN shape',()=>{
+ assert.equal(auctionBackdropThumbnail('https://tcgplayer-cdn.tcgplayer.com/product/653045_in_1000x1000.jpg'),'https://tcgplayer-cdn.tcgplayer.com/product/653045_200w.jpg');
+ for(const image of ['https://images.example/card.jpg','https://tcgplayer-cdn.tcgplayer.com.evil.test/product/1_in_1000x1000.jpg','https://tcgplayer-cdn.tcgplayer.com/product/1_200w.jpg'])assert.equal(auctionBackdropThumbnail(image),image);
+});
 test('auction backdrop samples catalog artwork by seed, independent of catalog order and without duplicates',()=>{
  const art=auctionBackdropImages([...catalog,catalog[0],{image:''},{image:'javascript:bad'}],42);
  assert.equal(art.length,18);assert.equal(new Set(art).size,18);assert.ok(art.every(image=>image.startsWith('https://images.example/')));

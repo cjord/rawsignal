@@ -1,5 +1,11 @@
 import {auctionRandom,type AuctionCard} from './auction-types.ts';
 
+// Decoration is at most 190 CSS pixels wide. Only rewrite the verified CDN format;
+// callers retain the original for one fallback attempt if its thumbnail is missing.
+export function auctionBackdropThumbnail(image:string){
+ return image.replace(/^(https:\/\/tcgplayer-cdn\.tcgplayer\.com\/product\/\d+)_in_1000x1000(\.jpg)$/i,'$1_200w$2');
+}
+
 // Decorative catalog sample only: never inspect the prepared/hidden auction lot.
 export function auctionBackdropImages(catalog:(Pick<AuctionCard,'image'>&Partial<Pick<AuctionCard,'rarity'|'section'>>)[],seed:number,count=18):string[]{
  const images=new Map<string,number>();

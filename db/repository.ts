@@ -209,6 +209,12 @@ export async function failIngestion(db:D1DatabaseLike,id:string,completedAt:stri
 
 export async function checkpointIngestion(db:D1DatabaseLike,id:string,refreshKey:string,recordsSeen:number,recordsWritten:number,cursor:string,stats:Record<string,unknown>|null=null){
   await db.batch([
+    // Replacing the sole checkpoint is durable evidence of supersession, unlike age.
+    // Other references (including publication markers) prohibit automatic retirement.
+    db.prepare(`update ingestion_runs set status='failed',completed_at=?,error_message='Superseded by a newer checkpoint'
+      where status='running' and id<>? and id=(select ingestion_run_id from refresh_state where key=?)
+      and not exists(select 1 from refresh_state r where r.ingestion_run_id=ingestion_runs.id and r.key<>?)`)
+      .bind(new Date().toISOString(),id,refreshKey,refreshKey),
     db.prepare("update ingestion_runs set status='running',completed_at=null,error_message=null,records_seen=?,records_written=?,stats_json=coalesce(?,stats_json) where id=?")
       .bind(recordsSeen,recordsWritten,stats?JSON.stringify(stats):null,id),
     db.prepare(`insert into refresh_state (key,ingestion_run_id,cursor) values (?,?,?)

@@ -7,6 +7,7 @@ import { readSetRarityStats } from "./rarity-stats.ts";
 import { buildValueBreakdown } from "../core/domain/value-breakdown.ts";
 import { withRiftboundRegularArtwork } from "../core/domain/riftbound-artwork.ts";
 import type { D1DatabaseLike } from "./repository.ts";
+import {createPublicPayloadCache} from './public-payload-cache.ts';
 
 type ProductRow = {
   productId: number;
@@ -318,20 +319,12 @@ export async function readGameSetProducts(db: D1DatabaseLike, game: string, setN
 // id is a new key, and the TTL bounds staleness if the same run is re-read for long.
 const GAME_ROWS_TTL_MS = 10 * 60_000;
 const GAME_ROWS_MAX_ENTRIES = 12;
-const gameRowsCache = new Map<string, { at: number; rows: Promise<ProductRow[]> }>();
-function cachedGameRows(key: string, load: () => Promise<ProductRow[]>): Promise<ProductRow[]> {
-  const now = Date.now(), hit = gameRowsCache.get(key);
-  if (hit && now - hit.at < GAME_ROWS_TTL_MS) return hit.rows;
-  const rows = load().catch(error => { gameRowsCache.delete(key); throw error; });
-  gameRowsCache.set(key, { at: now, rows });
-  if (gameRowsCache.size > GAME_ROWS_MAX_ENTRIES) gameRowsCache.delete(gameRowsCache.keys().next().value!);
-  return rows;
-}
+const cachedGameRows=createPublicPayloadCache<ProductRow[]>({ttlMs:GAME_ROWS_TTL_MS,maxEntries:GAME_ROWS_MAX_ENTRIES});
 
 export function createD1CatalogRepository(db: D1DatabaseLike, ingestionRunId?: string, pullRateConfig?: PullRateConfig): CatalogRepository {
   const runClause = ingestionRunId ? " and p.ingestion_run_id=?" : "";
   const runParams = ingestionRunId ? [ingestionRunId] : [];
-  const productRows = (kind: "single" | "sealed", game: string) => cachedGameRows(`${ingestionRunId ?? "unpublished"}|${kind}|${game}`, async () => {
+  const productRows = (kind: "single" | "sealed", game: string) => cachedGameRows(db,JSON.stringify([ingestionRunId??null,kind,game]), async () => {
     const sql = ingestionRunId ? `${productsSql} and p.ingestion_run_id=?` : productsSql;
     const statement = db.prepare(sql).bind(...(ingestionRunId ? [kind, game, ingestionRunId] : [kind, game]));
     return (await statement.all<ProductRow>()).results ?? [];
