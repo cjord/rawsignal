@@ -9,13 +9,23 @@ test('three decorative rows skip broken artwork and use identical gapless loop g
  await expect(backdrop.locator('img.is-decoded').first()).toBeAttached();
  // Viewport-sized fixed slots: rejected artwork is replaced, not removed. Lazy
  // offscreen images need not decode before foreground data becomes usable.
- await expect(backdrop.locator('img')).toHaveCount(auctionBackdropSlots(page.viewportSize()!.width)*6);expect(await backdrop.locator('img').evaluateAll(images=>images.every(image=>(image as HTMLImageElement).loading==='lazy'))).toBe(true);
+ await expect(backdrop.locator('img')).toHaveCount(auctionBackdropSlots(page.viewportSize()!.width)*6);
+ // New sources stay lazy; already-decoded URLs warm their twins from the same
+ // resource so a loop handoff cannot expose an unready offscreen duplicate.
+ const readySource=await backdrop.locator('img.is-decoded').first().getAttribute('src');
+ await expect.poll(()=>backdrop.locator(`img[src="${readySource}"]`).evaluateAll(images=>images.every(image=>(image as HTMLImageElement).complete&&image.classList.contains('is-decoded')))).toBe(true);
  for(const width of [3343,390])for(const theme of ['dark','light']){
   await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
   await expect(backdrop.locator('img')).toHaveCount(auctionBackdropSlots(width)*6);
   const geometry=await backdrop.locator('.auction-entry-art-lane').evaluateAll(lanes=>lanes.map(lane=>({width:lane.getBoundingClientRect().width,groups:[...lane.children].map(group=>({width:group.getBoundingClientRect().width,images:[...group.querySelectorAll('img')].map(image=>image.src.replace(/_(?:in_1000x1000|200w)\.jpg$/,'.jpg'))}))})));
   expect(new Set(geometry.flatMap(lane=>lane.groups.flatMap(group=>group.images))).size).toBeLessThanOrEqual(18);
   for(const lane of geometry){expect(lane.groups[0].width).toBeGreaterThan(width-1);expect(lane.groups[0].images).toEqual(lane.groups[1].images);expect(Math.abs(lane.groups[0].width-lane.groups[1].width)).toBeLessThan(.02);expect(Math.abs(lane.width-lane.groups[0].width*2)).toBeLessThan(1);}
+  const seam=await backdrop.locator('.auction-entry-art-lane').evaluateAll(lanes=>lanes.map(lane=>{
+   const animation=lane.getAnimations()[0];animation.pause();const duration=Number(animation.effect!.getTiming().duration);
+   const positions=(time:number)=>{animation.currentTime=time;return [...lane.querySelectorAll('img')].map(image=>({src:image.src,x:image.getBoundingClientRect().x,right:image.getBoundingClientRect().right})).filter(row=>row.right>0&&row.x<innerWidth).sort((a,b)=>a.x-b.x)};
+   return {start:positions(.01),end:positions(duration-.01)};
+  }));
+  for(const row of seam){expect(row.start.map(r=>r.src)).toEqual(row.end.map(r=>r.src));for(let i=0;i<row.start.length;i++)expect(Math.abs(row.start[i].x-row.end[i].x)).toBeLessThan(1)}
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:testInfo.outputPath(`backdrop-${width}-${theme}.png`)});
  }
  await page.emulateMedia({reducedMotion:'reduce'});await expect(backdrop.locator('.auction-entry-art-lane').first()).toHaveCSS('animation-name','none');

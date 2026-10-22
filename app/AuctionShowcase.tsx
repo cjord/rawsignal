@@ -29,7 +29,7 @@ function ShowcaseBody({shared,save,error,editing,status,catalog,cards,transact,t
    {!shared&&account.user&&!account.user.publicUsername&&<p className="games-note">Choose a <AuctionLink href="/account#account-name">public username in Profile</AuctionLink> before sharing.</p>}
    <AuctionStatistics shared={Boolean(shared)} save={shared?{...initialAuctionSave(),statistics:shared.stats}:save!}/>
    {editing&&canEdit&&save?<>{!account.user&&<section className="detail-section"><label className="auction-profile-name">Snapshot Display Name (optional)<input maxLength={40} value={save.profileName??''} onChange={event=>{const name=event.target.value;transact(current=>({...current,profileName:name}))}}/></label><p className="games-note">Used in frozen snapshot links. Account showcase visibility and its public display name are controlled in Profile and visibility settings.</p></section>}<AuctionShowcaseEditor save={save} catalog={catalog} transact={transact}/></>:<AuctionShowcaseGallery cards={cards} shared={Boolean(shared)} inspect={inspect}/>}
-   {!shared&&<details className="auction-sharing-settings"><summary>Sharing &amp; Visibility</summary><AuctionPublicSettings/></details>}
+   {!shared&&<section className="auction-sharing-settings" aria-label="Sharing & Visibility"><h2>Sharing &amp; Visibility</h2><AuctionPublicSettings/></section>}
 </>;
 }
 

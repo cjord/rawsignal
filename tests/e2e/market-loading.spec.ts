@@ -49,3 +49,15 @@ test('Cards header has no false server market and its count/date slots stay fixe
  const after=await page.locator('.controls').boundingBox(),nextAside=await page.locator('.section-aside').boundingBox();
  expect(Math.abs(after!.y-before!.y)).toBeLessThan(1);expect(Math.abs(nextAside!.x-aside!.x)).toBeLessThan(1);expect(Math.abs(nextAside!.height-aside!.height)).toBeLessThan(1);
 });
+
+for(const signedIn of [false,true])test(`static Games tiles and account slot remain mounted through ${signedIn?'member':'guest'} bootstrap`,async({page})=>{
+ const {release}=await fixture(page,'?fixtureView=games',signedIn);
+ const control=page.getByRole('button',{name:'Checking account',exact:true});await expect(control).toBeDisabled();await expect(control).toHaveText('');
+ const before=await control.boundingBox();await expect(page.locator('.game-tile')).toHaveCount(4);
+ await page.evaluate(()=>Object.assign(window,{initialGameTile:document.querySelector('.game-tile'),initialGameArt:document.querySelector('.game-tile-art')}));
+ await expect(page.locator('.account-guest-warning')).toHaveCount(0);release();
+ const ready=page.getByRole('button',{name:signedIn?'Log Out':'Log In',exact:true});await expect(ready).toBeEnabled();expect(await ready.boundingBox()).toEqual(before);
+ expect(await page.evaluate(()=>{const w=window as unknown as {initialGameTile:Element;initialGameArt:Element};return w.initialGameTile===document.querySelector('.game-tile')&&w.initialGameArt===document.querySelector('.game-tile-art')})).toBe(true);
+ await expect(page.locator('html')).toHaveAttribute('data-market-mounts','1');await expect(page.locator('.account-guest-warning')).toHaveCount(0);
+ await expect(page.locator('a.game-tile[href="/games/riftbound-auction"]')).toContainText('Play now');
+});

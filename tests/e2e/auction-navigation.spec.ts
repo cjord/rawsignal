@@ -1,6 +1,17 @@
 import {expect,test} from '@playwright/test';
 import {initialAuctionSave} from '../../core/domain/auction-types';
 const key='raw-signal-auction-house-v1';
+
+test('community slider keeps the Auction Shell and selected-tab clicks do not refresh it',async({page})=>{
+ let reads=0;await page.route('**/api/games/auction-community?**',route=>{reads++;return route.fulfill({json:{rows:[],offset:0,nextCursor:null}})});
+ await page.route('https://tcgplayer-cdn.tcgplayer.com/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280"/>'}));
+ await page.goto('/games/riftbound-auction/leaderboard');await expect(page.getByRole('columnheader',{name:'Net Auction P/L'})).toBeVisible();
+ const origin=await page.evaluate(()=>{Object.assign(window,{communityBackdrop:document.querySelector('.auction-page-art')});return performance.timeOrigin});
+ await page.getByRole('tab',{name:'Public Showcases',exact:true}).click();await expect(page).toHaveURL(/\/showcases$/);await expect(page.getByRole('columnheader',{name:'Showcase Value'})).toBeVisible();expect(reads).toBe(2);
+ await page.getByRole('tab',{name:'Public Showcases',exact:true}).click();expect(reads).toBe(2);expect(await page.evaluate(()=>performance.timeOrigin)).toBe(origin);
+ expect(await page.evaluate(()=>document.querySelector('.auction-page-art')===(window as unknown as {communityBackdrop:Element}).communityBackdrop)).toBe(true);
+ await page.getByRole('tab',{name:'Leaderboard',exact:true}).click();await expect(page.getByRole('columnheader',{name:'Net Auction P/L'})).toBeVisible();expect(reads).toBe(3);
+});
 test('auction hub preserves the document and decorative background, restores inventory URLs and retains an active auction',async({page},testInfo)=>{
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
  const rows=Array.from({length:35},(_,i)=>({game:'riftbound',productId:992000+i,name:`Navigation Card ${i}`,image:`https://art.example/${i}.svg`,marketPrice:i+1,printing:'Normal',section:'rares',set:'Origins',rarity:'Rare',year:2025,number:String(i),url:'',lowPrice:null,midPrice:null,highPrice:null,priceChange:null}));
@@ -9,7 +20,7 @@ test('auction hub preserves the document and decorative background, restores inv
  await page.goto('/games/riftbound-auction');await expect(page.getByRole('navigation',{name:'Auction Hub',exact:true})).toBeVisible();await expect(page.locator('.auction-page-art')).toHaveCount(1);
  await expect(page.getByRole('button',{name:'Enter Bilgewater Auction House',exact:true})).toBeEnabled();
  const origin=await page.evaluate(()=>{(window as unknown as {auctionBackdrop:Element|null}).auctionBackdrop=document.querySelector('.auction-page-art');return performance.timeOrigin});
- const hub=page.getByRole('navigation',{name:'Auction Hub',exact:true});await hub.getByRole('link',{name:'Inventory',exact:true}).click();await expect(page.getByRole('heading',{name:'Auction Inventory',exact:true})).toBeVisible();expect(await page.evaluate(()=>performance.timeOrigin)).toBe(origin);expect(await page.evaluate(()=>document.querySelector('.auction-page-art')===(window as unknown as {auctionBackdrop:Element|null}).auctionBackdrop)).toBe(true);await expect(page.locator('main')).toHaveCount(1);
+ const hub=page.getByRole('navigation',{name:'Auction Hub',exact:true});await expect(hub.getByRole('link',{name:'Community',exact:true})).toHaveAttribute('href','/games/riftbound-auction/leaderboard');await expect(hub.locator('details')).toHaveCount(0);await expect(page.getByText('Active auction timers continue while you browse.',{exact:true})).toHaveCount(0);await hub.getByRole('link',{name:'Inventory',exact:true}).click();await expect(page.getByRole('heading',{name:'Auction Inventory',exact:true})).toBeVisible();await expect(page.getByRole('link',{name:'← Auction House',exact:true})).toHaveAttribute('href','/games/riftbound-auction');expect(await page.evaluate(()=>performance.timeOrigin)).toBe(origin);expect(await page.evaluate(()=>document.querySelector('.auction-page-art')===(window as unknown as {auctionBackdrop:Element|null}).auctionBackdrop)).toBe(true);await expect(page.locator('main')).toHaveCount(1);
  await page.getByLabel('Find Cards').fill('Navigation Card 1');await page.getByRole('combobox',{name:'Sort Inventory',exact:true}).selectOption('quantity-desc');await expect(page).toHaveURL(/q=Navigation\+Card\+1.*sort=quantity-desc/);
  for(const width of [1440,390])for(const theme of ['dark','light']){await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:testInfo.outputPath(`hub-inventory-${width}-${theme}.png`),fullPage:true,animations:'disabled'});}
  await hub.getByRole('link',{name:'Auction Guide',exact:true}).click();await expect(page.getByRole('heading',{name:'Auction Guide',exact:true})).toBeVisible();await page.goBack();await expect(page.getByLabel('Find Cards')).toHaveValue('Navigation Card 1');await expect(page.getByRole('combobox',{name:'Sort Inventory',exact:true})).toHaveValue('quantity-desc');

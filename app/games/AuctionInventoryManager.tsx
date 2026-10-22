@@ -11,6 +11,7 @@ import {auctionUsd} from './AuctionWallet';
 import InventoryFiltersPanel from './AuctionInventoryFilters';
 import {useAuctionInventoryControls} from './useAuctionInventoryControls';
 import AuctionInventorySkeleton from './AuctionInventorySkeleton';
+import AuctionPagination from './AuctionPagination';
 
 const PAGE_SIZE=24;
 type Props={save:AuctionSave;catalog:AuctionCard[];cards:Card[];loading:boolean;transact:(update:(save:AuctionSave)=>AuctionSave)=>void;urlState?:boolean;checkMarket?:AuctionMarketCheck};
@@ -29,8 +30,8 @@ export default function AuctionInventoryManager({save,catalog,cards,loading,tran
   <p className="auction-inventory-selection-summary">{selection.length} Selected Printings · {loading?'N/A':auctionUsd(selectedPlan.net)} Sale Value After Fee</p>
   <div className="auction-inventory-grid">{rows.map(row=><label className="auction-owned-card" data-rarity={auctionRarity(row.metadata??undefined)} key={row.key}><input type="checkbox" aria-label={`Select ${row.name} (${row.holding.printing})`} checked={selection.includes(row.key)} disabled={disabled||row.net===null} onChange={event=>setSelected(event.target.checked?[...selection,row.key]:selection.filter(key=>key!==row.key))}/><DeferredImage src={row.image} alt=""/><div><b>{row.name}</b><small>{row.holding.printing} · Near Mint · ×{row.holding.quantity}</small><small>{row.set||'Set Unavailable'} · {row.rarity}</small><strong>{!loading&&row.net!==null?auctionUsd(row.net):'N/A'} after fee</strong></div></label>)}</div>
   {!rows.length&&<p className="games-note">No inventory matches these filters. <button className="game-control" type="button" onClick={()=>change(initialInventoryFilters)}>Clear Filters</button></p>}
-  <div className="auction-actions" aria-label="Inventory Pages"><button className="game-control" type="button" disabled={current===0} onClick={()=>setPage(current-1)}>Previous Inventory Page</button><button className="game-control" type="button" disabled={current+1>=pages} onClick={()=>setPage(current+1)}>Next Inventory Page</button></div>
-  <details className="auction-inventory-quick-sales"><summary>Sell by Rarity or Sell All (Entire Inventory)</summary><AuctionInventorySales save={save} catalog={catalog} loading={loading} transact={transact} checkMarket={checkMarket}/></details>
+  <section className="auction-inventory-quick-sales" aria-label="Entire Inventory Sales"><h3>Sell by Rarity or Sell All (Entire Inventory)</h3><AuctionInventorySales save={save} catalog={catalog} loading={loading} transact={transact} checkMarket={checkMarket}/></section>
+  <AuctionPagination label="Inventory Pages" page={current+1} pages={pages} canPrevious={current>0} canNext={current+1<pages} previous={()=>setPage(current-1)} next={()=>setPage(current+1)} previousLabel="Previous Inventory Page" nextLabel="Next Inventory Page"/>
   {sale&&<AuctionSaleConfirmation title={sale.keep?'Sell Filtered Extra Copies?':'Sell Selected Inventory?'} label="Confirm Inventory Sale" save={save} catalog={catalog} disabled={disabled} transact={transact} checkMarket={checkMarket} close={()=>{setSale(null);setSelected([])}} quote={(current,prices)=>inventorySalePlan(current,prices,sale.keys,sale.keep)} commit={(current,prices)=>sellInventorySelection(current,prices,sale.keys,sale.keep)}><p>{sale.keep?'Keep at least three of each matching printing in sellable inventory. ':''}Unpriced cards, unselected printings and showcase cards remain owned. This cannot be undone.</p></AuctionSaleConfirmation>}
  </div>;
 }

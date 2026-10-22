@@ -22,7 +22,7 @@ test('scope policy respects valid explicit All, rejects unsupported markets and 
  assert.equal(resolveMarketScope(null,'onepiece',allowed,'pokemon'),'pokemon');
  assert.equal(resolveMarketScope(null,null,allowed,'all'),'all');
 });
-test('only read-only market surfaces may bypass the owner remount; private/game routes retain isolation',()=>{
- for(const path of ['/','/sets','/metrics','/cards/123','/sealed/123','/sets/riftbound/origins'])assert.equal(isPublicMarketPath(path),true,path);
- for(const path of ['/account','/collections','/buylist','/import','/games','/games/riftbound-auction','/admin','/api/account/session','/cards/not-an-id','/sets/account'])assert.equal(isPublicMarketPath(path),false,path);
+test('read-only markets and static Games directory bypass remount; actual game routes retain owner isolation',()=>{
+ for(const path of ['/','/games','/sets','/metrics','/cards/123','/sealed/123','/sets/riftbound/origins'])assert.equal(isPublicMarketPath(path),true,path);
+ for(const path of ['/account','/collections','/buylist','/import','/games/riftbound-price','/games/riftbound-auction','/games/riftbound-auction/showcase','/admin','/api/account/session','/cards/not-an-id','/sets/account'])assert.equal(isPublicMarketPath(path),false,path);
 });

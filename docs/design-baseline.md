@@ -222,14 +222,25 @@ including gameplay, guide, showcases and public profiles. Decoration is independ
 of hidden lots and fades after decode. Game link-buttons and native buttons center
 their contents consistently; primary blue and sharing purple are muted token fills.
 Showcase loading reserves a coordinated statistics/gallery area and does not wait
-for artwork. Secondary sharing settings live in a native collapsed section.
+for artwork. Sharing & Visibility stays expanded below the owner showcase gallery;
+the separate profile-preview visibility disclosure may still collapse.
 Own-showcase placeholders include disabled Edit/Share controls matching final
 buttons. Auction statistics provenance belongs in its definitions tooltip, not a
 paragraph that appears only for an empty save. Inventory filters use theme-token
 fields, visible focus and responsive columns; 24-printing pagination bounds the
 expanded list. Selection and filtered-extra sales require clear scope and confirmation;
-entire-inventory sales remain a separate collapsed group. Loading price notices
+entire-inventory sales remain a separate, clearly labeled visible section. Loading price notices
 reserve space instead of collapsing as prices arrive.
+Auction pagination uses left Previous / centered page status / right Next controls.
+The Auction Wallet Summary makes normal-game spendable cash the headline in a
+subtle green panel, with total after-fee net worth and blue sellable-inventory /
+purple protected-showcase sections below. Gross values and fee definitions use
+tooltips; counts stay visible. Missing prices show N/A plus known subtotals, not
+zero. Its loading shell reserves the same value/control slots. Inventory and My
+Showcase links replace the duplicate expandable lobby inventory manager.
+Community uses a centered market-style sliding selector and a direct hub link,
+with Refresh aligned top-right inside each directory tile. Account actions reserve
+one fixed-size neutral slot until the real session resolves, never a guessed login.
 Ephemeral site notices stack bottom-right without changing layout, with dismiss
 controls and configurable/pauseable duration. Important save errors remain inline.
 
