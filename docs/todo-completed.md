@@ -9,6 +9,20 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-21 — Loading follow-up checkpoint, staging only
+
+Application `8e47480` pushed and deployed staging `6d543053`: matched-width mono
+fallback/primary font preloads, shared Large/Full loading frames, request-local
+Sets/Eras summaries and viewport-budgeted decorative loops. Complete gate:
+668 unit passes (one existing skip), 144 Chromium journeys, no new lint warnings.
+Actual service output parity retained with 901,651 → 756,190 cold-build rows read;
+live cold latency is **not** proven faster. Normal detail typography shifted much
+less, but deliberately late fonts still move. Live checks exposed a resolved Full
+row desktop-to-phone resize issue; deeper candidate/bundle work and real-device
+acceptance remain open. Catalog/account bindings, staging's empty schedule and
+production were preserved. This entry records a checkpoint, not completion of the
+whole loading plan. [Goals, results and remaining steps](page-loading-next-checkpoint.md).
+
 ## 2026-10-21 — Page-loading batches, staging verified
 
 Application `cfc591b` pushed and deployed to staging `01a13354` after the complete

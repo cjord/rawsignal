@@ -77,6 +77,18 @@ refresh, account mutation, daily regeneration, migration or production deploymen
 
 ## Still open, in order
 
+0. **Full View Resize Containment:** live checks exposed an intermittent
+   resolved-row problem, separate from the new loading frames. After a 1440 → 390px
+   resize, Singles/Sealed can retain a roughly 1,158px-wide `.signal-card-wrap` and
+   overflow the page. Fresh 390px loads fit the page; Sealed's small chart toolbar
+   also deserves a local fit check. The resolved-row rules/wrappers were not changed
+   in this checkpoint. An existing containment problem is the current inference;
+   no old-version browser comparison was performed. Add a real FullViewCardWrap resize regression (the new
+   skeleton fixture is not that wrapper), then test explicit zero-minimum grid
+   tracks/children and compact chart toolbar wrapping. Do not hide page overflow
+   to conceal inaccessible controls. This newly measured UI issue comes before
+   deeper candidate/bundle changes.
+
 1. **Detail Candidate Projection:** similarity scores every game item, including
    low-score fallbacks, while global peer quartiles depend on the complete rarity
    cohort. Do not simply filter by name/rarity. Characterize exact top-eight IDs,
@@ -103,3 +115,43 @@ The implementation approach is incremental: first measure the cause, change one
 shared boundary, retain exact output/control contracts, and compare under the same
 conditions. A larger rewrite could consolidate more code but would combine cache,
 ranking, routing and account-recovery risks before those boundaries are pinned.
+
+## Live staging result
+
+Pushed application `8e47480`; staging version
+`6d543053-9d03-42c4-8987-22ece13e26be` at
+<https://raw-signal-staging.raw-signal-watch.workers.dev>. All prior plaintext flags,
+secret binding names, identity/save databases and limiter/storage namespaces were
+preserved. Remote staging schedules remain empty; production's deployment is unchanged.
+No migration, catalog refresh, account sign-in, real bid/sale or daily regeneration.
+
+The compact catalog still reports database source, 1,583 printings and 128 null
+prices with the previous parity-approved content version. Invalid/mismatched
+versions still return 400/409. Nine public page families were checked at 1440/390
+pixels and in both themes: HTTP 200, zero application non-GETs and zero page errors.
+Most layouts fit; the recorded Full-view resize failure above means this is **not**
+an all-pages responsive acceptance pass. It reproduced separately in Singles and
+Sealed, and intermittently in the full matrix. Fresh phone loads were checked
+separately. Play → Inventory → My Showcase → Play retained the same background
+and issued zero additional catalog downloads. Existing account/recovery Chromium
+fixtures passed the gate; this is not physical Safari or populated live-account proof.
+
+The same six-case typography trace was repeated. Normal desktop bounded shift sum
+was about 0.0008 versus the earlier 0.063; normal phone was about 0.0004 versus
+0.0014. With fonts deliberately held until 1.8 seconds after the primary price,
+desktop still shifted about 0.053 versus 0.067 before, and phone remained about
+0.0014. Therefore early font delivery improves the ordinary load, but does **not**
+eliminate the late sans-font swap. These one-per-case lab observations are bounded
+layout-shift sums, not field Web Vitals or a guarantee for every title/font/device.
+
+Ten unique-query HTML requests were edge MISSes. First observed Metrics build
+total was 2,806ms; the next four had only the total stage at 23–31ms. Sets first
+total was 904ms, then 21–24ms. The earlier release observed 1,314ms cold Metrics;
+these separate samples have uncontrolled database/isolate/queue state. **No cold
+latency improvement is claimed.** The exact-output 16% row-read reduction is valid
+for the measured actual service; cold Metrics remains a performance priority.
+Concurrent stage timings include queue time and must not be added together.
+
+Private evidence: `outputs/next-loading-*`, `outputs/detail-layout-trace-after.*`
+and `outputs/loading-followup-live-next-checkpoint.json`. Deployment settings and
+diagnostic data remain ignored; do not publish private configuration evidence.
