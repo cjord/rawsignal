@@ -227,5 +227,47 @@ then populated owner fixtures and the physical recovery runbook. Deliberately la
 sans fonts and cold Metrics latency remain open measurements, not solved by these
 query changes. Physical Safari/second-device acceptance requires human participation.
 
+**Deferred at the user's request, 2026-10-22:** no iPhone/iPad with Safari is
+currently available. Retain the physical recovery runbook for a later device
+session; this does not block the current staging checkpoint. Automated Chromium
+coverage does not complete this acceptance item.
+
 Private trial evidence is ignored under `outputs/metrics-*-trial.json`,
 `outputs/detail-projection-trial.json` and `outputs/next-loading-metrics-tuned.json`.
+
+### Live release observation — 2026-10-22
+
+Validated application `da672ba` was pushed and deployed to staging version
+`dc2949f8-c488-4eff-beb5-bac7eff20841` at
+<https://raw-signal-staging.raw-signal-watch.workers.dev>. Remote verification
+confirmed the existing bindings and compact-catalog setting were preserved,
+staging cron remains empty and production's deployment is unchanged. No migration,
+ingestion refresh, account mutation, daily regeneration or production deployment.
+
+The first unique-query Metrics HTML request after release observed a 1,760ms
+server build (2,617ms end-to-end); the next four reported 19–22ms server totals.
+Sets observed 699ms first build, then 19–20ms. All ten were HTML edge MISSes;
+underlying payload/database/isolate caches were not forcibly reset. The previous
+checkpoint's first observed Metrics total was 2,806ms, but these uncontrolled
+samples cannot establish a repeatable cold-load speedup. Concurrent stage timings
+include queueing and must not be summed. Exact-result row-read savings remain the
+controlled evidence for the query changes.
+
+Private release evidence: `outputs/resize-projection-server-probe.json` and
+`outputs/resize-projection-staging-release-*.json`. Configuration evidence stays
+ignored and must not be published.
+
+Strict live layout acceptance passed for nine public page families at 1440/390px
+and in dark/light themes (36 captures), including desktop-to-phone resizing of
+resolved Singles and Sealed Full views. All returned HTTP 200, with zero page
+errors, horizontal-overflow failures or application non-GET requests. The former
+Full-view resize failure did not recur. This covers the measured matrix, not every
+catalog record or browser. Focused real-wrapper fixtures also exercise 320px,
+large text and actual chart/favorite controls.
+
+Compact catalog verification retained database provenance, 1,583 printings,
+128 null prices and the prior parity-approved content version; malformed/stale
+versions still returned 400/409. Play → Inventory → My Showcase → Play retained
+the same background element and downloaded no additional catalog data. No auction
+was started and no real account was signed in. Live browser evidence is
+`outputs/loading-followup-live-resize-projection.json` and matching screenshots.

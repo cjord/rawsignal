@@ -9,6 +9,22 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-22 — Full-view resize and cold-query checkpoint, staging only
+
+Application `da672ba` pushed and deployed staging `dc2949f8`: real Full-view
+resize containment, full-width mobile Sealed history/metrics, request-local
+Metrics eligibility reuse and lighter all-game Singles detail candidates.
+Exact service output parity retained: Metrics reads 756,190 → 669,458; detail
+reads/decoded result sizes reduced without narrowing peers or adding queries.
+Complete gate: 670 unit passes (one existing skip), 152 Chromium journeys and
+no new lint warnings. Strict live nine-surface desktop/mobile, dark/light matrix
+passed without overflow/page errors; compact catalog and retained hub background
+contracts passed. Bindings and empty staging cron preserved; production unchanged.
+Observed cold timings remain uncontrolled, not a proven field speed improvement.
+Physical Safari/two-device recovery is deferred at the user's request until a
+device is available; optional modules, populated fixtures and late-font work remain.
+[Measurements, limitations and next steps](page-loading-next-checkpoint.md).
+
 ## 2026-10-21 — Loading follow-up checkpoint, staging only
 
 Application `8e47480` pushed and deployed staging `6d543053`: matched-width mono
