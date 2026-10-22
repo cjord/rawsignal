@@ -234,10 +234,15 @@ reserve space instead of collapsing as prices arrive.
 Auction pagination uses left Previous / centered page status / right Next controls.
 The Auction Wallet Summary makes normal-game spendable cash the headline in a
 subtle green panel, with total after-fee net worth and blue sellable-inventory /
-purple protected-showcase sections below. Gross values and fee definitions use
-tooltips; counts stay visible. Missing prices show N/A plus known subtotals, not
-zero. Its loading shell reserves the same value/control slots. Inventory and My
-Showcase links replace the duplicate expandable lobby inventory manager.
+purple showcase-value sections below. Total Net Worth is the combined after-fee
+figure; card quantities sit inline beside inventory/showcase amounts. One wallet
+tooltip consolidates gross values and fee/protection definitions, without repeated
+taglines or sum descriptions. Missing prices show N/A plus a compact known subtotal,
+not zero. Its loading shell reserves the same value/control slots. Auction Hub
+links own navigation; duplicate wallet links and standalone Refresh Market are
+removed, while market failure/retry controls remain. Reset Cash & Inventory has a
+theme-aware red border/fill and retains explicit confirmation and blue keyboard
+focus. Guide uses the same inactive/active fill as the other Hub controls.
 Community uses a centered market-style sliding selector and a direct hub link,
 with Refresh aligned top-right inside each directory tile. Account actions reserve
 one fixed-size neutral slot until the real session resolves, never a guessed login.

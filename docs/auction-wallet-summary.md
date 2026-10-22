@@ -1,5 +1,10 @@
 # Auction Wallet Summary
 
+Follow-up: the user subsequently requested a compact wallet with Total Net Worth,
+Showcase Value, inline card counts, a single explanation and reset-only controls.
+The [refinement and backdrop plan](auction-wallet-refinement-and-backdrop-plan.md)
+supersedes the original copy/control choices below; the accounting remains intact.
+
 ## Goal and selected design
 
 The user selected cash-first hierarchy, after-fee card values, subtle green/blue/

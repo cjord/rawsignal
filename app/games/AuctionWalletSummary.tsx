@@ -13,24 +13,26 @@ function cardAmount(value:Bucket|undefined,waiting:boolean,field:'gross'|'net'){
 }
 
 function CardValue({kind,value,loading,pending}:{kind:'inventory'|'showcase';value?:Bucket;loading:boolean;pending:boolean}){
- const title=kind==='inventory'?'Sellable Inventory':'Protected Showcase',waiting=pending||loading&&Boolean(value?.count);
+ const title=kind==='inventory'?'Sellable Inventory':'Showcase Value',waiting=pending||loading&&Boolean(value?.count);
  return <div className={`auction-wallet-metric auction-wallet-${kind}`}>
-  <span className="auction-wallet-label">{title}<WalletHint pending={pending} label={`${title} valuation`}>{kind==='showcase'?'Return showcase cards to inventory before selling. ':''}Gross market value: {cardAmount(value,waiting,'gross')}. {Boolean(value?.unpriced)&&!waiting&&`Known after-fee subtotal: ${usd(value?.net??0)}; ${value?.unpriced} unpriced. `}Displayed card values are after the fixed 10% virtual selling fee, rounded by printing across owned cards. Missing prices are excluded from known subtotals, never valued at zero. Market prices are not guaranteed sale proceeds.</WalletHint></span>
-  <strong className={`auction-${kind}-value`}>{cardAmount(value,waiting,'net')}</strong>
-  <small>{pending?'Loading card count…':`${value?.count??0} cards · ${kind==='showcase'?'Protected from sales':'After 10% fee'}`}</small>
+  <span className="auction-wallet-label">{title}</span>
+  <div className="auction-wallet-amount"><strong className={`auction-${kind}-value`}>{cardAmount(value,waiting,'net')}</strong><span>{pending?'– … Cards':`– ${value?.count??0} Cards`}</span></div>
  </div>;
+}
+
+function ValuationHint({values,loading,pending}:{values?:AuctionWalletValues;loading:boolean;pending:boolean}){
+ return <WalletHint pending={pending} label="Wallet valuation">Card values are after the 10% selling fee. Gross market values: inventory {cardAmount(values?.inventory,loading&&Boolean(values?.inventory.count),'gross')}; showcase {cardAmount(values?.showcase,loading&&Boolean(values?.showcase.count),'gross')}. Total net worth includes cash and both card values, not Daily Challenge funds. Return showcase cards to inventory before selling. Unpriced cards stay N/A; known subtotals exclude them. Market prices are not guaranteed sale proceeds.</WalletHint>;
 }
 
 // Identical owner-loading and resolved slots; cash never waits for catalog/artwork.
 export default function AuctionWalletSummary({values,loading=false,pending=false}:{values?:AuctionWalletValues;loading?:boolean;pending?:boolean}){
  const waiting=pending||loading&&Boolean((values?.inventory.count??0)+(values?.showcase.count??0));
  return <div className="auction-wallet-summary" aria-busy={pending||undefined}>
-  <div className="auction-wallet-cash"><div><span className="games-eyebrow">Auction Wallet</span><h2>Available Cash</h2></div><strong className="auction-cash-value">{pending?<span className="auction-loading-line"/>:usd(values?.cash??0)}</strong><small>Spendable now · Normal auctions</small></div>
+  <div className="auction-wallet-cash"><div><div className="auction-wallet-caption"><span className="games-eyebrow">Auction Wallet</span><ValuationHint values={values} loading={loading} pending={pending}/></div><h2>Available Cash</h2></div><strong className="auction-cash-value">{pending?<span className="auction-loading-line"/>:usd(values?.cash??0)}</strong></div>
   <div className="auction-wallet-breakdown">
-   <div className="auction-wallet-metric auction-wallet-total"><span className="auction-wallet-label">Virtual Net Worth<WalletHint pending={pending} label="Virtual net worth calculation">Cash plus inventory and protected showcase value after the 10% selling fee. This is not lifetime profit or immediately spendable cash. Daily Challenge funds are separate. Prices and source date are shown in Market Snapshot below.</WalletHint></span><strong className="auction-net-worth">{waiting?'Loading…':values?.netWorth==null?'N/A':usd(values.netWorth)}</strong><small>Cash + inventory + showcase</small></div>
+   <div className="auction-wallet-metric auction-wallet-total"><span className="auction-wallet-label">Total Net Worth</span><div><strong className="auction-net-worth">{waiting?'Loading…':values?.netWorth==null?'N/A':usd(values.netWorth)}</strong><small className="auction-wallet-coverage">{!waiting&&values?.unpriced?`${values.unpriced} unpriced · Known ${usd(values.knownNetWorth)}`:'\u00a0'}</small></div></div>
    <CardValue kind="inventory" value={values?.inventory} loading={loading} pending={pending}/>
    <CardValue kind="showcase" value={values?.showcase} loading={loading} pending={pending}/>
   </div>
-  <p className="games-note auction-wallet-coverage">{pending?'Loading wallet…':waiting?'Loading card values; your cash is ready.':values?.unpriced?`${values.unpriced} unpriced card${values.unpriced===1?'':'s'} · Known net worth: ${usd(values.knownNetWorth)} (cash + priced cards).`:'Card values are after the 10% selling fee. Showcase cards are protected from sales.'}</p>
  </div>;
 }

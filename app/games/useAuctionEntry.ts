@@ -46,7 +46,7 @@ export function useAuctionEntry(catalog:AuctionCard[],transact:(update:(save:Auc
    const [lot]=await Promise.all([prepare(),intro]);
    if(controller.signal.aborted)return;
    if(lot.length)transact(current=>current.drafts?.[kind]?.seed===seed?beginAuction(current,catalog,Date.now(),current.drafts[kind]!.lot??lot,seed,kind):current);
-   else setImageError('Auctions are temporarily unavailable. Your balance has not changed. Refresh the market to check availability.');
+   else setImageError('Auctions are temporarily unavailable. Your balance has not changed. Please retry entering the auction.');
   }catch{
    if(!controller.signal.aborted)setImageError('Auction preparation could not finish. Your balance has not changed. Please retry.');
   }finally{
