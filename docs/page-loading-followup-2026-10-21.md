@@ -145,6 +145,56 @@ and retained output in an operator process; they do not force cold D1 or prove
 cross-request reuse in every Worker isolate. Cold builds still read many rows.
 Do not turn this into an across-the-board database-cost reduction claim.
 
+## Final staging activation and verification
+
+After those gates passed, the same validated application was deployed with only
+the staging compact-catalog flag changed. Final staging version:
+`937746c9-f634-42ab-bfec-859bab02c7b4` at
+<https://raw-signal-staging.raw-signal-watch.workers.dev>.
+
+The live manifest and body matched the exact parity-approved content version and
+reported `source: database`, 1,583 printings and 128 null prices. Invalid versions
+returned 400; a well-formed mismatched version returned 409. Live desktop/mobile
+and dark/light checks again found no overflow or application writes. Auction Hub
+navigation retained the same background and re-fetched no catalog data.
+
+Final mobile samples used the same conditions as the earlier three-sample tests:
+
+| Surface | Baseline readiness → final | Baseline bounded CLS → final |
+|---|---:|---:|
+| Cards — Riftbound | 3.93 → 3.24 s | 0.184 → 0.001 |
+| Metrics — Riftbound | 4.11 → 3.90 s | 0.003 → 0.003 |
+| Auction Play | 7.28 → 5.52 s | 0.048 → 0.002 |
+
+All nine final observations were ready, with no page errors or application non-GETs.
+Auction catalog requests were exactly two in every final sample versus eleven in
+every baseline sample. These are HTTP requests, not billed Worker/D1 call counts.
+The refreshed dataset and uncontrolled edge state prevent treating readiness changes
+as a clean code-only experiment. Metrics was not a consistent mobile speed win;
+the clearer wins are stable layout, smaller equivalent catalog delivery and reuse.
+
+Ten unique-query server HTML requests were actual edge MISSes. The first observed
+Sets payload build took 556 ms including its 490 ms directory stage; the next four
+had only the total stage, 22–27 ms. Metrics first showed all build stages and a
+1,314 ms total; the next four showed only total, 19–23 ms. This is live evidence of
+payload reuse without an HTML edge hit, not a guarantee about every isolate or
+cold D1. Concurrent stage durations include queue/wait time and must not be added.
+Metrics' cold set/valuation stage still took 1,218 ms; profile its actual expensive
+windowed/aggregate queries before considering further narrowing or indexes.
+
+A final check against the original pre-release evidence confirmed all other
+plaintext settings, secret binding names, namespaces and database bindings were
+preserved. Staging's remote cron list was empty and production's original deployment
+version was unchanged. Protected account-document metadata and daily manifests
+still matched their saved hashes; zero ingestion records remained running.
+There was no migration, production deployment, account sign-in, real bid/sale,
+daily regeneration or WAF change in this workflow.
+
+Private evidence remains ignored under `outputs/loading-followup-*` and
+`outputs/site-load-followup-*`, including gate logs, parity, repair protection,
+query plans, actual read costs, server timings, mobile observations and screenshots.
+Do not commit the accompanying private deployment/config evidence or database export.
+
 No index or schema migration is required. The narrower valuation queries reduce
 candidate scope, not the number of displayed sets or the valuation formula. Query
 plans and measured server timings, rather than SQL appearance, determine whether
