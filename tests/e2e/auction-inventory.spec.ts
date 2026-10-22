@@ -2,6 +2,7 @@ import {expect,test} from '@playwright/test';
 import {initialAuctionSave} from '../../core/domain/auction-types';
 import {expectAuctionPagination} from '../helpers/auction-pagination';
 import {themeColor} from '../helpers/theme-color';
+import {expectAuctionMarketFooter} from '../helpers/auction-market-footer';
 const key='raw-signal-auction-house-v1';
 const rows=Array.from({length:30},(_,i)=>({game:'riftbound',productId:980000+i,name:`Inventory Card ${String(i).padStart(2,'0')}`,image:`https://images.example/inventory/${i}.svg`,marketPrice:i===0?null:i+1,printing:'Normal',section:i%2?'rares':'commons',rarity:i%2?'Rare':'Common',set:i%2?'Origins':'Spiritforged',year:2025,number:String(i),url:'',lowPrice:null,midPrice:null,highPrice:null,priceChange:null}));
 test('inventory filters, pagination and selective extra sales are scoped, confirmed and protect showcase copies',async({page},testInfo)=>{
@@ -10,6 +11,7 @@ test('inventory filters, pagination and selective extra sales are scoped, confir
  await page.addInitScript(({key,state})=>localStorage.setItem(key,JSON.stringify(state)),{key,state});
  await page.goto('/games/riftbound-auction');await expect(page.getByRole('button',{name:'Enter Bilgewater Auction House',exact:true})).toBeEnabled();await expect(page.locator('.auction-owned-card')).toHaveCount(0);
  await page.getByRole('navigation',{name:'Auction Hub',exact:true}).getByRole('link',{name:'Inventory',exact:true}).click();await expect(page.locator('.auction-owned-card')).toHaveCount(24);await expect(page.getByRole('heading',{name:'Sell by Rarity or Sell All (Entire Inventory)'})).toBeVisible();await expect(page.getByRole('button',{name:'Sell Rares',exact:true})).toBeVisible();await page.getByRole('button',{name:'Next Inventory Page'}).click();await expect(page.locator('.auction-owned-card')).toHaveCount(6);await page.getByRole('button',{name:'Previous Inventory Page'}).click();
+ await expectAuctionMarketFooter(page,'.auction-inventory-workspace');
  await page.getByLabel('Find Cards').fill('Inventory Card 01');await expect(page.locator('.auction-owned-card')).toHaveCount(1);await page.getByRole('button',{name:'Select This Page'}).click();await expect(page.getByRole('button',{name:'Sell Selected (5)'})).toBeEnabled();await page.getByLabel('Find Cards').fill('');await expect(page.getByRole('button',{name:'Sell Selected (0)'})).toBeDisabled();
  await page.getByRole('combobox',{name:'Price Availability',exact:true}).selectOption('unpriced');await expect(page.getByRole('checkbox',{name:'Select Inventory Card 00 (Normal)'})).toBeDisabled();await page.getByRole('combobox',{name:'Price Availability',exact:true}).selectOption('all');await page.getByRole('combobox',{name:'Set',exact:true}).selectOption('Origins');await page.getByRole('combobox',{name:'Rarity',exact:true}).selectOption('Rares');await expect(page.locator('.auction-owned-card')).toHaveCount(15);
  await page.getByRole('button',{name:'Sell Filtered Extras (Keep 3)'}).click();const dialog=page.getByRole('dialog',{name:'Sell Filtered Extra Copies?'});await expect(dialog).toContainText('30 cards');await page.getByRole('button',{name:'Close',exact:true}).click();

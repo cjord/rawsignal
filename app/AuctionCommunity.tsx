@@ -15,6 +15,7 @@ import AuctionShowcaseGallery from './games/AuctionShowcaseGallery';
 import AuctionProfileSkeleton from './games/AuctionProfileSkeleton';
 import AuctionCardInspection from './games/AuctionCardInspection';
 import {useAccount} from './account/context';
+import AuctionMarketStatus from './games/AuctionMarketStatus';
 
 type Mode='leaderboard'|'showcases'|'profile';
 type Props={mode:Mode;id?:string};
@@ -66,6 +67,7 @@ function CommunityView({mode,id}:Props){
    {mode!=='profile'&&<p className="games-note">{mode==='leaderboard'?'Lifetime net auction P/L, highest first; ties use settled auctions then profile ID. At least one settled normal auction is required. Resets update this board; daily-challenge results are not included.':'Ranked by current showcase market value, highest first. Incomplete valuations appear last as N/A; duplicate cards count separately. Public viewing and leaderboard participation are separate choices.'} Pages are a live view; scores can change between pages.</p>}
    <div className="auction-community-body" aria-busy={loading}>{content}</div>
   </section>
+  {mode!=='profile'&&<AuctionMarketStatus status={loading?'loading':page?.marketSnapshot?'success':'error'} error={null} manifest={page?.marketSnapshot??null} reload={reload} unavailableMessage="Market snapshot is unavailable." retryLabel="Retry Snapshot"/>}
   {inspect&&<AuctionCardInspection card={inspect} close={()=>setInspect(null)}/>}
  </GamesShell>;
 }

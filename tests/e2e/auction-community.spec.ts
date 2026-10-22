@@ -4,8 +4,20 @@ import {resolve} from 'node:path';
 import {emptyAuctionStatistics} from '../../core/domain/auction-statistics';
 import {initialAuctionSave} from '../../core/domain/auction-types';
 import {expectAuctionPagination} from '../helpers/auction-pagination';
+import {expectAuctionMarketFooter} from '../helpers/auction-market-footer';
 let fixtureScript:string;
 const id='00000000-0000-4000-8000-000000000001';
+
+for(const mode of ['leaderboard','showcases'])test(`${mode} uses a bottom market snapshot without downloading card feeds and can retry missing metadata`,async({page},testInfo)=>{
+ let catalogReads=0,reads=0,available=true;
+ await page.route('**/data/*.json',route=>{catalogReads++;return route.fulfill({json:[]})});
+ await page.route('**/api/games/auction-community?**',route=>{reads++;return route.fulfill({json:{rows:[],offset:0,nextCursor:null,marketSnapshot:available?{source:'database',asOf:'2026-10-21T12:00:00Z'}:null}})});
+ await fixture(page,mode,false);const status=page.getByRole('region',{name:'Market Snapshot Status',exact:true});
+ await expect(status).toContainText('Market Snapshot · Published Catalog');expect(catalogReads).toBe(0);expect(reads).toBe(1);
+ for(const width of [1440,390])for(const theme of ['dark','light']){await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);await expectAuctionMarketFooter(page,'.auction-community-directory');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:testInfo.outputPath(`market-footer-${mode}-${width}-${theme}.png`),fullPage:true,animations:'disabled'});}
+ available=false;await page.getByRole('button',{name:'Refresh',exact:true}).click();await expect(status).toContainText('Market snapshot is unavailable.');await expect(page.locator('.auction-community-body')).toContainText('No public');
+ available=true;await status.getByRole('button',{name:'Retry Snapshot',exact:true}).click();await expect(status).toHaveAttribute('data-state','ready');expect(reads).toBe(3);expect(catalogReads).toBe(0);
+});
 test.beforeAll(async()=>{const bundle=await rolldown({input:'tests/helpers/auction-community-browser.tsx',resolve:{alias:{'next/link':resolve('tests/helpers/account-link.tsx')}},platform:'browser',transform:{jsx:'react-jsx',define:{'process.env.NODE_ENV':JSON.stringify('production')}}});fixtureScript=(await bundle.generate({format:'iife'})).output.find(row=>row.type==='chunk')!.code;await bundle.close()});
 async function fixture(page:Page,view:string,signedIn=true){
  await page.route('https://tcgplayer-cdn.tcgplayer.com/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280"/>'}));

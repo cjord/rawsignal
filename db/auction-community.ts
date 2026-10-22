@@ -1,4 +1,4 @@
-import type {D1DatabaseLike} from './repository.ts';
+import {publishedIngestion,type D1DatabaseLike} from './repository.ts';
 import {parseAuctionSave} from '../core/domain/auction-save.ts';
 import {emptyAuctionStatistics} from '../core/domain/auction-statistics.ts';
 import {publicProfileId,type AuctionVisibility,type PublicAuctionSettings,type AuctionCommunityRow,type AuctionCommunityPage,type PublicAuctionProfile} from '../core/domain/auction-community.ts';
@@ -27,7 +27,7 @@ export async function auctionCommunityPage(db:D1DatabaseLike,mode:'leaderboard'|
  const cursor=communityCursor(rawCursor,mode),offset=cursor?.[4]??0,args:unknown[]=[];
  // Only opted-in showcase slots (maximum 20 per account), never inventory or
  // auction history. Prices are joined on read; daily ingestion has no new writes.
- const published=mode==='showcases'?await readyCatalogRun(db):null,visible=moderation?' AND NOT EXISTS(SELECT 1 FROM auction_profile_moderation m WHERE m.profile_id=p.id AND m.hidden=1)':'';
+ const published=mode==='showcases'?await readyCatalogRun(db):await publishedIngestion(db).catch(()=>null),visible=moderation?' AND NOT EXISTS(SELECT 1 FROM auction_profile_moderation m WHERE m.profile_id=p.id AND m.hidden=1)':'';
  const valueCte=mode==='showcases'?`WITH values_by_profile AS (
  SELECT p.id,COUNT(j.key) AS cardCount,COALESCE(SUM(c.market_cents),0) AS knownValue,
  SUM(CASE WHEN j.key IS NOT NULL AND c.market_cents IS NULL THEN 1 ELSE 0 END) AS unpriced
@@ -46,7 +46,7 @@ export async function auctionCommunityPage(db:D1DatabaseLike,mode:'leaderboard'|
  if(!result.results)throw new Error('Community unavailable');
  const page=result.results.slice(0,25),last=page.at(-1);
  const rows=await visibleCommunityRows(page,identity);
- return {rows,offset,nextCursor:result.results.length>25&&last?JSON.stringify([mode,mode==='leaderboard'?last.profit:last.showcaseValue??-1,mode==='leaderboard'?last.settled:0,last.id,offset+page.length]):null};
+ return {rows,offset,marketSnapshot:published?{source:'database',asOf:published.sourceUpdatedAt}:null,nextCursor:result.results.length>25&&last?JSON.stringify([mode,mode==='leaderboard'?last.profit:last.showcaseValue??-1,mode==='leaderboard'?last.settled:0,last.id,offset+page.length]):null};
 }
 async function visibleCommunityRows(page:(AuctionCommunityRow&{ownerId:string})[],identity?:D1DatabaseLike){
  const owners=identity&&page.length?await identity.prepare(`SELECT id FROM auth_user WHERE id IN (${page.map(()=>'?').join(',')})`).bind(...page.map(row=>row.ownerId)).all<{id:string}>():null;

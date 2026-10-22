@@ -51,6 +51,18 @@ test('public username is explicit, live profile names follow it and publishing w
   assert.equal(await publicAuctionProfile(f.db,profile.id),null);
  }finally{f.sqlite.close()}
 });
+test('leaderboard metadata is optional, never scans card prices and cannot hide scores on a metadata failure',async()=>{
+ const f=fixture();try{
+  await writeAccountDocument(f.db,'owner-a',key,JSON.stringify(save()),0);
+  await writePublicAuctionSettings(f.db,'owner-a',{...settings,leaderboardPublic:true});
+  f.statements.length=0;
+  const page=await auctionCommunityPage(f.db,'leaderboard',null);assert.equal(page.marketSnapshot,null);assert.equal(page.rows.length,1);
+  assert.ok(!f.statements.some(sql=>/catalog_products|current_prices/.test(sql)));
+  const unavailable={prepare(sql){if(sql.includes('from refresh_state r'))throw new Error('Metadata unavailable');return f.db.prepare(sql)}};
+  const recovered=await auctionCommunityPage(unavailable,'leaderboard',null);assert.equal(recovered.marketSnapshot,null);assert.deepEqual(recovered.rows,page.rows);
+ }finally{f.sqlite.close()}
+});
+
 test('showcase ranks use live exact-printing values, count duplicate slots and sort incomplete prices last',async()=>{
  const f=fixture();try{
   await writeAccountDocument(f.db,'owner-a',key,JSON.stringify(save()),0);
@@ -62,7 +74,7 @@ test('showcase ranks use live exact-printing values, count duplicate slots and s
    f.sqlite.prepare("INSERT INTO catalog_products(product_id,kind,game,name,set_name,rarity,printing,source_updated_at,ingestion_run_id) VALUES(?,'single','riftbound','Card','Origins','Rare','Normal',?,'published')").run(id,now);
    f.sqlite.prepare("INSERT INTO current_prices(product_id,market_cents,observed_at,source,ingestion_run_id) VALUES(?,?,?,'tcgcsv','published')").run(id,id===1?1000:1500,now);
   }
-  let page=await auctionCommunityPage(f.db,'showcases',null);assert.deepEqual(page.rows.map(row=>row.id),[a.id,b.id]);assert.equal(page.rows[0].showcaseValue,2000);assert.equal(page.rows[0].cardCount,2);
+  let page=await auctionCommunityPage(f.db,'showcases',null);assert.deepEqual(page.marketSnapshot,{source:'database',asOf:now});assert.deepEqual((await auctionCommunityPage(f.db,'leaderboard',null)).marketSnapshot,page.marketSnapshot);assert.deepEqual(page.rows.map(row=>row.id),[a.id,b.id]);assert.equal(page.rows[0].showcaseValue,2000);assert.equal(page.rows[0].cardCount,2);
   f.sqlite.prepare('UPDATE current_prices SET market_cents=3000 WHERE product_id=2').run();
   page=await auctionCommunityPage(f.db,'showcases',null);assert.equal(page.rows[0].id,b.id);
   await writeAccountDocument(f.db,'owner-b',key,JSON.stringify({...one,showcase:[{productId:2,printing:'Foil',quantity:1}]}),1);

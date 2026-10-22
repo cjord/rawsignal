@@ -272,6 +272,12 @@ surfaces, blue values and green cash; Rarity Quick Sales text follows card rarit
 colors. Sharing & Visibility uses one neutral surface without a nested purple
 fill. See `auction-daily-entry-design.md` for the artwork brief and review.
 
+**Market Snapshot Footer:** Inventory, My Showcase, Leaderboard and Public
+Showcases place the shared Market Snapshot status below their content, matching
+the Auction House landing page. Community responses carry public source-date
+metadata without downloading card feeds; unavailable dates stay unavailable.
+Frozen shared snapshots retain their own snapshot date rather than a live-market footer.
+
 - Dark is the default (`data-theme="dark"` pre-hydration via the head script); both themes
   ship complete token sets. Any new color must be specified for both or derived via
   `color-mix` from tokens.
