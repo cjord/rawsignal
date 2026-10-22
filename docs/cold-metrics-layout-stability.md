@@ -99,8 +99,53 @@ warnings remain; none was added. Focused query/cache/style checks and delayed-fo
 tests passed, including the sealed-title regression that failed during fallback-only
 experiments. Local legacy-D1 fallback diagnostics remain separate from actual
 database-backed staging parity; no local schema repair is included in this batch.
-Live staging outcomes will be recorded after deployment. Production is not in scope.
+Live staging outcomes are below. Production is not in scope.
+
+### Staging release and acceptance
+
+Validated application `eb5b0c0` was pushed and deployed as staging version
+`9f32fb4c-47aa-45ed-9824-3c79a4e9a159` at
+<https://raw-signal-staging.raw-signal-watch.workers.dev>. Settings verification
+confirmed existing identity/save/limiter bindings and flags were preserved, the
+compact catalog remained enabled, staging schedules remained empty and production's
+deployment was unchanged. No migration, ingestion, account mutation or real game play.
+
+- **Data:** `/api/metrics` and `/api/set-ev` returned HTTP 200 and exact complete
+  pre-release payloads, excluding only Metrics' independently generated timestamp.
+  Compact catalog retained its parity-approved version, database provenance,
+  1,583 printings and 128 null prices; invalid/stale versions returned 400/409.
+- **Shared UI:** nine public page families at desktop/phone widths and both themes
+  (36 captures) returned 200, with no overflow, page errors or application non-GETs.
+  Resolved Full-view resizing passed. Auction Play → Inventory → My Showcase → Play
+  retained the background and issued zero additional catalog downloads.
+- **Font delivery:** 16 cases across Singles/Sealed detail, 1440/390px and normal,
+  deliberately held, failed and cached font delivery passed. The measured post-release
+  observation windows had zero primary-price movement and zero layout-shift sum.
+  Browser font inspection confirmed late headings retained Arial fallback and all
+  genuinely cached cases used Geist. Routing was removed/cache reenabled and warmed
+  for cached cases; optional services remained blocked through browser diagnostics.
+  The pre-release held-font windows included a roughly 0.044 shift sum on desktop
+  Singles and 0.157 on phone Sealed (24.25px primary-price movement). These are
+  bounded lab observations, not field CLS or every title/device/font. One normal
+  post-release first load used fallback; this demonstrates the documented tradeoff.
+- **Observed server timings:** all ten unique-query HTML requests were edge MISSes.
+  First Metrics server total was 1,557ms before and 1,477ms after; next four were
+  21–25ms before and 20–22ms after. First Sets was 960ms before, 618ms after, with
+  subsequent totals around 19–26ms. D1/isolate/payload caches and queueing were not
+  forcibly controlled, so this is **not a repeatable cold-latency improvement claim**.
+  Sets' reader was not changed; its variation is another reason not to infer causality.
+
+The targeted batch is staging-verified, not an assertion that every cold-load or
+layout problem is solved. Further cold Metrics work should isolate query execution
+from queue/round-trip time and compare multiple true build misses before considering
+a larger aggregate/persisted-payload design. That design would require separate
+review of publication invalidation, ingestion costs and any schema/rollout changes.
+Keep the previous staging version (`dc2949f8`) as the code rollback reference;
+there are no data changes to reverse. Deferred account/device/module work remains deferred.
 
 Private evidence stays ignored: `outputs/metrics-grouped-trial.json`,
 `outputs/next-loading-metrics-grouped.json`, `outputs/font-weight-trials.json`
-and `outputs/font-stability-focused.log`.
+and `outputs/font-stability-focused.log`. Live evidence: `outputs/cold-layout-*.json`,
+`outputs/loading-followup-live-cold-layout.json`, `outputs/font-delivery-after.json`
+and matching screenshots. Full gate: `outputs/cold-layout-check.log`. Do not publish
+private deployment settings or credentials from operator evidence.

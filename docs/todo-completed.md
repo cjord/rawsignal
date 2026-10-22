@@ -9,6 +9,21 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-22 — Cold Metrics and stable font delivery, staging verified
+
+Application `eb5b0c0` pushed and deployed staging `9f32fb4c`: exact grouped medians
+and concurrent independent Set EV reads reduce the full Metrics service from
+669,458 → 553,287 rows read (17.4%), still 12 statements and zero writes.
+Weight-aware sans fallbacks plus optional font delivery prevent disruptive late
+rewrapping; cached headings still use Geist. Full gate: 672 unit passes (one skip),
+160 Chromium journeys, no new lint warnings. Live Metrics/Set EV payload parity,
+nine-surface theme/width matrix and 16 normal/held/failed/cached font cases passed.
+Observed first Metrics server time 1,557 → 1,477ms is uncontrolled and does not
+prove repeatable cold speed gains. Staging bindings/flags/empty cron preserved;
+production unchanged. Optional modules, populated accounts and physical recovery
+are explicitly deferred in the backlog. No migration/ingestion/account writes.
+[Goals, risks, evidence and remaining limits](cold-metrics-layout-stability.md).
+
 ## 2026-10-22 — Full-view resize and cold-query checkpoint, staging only
 
 Application `da672ba` pushed and deployed staging `dc2949f8`: real Full-view
