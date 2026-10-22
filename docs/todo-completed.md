@@ -9,6 +9,21 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-22 — Auction Wallet Summary and navigation polish, staging verified
+
+Application `60607db` pushed and deployed staging `d3533f03`. Cash-first green
+headline, after-fee total/inventory/protected-showcase breakdown, gross-value
+tooltips, honest unpriced coverage and direct inventory/showcase links replace the
+duplicate lobby inventory drawer. Balances, fees, saved formats and daily funds
+are unchanged. Earlier local navigation/community/pagination, expanded showcase
+visibility, neutral account loading, stable Games directory and seamless backdrop
+loop work ship in the same release. Full gate: 675 unit passes (one skip), all
+165 Chromium journeys, build/lint/type checking; no new lint warnings. Live wallet
+and nine-surface desktop/phone dark/light smoke passed with no overflow/page errors
+or writes; shell links retained the document/background without catalog reads.
+Staging bindings/flags and no-cron policy preserved; production unchanged.
+[Design, accounting, verification and limits](auction-wallet-summary.md).
+
 ## 2026-10-22 — Cold Metrics and stable font delivery, staging verified
 
 Application `eb5b0c0` pushed and deployed staging `9f32fb4c`: exact grouped medians

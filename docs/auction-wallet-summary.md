@@ -82,3 +82,27 @@ Evidence is ignored under `outputs/wallet-summary-release-check.log`,
 `outputs/wallet-house-focused.log`, `outputs/wallet-focused-retry.log`,
 `outputs/wallet-cache-focused.log` and `test-results/`. Real-device Safari recovery
 and populated-account acceptance remain separately deferred, not established here.
+
+### Staging release and live acceptance
+
+Application `60607db` was pushed to `codex/accounts-and-collections`, then deployed
+to staging version `d3533f03`. Live inspection confirms existing identity/save DBs,
+account flags, secret bindings and limiter namespaces preserved; staging has no
+cron and production's deployed version is unchanged. No migration or data refresh.
+
+The live wallet used an isolated guest browser and local-only test holdings, not
+a real account. Exact cash/inventory/showcase/net-worth values matched the existing
+database-backed catalog and shared fee-rounding model. Desktop/phone, dark/light
+and large-text checks found no overflow or page errors. Inventory and My Showcase
+navigation retained the document and needed zero additional catalog requests. All
+non-GET API calls were blocked; none was attempted. Screenshot review confirmed
+the intended cash-first hierarchy in the deployed build.
+
+The broader live smoke passed nine surfaces—Cards Text/Large/Full, Sealed Text/Full,
+card detail, sealed detail, Metrics and Auction—at desktop/phone widths in both
+themes: all HTTP 200, no overflow/page errors, no API writes. Hub navigation retained
+the background with zero catalog reads. Compact delivery remains enabled and
+unchanged at 1,583 exact printings, including 128 unavailable prices. Evidence:
+`outputs/wallet-staging-verification.json`, `outputs/wallet-release-live-smoke.log`,
+`outputs/loading-followup-wallet-release.json` and private release setting/version
+snapshots under ignored `outputs/wallet-summary-staging-release-*`.
