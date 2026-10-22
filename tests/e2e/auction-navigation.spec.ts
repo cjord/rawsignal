@@ -1,5 +1,6 @@
 import {expect,test} from '@playwright/test';
 import {initialAuctionSave} from '../../core/domain/auction-types';
+import {themeColor} from '../helpers/theme-color';
 const key='raw-signal-auction-house-v1';
 
 test('Daily Challenge is an entry tile, not a top mode link, and navigation does not start an attempt',async({page},testInfo)=>{
@@ -11,10 +12,18 @@ test('Daily Challenge is an entry tile, not a top mode link, and navigation does
  for(const width of [1440,390])for(const theme of ['dark','light']){
   await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
   const entry=lobby.getByRole('link',{name:'Daily Challenge',exact:true}),box=await entry.boundingBox();expect(box!.width).toBeGreaterThan(200);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await expect(entry.locator('img')).toHaveAttribute('src','/images/games/auction-entry-daily.webp');expect(await entry.locator('img').evaluate((node:HTMLImageElement)=>node.complete&&node.naturalWidth===960)).toBe(true);
+  await expect(entry).toHaveCSS('border-top-color',await themeColor(entry,'--purple'));
+  await expect(lobby.getByText('Free Entry',{exact:true})).toHaveCSS('color',await themeColor(lobby,'--tone-up'));
+  await expect(lobby.getByText('25–90 cards - Premium Cards',{exact:true})).toBeVisible();
   await entry.focus();await expect(entry).toBeFocused();await page.screenshot({path:testInfo.outputPath(`daily-entry-${width}-${theme}.png`),fullPage:true,animations:'disabled'});
  }
  await page.keyboard.press('Enter');await expect(page).toHaveURL(/\/riftbound-auction\/daily$/);await expect(page.getByRole('button',{name:'Start Daily Challenge',exact:true})).toBeVisible();expect(dailyReads).toBe(0);expect(await page.evaluate(()=>performance.timeOrigin)).toBe(origin);
  const daily=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)??'null')?.daily,key);expect(daily?.save?.auction??null).toBeNull();
+ await expect(page.getByRole('link',{name:'← Normal Auctions',exact:true})).toHaveCount(0);
+ const start=page.getByRole('button',{name:'Start Daily Challenge',exact:true});await expect(start.locator('img')).toHaveAttribute('src','/images/games/auction-entry-daily.webp');
+ await expect(page.locator('.auction-daily-facts')).toContainText('$2,500');await expect(page.locator('.auction-daily-deadline')).toContainText('Finish before midnight UTC.');
+ for(const width of [1440,390])for(const theme of ['dark','light']){await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.locator('.auction-daily').screenshot({path:testInfo.outputPath(`daily-rules-${width}-${theme}.png`),animations:'disabled'});}
 });
 
 test('community slider keeps the Auction Shell and selected-tab clicks do not refresh it',async({page})=>{

@@ -265,6 +265,13 @@ plain surfaces/lines/text, with blue interaction states, red/green financial
 outcomes and red destructive controls. Do not introduce a separate graphite
 palette or flatten rarity cues. See `auction-backdrop-stable-slots.md`.
 
+**Daily Challenge Entry:** use the shared navy/gold/violet five-lot artwork with a
+purple border on the lobby link and start button. Daily briefing facts use plain
+surfaces, with expiry/exit warnings visible. Inventory Overview metrics use plain
+surfaces, blue values and green cash; Rarity Quick Sales text follows card rarity
+colors. Sharing & Visibility uses one neutral surface without a nested purple
+fill. See `auction-daily-entry-design.md` for the artwork brief and review.
+
 - Dark is the default (`data-theme="dark"` pre-hydration via the head script); both themes
   ship complete token sets. Any new color must be specified for both or derived via
   `color-mix` from tokens.

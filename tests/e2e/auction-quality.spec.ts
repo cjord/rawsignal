@@ -12,10 +12,11 @@ test('wallet summary keeps its mobile rows through pricing and knows empty inven
   await page.addInitScript(save=>localStorage.setItem('raw-signal-auction-house-v1',JSON.stringify(save)),save);
   await page.goto('/games/riftbound-auction');await expect(page.locator('.auction-wallet .auction-net-worth')).toBeVisible();
   await expect(page.locator('.auction-wallet .auction-inventory-value')).toContainText(owned?'Loading…':'$0.00');
-  const before=await page.locator('.auction-wallet>.auction-actions').boundingBox();release();
+  const controls=page.locator('.auction-wallet[aria-label="Virtual bankroll and inventory"]>.auction-actions');await expect(controls).toBeVisible();
+  const before=await controls.boundingBox();expect(before).not.toBeNull();release();
   await expect(page.getByRole('button',{name:'Enter Bilgewater Auction House',exact:true})).toBeEnabled();
   await expect(page.locator('.auction-wallet .auction-inventory-value')).toContainText(owned?'$0.90':'$0.00');
-  const after=await page.locator('.auction-wallet>.auction-actions').boundingBox();expect(Math.abs(after!.y-before!.y)).toBeLessThan(1);
+  await expect(controls).toBeVisible();const after=await controls.boundingBox();expect(after).not.toBeNull();expect(Math.abs(after!.y-before!.y)).toBeLessThan(1);
  }
 });
 test('inventory loading reserves controls, never flashes a zero wallet and exits into retry on failure',async({page},testInfo)=>{

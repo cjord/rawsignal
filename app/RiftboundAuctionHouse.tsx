@@ -63,7 +63,7 @@ export default function RiftboundAuctionHouse({dailyMode=false,catalogCache=fals
  const ready=status==='success',available=ready&&!checking&&catalog.filter(card=>card.image.trim()).length>=6;
  return <GamesShell auction wide={Boolean(auction)}><a className="games-back" href="/games">← Games</a><AuctionPageHeader save={save} error={error} audio={audio} auto={auto} transact={transact}/>
   <AuctionSaveFeedback save={root} error={error} reset={reset}/>
-  {dailyMode&&root&&<><a className="games-back" href="/games/riftbound-auction">← Normal Auctions</a><AuctionDaily root={root} now={now} transact={saveRoot} enter={entry.enter} preparing={Boolean(entry.entry)}/></>}
+  {dailyMode&&root&&<AuctionDaily root={root} now={now} transact={saveRoot} enter={entry.enter} preparing={Boolean(entry.entry)}/>}
   <NormalAuctionLobby save={save} saveError={error} dailyMode={dailyMode} entry={entry} available={available} catalog={catalog} reset={reset} loading={status==='loading'||status==='idle'}/>
   <AuctionMarketStatus status={status} error={catalogError} manifest={manifest} reload={reload} checking={checking}/>
   {dailyMode&&entry.imageError&&<p role="alert">{entry.imageError}</p>}
