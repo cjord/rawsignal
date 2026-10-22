@@ -155,3 +155,77 @@ Concurrent stage timings include queue time and must not be added together.
 Private evidence: `outputs/next-loading-*`, `outputs/detail-layout-trace-after.*`
 and `outputs/loading-followup-live-next-checkpoint.json`. Deployment settings and
 diagnostic data remain ignored; do not publish private configuration evidence.
+
+## Next iteration — Full View and cold query work
+
+### Full View Resize Containment
+
+The real `FullViewCardWrap` regression failed before the fix. Its grid used an
+implicit minimum track size, so an offscreen `content-visibility` row could retain
+its warmed desktop width. Both the shared outer grid track and wrapper now permit
+zero-minimum sizing. Mobile Full-view chart toolbars/readouts/range groups may wrap
+instead of pushing controls beyond the card. Sealed history/metric tiles use the
+full mobile row beneath the identity, matching Singles instead of clipping large
+prices in the artwork-side column. No page-level overflow hiding or
+artwork cropping. Eight focused cases pass repeated 1440 → 390 → 820 → 320 →
+1440 → 390 resizes, both themes/text sizes, chart clicks, favorites and null prices.
+
+### Metrics Eligibility Reuse
+
+Read-only paired trials found SQLite repeated Movers' eligibility joins for the
+7/30/90-day branches. Materializing that request-local SQL CTE once retains the
+same eligible rows, floors, window rules and ranking. Across three alternating
+trials, reported reads were 274,311 → 206,015; SQL durations were roughly
+261–356ms before versus 150–203ms after. These samples do not force cold D1.
+
+The breadth query separately uses a composite printing/condition key rather than
+two OR branches; explicit game/kind ordering retains its previous display order.
+This is deliberately not a global join rewrite: that candidate worsened Movers'
+reads in testing. An aligned-window experiment had mixed timings and no read
+reduction, so it was not implemented. No index, migration, new job or write.
+
+The actual combined Metrics service matches the previous full payload, excluding
+only its generated timestamp: 12 statements remain, with 756,190 → 669,458 rows
+read (about 11.5% fewer than the previous checkpoint; about 26% fewer than the
+901,651 original baseline). Every measured statement wrote zero rows. Cold live
+latency still needs observation; row savings are not a total site cost percentage.
+
+### Detail Candidate Projection
+
+Singles retain all game candidates, all comparison prices, identities, printings,
+artwork and original candidate ordering. The projection omits source URLs, sealed
+MSRP and sealed type; the target's existing point read supplies its output fields.
+Sealed keeps its original full reader. There is no additional query, global-peer
+narrowing, top-eight heuristic or weakened publication/database cache boundary.
+
+Regression parity covers similarity ties and fallback candidates, nulls, target
+links, exact printings, all-game versus set peers, Riftbound global pair averages,
+sealed data, database isolation and publication invalidation. The actual reader
+matched complete original output for three representative staging details:
+
+| Detail | Statements | D1 rows before → after | Decoded SQL-result JSON before → after |
+|---|---:|---:|---:|
+| Pokémon single | 9 → 9 | 49,650 → 35,082 | 8,011,366 → 5,763,905 bytes |
+| Riftbound single | 9 → 9 | 24,827 → 23,244 | 1,183,047 → 884,310 bytes |
+| Pokémon sealed | 7 → 7 | 9,895 → 9,895 | 1,774,330 → 1,774,330 bytes |
+
+These are operator-process service reads against the unchanged staging dataset,
+not HTTP page bytes, heap measurements, production traffic or field speed claims.
+No account records, daily lineups, market refresh or upstream paid service was used.
+
+### Release gates / remaining priorities
+
+The final complete gate passed on 2026-10-22: production build, 670 unit passes
+(one existing skip), lint/type check and all 152 Chromium journeys. The 21 existing
+complexity warnings remain, with none added. Visual review and focused tests include
+readable large Sealed prices, real wrappers/charts and matching loading frames.
+Live release results will be recorded below. Staging-only deployment must preserve the already-enabled compact catalog,
+identity/save/limiter bindings and empty cron; production stays unchanged.
+
+Next: Optional Module Budget with real built-chunk evidence and retryable loading,
+then populated owner fixtures and the physical recovery runbook. Deliberately late
+sans fonts and cold Metrics latency remain open measurements, not solved by these
+query changes. Physical Safari/second-device acceptance requires human participation.
+
+Private trial evidence is ignored under `outputs/metrics-*-trial.json`,
+`outputs/detail-projection-trial.json` and `outputs/next-loading-metrics-tuned.json`.

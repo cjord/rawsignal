@@ -96,6 +96,31 @@ test("existing D1 Metal rows and feed-only detail rows share regular artwork wit
  database.close();
 });
 
+test('detail candidate projection retains complete peers, similarity ties, global Riftbound pairs and sealed data',async()=>{
+ const {database,db}=await seededDatabase();
+ try{
+  for(let index=0;index<18;index++){
+   const set=index<10?'Origins':'Spiritforged';
+   for(const [offset,section,price]of [[0,'overnumbered',index===4?null:50],[1,'signatures',index===4?null:100+index]]){
+    const productId=5000+index*2+offset;
+    await upsertCard(db,cardFixture(productId,{game:'riftbound',set,name:`Named Rival ${index}${section==='signatures'?' (Signature)':' (Overnumbered)'}`,section,rarity:'Showcase',number:`${index+1}${offset?'*':''}/100`,printing:'Foil',marketPrice:price,url:`https://www.tcgplayer.com/product/${productId}/long-exact-product-path`,image:index===2?'':`https://example.com/${productId}.jpg`}),OBSERVED,RUN_ID);
+   }
+  }
+  const full=`select p.product_id as productId,p.kind,p.game,p.section,p.name,p.set_name as setName,
+    p.release_year as releaseYear,p.rarity,p.card_number as cardNumber,p.printing,p.product_type as productType,
+    p.image_url as imageUrl,p.source_url as sourceUrl,cp.market_cents as marketCents,
+    cp.listing_low_cents as listingLowCents,cp.median_cents as medianCents,cp.listing_high_cents as listingHighCents,
+    sd.msrp_cents as msrpCents,sd.msrp_source as msrpSource from catalog_products p
+    left join current_prices cp on cp.product_id=p.product_id left join sealed_details sd on sd.product_id=p.product_id where p.kind=? and p.game=?`;
+  const candidate=sql=>sql.includes('p.printing,p.image_url as imageUrl,')&&sql.includes('where p.kind=? and p.game=?');
+  const queries=[],legacy={prepare(sql){return db.prepare(candidate(sql)?full+sql.slice(sql.indexOf('where p.kind=? and p.game=?')+'where p.kind=? and p.game=?'.length):sql)},batch:statements=>db.batch(statements)},projected={prepare(sql){queries.push(sql);return db.prepare(sql)},batch:statements=>db.batch(statements)};
+  const before=createD1CatalogRepository(legacy,RUN_ID),after=createD1CatalogRepository(projected,RUN_ID);
+  for(const [kind,id]of [['single',101],['single',102],['single',5000],['single',5001],['single',5008],['single',5021],['sealed',201],['sealed',209]])assert.deepEqual(await after.getDetail(kind,id),await before.getDetail(kind,id));
+  const detail=await after.getDetail('single',5001);assert.equal(detail.riftboundPair.pairCount,17);assert.ok(detail.peerContext.count>detail.setPeerContext.count);assert.equal(detail.url,'https://www.tcgplayer.com/product/5001/long-exact-product-path');
+  const sql=queries.find(candidate);assert.ok(sql);assert.doesNotMatch(sql,/sealed_details|source_url|msrp_cents/);
+ }finally{database.close()}
+});
+
 const cardFixture = (productId, overrides = {}) => ({
   game: "pokemon", section: "illustration-rares", productId, name: `Card ${productId}`, set: "Fixture Set",
   year: 2024, rarity: "Illustration Rare", number: `${productId}/100`, image: `https://example.com/${productId}.jpg`,

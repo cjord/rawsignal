@@ -69,6 +69,18 @@
   outline-offset: 2px;
 }
 
+/* content-visibility can retain a desktop intrinsic width while a row is offscreen.
+   The outer track and link wrapper must both be allowed to shrink on resize. */
+.view-full,
+.sealed-view-full {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.view-full > .signal-card-wrap,
+.sealed-view-full > .signal-card-wrap {
+  min-width: 0;
+}
+
 .view-full .full-card {
   grid-template-columns: 36px 180px minmax(0, 1fr) !important;
   grid-template-areas: "rank art data" "chart chart chart" !important;
@@ -267,6 +279,48 @@
 }
 
 @media (max-width: 759px) {
+  /* Match Singles: keep identity beside the art, but give history and its metric
+     tiles the complete mobile row rather than a cramped artwork-side column. */
+  .sealed-view-full .sealed-full-art {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .sealed-view-full .sealed-full-data {
+    display: contents;
+  }
+
+  .sealed-view-full .sealed-full-title {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .sealed-view-full .sealed-full-data > :not(.sealed-full-title) {
+    grid-column: 1 / -1;
+  }
+
+  .view-full .chart-toolbar,
+  .sealed-view-full .chart-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .view-full .chart-readout,
+  .sealed-view-full .chart-readout {
+    height: auto;
+    min-height: 22px;
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .view-full .chart-ranges,
+  .sealed-view-full .chart-ranges {
+    max-width: 100%;
+    box-sizing: border-box;
+    flex-wrap: wrap;
+  }
+
   .view-full .full-card {
     grid-template-columns: 28px 104px minmax(0, 1fr) !important;
     grid-template-areas: "rank art data" "chart chart chart" !important;

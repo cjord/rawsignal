@@ -162,6 +162,33 @@ test('shared set summaries retain non-leading sets in eras and exact game-scoped
  }finally{database.close()}
 });
 
+test('optimized breadth and materialized Movers retain exact populations, ties and printing/condition boundaries',async()=>{
+ const database=await migratedDatabase(),db=new LocalD1(database);
+ try{
+  await startIngestion(db,'metrics-plans','fixture','2026-10-21',{});
+  for(let index=0;index<24;index++){
+   const id=3000+index,price=index===0?null:index===1?9.99:index===2?10:100;
+   await upsertCard(db,{...card(id,price),game:index%2?'pokemon':'riftbound'},'2026-10-21','metrics-plans');
+   const change=index<12?2000:-2000;
+   for(const [variant,condition,multiplier]of [['Holofoil','Near Mint',1],['Holofoil','Lightly Played',7],['Normal','Near Mint',9],['Sealed','Unopened',5]])await db.prepare("insert into market_metrics(product_id,variant,condition,as_of_date,coverage,change_7_bps,change_30_bps,change_90_bps,updated_at) values (?,?,?,'2026-10-21','exact',?,?,?,'now')").bind(id,variant,condition,change*multiplier,index===3?null:change*multiplier,index===4?null:change*multiplier).run();
+  }
+  for(let index=0;index<12;index++){
+   const id=4000+index;
+   await upsertSealedProduct(db,{game:'pokemon',productId:id,name:`Sealed ${index}`,set:'Fixture Set',category:'Booster Packs',image:null,url:'',msrp:null,marketPrice:index===0?19.99:index===1?20:50,midPrice:null,profit:null,profitPct:null,msrpSource:null},'2026-10-21','metrics-plans');
+   for(const [variant,condition]of [['Sealed','Unopened'],['Sealed','Near Mint'],['Normal','Unopened']])await db.prepare("insert into market_metrics(product_id,variant,condition,as_of_date,coverage,change_7_bps,change_30_bps,change_90_bps,updated_at) values (?,?,?,'2026-10-21','exact',1000,2000,-3000,'now')").bind(id,variant,condition).run();
+  }
+  await runMetricsRollup(db,{mode:'backfill',series:[]});
+  const legacy="join market_metrics mm on mm.product_id=p.product_id and ((mm.variant=p.printing and mm.condition='Near Mint' and p.kind='single') or (mm.variant='Sealed' and mm.condition='Unopened' and p.kind='sealed'))";
+  const queries=[],reference={prepare(sql){return db.prepare(sql.replace('with eligible as materialized (','with eligible as (').replace(/join market_metrics mm on mm.product_id=p.product_id and mm.variant=case[^\n]+/,legacy))},batch:statements=>db.batch(statements)};
+  const actual={prepare(sql){queries.push(sql);return db.prepare(sql)},batch:statements=>db.batch(statements)};
+  const before=await loadMetricsPayload(reference),after=await loadMetricsPayload(actual);delete before.generatedAt;delete after.generatedAt;assert.deepEqual(after,before);
+  assert.equal(after.momentum.reduce((sum,row)=>sum+row.tracked,0),35);
+  const movers=queries.find(sql=>sql.startsWith('with eligible as materialized'));
+  const plan=database.prepare('EXPLAIN QUERY PLAN '+movers).all().map(row=>row.detail);
+  assert.ok(plan.includes('MATERIALIZE eligible'));assert.equal(plan.filter(line=>line.includes('SEARCH cp ')).length,1);
+ }finally{database.close()}
+});
+
 test("an explicit asOfDate keys the run id and the snapshot day (R1: rollups follow the live run's date)",async()=>{
   const database=await migratedDatabase(),db=new LocalD1(database);
   await startIngestion(db,"live-daily:2026-08-27","tcgcsv-live","2026-08-27T20:10:00Z",{});

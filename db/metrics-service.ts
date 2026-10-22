@@ -25,6 +25,9 @@ const changes = (points: PricePoint[]) => {
 // Sealed market_metrics rows are keyed by the history variant ("Sealed"), not a printing;
 // the OR keeps the join exact for singles and permissive for the single sealed row.
 const metricsJoin = "join market_metrics mm on mm.product_id=p.product_id and ((mm.variant=p.printing and mm.condition='Near Mint' and p.kind='single') or (mm.variant='Sealed' and mm.condition='Unopened' and p.kind='sealed'))";
+// The mixed-kind breadth query benefits from one composite-key seek rather than
+// two OR branches. Keep this scoped: it is not cheaper in the Movers query plan.
+const breadthMetricsJoin="join market_metrics mm on mm.product_id=p.product_id and mm.variant=case when p.kind='single' then p.printing else 'Sealed' end and mm.condition=case when p.kind='single' then 'Near Mint' else 'Unopened' end and p.kind in ('single','sealed')";
 
 type TotalsRow = { game: string; kind: "single" | "sealed"; totalCents: number; products: number };
 type SetRow = { setName: string; game: string; totalCents: number; cards: number; medianCents: number; change30Bps: number | null; year:number|null; gameRank:number };
@@ -256,8 +259,8 @@ async function loadMomentum(db: D1DatabaseLike): Promise<MetricsMomentumRow[]> {
       sum(case when mm.historic_low_cents is not null and cp.market_cents <= mm.historic_low_cents then 1 else 0 end) as atLow
     from catalog_products p
     join current_prices cp on cp.product_id=p.product_id
-    ${metricsJoin}
-    where cp.market_cents is not null group by p.game, p.kind`).bind().all<MomentumRow>()).results ?? [];
+    ${breadthMetricsJoin}
+    where cp.market_cents is not null group by p.game, p.kind order by p.game, p.kind`).bind().all<MomentumRow>()).results ?? [];
   return momentumRows.map(row => ({
     game: row.game, kind: row.kind, tracked: row.tracked ?? 0,
     advancers7: row.advancers7 ?? 0, decliners7: row.decliners7 ?? 0,
@@ -272,7 +275,9 @@ async function loadMomentum(db: D1DatabaseLike): Promise<MetricsMomentumRow[]> {
 // Moves beyond 4x (7D) / 6x (30D) / 10x (90D) in either direction are excluded for the
 // same reason: at those magnitudes the "move" is listing turnover, not a repricing.
 async function loadMovers(db: D1DatabaseLike): Promise<MetricsMover[]> {
-  const moverRows = (await db.prepare(`with eligible as (
+  // SQLite otherwise inlines eligibility into all three window branches, repeating
+  // the catalog/price/snapshot joins. Reuse the same complete eligible population.
+  const moverRows = (await db.prepare(`with eligible as materialized (
       select p.product_id productId, p.name, p.card_number number, p.set_name setName, p.game, p.kind, p.image_url image,
         mm.variant printing, cp.market_cents cents, cp.median_cents midCents, mm.history_snapshot_id snapshotId,
         mm.change_7_bps c7, mm.change_30_bps c30, mm.change_90_bps c90,
