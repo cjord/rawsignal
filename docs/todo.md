@@ -1,4 +1,11 @@
-# To-do and backlog — plan of record
+# To-do and backlog — specifications and migration queue
+
+**Task-tracking transition — 2026-10-23:** the 21 reviewed pilot items have been
+imported and verified as [GitHub issues #1–#21](https://github.com/cjord/rawsignal/issues).
+GitHub Issues owns their live status, priority and assignment; entries here retain
+specifications/history, not a parallel status list. Unmigrated proposals remain an
+intake queue for separate review. Nine imported items remain explicitly deferred,
+without reminders or due dates. [Per-item import receipt](github-backlog-import-2026-10-23.md).
 
 Open UI, platform, data, and signal-model work, grouped by area, each item carrying the
 decision context it needs. **Completed items — with their build notes, dates, and

@@ -1,0 +1,25 @@
+name: Bug
+description: Record reproducible incorrect behavior without private account data.
+labels: ["type:bug", "state:triage"]
+body:
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed and expected behavior
+      description: Include route, environment, browser and approximate time. No tokens, cookies or personal exports.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction and evidence
+      description: Distinguish confirmed evidence from suspected causes. Use disposable accounts.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance and regression risks
+      description: What would prove this fixed? Note privacy, unavailable data and affected adjacent features.
+    validations:
+      required: true

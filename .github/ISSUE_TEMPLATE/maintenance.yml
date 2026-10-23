@@ -1,0 +1,21 @@
+name: Maintenance or review
+description: Track an approved review or operational follow-up.
+labels: ["type:maintenance", "state:triage"]
+body:
+  - type: textarea
+    id: purpose
+    attributes:
+      label: Purpose, scope and source
+    validations:
+      required: true
+  - type: textarea
+    id: schedule
+    attributes:
+      label: Timing or deferral
+      description: Use America/New_York for recurring jobs. A written cadence does not activate a schedule.
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Checklist, evidence and rollback or stop conditions
+    validations:
+      required: true

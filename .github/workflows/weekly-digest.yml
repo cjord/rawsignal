@@ -1,0 +1,62 @@
+name: Weekly task digest
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Create this week's digest issue (default branch only)
+        required: true
+        type: boolean
+        default: false
+  schedule:
+    - cron: '0 9 * * 1'
+      timezone: America/New_York
+
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  group: weekly-task-digest
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    if: github.event_name == 'workflow_dispatch' && !inputs.publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+      - name: Preview digest (read only)
+        run: node scripts/github/weekly-digest.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DIGEST_PUBLISH: 'false'
+  publish:
+    if: >-
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
+      ((github.event_name == 'schedule' && vars.RAW_SIGNAL_WEEKLY_DIGEST_ENABLED == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish))
+    permissions:
+      contents: read
+      issues: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+      - name: Publish digest
+        run: node scripts/github/weekly-digest.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DIGEST_PUBLISH: 'true'
+          DIGEST_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}

@@ -1,0 +1,23 @@
+name: Improvement
+description: A bounded change with measurable acceptance.
+labels: ["type:improvement", "state:triage"]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Problem and desired outcome
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope, exclusions and specification links
+      description: Link repository specs; distinguish planning from permission to change external services.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria and verification
+    validations:
+      required: true

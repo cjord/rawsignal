@@ -1,0 +1,157 @@
+{
+  "version": 1,
+  "status": "imported",
+  "importedOn": "2026-10-23",
+  "repository": "cjord/rawsignal",
+  "visibility": "public",
+  "receipt": "docs/github-backlog-import-2026-10-23.md",
+  "issues": [
+    {
+      "id": "RS-001", "title": "Investigate intermittent cold-refresh market and account bootstrap failures",
+      "labels": ["type:investigation", "area:reliability", "state:triage"],
+      "source": "docs/github-backlog-source-notes.md", "evidence": "Cold-Refresh Market / Account Bootstrap",
+      "scope": "Capture timings and safe status codes on recurrence; the reported login state and root cause remain unconfirmed. Use disposable accounts; do not clear user storage or replay writes.",
+      "acceptance": ["Record authenticated cold, warm and delayed-response behavior separately.", "Identify a reproducible cause or document inconclusive evidence and next diagnostic boundary.", "Any proposed read retry preserves owner isolation and explicit unavailable/stale states."]
+    },
+    {
+      "id": "RS-002", "title": "Investigate published catalog availability during ingestion",
+      "labels": ["type:investigation", "area:catalog", "state:triage"],
+      "source": "docs/todo.md", "evidence": "publication/read-availability gap",
+      "scope": "Trace why fallback was observed while ingestion ran. Reproduce with fixtures before considering any database operation; no repair or live ingestion is authorized by this issue.",
+      "acceptance": ["Explain published versus incomplete run visibility with evidence.", "Test that incomplete runs cannot become current and last-good availability remains honest."]
+    },
+    {
+      "id": "RS-003", "title": "Record human production acceptance without weakening Cloudflare security",
+      "labels": ["type:maintenance", "area:accounts", "state:triage"],
+      "source": "docs/todo.md", "evidence": "human provider sign-in after migration",
+      "scope": "Distinguish production-preview/API checks from a real custom-domain sign-in. This is not the separately deferred physical recovery test.",
+      "acceptance": ["Record provider sign-in, linked-method and administrator badge checks using a disposable permitted account.", "Keep managed challenge/security rules unchanged; state any verification limitation."]
+    },
+    {
+      "id": "RS-004", "title": "Review production rollout readiness for the compact auction catalog",
+      "labels": ["type:investigation", "area:catalog", "state:triage"],
+      "source": "docs/page-loading-next-checkpoint.md", "evidence": "Staging must preserve its existing compact-catalog flag",
+      "scope": "Reconcile older rollout notes with latest staging evidence; this issue is a decision gate, not approval to enable production.",
+      "acceptance": ["Record current environment flags and exact versioned printing parity.", "Compare cold/warm request count, payload, latency and fallback behavior.", "Document rollout and rollback conditions and obtain explicit production authorization."]
+    },
+    {
+      "id": "RS-005", "title": "Decide new Pokémon rarity sections and heatmap aggregation",
+      "labels": ["type:investigation", "area:catalog", "state:triage"],
+      "source": "docs/todo.md", "evidence": "Pikachu Rare",
+      "scope": "Review Pikachu Rare, Futuristic Rare, RGB Rare and Classic Collection explicitly. Never map a new label silently to an unrelated rarity.",
+      "acceptance": ["Approve section and heatmap mapping rules with examples.", "Keep missing prices, history and uncurated pull rates unavailable.", "Add classification tests before any reviewed feed regeneration."]
+    },
+    {
+      "id": "RS-006", "title": "Align Radiance presale policy between bundled generation and live ingestion",
+      "labels": ["type:investigation", "area:catalog", "state:triage"],
+      "source": "docs/todo.md", "evidence": "live ingestion allows 120-day presales",
+      "scope": "Compare future-set eligibility rules; choose a shared policy before refreshing any external feeds.",
+      "acceptance": ["Explain the bundled/live discrepancy using fixtures.", "Agree on presale inclusion and provenance labels.", "Document source-refresh authorization and generated-diff checks separately."]
+    },
+    {
+      "id": "RS-007", "title": "Consolidate retailer-exclusive sealed classification audit",
+      "labels": ["type:investigation", "area:catalog", "state:triage"],
+      "source": "docs/todo.md", "evidence": "retailer-exclusive classifier",
+      "scope": "Reconcile duplicate L4/M13 proposals and audit explicit product variants, displays and cases without broad name-based merging.",
+      "acceptance": ["Create a reviewed representative fixture set and deliberate classification rules.", "Preserve multi-unit ordering, release variants and cross-market exclusion."]
+    },
+    {
+      "id": "RS-008", "title": "Plan append-only sales corrections and refunds",
+      "labels": ["type:improvement", "area:collections", "state:deferred"],
+      "source": "docs/collections-interface-review.md", "evidence": "Audited sales corrections/refunds",
+      "scope": "Retain original sale allocations; separate corrections from physical returns. Resume only when reprioritized.",
+      "acceptance": ["Specify original sale linkage, reason, timestamp, revision and preview.", "Prove quantity/cost conservation and no duplicated stock on retries or conflicts.", "Never reconstruct missing legacy grouping from names or dates."]
+    },
+    {
+      "id": "RS-009", "title": "Plan collection transfers preserving dated lots and baselines",
+      "labels": ["type:improvement", "area:collections", "state:deferred"],
+      "source": "docs/collections-interface-review.md", "evidence": "Transfers must preserve dated baselines",
+      "scope": "Move holdings without turning transfers into market gains or breaking sale references. Resume only when reprioritized.",
+      "acceptance": ["Specify atomic revision checks and provenance across source/destination.", "Verify quantities, purchase cost, dates, baselines and review movers remain correct."]
+    },
+    {
+      "id": "RS-010", "title": "Plan previewed bulk sticker-price edits",
+      "labels": ["type:improvement", "area:collections", "state:deferred"],
+      "source": "docs/collections-interface-review.md", "evidence": "Batch sticker edits need preview",
+      "scope": "Change asking prices only, not market prices or performance. Revisit storage constraints before scaling.",
+      "acceptance": ["Specify selection scope and preview with missing-value handling.", "Use all-or-nothing revision checks and conflict recovery.", "Keep market/baseline and sold history unchanged."]
+    },
+    {
+      "id": "RS-011", "title": "Plan non-destructive collection archiving",
+      "labels": ["type:improvement", "area:collections", "state:deferred"],
+      "source": "docs/collections-interface-review.md", "evidence": "Prefer archive over destructive deletion",
+      "scope": "Retain sales and audit history; define which collections may be archived before implementation.",
+      "acceptance": ["Specify archive/unarchive eligibility and overview behavior.", "Prove no lost sale references, holdings or event history."]
+    },
+    {
+      "id": "RS-012", "title": "Review account privacy, private backup retention and deletion policy",
+      "labels": ["type:maintenance", "area:accounts", "state:triage"],
+      "source": "docs/todo.md", "evidence": "privacy/backup retention review",
+      "scope": "Document current retention boundaries and obtain decisions before deleting backups or changing production behavior. Do not attach real exports.",
+      "acceptance": ["Describe identity versus environment-save retention and recovery access.", "Define backup expiry/deletion exceptions and evidence without publishing personal data.", "Identify any policy or implementation follow-up separately."]
+    },
+    {
+      "id": "RS-013", "title": "Define deletion-outbox monitoring and operational acceptance",
+      "labels": ["type:maintenance", "area:accounts", "state:triage"],
+      "source": "docs/todo.md", "evidence": "deletion-outbox monitoring",
+      "scope": "Use synthetic events and aggregate health signals; no real deletion or new monitoring service is authorized.",
+      "acceptance": ["Define pending-age, retry and terminal-failure visibility with owner-safe access.", "Exercise retry/idempotency and a documented escalation path using fixtures."]
+    },
+    {
+      "id": "RS-014", "title": "Reconcile October model-review commitments with actual evidence",
+      "labels": ["type:maintenance", "area:models", "state:triage"],
+      "source": "docs/todo.md", "evidence": "First week of October 2026",
+      "scope": "The source date has passed; verify whether the review happened before calling it overdue. No automatic model promotion or new data refresh.",
+      "acceptance": ["Link existing verdicts or record genuinely missing evidence.", "Document scoreboard, data-health and frozen-parameter review requirements.", "Keep v1 champion until an explicit evidence-backed promotion decision."]
+    },
+    {
+      "id": "RS-015", "title": "Specify model-version history stamping before a future promotion",
+      "labels": ["type:improvement", "area:models", "state:triage"],
+      "source": "docs/model-gaps.md", "evidence": "stamp a model version",
+      "scope": "Verify writer/schema gaps and define an additive version marker; preserve legacy unavailable values rather than fabricating a historical version.",
+      "acceptance": ["Trace current signal-history writes and schema before proposing migration.", "Test champion/shadow version attribution and idempotent history writes.", "Keep schema deployment/migration separately authorized."]
+    },
+    {
+      "id": "RS-016", "title": "Scope the human-reviewed Editorial Queue first release",
+      "labels": ["type:investigation", "area:editorial", "state:triage"],
+      "source": "docs/github-backlog-source-notes.md", "evidence": "Articles / Editorial Queue (plan only)",
+      "scope": "Separate Pokémon/Riftbound recaps, data-led analysis and labeled editorial outlook. Local article drafts are not approved for publication or import into GitHub.",
+      "acceptance": ["Define draft/review/publish permissions, source evidence and correction handling.", "Plan Monday weekly and first-of-month monthly drafts in Eastern time without activating jobs.", "Require human publication approval; no automatic market predictions or article publishing."]
+    },
+    {
+      "id": "RS-017", "title": "Deferred: Optional Module Budget",
+      "labels": ["type:investigation", "area:reliability", "state:deferred"],
+      "source": "docs/todo.md", "evidence": "Optional Module Budget — deferred by user",
+      "scope": "No reminder or due date. Resume only when reprioritized and measurable initial-download/CPU benefit justifies splitting.",
+      "acceptance": ["Preserve first-click responsiveness, editor state, accessible retries and old-tab behavior.", "Do not split core data, timers or save logic for marginal chunk savings."]
+    },
+    {
+      "id": "RS-018", "title": "Deferred: Physical Recovery Testing",
+      "labels": ["type:maintenance", "area:reliability", "state:deferred"],
+      "source": "docs/todo.md", "evidence": "Physical Recovery Testing — deferred by user",
+      "scope": "Await available hardware and reprioritization; no reminder or due date. Desktop Chrome/Firefox plus physical mobile Safari remains distinct from automated tests.",
+      "acceptance": ["Cover offline conflicts, lost accepted-write responses, session expiry, reopen/export and wrong-owner isolation.", "Prove no duplicated cash/inventory or lost progress; do not call emulation physical verification."]
+    },
+    {
+      "id": "RS-019", "title": "Deferred: Populated Account Acceptance",
+      "labels": ["type:maintenance", "area:accounts", "state:deferred"],
+      "source": "docs/todo.md", "evidence": "Populated Account Acceptance — deferred by user",
+      "scope": "No reminder or due date. Resume with disposable large fixtures, never personal inventories.",
+      "acceptance": ["Check holdings/import/favorites pagination, rendering cost and pending-save recovery.", "Keep existing privacy/save regression checks and distinguish this from physical Safari acceptance."]
+    },
+    {
+      "id": "RS-020", "title": "Discovery: public-only Auction House multiplayer",
+      "labels": ["type:investigation", "area:games", "state:deferred"],
+      "source": "docs/roadmap.md", "evidence": "Auction House multiplayer",
+      "scope": "Future planning only: public matchmaking, no private rooms/codes. Do not provision infrastructure.",
+      "acceptance": ["Specify authoritative bids/timers, reconnects, NPC fill and separate multiplayer economy.", "Identify abuse, disconnect and fairness boundaries before implementation."]
+    },
+    {
+      "id": "RS-021", "title": "Discovery: staging-only developer mode authorization and data boundaries",
+      "labels": ["type:investigation", "area:games", "state:deferred"],
+      "source": "docs/todo.md", "evidence": "developer mode remains documentation only",
+      "scope": "Document useful diagnostics before implementation; existing accounts/admin roles do not authorize hidden production data access.",
+      "acceptance": ["Specify default-off admin-only staging controls and redacted hidden-game diagnostics.", "Prove server authorization and production exclusion; no secrets or other users' private data exposed."]
+    }
+  ]
+}
