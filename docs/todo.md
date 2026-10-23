@@ -1,4 +1,11 @@
-# To-do and backlog — plan of record
+# To-do and backlog — specifications and migration queue
+
+**Task-tracking transition — 2026-10-23:** the 21 reviewed pilot items have been
+imported and verified as [GitHub issues #1–#21](https://github.com/cjord/rawsignal/issues).
+GitHub Issues owns their live status, priority and assignment; entries here retain
+specifications/history, not a parallel status list. Unmigrated proposals remain an
+intake queue for separate review. Nine imported items remain explicitly deferred,
+without reminders or due dates. [Per-item import receipt](github-backlog-import-2026-10-23.md).
 
 Open UI, platform, data, and signal-model work, grouped by area, each item carrying the
 decision context it needs. **Completed items — with their build notes, dates, and
@@ -9,6 +16,179 @@ notes; add new items to the matching section here.
 Related documents: `docs/roadmap.md` (deferred infra work), `docs/model-gaps.md`
 (signal-model gaps register + review calendar), `docs/cloudflare-cutover.md` (D1
 runbook), `docs/todo-completed.md` (shipped items and the resolved decision log).
+
+## Loading acceptance deferrals — 2026-10-22
+
+- **Optional Module Budget — deferred by user, 2026-10-22:** defer bundle tracing
+  and optional editor/share/marketplace splitting. Revisit only after measuring
+  meaningful initial-download/CPU savings; avoid tiny chunks, slower first clicks,
+  lost editor state and failed-download dead ends. Preserve primary market data,
+  timers/save logic, accessible placeholders/retry and old-tab deployment behavior.
+  Expected gains are incremental, especially where code is already on demand.
+- **Physical Recovery Testing — deferred by user, 2026-10-22:** retain the real
+  desktop Chrome/Firefox + mobile Safari runbook for later reprioritization and
+  available hardware. Cover offline/conflicting saves, accepted-write response loss,
+  session expiry, reopen/export and wrong-owner isolation. Goal: no lost progress
+  or duplicated cash/inventory. Automated checks do not establish physical Safari
+  acceptance. No reminder scheduled; existing recovery regression checks remain.
+  [Acceptance boundaries](page-loading-next-checkpoint.md).
+
+- **Populated Account Acceptance — deferred by user, 2026-10-22:** postpone the
+  dedicated large-account test batch. When resumed, use disposable fixtures with
+  many holdings/imports/favorites and pending saves; check pagination, rendering
+  cost, owner switching and recovery without accessing real personal inventories.
+  This does not waive existing account/privacy/save regression checks or establish
+  large-account readiness. Resume only when reprioritized; no reminder scheduled.
+  Physical Safari/two-device recovery remains separately deferred until hardware
+  is available. [Loading plan and acceptance boundaries](page-loading-next-checkpoint.md).
+
+## Accounts and collection saves — in progress (2026-10-19)
+
+- **Collections interface follow-up:** seven improvements plus Sold History/Card Show
+  Events shipped to staging `9f77be00` from `f2d222c`; full gate passed (652 unit
+  tests, one skip, 126 browser journeys), followed by live guest/privacy/layout checks.
+  Production unchanged. Open priorities: real signed-in/multi-device acceptance,
+  audited sale corrections/refunds, collection lifecycle/bulk work, and broader
+  exact-printing/condition/new-rarity coverage. [Ten-area review](collections-interface-review.md).
+
+- **Real-world Collections first release (2026-10-21):** `b784a9e` pushed and deployed
+  to staging `db580987`; full gate passed (639 unit tests, one skip, 122 browser
+  journeys), followed by live guest/privacy/theme/layout checks. Multiple named
+  collections, dated lots, baseline-aware metrics, explicit three-day review history,
+  table/grid holdings, reviewed Collectr imports, FIFO sales and optional Card Show
+  sticker prices. No new migration/cron; production flag remains off. See
+  [scope and acceptance](owned-collections.md). Follow-up: signed-in staging acceptance,
+  alternate detail-only printings/conditions, holdings-aware historical charts,
+  transfers/bulk edits and offline collection recovery before increasing storage limits.
+
+- **New-set coverage audit (2026-10-21, diagnosis only):** production's stored catalog
+  has Radiance 228 singles/153 priced + 11 sealed/8 priced; Delta Reign 21 sealed/15
+  priced and no eligible source singles; 30th Celebration 40 singles/40 priced + 52
+  sealed/52 priced. New Pokémon labels Pikachu Rare (30 source cards), Futuristic Rare
+  (2), RGB Rare (3) and Classic Collection (30) are rejected by the current rarity
+  allowlist. Decide explicit sections/heatmap tiers and fold Classic Collection into
+  its parent for heatmap aggregation; do not silently map them to an unrelated rarity.
+  Radiance art/main-set heatmap support already exists, but its singles are absent
+  from bundled feeds: local singles generation still excludes future groups, whereas
+  live ingestion allows 120-day presales. Align that policy deliberately and regenerate
+  feeds with review; no source refresh or rarity-policy mutation was made in this audit.
+  Uncurated pull rates and insufficient history must remain unavailable.
+
+- **Accounts live on staging and production (2026-10-21):** shared canonical identity
+  with separate environment saves/recovery, verified admin-only staging access and
+  production-only shared security controls shipped as `77537b5`. Approved private
+  backups, two verified admin identity imports, production migrations and live
+  staging/API/production-preview checks are complete. See
+  [release evidence](shared-account-identity.md#live-release--2026-10-21).
+  Remaining: human provider sign-in after migration, Administrator badge/linked-method
+  acceptance, physical Chrome/Firefox/Safari recovery, privacy/backup retention review,
+  and deletion-outbox monitoring. Production's custom domain still challenges automated
+  browsers; API/preview checks pass without security-rule changes. Production progress
+  starts separately; existing staging IDs and recovery keys remain.
+
+- **Earlier release checkpoint 2026-10-21:** application `44ecc7a` was pushed/deployed to
+  staging and production after the full 622-node/117-browser gate and live staging
+  checks. Navigation, loading, Inventory/Profile Studio and save hardening shipped.
+  Accounts were staging-only then; the later account release above supersedes that
+  activation status. Compact caching is OFF in both environments: live staging parity
+  failed (1,333 bundled snapshot cards vs 1,583 section-feed printings). Resolve
+  partial-run/fallback consistency before another activation trial; do not weaken
+  readiness guards. Production catalog API was using its honest fallback during an
+  already-running live ingestion. Investigate the publication/read-availability gap.
+  Production now serves database data again after that existing ingestion completed;
+  the publication/read-availability gap still merits follow-up. Physical
+  Chrome/Firefox/Safari recovery and signed-in moderation acceptance remain.
+  Production preview UI passed; the custom domain challenged automated browsers.
+  An unexpected staging cron was explicitly cleared and the remote schedule verified
+  empty. Deployment preparation now emits `triggers: {crons: []}` rather than `{}`
+  for schedule removal, with regression coverage. Production keeps `*/1`.
+  [Release evidence and remaining gates](auction-loading-and-safety-follow-up.md#release-results--2026-10-21).
+
+Earlier local checkpoints below are historical; the release checkpoint above supersedes
+their not-deployed/migration-pending statements.
+
+- Loading/safety follow-up now local: traced and removed late lobby insertion and
+  Inventory filter-shell collapse; Data-First Artwork no longer waits for unrelated
+  window images. Five-minute public Legacy Catalog Reuse removes repeated waves on
+  internal navigation (fresh document still eleven files). Local bounded shift medians
+  are ~0.00091 Play / 0.00044 Inventory, versus ~0.185 / 0.234 before. Same-data local
+  transport test checks legacy 11 vs snapshot 2 requests and exact price/null parity.
+  Staging API probe is 404, so no deployed cache comparison is claimed. Added real
+  local authenticated-session recovery/revocation tests; physical devices pending.
+  Community Burst Protection and `/admin/community` Hide/Restore are local/default-off.
+  Migration 0028 is pending; no persistent database or deployment changes. Full gate
+  passed: 622 node tests / one skip, 117 browser journeys, build/types/lint with 21
+  existing complexity warnings. Personal Chrome-to-Chrome plus desktop Chrome/Firefox
+  to Safari acceptance is documented, not physically run.
+  [Goals, evidence, costs and next gates](auction-loading-and-safety-follow-up.md).
+
+- Quality follow-up implemented locally: bounded catalog/account requests, stricter
+  save acknowledgements and old-owner isolation, server-owned Saved Account Export,
+  public query guards, Market Snapshot Status and Inventory Loading Shell. Added
+  opt-in Performance Benchmark and staging Read Cost Meter. Local cache-off sampling
+  still finds cold Play/Inventory movement and eleven legacy catalog requests; no
+  live speed/read-cost improvement claimed. Real provider/two-device checks, public
+  quotas/moderation and staging cache activation remain. Full gate passed: 613 node
+  tests / one skip and 113 browser journeys; build/types/lint passed with 21 existing
+  complexity warnings. Not pushed/deployed. [Plan and evidence](auction-quality-improvement-plan.md).
+
+- Auction loading and Inventory Manager are released to staging as `b0ae632`,
+  version `8d90dbd3-9c64-45e9-81a5-fc3dab2f4bbd`. Full gate and live guest/UI checks
+  passed. Cold duplicate catalog calls reduced from 22 to 11; timing samples are
+  inconclusive, not a claimed speedup. Production unchanged.
+  [Scope, evidence and remaining loading work](auction-loading-and-inventory.md).
+- Implementation authorized 2026-10-19: the public catalog-cache foundation is now
+  local, behind an off-by-default staging-only switch. Existing private bootstrap is
+  reused. Persistent shell/compact tabs, the separate Inventory Page, cosmetic
+  Profile Studio and cache-gated transaction-time checks are implemented locally.
+  Three design questions are resolved. Full gate passed: 604 node tests, one skip
+  and 109 browser journeys; build/lint/types passed with 21 existing lint warnings.
+  Real read-cost measurement and authorized staging parity/activation remain.
+  No new push/deploy authorization. [Exact progress and rollout gates](auction-implementation-progress.md).
+  Designs: [version-aware public catalog cache](auction-catalog-cache-plan.md),
+  [combined private bootstrap alternative](auction-bootstrap-response-plan.md),
+  [persistent navigation, separate Inventory Page and clearer profile preview/edit
+  controls with optional decorative cards](auction-navigation-and-profile-plan.md).
+  The newer request authorizes beginning navigation after design choices. Use the
+  [UI feature names](ui-feature-map.md) to distinguish backgrounds, collections,
+  inventory, showcases and public/account profiles. Keep Refresh Market until
+  automatic pre-entry/return freshness validation exists.
+
+- Auction/profile UI follow-up: centered/tinted controls, shared auction artwork,
+  coordinated Showcase loading, value-ranked showcase directory, profile-owned public
+  username and configurable bottom-right notifications. Migration 0027 intentionally
+  resets old public visibility for explicit username/visibility consent. Full gate
+  passed (585 node + 103 browser checks; one node skip); staging released as `d6f0ba1`,
+  version `8fac8370-d450-4b78-ab9d-47258a54a6fd`. Live UI/access/artwork checks passed.
+  Save a public username in Profile, then explicitly re-enable public visibility.
+  Production unchanged. [Details and next UI gaps](auction-ui-follow-up.md).
+
+- Staging includes the application `19bc36e` recovery/community foundation:
+  encrypted device recovery, audited read-only management pages, opt-in account
+  showcases/unverified auction leaderboard, decoded-art fade-in and confirmed-guest
+  warning. Migrations 0025/0026/0027 and feature flags are activated on staging only.
+  Original foundation gate: 580 node tests (one skipped), 100 browser journeys. Live public/guest-access
+  checks passed; review real signed-in recovery/admin/public-visibility workflows.
+  [Exact scope, privacy, costs and remaining hardening](auction-community.md).
+- Next admin work: isolated Daily Games diagnostics and reviewed Access & Security
+  events/controls. No live answer keys, impersonation, destructive management actions
+  or developer-mode activation have been added.
+- Accounts remain disabled in production; its account migration, provider credentials,
+  native email binding and admin bootstrap require a separate approved rollout.
+  The requested owner allowlist is configured on staging and retained privately
+  for production activation. Developer-mode UI remains a later staging-only feature.
+- Confirm real multi-device game/favorites/import sync, targeted-device revocation,
+  recovery and the Administrator badge with the user's staging session.
+- Remaining: safe backup import/compare, account email/avatar
+  changes and unlinking, cross-device idle refresh, audited role administration,
+  privacy/retention and backup disclosures, bounded auth cleanup and rate/budget
+  monitoring (including per-account document/device API throttles).
+- Before production community launch: public/API throttling and moderation, full-account
+  export of public-profile settings, counter/audit retention cleanup and disclosures.
+  Server-verified competitive scoring remains separate from the casual community board.
+- Plan real-world collection archives and monitoring after account/save reliability;
+  current Collectr sync retains only the last import, not every past collection.
+  Keep guest data isolated and never blend game holdings with real owned collections.
 
 ## Games — price comparison (2026-10-14)
 

@@ -2,7 +2,10 @@
 import {useCallback,useMemo,useState} from "react";
 import InfoHint from "./InfoHint";
 import MarketTabs from "./MarketTabs";
+import MarketScopePlaceholder from './MarketScopePlaceholder';
+import type {MetricsScope} from './state/metrics-scope';
 import {readStoredMarket,storeMarket} from "./state/market-memory";
+import {resolveMarketScope} from './state/market-scope';
 import {METRICS_MARKETS,serializeMetricsScope,useMetricsScopeUrl,type MetricsMarket,type MetricsMode} from "./state/metrics-query";
 import {parseStrictness,STRICTNESS_KEY,usePreference} from "./state/usePreference";
 import PriceChart from "./PriceChart";
@@ -239,16 +242,15 @@ function RatioBar({label,advancers,decliners}:{label:string;advancers:number;dec
  </div>;
 }
 
-export default function MetricsView({payload}:{payload:MetricsPayload|null}){
+export default function MetricsView({payload,initialScope=null,serverTiming}:{payload:MetricsPayload|null;initialScope?:MetricsScope|null;serverTiming?:string}){
  const [strictness,changeStrictness]=usePreference<SignalStrictness>(STRICTNESS_KEY,parseStrictness,"balanced");
- const [mode,setMode]=useState<Mode>("singles");
- const [market,setMarket]=useState<Market>("all");
+ const [mode,setMode]=useState<Mode>(initialScope?.mode??"singles");
+ const [market,setMarket]=useState<Market>(initialScope?.market??"all");
  const [moversWindow,setMoversWindow]=useState<"7d"|"30d"|"90d">("7d");
  // Scope rides the URL through the shared push/popstate discipline (decision D14):
  // the URL wins; otherwise the market remembered from the other pages; else Pokémon.
- const writeScope=useMetricsScopeUrl(({mode:nextMode,requestedMarket})=>{
-  const requested=(requestedMarket??readStoredMarket())as Market|null;
-  const resolved=requested&&METRICS_MARKETS[nextMode].includes(requested)?requested:"pokemon";
+ const {ready:scopeReady,write:writeScope}=useMetricsScopeUrl(({mode:nextMode,requestedMarket})=>{
+  const resolved=resolveMarketScope(requestedMarket,readStoredMarket(),METRICS_MARKETS[nextMode],"pokemon");
   setMode(nextMode);
   setMarket(resolved);
   storeMarket(resolved);
@@ -256,6 +258,7 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
   // entry is itself back-navigable after later scope pushes.
   history.replaceState(null,"",`/metrics?${serializeMetricsScope(nextMode,resolved)}`);
  });
+ const bodyReady=initialScope!==null||scopeReady;
  const setScope=(nextMode:Mode,nextMarket:Market)=>{
   const resolved=METRICS_MARKETS[nextMode].includes(nextMarket)?nextMarket:"pokemon";
   // Re-clicking the active tab must not push a duplicate history entry.
@@ -285,17 +288,17 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
  const {history:moverHistory,ensure:ensureMoverHistory}=usePriceHistoryBatch();
  const revealMover=useCallback((mover:MetricsMover)=>{void ensureMoverHistory([moverTarget(mover)])},[ensureMoverHistory]);
 
- return <><main className="detail-page metrics-page"><TopBar active="metrics" strictness={strictness} onStrictness={changeStrictness}/>
+ return <><main className="detail-page metrics-page" data-server-timing={serverTiming}><TopBar active="metrics" strictness={strictness} onStrictness={changeStrictness}/>
   <header className="masthead" id="top">
    <p className="kicker">Daily TCG market intelligence</p>
    <h1>The card market, <span>without the noise.</span></h1>
   </header>
   {payload&&<>
-   <div className="product-navigation"><SegmentedView value={mode} options={MODE_VIEWS} label="Product type" className="product-toggle" onChange={(next:Mode)=>setScope(next,market)}/></div>
-   <div className="signal-navigation metrics-market-nav"><MarketTabs className="metrics-market-tabs" options={marketTabOptions(mode)} value={market} onChange={next=>setScope(mode,next as Market)}/></div>
+   <div className="product-navigation"><SegmentedView ready={scopeReady} value={mode} options={MODE_VIEWS} label="Product type" className="product-toggle" onChange={(next:Mode)=>setScope(next,market)}/></div>
+   <div className="signal-navigation metrics-market-nav"><MarketTabs ready={bodyReady} disabled={!scopeReady} className="metrics-market-tabs" options={marketTabOptions(mode)} value={market} onChange={next=>setScope(mode,next as Market)}/></div>
   </>}
-  <article className="detail-content">
-   {!payload?<section className="detail-section"><header><span>Unavailable</span><h2>Metrics need the database</h2></header><p className="detail-unavailable">This page reads the daily market rollups in the database-backed deployment. The local development server and feed-only deployments have no rollup data, so nothing is estimated here — visit the published site instead.</p></section>:<>
+  <article className="detail-content"><fieldset className="market-scope-content" disabled={!scopeReady} aria-label="Market metrics content">
+   {!payload?<section className="detail-section"><header><span>Unavailable</span><h2>Metrics need the database</h2></header><p className="detail-unavailable">This page reads the daily market rollups in the database-backed deployment. The local development server and feed-only deployments have no rollup data, so nothing is estimated here — visit the published site instead.</p></section>:!bodyReady?<MarketScopePlaceholder kind="metrics"/>:<>
    <p className="detail-note metrics-rollup-note">Rolled up {payload.rolledUpAt.slice(0,10)} from daily TCGCSV market data · equal-weighted indexes, rebalanced daily · informational, not financial advice.</p>
    <section className="detail-section"><header><span>Tracked market</span><h2>Overview<InfoHint label="About tracked value">Tracked value sums current market prices across every tracked product — coverage, not capitalization. Movement follows each scope&apos;s equal-weighted index series.</InfoHint></h2></header>
     <div className="metrics-market-grid">
@@ -329,5 +332,5 @@ export default function MetricsView({payload}:{payload:MetricsPayload|null}){
    {mode==="singles"?<section className="detail-section"><header><span>By set</span><h2>Set Leaderboard<InfoHint label="About the leaderboard">Top sets by tracked singles value. 30D momentum is the median of member cards&apos; 30-day changes; Sealed 30D is the same for the set&apos;s sealed products — a gap between them flags rotation between the two markets. Pack EV is the expected chase-card value of one booster from community pull-rate estimates times current singles prices (bulk excluded); the multiple compares it against the cheapest live pack price — above 1× means ripping beats buying the singles at these prices. Rows open the set&apos;s dedicated page.</InfoHint></h2></header><SetTable sets={scoped?.sets??[]}/></section>
    :<section className="detail-section"><header><span>By category</span><h2>Category Leaderboard<InfoHint label="About the leaderboard">Sealed products grouped by category. The median is the middle product price in the category; each momentum column is the median of member products&apos; changes over that window. Rows open the sealed leaderboard filtered to the category.</InfoHint></h2></header><CategoryTable categories={scoped?.categories??[]}/></section>}
    </>}
-  </article></main><SiteFooter/></>;
+  </fieldset></article></main><SiteFooter/></>;
 }

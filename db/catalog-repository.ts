@@ -7,6 +7,7 @@ import { readSetRarityStats } from "./rarity-stats.ts";
 import { buildValueBreakdown } from "../core/domain/value-breakdown.ts";
 import { withRiftboundRegularArtwork } from "../core/domain/riftbound-artwork.ts";
 import type { D1DatabaseLike } from "./repository.ts";
+import {createPublicPayloadCache} from './public-payload-cache.ts';
 
 type ProductRow = {
   productId: number;
@@ -116,6 +117,17 @@ const productsSqlBase = `select p.product_id as productId,p.kind,p.game,p.sectio
   from catalog_products p left join current_prices cp on cp.product_id=p.product_id
   left join sealed_details sd on sd.product_id=p.product_id`;
 const productsSql = `${productsSqlBase} where p.kind=? and p.game=?`;
+
+// Similarity/peers need every candidate, but not every output field. Singles never
+// use sealed MSRP, and only the requested product exposes its source URL. Keep all
+// prices/printings/artwork and the original candidate ordering; hydrate the target
+// from its existing point read instead of adding another database request.
+type DetailCandidateRow=Omit<ProductRow,'sourceUrl'|'msrpCents'|'msrpSource'|'productType'>&Partial<Pick<ProductRow,'sourceUrl'|'msrpCents'|'msrpSource'|'productType'>>;
+const singleDetailCandidatesSql=`select p.product_id as productId,p.kind,p.game,p.section,p.name,p.set_name as setName,
+  p.release_year as releaseYear,p.rarity,p.card_number as cardNumber,p.printing,p.image_url as imageUrl,
+  cp.market_cents as marketCents,cp.listing_low_cents as listingLowCents,cp.median_cents as medianCents,cp.listing_high_cents as listingHighCents
+  from catalog_products p left join current_prices cp on cp.product_id=p.product_id where p.kind=? and p.game=?`;
+const completeCandidate=(candidate:DetailCandidateRow,target:ProductRow):ProductRow=>({sourceUrl:null,msrpCents:null,msrpSource:null,productType:null,...(candidate.productId===target.productId?target:{}),...candidate});
 
 async function loadDerived(db: D1DatabaseLike, kind: "single" | "sealed", game: string, options: SinglesCatalogQuery | SealedCatalogQuery) {
   const side = options.signal === "leaderboard" ? "buy" : options.signal;
@@ -312,29 +324,23 @@ export async function readGameSetProducts(db: D1DatabaseLike, game: string, setN
   };
 }
 
-// Whole-game row loads are the single largest D1 read in production (review §14 F1: ~43k
-// rows per call, twice per detail view). The catalog only changes when a run publishes, so
+// Whole-game candidate loads are a major D1 read (review §14 F1). Singles project
+// away output-only fields and the sealed-details join, never the peer population.
+// The catalog only changes when a run publishes, so
 // each isolate keeps the rows per (run, kind, game) for a few minutes; a new published run
 // id is a new key, and the TTL bounds staleness if the same run is re-read for long.
 const GAME_ROWS_TTL_MS = 10 * 60_000;
 const GAME_ROWS_MAX_ENTRIES = 12;
-const gameRowsCache = new Map<string, { at: number; rows: Promise<ProductRow[]> }>();
-function cachedGameRows(key: string, load: () => Promise<ProductRow[]>): Promise<ProductRow[]> {
-  const now = Date.now(), hit = gameRowsCache.get(key);
-  if (hit && now - hit.at < GAME_ROWS_TTL_MS) return hit.rows;
-  const rows = load().catch(error => { gameRowsCache.delete(key); throw error; });
-  gameRowsCache.set(key, { at: now, rows });
-  if (gameRowsCache.size > GAME_ROWS_MAX_ENTRIES) gameRowsCache.delete(gameRowsCache.keys().next().value!);
-  return rows;
-}
+const cachedGameRows=createPublicPayloadCache<DetailCandidateRow[]>({ttlMs:GAME_ROWS_TTL_MS,maxEntries:GAME_ROWS_MAX_ENTRIES});
 
 export function createD1CatalogRepository(db: D1DatabaseLike, ingestionRunId?: string, pullRateConfig?: PullRateConfig): CatalogRepository {
   const runClause = ingestionRunId ? " and p.ingestion_run_id=?" : "";
   const runParams = ingestionRunId ? [ingestionRunId] : [];
-  const productRows = (kind: "single" | "sealed", game: string) => cachedGameRows(`${ingestionRunId ?? "unpublished"}|${kind}|${game}`, async () => {
-    const sql = ingestionRunId ? `${productsSql} and p.ingestion_run_id=?` : productsSql;
+  const productRows = (kind: "single" | "sealed", game: string) => cachedGameRows(db,JSON.stringify([ingestionRunId??null,kind,game]), async () => {
+    const base=kind==='single'?singleDetailCandidatesSql:productsSql;
+    const sql = ingestionRunId ? `${base} and p.ingestion_run_id=?` : base;
     const statement = db.prepare(sql).bind(...(ingestionRunId ? [kind, game, ingestionRunId] : [kind, game]));
-    return (await statement.all<ProductRow>()).results ?? [];
+    return (await statement.all<DetailCandidateRow>()).results ?? [];
   });
   // Rows for one game+set (index seek): the detail page's set-scoped peers.
   const setRows = async (game: string, setName: string) => {
@@ -432,11 +438,15 @@ export function createD1CatalogRepository(db: D1DatabaseLike, ingestionRunId?: s
       // only ever read within the product's set (related sealed, chase cards, pack price,
       // unit lookup), so it comes from one index seek (review §14 F1).
       const [ownKindRows,setKindRows,setMetrics]=await Promise.all([productRows(kind,row.game),setRows(row.game,row.setName),readSetRowMetrics(db,row.game,row.setName)]);
-      const peerRows=kind==="single"?[...ownKindRows,...setKindRows.filter(item=>item.kind==="sealed")]:[...setKindRows.filter(item=>item.kind==="single"),...ownKindRows];
-      const cards=peerRows.map(toCard).filter((item):item is Card=>item!==null),sealed=peerRows.map(toSealed).filter((item):item is SealedProduct=>item!==null),detailRow=await db.prepare(`select category_id as categoryId,group_id as groupId,set_abbreviation as setAbbreviation,published_on as publishedOn,modified_on as modifiedOn,image_count as imageCount,is_presale as isPresale,presale_note as presaleNote,metadata_json as metadataJson,price_variants_json as priceVariantsJson,source_updated_at as sourceUpdatedAt from product_details where product_id=?`).bind(productId).first<DetailRow>();
+      const ownProducts=ownKindRows.map(candidate=>completeCandidate(candidate,row));
+      const peerRows=kind==="single"?[...ownProducts,...setKindRows.filter(item=>item.kind==="sealed")]:[...setKindRows.filter(item=>item.kind==="single"),...ownProducts];
+      const cards=peerRows.map(toCard).filter((item):item is Card=>item!==null),sealed=peerRows.map(toSealed).filter((item):item is SealedProduct=>item!==null);
+      const [detailRow,graded,peerAnchor]=await Promise.all([
+       db.prepare(`select category_id as categoryId,group_id as groupId,set_abbreviation as setAbbreviation,published_on as publishedOn,modified_on as modifiedOn,image_count as imageCount,is_presale as isPresale,presale_note as presaleNote,metadata_json as metadataJson,price_variants_json as priceVariantsJson,source_updated_at as sourceUpdatedAt from product_details where product_id=?`).bind(productId).first<DetailRow>(),
+       kind==='single'?readGradedCard(db,productId):Promise.resolve(null),
+       kind==='single'?readPeerAnchor(db,row.game,row.setName,row.rarity):Promise.resolve(null),
+      ]);
       let enrichments:CatalogDetailEnrichment[]=[];if(detailRow)try{enrichments=[{kind,productId,metadata:JSON.parse(detailRow.metadataJson) as DetailMetadataField[],priceVariants:JSON.parse(detailRow.priceVariantsJson) as DetailPriceVariant[],source:{categoryId:detailRow.categoryId,groupId:detailRow.groupId,setAbbreviation:detailRow.setAbbreviation,publishedOn:detailRow.publishedOn,modifiedOn:detailRow.modifiedOn,imageCount:detailRow.imageCount,isPresale:detailRow.isPresale==null?null:Boolean(detailRow.isPresale),presaleNote:detailRow.presaleNote,sourceUpdatedAt:detailRow.sourceUpdatedAt}}]}catch{/* Invalid optional detail JSON must not hide the core catalog record. */}
-      const graded=kind==="single"?await readGradedCard(db,productId):null;
-      const peerAnchor=kind==="single"?await readPeerAnchor(db,row.game,row.setName,row.rarity):null;
       const anchorKey=`${row.game}|${row.setName}|${row.rarity}`;
       const detail=await createMemoryCatalogRepository(cards,sealed,enrichments,pullRateConfig,graded?{[String(productId)]:graded}:undefined,peerAnchor?{[anchorKey]:peerAnchor}:undefined).getDetail(kind,productId,market);
       if(!detail)return null;

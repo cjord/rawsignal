@@ -1,5 +1,5 @@
 "use client";
-/* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps -- keyed effects synchronize remote data and theme */
+/* eslint-disable react-hooks/exhaustive-deps -- keyed effects synchronize remote data and theme */
 import { useEffect, useMemo, useRef, useState } from "react";
 import index from "../tcg-index.json";
 import SealedView, { sealedUrlState } from "./SealedView";
@@ -288,7 +288,7 @@ export default function Home() {
   const scalperMode = useScalperMode();
   // Seeded from the remembered market so a scalping deep link followed by ⚙-off lands
   // on the market the visitor actually uses, not the Pokémon default.
-  const lastRegularSealedMarket = useRef<Exclude<SealedMarket, "scalping">>(readStoredMarket() ?? "pokemon");
+  const lastRegularSealedMarket = useRef<Exclude<SealedMarket, "scalping">>("pokemon");
   const updateSealed = setSealedState;
   // The last regular market backs the scalper-off restore; syncing it from committed
   // state (not inside updaters, which must stay pure) keeps it fresh on every path —
@@ -321,7 +321,9 @@ export default function Home() {
     // A scalping entry shows scalper mode view-only; every other restored entry
     // returns to the device's saved ⚙ preference — otherwise one shared scalping
     // link would leave the view-only mode sticky across later Backs.
-    applyScalperMode(state.mode === "sealed" && state.market === "scalping" ? "scalper" : storedScalperMode());
+    const scalpingLink=state.mode === "sealed" && state.market === "scalping";
+    if(scalpingLink)lastRegularSealedMarket.current=readStoredMarket()??'pokemon';
+    applyScalperMode(scalpingLink ? "scalper" : storedScalperMode(),scalpingLink);
     if (state.mode === "sealed") {
       setSealedState(state);
       return;
@@ -376,13 +378,13 @@ export default function Home() {
   const catalogKeys = selectedRarities.length
       ? selectedRarities
       : rarityOptions.map((option) => option.key),
-    catalogSources = urlReady ? catalogKeys.map((key) => `/data/${key}.json`) : [];
+    catalogSources = urlReady && mode==='singles' ? catalogKeys.map((key) => `/data/${key}.json`) : [];
   const {
     items: cards,
     status: catalogStatus,
     reload: reloadCatalog,
   } = useCatalogPage({
-    enabled: urlReady,
+    enabled: urlReady && mode==='singles',
     sources: catalogSources,
     parse: parseCards,
     keyOf: cardKey,
@@ -396,7 +398,7 @@ export default function Home() {
   const persistedSignals = usePersistedSignals({
     kind: "single",
     market: game,
-    side: signalView,
+    side: urlReady && mode==='singles' ? signalView : 'leaderboard',
     strictness,
   });
   useEffect(() => {
@@ -582,24 +584,6 @@ export default function Home() {
     if (!urlReady) return;
     storeMarket(mode === "singles" ? game : sealedState.market);
   }, [urlReady, mode, game, sealedState.market]);
-  // On landing without an explicit market in the URL, restore the remembered one. Both
-  // inputs are captured during render: by the time this effect runs, the URL-sync effect
-  // has stamped the default market into location.search AND the persistence effect above
-  // has overwritten the stored value with that same default.
-  const [landing] = useState(() => ({
-    search: typeof location === "undefined" ? "" : location.search,
-    stored: readStoredMarket(),
-  }));
-  useEffect(() => {
-    const params = new URLSearchParams(landing.search);
-    const stored = landing.stored;
-    if (params.has("market") || !stored) return;
-    if (params.get("mode") === "sealed") {
-      updateSealed((current) => ({ ...current, market: stored }));
-    } else if (stored !== "onepiece") {
-      switchGame(stored);
-    }
-  }, []);
   const changeSort = (next: SortKey) => {
     setDirection((current) =>
       nextSortDirection(sort, current, next, ascendingSinglesSorts),
@@ -764,12 +748,14 @@ export default function Home() {
           value={mode}
           options={productViews}
           label="Product type"
+          ready={urlReady}
           className="product-toggle"
           onChange={changeMode}
         />
       </div>
       <div className="signal-navigation market-navigation">
         <MarketTabs
+          ready={urlReady}
           className={mode === "sealed" && scalperMode === "scalper" ? "is-scalper" : ""}
           options={mode === "sealed" ? [...sealedMarkets, ...(scalperMode === "scalper" ? [scalpingMarket] : [])] : singlesMarkets}
           value={mode === "sealed" ? sealedState.market : game}
@@ -818,6 +804,7 @@ export default function Home() {
           historyStatus={historyStatus}
           header={
             <LeaderboardHeader
+              ready={urlReady}
               className="section-heading is-filtered"
               kicker={game === "all" ? "Cross-market ranking" : `${formatGameName(game)} market ranking`}
               title={`${rarityLabel} ${signalView === "leaderboard" ? (selectedRarities.length > 1 && !allRarities ? "Leaderboards" : "Leaderboard") : signalView === "buy" ? "Hot Buys" : "Hot Sells"}`}

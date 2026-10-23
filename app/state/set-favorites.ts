@@ -1,4 +1,5 @@
 "use client";
+import {getSavedItem,setSavedItem} from '../account/storage';
 import { useSyncExternalStore } from "react";
 
 // Starred sets (sets view 2026-08-29): a device preference like scalper mode — a flat
@@ -12,7 +13,7 @@ export const setFavoriteKey = (game: string, set: string) => `${game}|${set}`;
 
 function readStored(): ReadonlySet<string> {
   try {
-    const parsed = JSON.parse(localStorage.getItem(KEY) ?? "[]");
+    const parsed = JSON.parse(getSavedItem(KEY) ?? "[]");
     return new Set(Array.isArray(parsed) ? parsed.filter(value => typeof value === "string") : []);
   } catch { return new Set(); }
 }
@@ -44,6 +45,6 @@ export function toggleSetFavorite(game: string, set: string) {
   const next = new Set(snapshot());
   if (next.has(key)) next.delete(key); else next.add(key);
   cached = next;
-  try { localStorage.setItem(KEY, JSON.stringify([...next])); } catch { /* Device-only preference; losing it is acceptable. */ }
+  try { setSavedItem(KEY, JSON.stringify([...next])); } catch { /* Device-only preference; losing it is acceptable. */ }
   for (const item of listeners) item();
 }

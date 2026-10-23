@@ -1,0 +1,23 @@
+name: Investigation or decision
+description: Resolve uncertainty before committing to a fix or rollout.
+labels: ["type:investigation", "state:triage"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question and known evidence
+    validations:
+      required: true
+  - type: textarea
+    id: options
+    attributes:
+      label: Options, risks and safe diagnostic scope
+      description: Include a stop condition. No unapproved ingestion, paid API calls or personal-data reads.
+    validations:
+      required: true
+  - type: textarea
+    id: decision
+    attributes:
+      label: Decision needed and completion evidence
+    validations:
+      required: true

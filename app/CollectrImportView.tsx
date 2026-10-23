@@ -2,6 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect -- the stored import and the ?profile= deep link hydrate once from device storage after mount, the same pattern TopBar uses for display preferences */
 import {useEffect,useMemo,useRef,useState} from "react";
 import FavoriteStar from "./FavoriteStar";
+import {CollectionImportLink} from './collections/AddToCollectionButton';
 import InfoHint from "./InfoHint";
 import MarketTabs from "./MarketTabs";
 import MultiSelectField from "./MultiSelectField";
@@ -179,6 +180,7 @@ export default function CollectrImportView(){
   <header className="masthead" id="top">
    <p className="kicker">Collectr portfolio import</p>
    <h1>Your collection, <span>signal-checked.</span></h1>
+   <CollectionImportLink/>
   </header>
   <article className="detail-content">
    <section className="detail-section import-form-section"><header><span>Import</span><h2>Collectr Profile</h2></header>

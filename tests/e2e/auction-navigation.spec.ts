@@ -1,0 +1,54 @@
+import {expect,test} from '@playwright/test';
+import {initialAuctionSave} from '../../core/domain/auction-types';
+import {themeColor} from '../helpers/theme-color';
+const key='raw-signal-auction-house-v1';
+
+test('Daily Challenge is an entry tile, not a top mode link, and navigation does not start an attempt',async({page},testInfo)=>{
+ let dailyReads=0;await page.route('**/api/auction/daily',route=>{dailyReads++;return route.fulfill({status:503,json:{error:'must not fetch before starting'}})});
+ await page.route('https://tcgplayer-cdn.tcgplayer.com/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280"/>'}));
+ await page.goto('/games/riftbound-auction');const lobby=page.locator('.auction-lobby');
+ await expect(lobby.getByRole('link',{name:'Daily Challenge',exact:true})).toHaveAttribute('href','/games/riftbound-auction/daily');await expect(page.getByRole('navigation',{name:'Auction Play Modes'})).toHaveCount(0);await expect(page.getByText('Normal Auctions',{exact:true})).toHaveCount(0);
+ const origin=await page.evaluate(()=>performance.timeOrigin);
+ for(const width of [1440,390])for(const theme of ['dark','light']){
+  await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+  const entry=lobby.getByRole('link',{name:'Daily Challenge',exact:true}),box=await entry.boundingBox();expect(box!.width).toBeGreaterThan(200);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await expect(entry.locator('img')).toHaveAttribute('src','/images/games/auction-entry-daily.webp');expect(await entry.locator('img').evaluate((node:HTMLImageElement)=>node.complete&&node.naturalWidth===960)).toBe(true);
+  await expect(entry).toHaveCSS('border-top-color',await themeColor(entry,'--purple'));
+  await expect(lobby.getByText('Free Entry',{exact:true})).toHaveCSS('color',await themeColor(lobby,'--tone-up'));
+  await expect(lobby.getByText('25–90 cards - Premium Cards',{exact:true})).toBeVisible();
+  await entry.focus();await expect(entry).toBeFocused();await page.screenshot({path:testInfo.outputPath(`daily-entry-${width}-${theme}.png`),fullPage:true,animations:'disabled'});
+ }
+ await page.keyboard.press('Enter');await expect(page).toHaveURL(/\/riftbound-auction\/daily$/);await expect(page.getByRole('button',{name:'Start Daily Challenge',exact:true})).toBeVisible();expect(dailyReads).toBe(0);expect(await page.evaluate(()=>performance.timeOrigin)).toBe(origin);
+ const daily=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)??'null')?.daily,key);expect(daily?.save?.auction??null).toBeNull();
+ await expect(page.getByRole('link',{name:'← Normal Auctions',exact:true})).toHaveCount(0);
+ const start=page.getByRole('button',{name:'Start Daily Challenge',exact:true});await expect(start.locator('img')).toHaveAttribute('src','/images/games/auction-entry-daily.webp');
+ await expect(page.locator('.auction-daily-facts')).toContainText('$2,500');await expect(page.locator('.auction-daily-deadline')).toContainText('Finish before midnight UTC.');
+ for(const width of [1440,390])for(const theme of ['dark','light']){await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.locator('.auction-daily').screenshot({path:testInfo.outputPath(`daily-rules-${width}-${theme}.png`),animations:'disabled'});}
+});
+
+test('community slider keeps the Auction Shell and selected-tab clicks do not refresh it',async({page})=>{
+ let reads=0;await page.route('**/api/games/auction-community?**',route=>{reads++;return route.fulfill({json:{rows:[],offset:0,nextCursor:null}})});
+ await page.route('https://tcgplayer-cdn.tcgplayer.com/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280"/>'}));
+ await page.goto('/games/riftbound-auction/leaderboard');await expect(page.getByRole('columnheader',{name:'Net Auction P/L'})).toBeVisible();
+ const origin=await page.evaluate(()=>{Object.assign(window,{communityBackdrop:document.querySelector('.auction-page-art')});return performance.timeOrigin});
+ await page.getByRole('tab',{name:'Public Showcases',exact:true}).click();await expect(page).toHaveURL(/\/showcases$/);await expect(page.getByRole('columnheader',{name:'Showcase Value'})).toBeVisible();expect(reads).toBe(2);
+ await page.getByRole('tab',{name:'Public Showcases',exact:true}).click();expect(reads).toBe(2);expect(await page.evaluate(()=>performance.timeOrigin)).toBe(origin);
+ expect(await page.evaluate(()=>document.querySelector('.auction-page-art')===(window as unknown as {communityBackdrop:Element}).communityBackdrop)).toBe(true);
+ await page.getByRole('tab',{name:'Leaderboard',exact:true}).click();await expect(page.getByRole('columnheader',{name:'Net Auction P/L'})).toBeVisible();expect(reads).toBe(3);
+});
+test('auction hub preserves the document and decorative background, restores inventory URLs and retains an active auction',async({page},testInfo)=>{
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ const rows=Array.from({length:35},(_,i)=>({game:'riftbound',productId:992000+i,name:`Navigation Card ${i}`,image:`https://art.example/${i}.svg`,marketPrice:i+1,printing:'Normal',section:'rares',set:'Origins',rarity:'Rare',year:2025,number:String(i),url:'',lowPrice:null,midPrice:null,highPrice:null,priceChange:null}));
+ await page.route('**/data/*.json',route=>route.fulfill({json:rows}));await page.route('https://art.example/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280"><rect width="200" height="280" fill="#7557ff"/></svg>'}));
+ const initial=initialAuctionSave();initial.wallet.inventory=rows.map(row=>({productId:row.productId,printing:'Normal',quantity:5}));await page.addInitScript(({key,initial})=>{if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify(initial))},{key,initial});
+ await page.goto('/games/riftbound-auction');await expect(page.getByRole('navigation',{name:'Auction Hub',exact:true})).toBeVisible();await expect(page.locator('.auction-page-art')).toHaveCount(1);
+ await expect(page.getByRole('button',{name:'Enter Bilgewater Auction House',exact:true})).toBeEnabled();
+ const origin=await page.evaluate(()=>{(window as unknown as {auctionBackdrop:Element|null}).auctionBackdrop=document.querySelector('.auction-page-art');return performance.timeOrigin});
+ const hub=page.getByRole('navigation',{name:'Auction Hub',exact:true});await expect(hub.getByRole('link',{name:'Community',exact:true})).toHaveAttribute('href','/games/riftbound-auction/leaderboard');await expect(hub.locator('details')).toHaveCount(0);await expect(page.getByText('Active auction timers continue while you browse.',{exact:true})).toHaveCount(0);await hub.getByRole('link',{name:'Inventory',exact:true}).click();await expect(page.getByRole('heading',{name:'Auction Inventory',exact:true})).toBeVisible();await expect(page.getByRole('link',{name:'← Auction House',exact:true})).toHaveAttribute('href','/games/riftbound-auction');expect(await page.evaluate(()=>performance.timeOrigin)).toBe(origin);expect(await page.evaluate(()=>document.querySelector('.auction-page-art')===(window as unknown as {auctionBackdrop:Element|null}).auctionBackdrop)).toBe(true);await expect(page.locator('main')).toHaveCount(1);
+ await page.getByLabel('Find Cards').fill('Navigation Card 1');await page.getByRole('combobox',{name:'Sort Inventory',exact:true}).selectOption('quantity-desc');await expect(page).toHaveURL(/q=Navigation\+Card\+1.*sort=quantity-desc/);
+ for(const width of [1440,390])for(const theme of ['dark','light']){await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:testInfo.outputPath(`hub-inventory-${width}-${theme}.png`),fullPage:true,animations:'disabled'});}
+ await hub.getByRole('link',{name:'Auction Guide',exact:true}).click();await expect(page.getByRole('heading',{name:'Auction Guide',exact:true})).toBeVisible();await page.goBack();await expect(page.getByLabel('Find Cards')).toHaveValue('Navigation Card 1');await expect(page.getByRole('combobox',{name:'Sort Inventory',exact:true})).toHaveValue('quantity-desc');
+ await hub.getByRole('link',{name:'Play',exact:true}).click();await page.getByRole('button',{name:'Enter Bilgewater Auction House',exact:true}).click();await page.getByRole('button',{name:'Skip Intro',exact:true}).click();await expect(page.getByLabel('Bid (virtual USD)')).toBeVisible();const seed=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)!).auction.seed,key);
+ await hub.getByRole('link',{name:'Auction Guide',exact:true}).click();await expect(page.getByRole('heading',{name:'Auction Guide',exact:true})).toBeVisible();await hub.getByRole('link',{name:'Play',exact:true}).click();await expect(page.getByLabel('Bid (virtual USD)')).toBeVisible();expect(await page.evaluate(key=>JSON.parse(localStorage.getItem(key)!).auction.seed,key)).toBe(seed);expect(await page.evaluate(()=>performance.timeOrigin)).toBe(origin);expect(await page.evaluate(()=>document.querySelector('.auction-page-art')===(window as unknown as {auctionBackdrop:Element|null}).auctionBackdrop)).toBe(true);
+ expect(errors).toEqual([]);
+});

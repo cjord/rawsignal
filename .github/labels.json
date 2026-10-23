@@ -1,0 +1,23 @@
+[
+  {"name":"type:bug","color":"D73A49","description":"Confirmed incorrect behavior"},
+  {"name":"type:improvement","color":"1D76DB","description":"Bounded product or engineering improvement"},
+  {"name":"type:investigation","color":"D4C5F9","description":"Evidence or a decision needed before implementation"},
+  {"name":"type:maintenance","color":"BFD4F2","description":"Operational review or upkeep"},
+  {"name":"type:digest","color":"5319E7","description":"Automated weekly task summary; not backlog work"},
+  {"name":"state:triage","color":"EDEDED","description":"Needs maintainer scope and priority review"},
+  {"name":"state:ready","color":"0E8A16","description":"Scoped and approved for implementation"},
+  {"name":"state:active","color":"1D76DB","description":"Currently being worked on"},
+  {"name":"state:blocked","color":"B60205","description":"Needs a specific external decision or dependency"},
+  {"name":"state:deferred","color":"CCCCCC","description":"Explicitly parked; excluded from digest reminders"},
+  {"name":"priority:critical","color":"B60205","description":"Reviewed urgent security, data-loss or widespread outage work"},
+  {"name":"priority:high","color":"D93F0B","description":"Reviewed next-priority reliability or product work"},
+  {"name":"priority:normal","color":"FBCA04","description":"Reviewed planned work without an urgent deadline"},
+  {"name":"priority:low","color":"EDEDED","description":"Reviewed optional refinement; not an implicit deferral"},
+  {"name":"area:reliability","color":"BFDADC","description":"Loading, availability and recovery"},
+  {"name":"area:catalog","color":"BFDADC","description":"Catalog coverage and ingestion"},
+  {"name":"area:collections","color":"BFDADC","description":"Account-owned real-world collections"},
+  {"name":"area:accounts","color":"BFDADC","description":"Identity, privacy and account operations"},
+  {"name":"area:models","color":"BFDADC","description":"Signal evaluation and governance"},
+  {"name":"area:editorial","color":"BFDADC","description":"Reviewed market articles"},
+  {"name":"area:games","color":"BFDADC","description":"Auction House and other games"}
+]

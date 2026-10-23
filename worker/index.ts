@@ -8,11 +8,18 @@ import { pageCacheSignature } from "./page-signature.ts";
 import type { D1DatabaseLike } from "../db/repository.ts";
 import { handleStagingJob, type StagingJobEnv } from "./staging-jobs.ts";
 import { EBAY_ACCOUNT_DELETION_PATH, handleEbayAccountDeletion, type EbayAccountDeletionEnv } from "./ebay-account-deletion.ts";
+import {handleAccountRoute} from './account-routes.ts';
+import type {AccountEnv} from './account-auth.ts';
+import {isAdminPage,handleAdminPage} from './admin-pages.ts';
+import {auctionCommunityPath,handleAuctionCommunity} from './auction-community.ts';
+import {handleAuctionCatalog} from './auction-catalog.ts';
+import {auctionCatalogCacheEnabled} from '../core/domain/auction-catalog-snapshot.ts';
 
 interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
   ENVIRONMENT?: string;
+  AUCTION_CATALOG_CACHE_ENABLED?: string;
   STAGING_JOB_TOKEN?: string;
   POKEMONPRICETRACKER_API_KEY?: string;
   EBAY_CLIENT_ID?: string;
@@ -44,6 +51,14 @@ interface ExecutionContext {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    if(url.pathname==='/api/auction/catalog'){
+      if(!auctionCatalogCacheEnabled(env))return handleAuctionCatalog(request,env as unknown as Parameters<typeof handleAuctionCatalog>[1]);
+      return withEdgeCache(request,ctx,()=>handleAuctionCatalog(request,env as unknown as Parameters<typeof handleAuctionCatalog>[1]));
+    }
+    if(isAdminPage(url.pathname))return handleAdminPage(request,env as AccountEnv,()=>handler.fetch(request,env,ctx));
+    if(auctionCommunityPath(url.pathname))return handleAuctionCommunity(request,env as AccountEnv);
+    const accountResponse=await handleAccountRoute(request,env as AccountEnv);
+    if(accountResponse)return accountResponse;
 
     // eBay must reach this compliance callback without vinext routing or the colo cache.
     // GET proves endpoint ownership; POST verifies eBay's signed deletion notification.

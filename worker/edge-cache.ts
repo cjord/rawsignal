@@ -49,6 +49,7 @@ export function sharedMaxAge(cacheControl: string | null): number {
 export function edgeCacheClass(request: Request): EdgeCacheClass {
   if (request.method !== "GET") return null;
   const { pathname } = new URL(request.url);
+  if (/^\/api\/(auth|account)(\/|$)/.test(pathname)) return null;
   if (ROUTE_CACHED_PREFIXES.some(prefix => pathname.startsWith(prefix)) || ROUTE_CACHED_PATHS.includes(pathname)) return "route";
   if (PAGE_CACHED_PATTERN.test(pathname)) return "page";
   return null;

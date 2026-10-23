@@ -12,9 +12,11 @@ import {priceGameWinner,type PriceGameDifficulty} from '../../core/domain/price-
 import {utcGameDate} from '../../core/domain/daily-game';
 import ShareGameResults from './ShareGameResults';
 import {showdownShareText} from '../../core/domain/game-sharing';
+import {useAccount} from '../account/AccountProvider';
 
 type SessionProps={save:DailyShowdownSave;mode:PriceGameDifficulty;auto:boolean;expired:boolean;transact:(update:(save:DailyShowdownSave)=>DailyShowdownSave)=>void};
 function DailyShowdownSession({save,mode,auto,expired,transact}:SessionProps){
+ const {user}=useAccount();
  const run=save[mode],round=save.manifest[mode][run.cursor],history=dailyShowdownHistory(save.manifest,mode,run.picks),score=showdownScore(history),complete=run.picks.length===10;
  const selected=run.picks.length>run.cursor?round[run.picks[run.cursor]].productId:null,winner=priceGameWinner(round),firstButton=useRef<HTMLButtonElement|null>(null);
  const [artError,setArtError]=useState(false),revealed=selected!==null;
@@ -28,7 +30,7 @@ function DailyShowdownSession({save,mode,auto,expired,transact}:SessionProps){
   {complete&&<section className="detail-section daily-game-complete"><h2>Daily Challenge Complete</h2><p>{score.correct}/10 correct · Best streak {score.best}. Try the other difficulty or return tomorrow.</p><ShareGameResults share={{v:1,g:'showdown',d:save.manifest.date,m:mode,p:run.picks}} text={url=>showdownShareText(save.manifest,mode,run.picks,url)}/></section>}
   <p className="price-game-result" role="status">{revealed?`${selected===winner!.productId?'Correct!':'Not quite.'} ${winner!.name} has the highest market price.`:expired?'This challenge has expired. Load today’s lineup to play.':'Pick the most valuable card.'}</p>
   {artError?<p role="alert">One image could not load. The daily cards won’t be rerolled. <button className="game-control" type="button" onClick={()=>setArtError(false)}>Retry Artwork</button></p>:<RoundChoices key={`${mode}:${run.cursor}`} round={round} difficulty={mode} selected={selected} preparing={expired} firstButton={firstButton} onChoose={card=>transact(current=>answerDailyShowdown(current,mode,round.findIndex(choice=>choice.productId===card.productId),Date.now()))} onFailed={()=>setArtError(true)}/>}
-  {!complete&&<div className="price-game-next"><button className="game-control" type="button" disabled={!revealed||expired} onClick={next}>Next Round →</button><span className="games-note">Answers save in this browser. No restarts today.</span></div>}
+  {!complete&&<div className="price-game-next"><button className="game-control" type="button" disabled={!revealed||expired} onClick={next}>Next Round →</button><span className="games-note">Answers save {user?'to your account':'in this browser'}. No restarts today.</span></div>}
   <PriceShowdownHistory history={[...history].reverse()} daily/>
  </section>;
 }

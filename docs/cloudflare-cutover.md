@@ -9,6 +9,7 @@ Status: the cutover completed on 2026-08-28 (see the final section). Production 
 | Dormant rollback | OpenAI Sites | Sites `DB` binding | None (retained only as a rollback path) |
 | Cloudflare staging | `raw-signal-staging` Worker | `raw-signal-staging` D1 | `workers.dev` and version preview URLs |
 | Production | `raw-signal` Worker | `raw-signal-production` D1 | `rawsignal.cards` custom domain (workers.dev off) |
+| Shared identity | Both Workers' `IDENTITY_DB` | `raw-signal-identity`, identity-only | Shared verified logins; never market/game saves |
 
 `cloudflare/environments.json` stores only non-secret names. Account IDs, database UUIDs, tokens, generated deployment configs, exports, and backups must stay outside Git.
 
@@ -36,6 +37,14 @@ npx wrangler deploy --dry-run --config dist/server/wrangler.staging.json
 ```
 
 The generated file is ignored by Git. Inspect it before deployment and verify that `triggers` is empty, `workers_dev` is true, the `DB` binding references staging, there is no production route, and the injected bindings are present: `images` → `IMAGES`, `version_metadata` → `CF_VERSION_METADATA`, and the service binding `COLLECTR_FETCH` → `raw-signal-collectr`. Production preparation also pins `EBAY_DELETION_ENDPOINT_URL` to the exact custom-domain callback URL; it is public configuration, not a credential.
+
+**2026-10-21 schedule correction:** `triggers: {}` does not clear an already-attached
+remote cron. An unexpected staging `*/2` survived deployments until this release
+explicitly generated `triggers: {crons: []}` and deployed it. Remote schedule inspection
+then confirmed an empty list; production retains `*/1`. The preparation script now
+emits the explicit empty list, with regression coverage. Require that list when clearing a
+schedule and verify remote state after deploy. Do not infer cronlessness from an
+absent/empty config section or a generic “triggers deployed” success message.
 
 ## 3. Migrate and seed staging
 
@@ -177,7 +186,7 @@ Before any remote migration or production cutover, create an export in the ignor
 
 ```powershell
 npx wrangler d1 export DB --remote --output backups/raw-signal-before-cutover.sql --config dist/server/wrangler.production.json
-npx wrangler d1 time-travel info DB --remote --config dist/server/wrangler.production.json
+npx wrangler d1 time-travel info DB --config dist/server/wrangler.production.json
 ```
 
 A Worker version rollback restores code, assets, and bindings; it does not restore D1 contents. A database rollback is a separate, destructive operation and requires explicit approval. Time Travel retention is finite, so exports remain part of the cutover checklist.

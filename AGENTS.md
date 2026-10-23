@@ -28,6 +28,16 @@ Keep the product focused on clear market intelligence: sortable leaderboards, hi
 - Do not add route-level `loading.tsx` files: vinext 1.0.0-beta.2 leaves their Suspense fallbacks unresolved on a cold dev server, freezing the route. Use in-page loading states instead until a vinext upgrade is verified to fix this.
 - Never edit this file without prompting the user first, even for factual corrections.
 
+## Critical development review
+
+- Proactively challenge assumptions and proposed implementations when correctness, security, privacy, accessibility, performance, maintainability or operating cost could suffer. Explain concrete evidence, tradeoffs and a recommended alternative; do not simply agree with a requested approach or present preferences as universal rules.
+- Prefer the smallest cohesive change that solves the problem within the existing architecture. Reuse established components and contracts; avoid speculative abstractions, unnecessary dependencies, large rewrites and process overhead without a demonstrated benefit.
+- Ask focused questions when a decision materially affects scope, data integrity, public visibility, compatibility or release risk. Make reasonable low-risk implementation decisions independently, and explain consequential assumptions rather than repeatedly seeking approval for routine steps.
+- Before merging, inspect the actual remote base and branch differences, intended staged changes and validation evidence. Keep unrelated drafts and user edits out of commits, prefer focused commits and short-lived branches, and do not start new feature work on a branch that should first be integrated.
+- Verify failure paths and adjacent behavior, not only the happy path. Protect source provenance, unavailable-data semantics, account isolation and idempotent writes. Measure performance claims and distinguish automated tests from real-device or live acceptance; never weaken tests to obtain a green result.
+- At handoff, separate implemented, tested, merged, deployed and activated states. State remaining risks and limitations, record material decisions in specifications/issues, and recommend worthwhile follow-ups without silently expanding the task.
+- This standing request for critical review and best-practice questions does not expand authorization for pushes, deployments, database operations, permission changes, paid services or destructive actions. Existing approval and release-gate requirements remain in force.
+
 ## Repository map
 
 ### Layers
@@ -63,6 +73,7 @@ Styles load as a layered chain from `app/layout.tsx` (eleven sheets, order pinne
 
 ## Source control and GitHub
 
+- Task-tracking transition: TODO documents remain authoritative until the reviewed pilot issues have been imported and verified. After that explicitly recorded checkpoint, GitHub Issues owns task status, priority and ownership; repository documents retain specifications, decisions and history. Until then, the import manifest is a draft, not a second task-status system. This transition does not change push, deployment, data-access or safety restrictions.
 - Local commits are normal workflow. Pushing to GitHub is an external action: never run `git push` (or create remote branches, tags, or pull requests) unless the user explicitly requests a push in the active task.
 - A request to publish or deploy the site does not authorize a push, and a push request does not authorize a deployment.
 - Never force-push `main`, and never rewrite history that has already been pushed.

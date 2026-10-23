@@ -7,10 +7,35 @@ import {decideScheduledAction} from "../worker/scheduled-decision.ts";
 const base={name:"raw-signal",main:"index.js",d1_databases:[{binding:"DB",database_name:"local",database_id:"00000000-0000-4000-8000-000000000000"}],assets:{directory:"../client"},triggers:{crons:["0 5 * * *"]}};
 const databaseId="123e4567-e89b-42d3-a456-426614174000";
 
+test('real collections require accounts and must be explicitly enabled for each deployment',()=>{
+ const options={environment:'staging',databaseId,databaseName:'raw-signal-staging',workerName:'raw-signal-staging'};
+ assert.equal(prepareDeploymentConfig({...base,vars:{AUTH_COLLECTIONS_ENABLED:'true'}},options).vars.AUTH_COLLECTIONS_ENABLED,'false');
+ assert.throws(()=>prepareDeploymentConfig(base,{...options,collections:true}),/require account authentication/);
+ const enabled=prepareDeploymentConfig(base,{...options,accounts:true,authBaseUrl:'https://stage.example',collections:true});
+ assert.equal(enabled.vars.AUTH_COLLECTIONS_ENABLED,'true');assert.deepEqual(enabled.triggers,{crons:[]});
+});
+
+test('account deployments are explicit, isolate the auth origin and restrict their email sender',()=>{
+ const options={environment:'staging',databaseId,databaseName:'raw-signal-staging',workerName:'raw-signal-staging'};
+ const disabled=prepareDeploymentConfig({...base,vars:{AUTH_ENABLED:'true',AUTH_BASE_URL:'https://old.example'},send_email:[{name:'AUTH_EMAIL'}]},options);
+ assert.equal(disabled.vars.AUTH_ENABLED,'false');assert.equal(disabled.vars.AUTH_BASE_URL,undefined);assert.equal(disabled.send_email,undefined);
+ assert.throws(()=>prepareDeploymentConfig(base,{...options,accounts:true}),/HTTPS auth origin/);
+ for(const authBaseUrl of ['http://localhost:3000','https://user:secret@example.test','https://example.test/path'])assert.throws(()=>prepareDeploymentConfig(base,{...options,accounts:true,authBaseUrl}),/HTTPS auth origin/);
+ const enabled=prepareDeploymentConfig(base,{...options,accounts:true,authBaseUrl:'https://staging.example.test'});
+ assert.equal(enabled.vars.AUTH_ENABLED,'true');assert.equal(enabled.vars.AUTH_BASE_URL,'https://staging.example.test');assert.deepEqual(enabled.send_email,[{name:'AUTH_EMAIL',allowed_sender_addresses:['accounts@rawsignal.cards']}]);assert.deepEqual(enabled.triggers,{crons:[]});
+});
+
+test('recovery/audit tools are explicit and never inherited into another account deployment',()=>{
+ const options={environment:'staging',databaseId,databaseName:'raw-signal-staging',workerName:'raw-signal-staging',accounts:true,authBaseUrl:'https://stage.example'};
+ const disabled=prepareDeploymentConfig({...base,vars:{AUTH_AUDIT_ENABLED:'true',AUTH_RECOVERY_ENABLED:'true'}},options);assert.equal(disabled.vars.AUTH_AUDIT_ENABLED,'false');assert.equal(disabled.vars.AUTH_RECOVERY_ENABLED,'false');
+ const enabled=prepareDeploymentConfig(base,{...options,accountTools:true});assert.equal(enabled.vars.AUTH_AUDIT_ENABLED,'true');assert.equal(enabled.vars.AUTH_RECOVERY_ENABLED,'true');
+ assert.throws(()=>prepareDeploymentConfig(base,{...options,accounts:false,accountTools:true}),/require accounts/);
+});
+
 test("staging config keeps Cron disabled and binds assets plus an isolated D1 database",()=>{
  const config=prepareDeploymentConfig(base,{environment:"staging",databaseId,databaseName:"raw-signal-staging",workerName:"raw-signal-staging"});
  assert.equal(config.name,"raw-signal-staging");assert.equal(config.workers_dev,true);assert.equal(config.preview_urls,true);
- assert.deepEqual(config.triggers,{});assert.equal(config.assets.binding,"ASSETS");assert.deepEqual(config.assets.run_worker_first,["/data/*"]);assert.equal(config.images.binding,"IMAGES");assert.equal(config.version_metadata.binding,"CF_VERSION_METADATA");assert.equal(config.vars.ENVIRONMENT,"staging");assert.equal(config.d1_databases[0].binding,"DB");assert.equal(config.d1_databases[0].database_id,databaseId);assert.equal(config.d1_databases[0].migrations_dir,"../../drizzle");
+ assert.deepEqual(config.triggers,{crons:[]});assert.equal(config.assets.binding,"ASSETS");assert.deepEqual(config.assets.run_worker_first,["/data/*"]);assert.equal(config.images.binding,"IMAGES");assert.equal(config.version_metadata.binding,"CF_VERSION_METADATA");assert.equal(config.vars.ENVIRONMENT,"staging");assert.equal(config.d1_databases[0].binding,"DB");assert.equal(config.d1_databases[0].database_id,databaseId);assert.equal(config.d1_databases[0].migrations_dir,"../../drizzle");
  assert.equal("routes" in config,false);
  // The Collectr full-import worker is reached by service binding (a same-account
  // workers.dev subrequest 404s), and the binding must ride both environments.
@@ -20,7 +45,7 @@ test("staging config keeps Cron disabled and binds assets plus an isolated D1 da
 test("production config requires an explicit hostname and never inherits a schedule",()=>{
  assert.throws(()=>prepareDeploymentConfig(base,{environment:"production",databaseId,databaseName:"raw-signal-production",workerName:"raw-signal"}),/custom-domain/);
  const config=prepareDeploymentConfig(base,{environment:"production",databaseId,databaseName:"raw-signal-production",workerName:"raw-signal",route:"cards.example.com"});
- assert.equal(config.workers_dev,false);assert.equal(config.vars.ENVIRONMENT,"production");assert.equal(config.vars.EBAY_DELETION_ENDPOINT_URL,"https://cards.example.com/api/ebay/account-deletion");assert.deepEqual(config.routes,[{pattern:"cards.example.com",custom_domain:true}]);assert.deepEqual(config.triggers,{});
+ assert.equal(config.workers_dev,false);assert.equal(config.vars.ENVIRONMENT,"production");assert.equal(config.vars.EBAY_DELETION_ENDPOINT_URL,"https://cards.example.com/api/ebay/account-deletion");assert.deepEqual(config.routes,[{pattern:"cards.example.com",custom_domain:true}]);assert.deepEqual(config.triggers,{crons:[]});
  // Since the split, production is ingestion's home: an explicit --cron applies there too.
  const scheduled=prepareDeploymentConfig(base,{environment:"production",databaseId,databaseName:"raw-signal-production",workerName:"raw-signal",route:"cards.example.com",cron:"*/2 * * * *"});
  assert.deepEqual(scheduled.triggers,{crons:["*/2 * * * *"]});
@@ -31,7 +56,7 @@ test("either environment opts into a guard cron explicitly; none is inherited",(
  assert.deepEqual(withCron.triggers,{crons:["*/2 * * * *"]});
  // The base config's schedule never leaks through without an explicit request.
  const production=prepareDeploymentConfig(base,{environment:"production",databaseId,databaseName:"raw-signal-production",workerName:"raw-signal",route:"cards.example.com"});
- assert.deepEqual(production.triggers,{});
+ assert.deepEqual(production.triggers,{crons:[]});
 });
 
 test("scheduled ticks advance due work and never start history backfills",()=>{

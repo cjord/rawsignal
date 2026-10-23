@@ -10,6 +10,38 @@ without re-deriving them. Update or remove entries as they land. The signal-mode
 `docs/todo.md` §P (open steps, priorities, scheduled tasks) and `docs/todo-completed.md`
 (shipped steps P1–P7 with build notes), with run evidence in `docs/backtests.md`.
 
+## Account-owned collections — after authentication (2026-10-19)
+
+Auction UI follow-up plans are separate from real collections: a version-aware
+public catalog cache, optional private bootstrap response, Persistent Auction Shell,
+Auction Hub Navigation, a dedicated virtual Inventory Page, and Profile Studio
+preview/edit with optional chosen decorative cards. A newer 2026-10-19 request
+authorizes implementation: the cache is local and feature-off; persistent navigation,
+Inventory Page, Profile Studio and guarded economic price checks are also local.
+Design choices are resolved; full local gate passed (604 node / 109 browser, one
+node skip). Live parity/read-cost measurement and rollout approval remain. See
+[implementation progress](auction-implementation-progress.md),
+[loading/inventory follow-up](auction-loading-and-inventory.md) and its linked plans.
+
+The subsequent [quality slice](auction-quality-improvement-plan.md) is also local:
+request/save resilience, owner exports, loading/retry components and measurement.
+Cold-shell layout movement remains measurable. Next gates: staging read-cost/parity,
+real two-device/provider recovery checks, and public quotas/moderation. Query guards
+are not public rate limiting.
+
+The next [loading/safety follow-up](auction-loading-and-safety-follow-up.md) implements
+local shift fixes, public legacy-feed reuse, independent artwork scheduling, platform
+burst hooks and reversible community moderation. Migration 0028 and protection switches
+are not deployed/applied. Staging cache comparison, physical-device recovery and public
+abuse tuning/reporting remain gates; local evidence is not production verification.
+
+Google, Discord and passwordless email sign-in precede collection management.
+The first local account save implementation is in progress, not deployed. Next:
+named real collections, multiple Collectr imports with reviewed diffs, quantities,
+printing/condition, optional cost basis and snapshot-based monitoring. Keep game
+inventory separate and real collections private by default. See
+[accounts and collections](accounts-and-collections.md) for decisions and rollout gates.
+
 ## Developer mode — FUTURE, staging only (2026-10-16)
 
 User-approved direction, **planning only**: a default-off Settings toggle on staging

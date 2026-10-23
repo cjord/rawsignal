@@ -1,4 +1,6 @@
 import type { D1DatabaseLike } from "../db/repository.ts";
+import {readPublishSignature} from '../db/publication-version.ts';
+export {PUBLISH_KEYS,readPublishSignature} from '../db/publication-version.ts';
 
 // What a public page is built from: the published runs (catalog and prices, product details,
 // the metrics rollup, the signal marker, graded prices) and the deployed version. The page
@@ -9,18 +11,11 @@ import type { D1DatabaseLike } from "../db/repository.ts";
 // When D1 cannot answer, the signature falls back to a ten-minute time bucket: the cache then
 // behaves exactly as it did before this keying.
 
-export const PUBLISH_KEYS = ["daily-market", "product-details", "metrics-rollup", "history-signals", "graded-rotation"] as const;
 export const SIGNATURE_TTL_MS = 60_000;
 const FALLBACK_BUCKET_MS = 600_000;
 
 type Memo = { at: number; value: Promise<string> };
 const memos = new WeakMap<D1DatabaseLike, Memo>();
-
-export async function readPublishSignature(db: D1DatabaseLike): Promise<string> {
-  const rows = (await db.prepare(`select key, ingestion_run_id as runId, last_success_at as at from refresh_state where key in (${PUBLISH_KEYS.map(() => "?").join(",")}) order by key`)
-    .bind(...PUBLISH_KEYS).all<{ key: string; runId: string | null; at: string | null }>()).results ?? [];
-  return rows.map(row => `${row.key}=${row.runId ?? ""}@${row.at ?? ""}`).join(";");
-}
 
 export const fallbackSignature = (version: string, now: number) => `${version}|t${Math.floor(now / FALLBACK_BUCKET_MS)}`;
 

@@ -9,6 +9,277 @@ ingestion fixes R1–R4). Open items, current priorities, and the scheduled-task
 stay in `docs/todo.md`. Last updated 2026-09-10 (covers work through production version
 `9f30fee8`).
 
+## 2026-10-22 — Compact Auction Wallet and backdrop assessment, staging verified
+
+Application `ef48bd2` pushed and deployed staging `ec0eff58`. Reset is styled red;
+redundant wallet navigation/Refresh Market are removed, with automatic snapshot
+checks and failure retries retained. Compact Total Net Worth / Showcase Value,
+inline card counts, one valuation explanation and matching Guide button fill.
+Full gate: 675 unit passes (one skip), all 165 Chromium journeys, build/lint/types,
+no new complexity warnings. Live wallet and nine-surface smoke passed with stable
+Hub navigation and no new catalog reads, overflow, page errors or writes. Production
+unchanged. Backdrop assessment reproduced all-slot image replacement after local
+error injection, but not a true periodic reload across a normal 70-second loop.
+Stable Artwork Slots, phase/compositor follow-up and calmer palette options are
+documented plans, not implemented fixes. [Details and evidence](auction-wallet-refinement-and-backdrop-plan.md).
+
+## 2026-10-22 — Auction Wallet Summary and navigation polish, staging verified
+
+Application `60607db` pushed and deployed staging `d3533f03`. Cash-first green
+headline, after-fee total/inventory/protected-showcase breakdown, gross-value
+tooltips, honest unpriced coverage and direct inventory/showcase links replace the
+duplicate lobby inventory drawer. Balances, fees, saved formats and daily funds
+are unchanged. Earlier local navigation/community/pagination, expanded showcase
+visibility, neutral account loading, stable Games directory and seamless backdrop
+loop work ship in the same release. Full gate: 675 unit passes (one skip), all
+165 Chromium journeys, build/lint/type checking; no new lint warnings. Live wallet
+and nine-surface desktop/phone dark/light smoke passed with no overflow/page errors
+or writes; shell links retained the document/background without catalog reads.
+Staging bindings/flags and no-cron policy preserved; production unchanged.
+[Design, accounting, verification and limits](auction-wallet-summary.md).
+
+## 2026-10-22 — Cold Metrics and stable font delivery, staging verified
+
+Application `eb5b0c0` pushed and deployed staging `9f32fb4c`: exact grouped medians
+and concurrent independent Set EV reads reduce the full Metrics service from
+669,458 → 553,287 rows read (17.4%), still 12 statements and zero writes.
+Weight-aware sans fallbacks plus optional font delivery prevent disruptive late
+rewrapping; cached headings still use Geist. Full gate: 672 unit passes (one skip),
+160 Chromium journeys, no new lint warnings. Live Metrics/Set EV payload parity,
+nine-surface theme/width matrix and 16 normal/held/failed/cached font cases passed.
+Observed first Metrics server time 1,557 → 1,477ms is uncontrolled and does not
+prove repeatable cold speed gains. Staging bindings/flags/empty cron preserved;
+production unchanged. Optional modules, populated accounts and physical recovery
+are explicitly deferred in the backlog. No migration/ingestion/account writes.
+[Goals, risks, evidence and remaining limits](cold-metrics-layout-stability.md).
+
+## 2026-10-22 — Full-view resize and cold-query checkpoint, staging only
+
+Application `da672ba` pushed and deployed staging `dc2949f8`: real Full-view
+resize containment, full-width mobile Sealed history/metrics, request-local
+Metrics eligibility reuse and lighter all-game Singles detail candidates.
+Exact service output parity retained: Metrics reads 756,190 → 669,458; detail
+reads/decoded result sizes reduced without narrowing peers or adding queries.
+Complete gate: 670 unit passes (one existing skip), 152 Chromium journeys and
+no new lint warnings. Strict live nine-surface desktop/mobile, dark/light matrix
+passed without overflow/page errors; compact catalog and retained hub background
+contracts passed. Bindings and empty staging cron preserved; production unchanged.
+Observed cold timings remain uncontrolled, not a proven field speed improvement.
+Physical Safari/two-device recovery is deferred at the user's request until a
+device is available; optional modules, populated fixtures and late-font work remain.
+[Measurements, limitations and next steps](page-loading-next-checkpoint.md).
+
+## 2026-10-21 — Loading follow-up checkpoint, staging only
+
+Application `8e47480` pushed and deployed staging `6d543053`: matched-width mono
+fallback/primary font preloads, shared Large/Full loading frames, request-local
+Sets/Eras summaries and viewport-budgeted decorative loops. Complete gate:
+668 unit passes (one existing skip), 144 Chromium journeys, no new lint warnings.
+Actual service output parity retained with 901,651 → 756,190 cold-build rows read;
+live cold latency is **not** proven faster. Normal detail typography shifted much
+less, but deliberately late fonts still move. Live checks exposed a resolved Full
+row desktop-to-phone resize issue; deeper candidate/bundle work and real-device
+acceptance remain open. Catalog/account bindings, staging's empty schedule and
+production were preserved. This entry records a checkpoint, not completion of the
+whole loading plan. [Goals, results and remaining steps](page-loading-next-checkpoint.md).
+
+## 2026-10-21 — Page-loading batches, staging verified
+
+Application `cfc591b` pushed and deployed to staging `01a13354` after the complete
+662-unit/134-browser gate (one existing unit skip). Scope-Stable Page Body,
+public payload reuse/timings, shared catalog/freshness and stable backdrop slots.
+Five-sample live comparisons confirm Showdown 22→11 feeds, Sealed 3→2 reads and
+Sets mobile readiness 6.64→2.97 s with bounded CLS 0.512→0.001. Overall latency
+is mixed; mobile Cards still shifts and Auction Play still takes ~6.5 s in simulation.
+Four unfinished ingestion records bypass public payload reuse: no cache-hit benefit
+is claimed and no database repair/guard weakening occurred. Live scope/theme/no-JS
+checks and fifteen same-document/background-preserving hub transitions passed;
+two router-stream cancellations were retained as separate diagnostics. Production,
+bindings/flags and staging's empty cron schedule were preserved.
+[Measurements, limitations and remaining priorities](page-loading-staging-results-2026-10-21.md).
+
+## 2026-10-21 — Market Scope production promotion
+
+Staging-verified application `be40c34` (documentation `0c94038`) was promoted to
+production `cd4d0160-61c4-4b54-8ccc-c7ea170a5883` on the user's explicit request,
+using the full-gate build (655 unit passes, one skip, 131 browser passes). Public
+market pages retain one mount while account state resolves; URL/device scope is
+resolved once and hidden Singles loading on Sealed is removed. Production flags,
+secrets, DB/identity bindings, custom domain and `*/1` schedule were preserved;
+staging was unchanged. No migration, ingestion repair or Collections activation.
+Production requests from this test connection still encounter Cloudflare 403,
+so custom-domain application verification is not claimed. New page-loading
+batches started afterward and were subsequently released to staging (above), not
+part of this production version.
+[Promotion and follow-up record](page-loading-batches-progress-2026-10-21.md).
+
+## 2026-10-21 — Collections interface polish, Sold History and Card Show Events
+
+Application `f2d222c`, including `5144e5f`, is pushed/deployed to staging `9f77be00`.
+Seven interface improvements cover first-use continuation, explicit unit prices,
+compact full-width dated-lot expansion, actionable coverage filters, stable reloads
+and confirmed-save feedback, URL-backed state and private formula-safe CSV exports.
+Uncertain saves require reconciliation before another write; no automatic sale replay.
+Completed sales retain identity and grouped FIFO allocations, with sticker suggestions,
+named/date card-show events, paid expenses and partial-cost-aware combined profit.
+
+Full gate passed: 652 unit tests (one skip), 126 browser journeys and no new lint
+warnings. Live staging guest/private API and both-theme desktop/mobile checks passed
+with no account writes or browser errors. Identity/save bindings and secrets remain,
+staging has no cron, production is unchanged; no migration. Real signed-in acceptance
+remains a human check. [Ten-area review](collections-interface-review.md).
+
+## 2026-10-21 — Account Collections staging release
+
+Application `b784a9e` is pushed/deployed to staging `db580987`. New account-only
+Collections adds named collections/overview, exact catalog additions, reviewed
+Collectr imports, independent dated lots and server-captured market baselines,
+quantity-aware review movers, sortable table/grid holdings, optional Card Show
+stickers, corrections and FIFO recorded sales. It reuses existing account storage,
+private access controls and site UI; no migration, cron or ingestion expansion.
+
+The full gate passed: 639 unit tests (one skip), 122 browser journeys, type check
+and lint with no new warnings. Live staging guest/API/privacy and desktop/mobile
+dark/light checks passed; identity/save bindings and secrets remain, staging has no
+cron and production is unchanged. Real signed-in/multi-device acceptance remains a
+human check. [Scope, limits, math and release evidence](owned-collections.md).
+
+## 2026-10-21 — Shared account identity production launch
+
+Application `77537b5` is pushed/deployed to staging `d049f771` and production
+`be504bb9`. Shared identity uses a dedicated identity-only database; each Worker keeps
+its own market/save database and recovery wrapping. Staging requires a verified admin
+on sign-in and every account request. Global identity/security management is production-only.
+Google/Discord applications are reused with exact callbacks; email uses the restricted
+domain sender. Two verified admin identities and two provider links were preserved
+without copying sessions, tokens or saves. Private backups/bookmarks were approved
+and verified first. Production migrations 0024–0028 and the identity schema are applied.
+
+Local validation: full release gate plus final unit rerun, 630 passing unit tests
+(one skip), 118 browser journeys, no new lint warnings. Staging live access/provider/UI
+checks and production canonical APIs/deployed-preview checks passed, with zero guest
+save writes. The production custom-domain automated browser remains challenged by
+Cloudflare; security rules were unchanged. Prior secrets and market bindings are
+preserved; staging has no cron and production retains `*/1`. Explicit empty-cron
+config generation is regression-tested. Compact catalog cache remains OFF.
+
+Real provider sign-in after migration, signed-in acceptance and physical-device
+recovery remain human checks. See [release evidence](shared-account-identity.md#live-release--2026-10-21).
+
+## 2026-10-21 — Auction navigation, loading and safety release
+
+Application `44ecc7a` (initial feature source `6774350`) is pushed on
+`codex/accounts-and-collections` and deployed to staging and production. Persistent
+Auction Hub/background, separate Inventory Page, Profile Studio, reserved loading
+space, independent artwork loading, public in-memory feed reuse, bounded requests,
+save acknowledgements and server-owned account export are shipped. Account features
+remain enabled only on staging; no production account migration or credential setup.
+
+The final complete gate passed 622 node tests (one skip), 117 Chromium journeys,
+build/types/lint with 21 existing warnings. Staging live checks passed desktop/mobile
+and both themes, access/privacy boundaries, zero guest account writes and zero extra
+catalog requests on internal navigation. A built-only vinext Link export failure was
+fixed before production promotion; the new release smoke tool preserves document and
+background identity across three tab changes. Production preview repeated the UI/API
+checks successfully. The custom domain returned a Cloudflare challenge to automated
+browser requests, so direct-domain browser verification remains pending.
+
+Staging migration 0028 followed an explicitly approved private SQL backup and recovery
+bookmark. Moderation and platform burst bindings are enabled there; a bounded invalid
+read test observed 429/Retry-After 60 without account writes. Signed-in moderation and
+physical-device recovery remain separate manual acceptance. Existing database/secret
+bindings were verified preserved. An unexpected staging `*/2` schedule was removed via
+an explicit empty cron list and remote state verified empty; production retains `*/1`.
+
+Compact caching remains disabled in both environments after live parity failed. The
+staging compact path selected a 1,333-card bundled fallback while existing feeds exposed
+1,583 printings. No successful live snapshot/read-speed claim. Two failed-readiness
+rebuilds recorded 7,226/7,220 database rows read and zero writes. Production catalog
+queries also used fallback while the pre-existing live ingestion advanced; no manual
+ingestion, source refresh or production migration was performed.
+[Detailed evidence and open follow-ups](auction-loading-and-safety-follow-up.md#release-results--2026-10-21).
+
+## 2026-10-19 — Auction loading and Inventory Manager (staging)
+
+Application `b0ae632`, staging version `8d90dbd3-9c64-45e9-81a5-fc3dab2f4bbd`.
+Account-ready catalog/save/background gating removes the duplicate cold feed wave;
+the statistics provenance paragraph moved into its tooltip. Showcase skeletons
+include disabled Edit/Share controls. Closed inventory no longer mounts card rows;
+the expanded Inventory Manager adds search, rarity/set/price filters, value/unit/
+quantity/rarity/name sorting, 24-printing pages, selected sales and Keep 3 extra-copy
+sales with confirmation. Exact printings, unavailable prices and showcase protection
+remain intact; whole-inventory quick sales are separately scoped. Entry help renamed
+About Entry Fees. Refresh Market retained because entry does not fetch again.
+
+Full gate: 590 node passes, one skip, 105 browser journeys, types passed and only
+21 existing lint warnings. Live guest/UI/access/background checks passed, including
+new inventory and loading controls. No live account writes/emails, migration,
+ingestion, cron or production changes. Cold request count 22 → 11; two-visit elapsed
+time samples did not demonstrate a reliable speedup. Detailed plans, explicitly
+unimplemented: public versioned catalog cache, combined bootstrap alternative,
+persistent navigation/Auction Hub, separate Inventory Page and Profile Studio /
+custom decorative cards. [Scope, evidence and plan links](auction-loading-and-inventory.md).
+Distinct future-request names live in the [UI feature map](ui-feature-map.md).
+
+## 2026-10-19 — Auction profiles, loading and site notifications (staging)
+
+Application `d6f0ba1` (feature `c8cd8d7`), staging version
+`8fac8370-d450-4b78-ab9d-47258a54a6fd`. Centered/tinted game controls; live market-value
+showcase ranking independent of profit rankings; Profile-owned explicit public
+username; common decoded-card background on auction surfaces; coordinated Showcase
+data reveal with reserved art and collapsed sharing; bottom-right, click-through,
+dismissible notifications with account/device duration preference.
+
+Migration 0027 deployed-first after private backup/bookmark, then verified and existing
+features re-enabled. Existing public visibility resets off for explicit username and
+opt-in consent; games and inventory are untouched. Full gate: 585 node tests passed,
+one skipped; 103 browser journeys; types passed, 21 existing lint warnings only.
+Live access/UI/theme/size checks passed, including actual visible background pixels
+after correcting its shared stacking boundary. No live test emails/account saves,
+cron, feed refresh or production changes. Owner's real username/visibility review
+remains. [Scope, loading alternatives and next UI improvements](auction-ui-follow-up.md).
+
+## 2026-10-19 — Encrypted recovery, management and auction community (staging)
+
+Application `19bc36e`, staging version `05b35536-032a-4995-87b5-1eb0ba2887d4`.
+Encrypted seven-day device drafts with safe owner/revision-checked recovery; server-
+guarded read-only Overview, Audit, Data, Accounts & Sync, Catalog Quality and Jobs &
+Budgets; fixed-purpose support lookup and metadata counters. Account-linked public
+showcases and unverified normal-auction profit rankings are separate explicit opt-ins.
+Cards fade after decode; guest notices wait for confirmed identity. Existing snapshot
+links, wallet isolation, daily challenges and source data remain unchanged.
+
+Full gate: 580 node tests passed, one skipped, all 100 Chromium journeys; 21 existing
+lint warnings only. The old winner-preview test now explicitly pauses/advances time
+instead of racing the 250 ms tick. Live staging public APIs, private access denials,
+guest redirects, community/lobby pages and responsive themes passed; real art loaded
+and decoded. No emails sent or real account saves altered by live checks. Real signed-in
+admin/recovery/public visibility review remains with the user's staging session.
+
+Deploy-first migrations 0025/0026 applied after private export/recovery bookmark;
+enabled flags verified afterward. Existing auth secrets preserved; no cron, market
+refresh, daily snapshot replacement or production deployment. [Scope and safeguards](auction-community.md).
+
+## 2026-10-19 — Account login, roles and recovery (staging)
+
+Source `197dcda` (feature `45a2552`), staging version
+`a2afdede-8624-4b88-895d-08890673e797`. Quiet successful saves, highlighted login,
+appearance inside scrollable Settings, stacked Discord/Google/expandable email with
+local icons, privacy tooltip, five-minute code expiry and thirty-second UI/server
+resend. Branded safe linking errors, connected-method status, in-place profile edits,
+confirmed device/session controls, and private export/deletion remain explicit.
+Verified server-email allowlist grants admin; staging owner eligibility confirmed
+read-only. Production accounts/admin activation remain pending, not silently enabled.
+
+Conflicts block stale retries and require explicit discard/reload or export; pending
+valid saves have owner-scoped same-tab recovery with original revision checks.
+Closing the tab/storage failures still risk unsynced data; no durable offline claim.
+No migration, market-source calls, scheduled work or production changes. Full gate:
+566 unit tests (one skipped), 87 browser checks, types/lint (21 existing warnings).
+Final live guest login/recovery, screen/theme and authorization smoke checks passed;
+no email sent, guest upload, or repeated real-provider authorization. See
+[account boundaries and remaining gaps](accounts-and-collections.md).
+
 ## 2026-10-15 — Auction auto advance, sound cues and Top-Two Valuation (production)
 
 Pushed application `1451236`; staging `469c9ca8-db37-4363-bc80-298f93aab7e0`, then

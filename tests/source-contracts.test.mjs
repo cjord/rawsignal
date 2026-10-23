@@ -175,6 +175,7 @@ test("loads eBay Partner Network Smart Links with the site campaign and the popo
   const layout = await read("app/layout.tsx");
   assert.match(layout, /window\._epn=\{campaign:\$\{EBAY_EPN_CAMPAIGN_ID\},smartPopover:false\};/);
   assert.match(layout, /<script src=\{EBAY_SMART_LINKS_SRC\} defer\/>/);
+  assert.match(layout, /!accountsEnabled&&<script src=\{EBAY_SMART_LINKS_SRC\} defer\/>/, 'private account environments do not execute the third-party affiliate loader');
   assert.ok(layout.indexOf("window._epn") < layout.indexOf("EBAY_SMART_LINKS_SRC} defer"), "the config script precedes the deferred loader");
   // Every footer names both programs.
   for (const file of ["app/SiteFooter.tsx", "app/page.tsx"]) assert.match(await read(file), /TCGplayer and eBay links on this site are affiliate links/);

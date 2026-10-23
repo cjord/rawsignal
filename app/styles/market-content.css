@@ -1,4 +1,23 @@
 /* Shared Singles and Sealed row, disclosure, and popover presentation. */
+.market-card-skeletons{display:grid;gap:16px;grid-column:1/-1;min-width:0}
+.market-card-skeletons.is-large{grid-template-columns:subgrid;gap:inherit}
+.market-loading-card{pointer-events:none}
+.market-loading-art>*{visibility:hidden}
+.market-loading-card .position{color:transparent}
+.market-loading-line{display:block;height:.85em;min-height:.65rem;width:90%;border-radius:4px;background:color-mix(in srgb,var(--gray) 15%,var(--surface));margin:.35em 0}
+.market-loading-line.is-short{width:55%}
+.market-loading-art{background:color-mix(in srgb,var(--gray) 15%,var(--surface));border-radius:8px}
+.view-large .market-loading-card .identity>.market-loading-art{background:color-mix(in srgb,var(--gray) 15%,var(--surface))!important}
+.market-loading-card .full-title{min-height:3.8rem}
+.market-loading-chart{display:block;padding:8px 0;min-width:0}
+.market-loading-chart>i:last-child{display:block;height:100px;margin-top:12px;border-radius:8px;background:color-mix(in srgb,var(--gray) 15%,var(--surface))}
+.market-loading-card .full-prices>span{min-height:3.5rem}
+.market-loading-card .full-prices{margin-bottom:6px}
+.market-loading-card .change-pair{min-height:2.6rem}
+.market-loading-card .market-loading-art{animation:market-card-loading 1.4s ease-in-out infinite alternate}
+@keyframes market-card-loading{to{opacity:.5}}
+@media(prefers-reduced-motion:reduce){.market-loading-card .market-loading-art{animation:none}}
+
 .market-row-shell {
   position: relative;
   min-width: 0;
@@ -48,6 +67,18 @@
 .market-row-shell[open] > .leader-row:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--blue) 65%, transparent);
   outline-offset: 2px;
+}
+
+/* content-visibility can retain a desktop intrinsic width while a row is offscreen.
+   The outer track and link wrapper must both be allowed to shrink on resize. */
+.view-full,
+.sealed-view-full {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.view-full > .signal-card-wrap,
+.sealed-view-full > .signal-card-wrap {
+  min-width: 0;
 }
 
 .view-full .full-card {
@@ -248,6 +279,48 @@
 }
 
 @media (max-width: 759px) {
+  /* Match Singles: keep identity beside the art, but give history and its metric
+     tiles the complete mobile row rather than a cramped artwork-side column. */
+  .sealed-view-full .sealed-full-art {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .sealed-view-full .sealed-full-data {
+    display: contents;
+  }
+
+  .sealed-view-full .sealed-full-title {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .sealed-view-full .sealed-full-data > :not(.sealed-full-title) {
+    grid-column: 1 / -1;
+  }
+
+  .view-full .chart-toolbar,
+  .sealed-view-full .chart-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .view-full .chart-readout,
+  .sealed-view-full .chart-readout {
+    height: auto;
+    min-height: 22px;
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .view-full .chart-ranges,
+  .sealed-view-full .chart-ranges {
+    max-width: 100%;
+    box-sizing: border-box;
+    flex-wrap: wrap;
+  }
+
   .view-full .full-card {
     grid-template-columns: 28px 104px minmax(0, 1fr) !important;
     grid-template-areas: "rank art data" "chart chart chart" !important;
@@ -299,3 +372,11 @@
 .detail-overview > .market-median-context {
   margin-bottom: 18px;
 }
+
+/* Scope restoration reserves content without mounting the wrong market first. */
+.market-scope-content{display:contents}
+.market-scope-placeholder{min-height:28rem;box-sizing:border-box}
+.scope-placeholder-heading{display:block;width:12rem;max-width:65%;height:2rem;margin-bottom:2rem;border-radius:var(--control-radius);background:var(--control)}
+.market-scope-placeholder>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.market-scope-placeholder>div>span{height:7rem;border:1px solid var(--line);border-radius:var(--control-radius);background:var(--control)}
+@media(max-width:759px){.market-scope-placeholder>div{grid-template-columns:repeat(2,minmax(0,1fr))}.market-scope-placeholder.is-metrics>div{grid-template-columns:1fr}.market-scope-placeholder.is-metrics>div>span{height:12rem}}

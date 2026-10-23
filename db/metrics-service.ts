@@ -6,6 +6,8 @@ import type { PricePoint, PullRateConfig } from "../core/domain/types.ts";
 import { pullRateFor } from "../core/catalog-repository.ts";
 import { readMetricSeries, type MetricPoint } from "./metrics-ingestion.ts";
 import { publishedIngestion, type D1DatabaseLike } from "./repository.ts";
+import {createPublicPayloadCache,timedPayload,type PayloadTimings} from './public-payload-cache.ts';
+import {setQueryScope,type QuerySet} from './set-query-scope.ts';
 
 // The /metrics service (docs/todo.md H3/H4): materialized daily series plus same-day
 // figures computed from current rows — the largest SQL surface in the repo, so it lives
@@ -23,12 +25,22 @@ const changes = (points: PricePoint[]) => {
 // Sealed market_metrics rows are keyed by the history variant ("Sealed"), not a printing;
 // the OR keeps the join exact for singles and permissive for the single sealed row.
 const metricsJoin = "join market_metrics mm on mm.product_id=p.product_id and ((mm.variant=p.printing and mm.condition='Near Mint' and p.kind='single') or (mm.variant='Sealed' and mm.condition='Unopened' and p.kind='sealed'))";
+// The mixed-kind breadth query benefits from one composite-key seek rather than
+// two OR branches. Keep this scoped: it is not cheaper in the Movers query plan.
+const breadthMetricsJoin="join market_metrics mm on mm.product_id=p.product_id and mm.variant=case when p.kind='single' then p.printing else 'Sealed' end and mm.condition=case when p.kind='single' then 'Near Mint' else 'Unopened' end and p.kind in ('single','sealed')";
 
 type TotalsRow = { game: string; kind: "single" | "sealed"; totalCents: number; products: number };
-type SetRow = { setName: string; game: string; totalCents: number; cards: number; medianCents: number; change30Bps: number | null };
+type SetRow = { setName: string; game: string; totalCents: number; cards: number; medianCents: number; change30Bps: number | null; year:number|null; gameRank:number };
 type CategoryRow = { category: string; game: string; totalCents: number; products: number; medianCents: number; change7Bps: number | null; change30Bps: number | null; change90Bps: number | null };
 type MomentumRow = { game: string; kind: "single" | "sealed"; tracked: number; advancers7: number; decliners7: number; advancers30: number; decliners30: number; atHigh: number; atLow: number };
 type MoverRow = { productId: number; name: string; number: string | null; setName: string; game: string; kind: "single" | "sealed"; printing: string | null; image: string | null; cents: number; midCents: number | null; changeBps: number; win: "7d" | "30d" | "90d"; direction: "up" | "down"; snapshotId: string | null };
+
+// Internal, ORDERED numeric JSON groups only; never interpolate user input here.
+// Integer indices pick the same two middle ranks as the window implementation.
+// Empty movement groups stay null, not zero; arrays never leave the SQL statement.
+const groupedMedian = (column: string) => `case when json_array_length(${column})>0 then
+  (json_extract(${column},'$['||((json_array_length(${column})-1)/2)||']')+
+   json_extract(${column},'$['||(json_array_length(${column})/2)||']'))/2.0 end`;
 
 const gameLabel: Record<string, string> = { pokemon: "Pokémon", riftbound: "Riftbound", onepiece: "One Piece" };
 
@@ -40,18 +52,23 @@ const gameLabel: Record<string, string> = { pokemon: "Pokémon", riftbound: "Rif
 // bucket), so every per-set map in this module is keyed `${game}|${set}`.
 const gameSetKey = (game: string, set: string) => `${game}|${set}`;
 
-export async function loadSetEvData(db: D1DatabaseLike, pullRates?: PullRateConfig) {
-  const packRows = (await db.prepare(`select p.game, p.set_name setName, min(cp.market_cents) packCents
-      from catalog_products p join current_prices cp on cp.product_id=p.product_id
+export async function loadSetEvData(db: D1DatabaseLike, pullRates?: PullRateConfig, sets?:readonly QuerySet[]) {
+  const scope=setQueryScope(sets);
+  // Independent reads: do not add a pack-price round trip before reading tiers.
+  const packRead = db.prepare(`select p.game, p.set_name setName, min(cp.market_cents) packCents
+      from ${scope.from} join current_prices cp on cp.product_id=p.product_id
       where p.kind='sealed' and p.product_type='Booster Packs' and cp.market_cents > 0
-      group by p.game, p.set_name`).bind().all<{ game: string; setName: string; packCents: number }>()).results ?? [];
+      group by p.game, p.set_name`).bind(...scope.params).all<{ game: string; setName: string; packCents: number }>();
+  const tierRead = pullRates ? db.prepare(`select p.set_name setName, p.game, p.rarity, p.section, avg(cp.market_cents) avgCents, count(*) n
+        from ${scope.from} join current_prices cp on cp.product_id=p.product_id
+        where p.kind='single' and cp.market_cents is not null
+        group by p.set_name, p.game, p.rarity, p.section`).bind(...scope.params).all<{ setName: string; game: string; rarity: string; section: string | null; avgCents: number; n: number }>() : Promise.resolve(null);
+  const [packResult,tierResult]=await Promise.all([packRead,tierRead]);
+  const packRows=packResult.results??[];
   const packPriceBySet = new Map(packRows.map(row => [gameSetKey(row.game, row.setName), row.packCents / 100]));
   const evBySet = new Map<string, number | null>();
   if (pullRates) {
-    const tierRows = (await db.prepare(`select p.set_name setName, p.game, p.rarity, p.section, avg(cp.market_cents) avgCents, count(*) n
-        from catalog_products p join current_prices cp on cp.product_id=p.product_id
-        where p.kind='single' and cp.market_cents is not null
-        group by p.set_name, p.game, p.rarity, p.section`).bind().all<{ setName: string; game: string; rarity: string; section: string | null; avgCents: number; n: number }>()).results ?? [];
+    const tierRows = tierResult?.results ?? [];
     const tiersBySet = new Map<string, Map<string, { packsPerHit: number; weighted: number; count: number }>>();
     for (const row of tierRows) {
       const resolved = pullRateFor(pullRates, row.game, row.setName, { rarity: row.rarity, section: row.section ?? undefined });
@@ -109,17 +126,17 @@ async function loadOverview(db: D1DatabaseLike, series: Record<string, PricePoin
 // scope has a full table (the ALL view re-ranks the union by tracked value). Sealed-vs-
 // singles divergence (audit H2) reads each set's sealed products' median 30D change the
 // same middle-rank way.
-async function loadSetRows(db: D1DatabaseLike, pullRates?: PullRateConfig): Promise<MetricsSetRow[]> {
-  const setRows = (await db.prepare(`with ranked as (
-      select p.set_name, p.game, cp.market_cents v,
-        row_number() over (partition by p.game, p.set_name order by cp.market_cents desc) rn,
-        count(*) over (partition by p.game, p.set_name) total,
-        sum(cp.market_cents) over (partition by p.game, p.set_name) sumv
+async function loadSetSummaries(db:D1DatabaseLike):Promise<SetRow[]> {
+  return (await db.prepare(`with price_groups as (
+      select p.set_name, p.game, count(*) cards, sum(cp.market_cents) totalCents,
+        max(p.release_year) year,
+        json_group_array(cp.market_cents order by cp.market_cents desc) prices
       from catalog_products p join current_prices cp on cp.product_id=p.product_id
       where p.kind='single' and cp.market_cents is not null
+      group by p.set_name, p.game
     ), medians as (
-      select set_name, game, max(total) cards, max(sumv) totalCents, avg(v) medianCents
-      from ranked where rn=(total+1)/2 or rn=total/2+1 group by set_name, game
+      select set_name, game, cards, totalCents, year, ${groupedMedian('prices')} medianCents
+      from price_groups
     ), momentum as (
       select p.set_name, p.game, mm.change_30_bps b,
         row_number() over (partition by p.game, p.set_name order by mm.change_30_bps) rn,
@@ -131,22 +148,29 @@ async function loadSetRows(db: D1DatabaseLike, pullRates?: PullRateConfig): Prom
       -- the whole window per outer row in SQLite, which turned this payload pathological.
       select set_name, game, avg(b) as change30Bps from momentum where rn=(total+1)/2 or rn=total/2+1 group by set_name, game
     ), sized as (
-      select m.set_name as setName, m.game, m.totalCents, m.cards, m.medianCents, c.change30Bps,
+      select m.set_name as setName, m.game, m.totalCents, m.cards, m.medianCents, m.year, c.change30Bps,
         row_number() over (partition by m.game order by m.totalCents desc) as gameRank
       from medians m left join setChange c on c.set_name=m.set_name and c.game=m.game
     )
-    select setName, game, totalCents, cards, medianCents, change30Bps from sized where gameRank <= 50 order by totalCents desc`).bind().all<SetRow>()).results ?? [];
+    select setName, game, totalCents, cards, medianCents, year, change30Bps, gameRank from sized order by totalCents desc`).bind().all<SetRow>()).results ?? [];
+}
 
-  const sealedSetRows = (await db.prepare(`with momentum as (
+async function loadSetRows(db:D1DatabaseLike,pullRates:PullRateConfig|undefined,summaries:readonly SetRow[]):Promise<MetricsSetRow[]> {
+  const setRows=summaries.filter(row=>row.gameRank<=50);
+
+  const scope=setQueryScope(setRows);
+  const sealedSetRead = db.prepare(`with momentum as (
       select p.set_name setName, p.game, mm.change_30_bps b,
         row_number() over (partition by p.game, p.set_name order by mm.change_30_bps) rn,
         count(*) over (partition by p.game, p.set_name) total
-      from catalog_products p ${metricsJoin}
+      from ${scope.from} ${metricsJoin}
       where p.kind='sealed' and mm.change_30_bps is not null
-    ) select setName, game, avg(b) as change30Bps from momentum where rn=(total+1)/2 or rn=total/2+1 group by setName, game`).bind().all<{ setName: string; game: string; change30Bps: number | null }>()).results ?? [];
+    ) select setName, game, avg(b) as change30Bps from momentum where rn=(total+1)/2 or rn=total/2+1 group by setName, game`).bind(...scope.params).all<{ setName: string; game: string; change30Bps: number | null }>();
+  const [sealedResult,{packPriceBySet,evBySet}]=await Promise.all([
+    sealedSetRead,loadSetEvData(db,pullRates,setRows),
+  ]);
+  const sealedSetRows=sealedResult.results??[];
   const sealedChangeBySet = new Map(sealedSetRows.map(row => [gameSetKey(row.game, row.setName), row.change30Bps]));
-
-  const { packPriceBySet, evBySet } = await loadSetEvData(db, pullRates);
 
   return setRows.map(row => {
     const key = gameSetKey(row.game, row.setName);
@@ -161,50 +185,32 @@ async function loadSetRows(db: D1DatabaseLike, pullRates?: PullRateConfig): Prom
   });
 }
 
-// Sealed groups by product category — sets barely exist as a sealed concept. Each
-// momentum window is aggregated once and joined (never a correlated subselect against
-// a window CTE — the pattern that made this payload pathological before).
+// Sealed groups by product category. Aggregate the three independent non-null
+// movement populations in one exact printing/condition join, not three windows.
 async function loadSealedCategories(db: D1DatabaseLike): Promise<MetricsCategoryRow[]> {
-  const categoryRows = (await db.prepare(`with ranked as (
-      select p.product_type category, p.game, cp.market_cents v,
-        row_number() over (partition by p.game, p.product_type order by cp.market_cents desc) rn,
-        count(*) over (partition by p.game, p.product_type) total,
-        sum(cp.market_cents) over (partition by p.game, p.product_type) sumv
+  const categoryRows = (await db.prepare(`with price_groups as (
+      select p.product_type category, p.game, count(*) products,
+        sum(cp.market_cents) totalCents,
+        json_group_array(cp.market_cents order by cp.market_cents desc) prices
       from catalog_products p join current_prices cp on cp.product_id=p.product_id
       where p.kind='sealed' and cp.market_cents is not null
+      group by p.game, p.product_type
     ), medians as (
-      select category, game, max(total) products, max(sumv) totalCents, avg(v) medianCents
-      from ranked where rn=(total+1)/2 or rn=total/2+1 group by game, category
-    ), m7 as (
-      select p.game, p.product_type category, mm.change_7_bps b,
-        row_number() over (partition by p.game, p.product_type order by mm.change_7_bps) rn,
-        count(*) over (partition by p.game, p.product_type) total
-      from catalog_products p ${metricsJoin}
-      where p.kind='sealed' and mm.change_7_bps is not null
-    ), m30 as (
-      select p.game, p.product_type category, mm.change_30_bps b,
-        row_number() over (partition by p.game, p.product_type order by mm.change_30_bps) rn,
-        count(*) over (partition by p.game, p.product_type) total
-      from catalog_products p ${metricsJoin}
-      where p.kind='sealed' and mm.change_30_bps is not null
-    ), m90 as (
-      select p.game, p.product_type category, mm.change_90_bps b,
-        row_number() over (partition by p.game, p.product_type order by mm.change_90_bps) rn,
-        count(*) over (partition by p.game, p.product_type) total
-      from catalog_products p ${metricsJoin}
-      where p.kind='sealed' and mm.change_90_bps is not null
-    ), c7 as (
-      select game, category, avg(b) as change7Bps from m7 where rn=(total+1)/2 or rn=total/2+1 group by game, category
-    ), c30 as (
-      select game, category, avg(b) as change30Bps from m30 where rn=(total+1)/2 or rn=total/2+1 group by game, category
-    ), c90 as (
-      select game, category, avg(b) as change90Bps from m90 where rn=(total+1)/2 or rn=total/2+1 group by game, category
+      select category, game, products, totalCents, ${groupedMedian('prices')} medianCents
+      from price_groups
+    ), movements as (
+      select p.game, p.product_type category,
+        json_group_array(mm.change_7_bps order by mm.change_7_bps) filter(where mm.change_7_bps is not null) c7,
+        json_group_array(mm.change_30_bps order by mm.change_30_bps) filter(where mm.change_30_bps is not null) c30,
+        json_group_array(mm.change_90_bps order by mm.change_90_bps) filter(where mm.change_90_bps is not null) c90
+      from catalog_products p join market_metrics mm
+        on mm.product_id=p.product_id and mm.variant='Sealed' and mm.condition='Unopened'
+      where p.kind='sealed' group by p.game, p.product_type
     )
-    select m.category, m.game, m.totalCents, m.products, m.medianCents, c7.change7Bps, c30.change30Bps, c90.change90Bps
+    select m.category, m.game, m.totalCents, m.products, m.medianCents,
+      ${groupedMedian('c7')} change7Bps, ${groupedMedian('c30')} change30Bps, ${groupedMedian('c90')} change90Bps
     from medians m
-    left join c7 on c7.game=m.game and c7.category=m.category
-    left join c30 on c30.game=m.game and c30.category=m.category
-    left join c90 on c90.game=m.game and c90.category=m.category
+    left join movements c on c.game=m.game and c.category=m.category
     order by m.totalCents desc`).bind().all<CategoryRow>()).results ?? [];
   return categoryRows.map(row => ({
     category: row.category, game: row.game, trackedValue: row.totalCents / 100, medianPrice: row.medianCents / 100, products: row.products,
@@ -217,22 +223,10 @@ async function loadSealedCategories(db: D1DatabaseLike): Promise<MetricsCategory
 // Era performance (audit R2 / Phase D): every Pokémon set's totals and 30D median fold
 // into collector eras in JS (prefix + year mapping) — era momentum is the tracked-value-
 // weighted mean of member sets' median changes, honest to what each set contributes.
-async function loadEras(db: D1DatabaseLike): Promise<MetricsEraRow[]> {
-  const eraSetRows = (await db.prepare(`with totals as (
-      select p.set_name setName, max(p.release_year) year, sum(cp.market_cents) totalCents, count(*) cards
-      from catalog_products p join current_prices cp on cp.product_id=p.product_id
-      where p.kind='single' and p.game='pokemon' and cp.market_cents is not null group by p.set_name
-    ), momentum as (
-      select p.set_name setName, mm.change_30_bps b,
-        row_number() over (partition by p.set_name order by mm.change_30_bps) rn,
-        count(*) over (partition by p.set_name) total
-      from catalog_products p join market_metrics mm on mm.product_id=p.product_id and mm.variant=p.printing
-      where p.kind='single' and p.game='pokemon' and mm.change_30_bps is not null
-    ), setChange as (
-      select setName, avg(b) as change30Bps from momentum where rn=(total+1)/2 or rn=total/2+1 group by setName
-    )
-    select t.setName, t.year, t.totalCents, t.cards, c.change30Bps
-    from totals t left join setChange c on c.setName=t.setName`).bind().all<{ setName: string; year: number | null; totalCents: number; cards: number; change30Bps: number | null }>()).results ?? [];
+function loadEras(summaries:readonly SetRow[]):MetricsEraRow[] {
+  // Reuse ALL sets, not only the top-50 table. Retain the former binary set-name
+  // fold order so floating-point accumulation and the era display order stay stable.
+  const eraSetRows=summaries.filter(row=>row.game==='pokemon').sort((a,b)=>a.setName<b.setName?-1:a.setName>b.setName?1:0);
   const eraFold = new Map<string, { trackedValue: number; cards: number; sets: number; weighted: number; weight: number }>();
   for (const row of eraSetRows) {
     const era = pokemonEra(row.setName, row.year);
@@ -259,8 +253,8 @@ async function loadMomentum(db: D1DatabaseLike): Promise<MetricsMomentumRow[]> {
       sum(case when mm.historic_low_cents is not null and cp.market_cents <= mm.historic_low_cents then 1 else 0 end) as atLow
     from catalog_products p
     join current_prices cp on cp.product_id=p.product_id
-    ${metricsJoin}
-    where cp.market_cents is not null group by p.game, p.kind`).bind().all<MomentumRow>()).results ?? [];
+    ${breadthMetricsJoin}
+    where cp.market_cents is not null group by p.game, p.kind order by p.game, p.kind`).bind().all<MomentumRow>()).results ?? [];
   return momentumRows.map(row => ({
     game: row.game, kind: row.kind, tracked: row.tracked ?? 0,
     advancers7: row.advancers7 ?? 0, decliners7: row.decliners7 ?? 0,
@@ -275,7 +269,9 @@ async function loadMomentum(db: D1DatabaseLike): Promise<MetricsMomentumRow[]> {
 // Moves beyond 4x (7D) / 6x (30D) / 10x (90D) in either direction are excluded for the
 // same reason: at those magnitudes the "move" is listing turnover, not a repricing.
 async function loadMovers(db: D1DatabaseLike): Promise<MetricsMover[]> {
-  const moverRows = (await db.prepare(`with eligible as (
+  // SQLite otherwise inlines eligibility into all three window branches, repeating
+  // the catalog/price/snapshot joins. Reuse the same complete eligible population.
+  const moverRows = (await db.prepare(`with eligible as materialized (
       select p.product_id productId, p.name, p.card_number number, p.set_name setName, p.game, p.kind, p.image_url image,
         mm.variant printing, cp.market_cents cents, cp.median_cents midCents, mm.history_snapshot_id snapshotId,
         mm.change_7_bps c7, mm.change_30_bps c30, mm.change_90_bps c90,
@@ -311,17 +307,27 @@ async function loadMovers(db: D1DatabaseLike): Promise<MetricsMover[]> {
   }));
 }
 
-export async function loadMetricsPayload(db: D1DatabaseLike | undefined, options: { pullRates?: PullRateConfig } = {}): Promise<MetricsPayload | null> {
+const cachedMetrics=createPublicPayloadCache<MetricsPayload|null>();
+export async function loadMetricsPayload(db:D1DatabaseLike|undefined,options:{pullRates?:PullRateConfig;timings?:PayloadTimings}={}):Promise<MetricsPayload|null>{
+ if(!db)return null;
+ return timedPayload(options.timings,'total',()=>cachedMetrics(db,JSON.stringify(options.pullRates??null),()=>buildMetricsPayload(db,options)));
+}
+async function buildMetricsPayload(db:D1DatabaseLike,options:{pullRates?:PullRateConfig;timings?:PayloadTimings}):Promise<MetricsPayload|null>{
   if (!db) return null;
   const published = await publishedIngestion(db, "metrics-rollup").catch(() => null);
   if (!published) return null;
-  const bySeries = await readMetricSeries(db);
+  const bySeries = await timedPayload(options.timings,'series',()=>readMetricSeries(db));
   const series = Object.fromEntries(Object.entries(bySeries).map(([key, points]) => [key, toPoints(points)]));
-  const overview = await loadOverview(db, series);
-  const sets = await loadSetRows(db, options.pullRates);
-  const sealedCategories = await loadSealedCategories(db);
-  const eras = await loadEras(db);
-  const momentum = await loadMomentum(db);
-  const movers = await loadMovers(db);
+  // Sets and eras previously repeated the same price/momentum aggregation. Share
+  // this request-local promise without changing publication cache boundaries.
+  const summaries=loadSetSummaries(db);
+  const [overview,sets,sealedCategories,eras,momentum,movers]=await Promise.all([
+   timedPayload(options.timings,'overview',()=>loadOverview(db,series)),
+   timedPayload(options.timings,'sets',async()=>loadSetRows(db,options.pullRates,await summaries)),
+   timedPayload(options.timings,'categories',()=>loadSealedCategories(db)),
+   timedPayload(options.timings,'eras',async()=>loadEras(await summaries)),
+   timedPayload(options.timings,'momentum',()=>loadMomentum(db)),
+   timedPayload(options.timings,'movers',()=>loadMovers(db)),
+  ]);
   return { generatedAt: new Date().toISOString(), rolledUpAt: published.lastSuccessAt, series, overview, sets, sealedCategories, eras, momentum, movers };
 }

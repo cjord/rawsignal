@@ -37,6 +37,7 @@
     "shadow:scoreboard": "node scripts/backtest/shadow-scoreboard.mjs"
   },
   "dependencies": {
+    "better-auth": "1.7.11",
     "drizzle-orm": "0.45.2",
     "react": "19.2.6",
     "react-dom": "19.2.6"

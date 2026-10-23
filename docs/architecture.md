@@ -14,6 +14,75 @@ The migration direction documented in [ADR 001](adr/001-hosting-and-database.md)
 
 ## Application layers
 
+### Optional accounts
+
+Real-world account Collections uses a separate, on-demand private document/actions
+endpoint rather than the game-save client queue. Server-captured dated market
+baselines, FIFO sales and explicit review snapshots reuse `account_documents` without
+a migration. The default-off Collections flag requires accounts; there is no guest
+or public portfolio. [Contracts, math, limits and rollout](owned-collections.md).
+
+The local account foundation is default-off. `worker/account-auth.ts` configures
+Better Auth and native email sending; `worker/account-routes.ts` intercepts private
+auth/save routes before public caches. `db/account-documents.ts` owns session-scoped
+revision-checked D1 writes; pure save validation lives in `core/domain/account-data.ts`.
+`app/account/` provides controls and the guest/account storage boundary. No account
+data is embedded in publicly cached market HTML, and unrelated market requests do
+not query auth tables. Deployment/remaining launch work:
+[Accounts and collections](accounts-and-collections.md).
+
+Staging follow-up adds `db/account-recovery.ts` (wrapped owner keys), `db/admin-audit.ts`
+(bounded append-only access ledger), `worker/admin-pages.ts` + `admin-routes.ts`
+(private server-enforced management access), and encrypted pending-draft IndexedDB
+storage in `app/account/recovery-*`. Migration 0025 and explicit audit/recovery flags
+are required and are activated on staging only. The read-only `/admin`, `/admin/audit`
+and `/admin/data` surfaces make no upstream market requests and add no cron.
+[Scope, costs and safeguards](admin-and-recovery.md).
+
+The next slice adds read-only `/admin/accounts`, `/admin/quality`, `/admin/jobs` and
+an explicitly opt-in auction community. `db/admin-health.ts` reads bounded support
+metadata/coverage/job data; `db/auction-community.ts` exposes only allowlisted public
+profile fields. Migration 0026 projects unverified normal-play statistics atomically
+from successful game-document saves. Community APIs run before edge caches so privacy
+revocation affects future reads. `AUTH_COMMUNITY_ENABLED` is explicit/default-off.
+[Community and management follow-up](auction-community.md).
+
+Migration 0027 adds an explicitly chosen public username, managed by a session-owned
+profile endpoint rather than provider metadata. Public showcase rankings join current
+published prices for selected slots on read; no ingestion fanout is added. A shared
+`app/notifications/` host keeps ephemeral messages outside page flow with a scoped
+duration preference. [UI and loading boundaries](auction-ui-follow-up.md).
+
+Local quality follow-up adds a bounded JSON reader including body parsing. Saves
+validate the next revision and recheck owner generation after parsing; invalid
+results retain drafts. Authenticated `/api/account/export` assembles allowlisted
+saved cloud documents and owner community settings server-side, never credentials
+or pending device drafts. Public query guards are not rate limits. The opt-in browser
+benchmark and staging Read Cost Meter instrument existing reads without new SQL or
+ingestion writes. [Quality plan and evidence](auction-quality-improvement-plan.md).
+
+Follow-up loading work adds `app/data/auction-legacy-catalog.ts`, a public-only bounded
+memory store for the existing eleven feeds, coalesced across auction routes. It is
+separate from the staging-only compact snapshot cache. DeferredImage schedules nearby
+artwork without waiting for the entire document's images. Lobby/filter shells retain
+their structure while progress and URL filters hydrate.
+
+Community burst hooks use optional platform bindings, not D1 counters or global quotas.
+Moderation migration 0028 and `AUTH_COMMUNITY_MODERATION_ENABLED` are local/default-off:
+a revision-checked review row and audit append share one atomic batch; public queries
+exclude hidden profiles only when enabled. Server-admin/fresh-session/origin checks
+protect writes. Private account saves and owner visibility choices are untouched.
+[Goals, measurements, deployment gates and costs](auction-loading-and-safety-follow-up.md).
+
+Release 2026-10-21 (`44ecc7a`) supersedes the local-only status: moderation migration
+0028 and burst bindings are enabled on staging only. Production accounts remain off.
+Compact catalog activation failed live fallback parity and is disabled in both
+environments. Persistent Auction Shell, Inventory/Profile Studio and loading/save
+hardening are deployed. Auction links use a public-router callback to avoid the
+installed framework Link's built-only dynamic-export failure. Remote schedules were
+verified: staging empty, production minutely. Physical-device recovery and direct
+production browser verification (Cloudflare challenge) remain separate acceptance.
+
 ### Domain
 
 `core/domain/` owns market types, runtime input contracts, display formatting, and dated-history calculations. Missing source values remain `null`; presentation code decides whether to render `N/A` or another established unavailable label.
@@ -21,6 +90,22 @@ The migration direction documented in [ADR 001](adr/001-hosting-and-database.md)
 ### State
 
 `app/state/market-query.ts` is the canonical parser and serializer for Singles and Sealed URL state. `app/state/useMarketQueryState.ts` synchronizes meaningful changes with browser history and replaces rapid search edits so Back/Forward navigation remains useful.
+
+Market Scope loading follow-up (2026-10-21) resolves valid URL → supported
+device market → surface fallback once, before rarity defaults/catalog loading.
+The selector retains a neutral first-render shell instead of highlighting a false
+default. `SiteAccountProvider` keeps explicit read-only market paths mounted during
+account bootstrap; private/game pages retain owner-keyed isolation. This adds no
+private HTML, auth query or ingestion work. [Behavior and validation](market-scope-loading.md).
+
+The next loading batches are deployed to staging (`cfc591b`, version `01a13354`): shared pure
+Sets/Metrics URL codecs seed server-rendered scope; device-only scope uses a
+neutral body. Bounded DB/version/config-keyed public payload reuse bypasses active
+ingestion and evicts failed builds. Public Riftbound catalog/freshness reads are
+coalesced independently of owner-specific game progress; decorative card groups
+retain stable slots. Staging's unfinished running-ingestion records bypass public
+payload reuse; no live cache-hit benefit is claimed. [Scope and validation](page-loading-batches-progress-2026-10-21.md)
+and [measurements / remaining work](page-loading-staging-results-2026-10-21.md).
 
 ### Catalog service
 
@@ -38,6 +123,21 @@ Production reads D1 (catalog, sealed, and signals report `source: "database"`); 
 Two caches sit in front of D1 (review §14): `worker/edge-cache.ts` stores ordinary `/api/*` and `/data/*` GET responses in the colo's Cache API for the `s-maxage` each route declares, capped at ten minutes (Cloudflare does not cache Worker-generated responses on its own; responses carry `X-Raw-Signal-Edge: HIT|MISS`), and the sets, card detail, sealed detail, and metrics pages are cached by the same layer, keyed by URL, the request headers vinext varies on, and a publish signature (`worker/page-signature.ts`: the published run ids of `daily-market`, `product-details`, `metrics-rollup`, `history-signals`, and `graded-rotation` plus the deployed version, read at most once a minute per isolate), so an entry lives until the next publish or deploy, up to a 36-hour ceiling (vinext's ISR was tried and never wrote an entry in production). `/api/ebay/listings` is a deliberate `private, no-store` exception that reads a D1 snapshot with an explicit six-hour expiry and performs at most one upstream Browse search when that product is stale. `/api/ebay/account-deletion` is intercepted before the cache entirely. `public/robots.txt` keeps crawlers off `/api/`, `/data/`, and the tooling paths, and `/sitemap.xml` lists the boards, the sets directory, the metrics page, and every set page — not the 18 k product pages. The D1 catalog repository also keeps whole-game product rows per isolate for 10 minutes, keyed by the published run id, and the early-value reader keeps its sibling-set list the same way. All of these are accelerators: a cold isolate or colo behaves exactly as before.
 
 ### History and signals
+
+The experimental Auction Catalog Snapshot Cache is local and default-off behind
+`AUCTION_CATALOG_CACHE_ENABLED`, refused in production. A Worker-native public
+manifest/versioned body reads a guarded complete Riftbound catalog; a shared browser
+memory cache does not contain owner state. The existing private session bootstrap
+continues to own account progress/preferences. No ingestion writes or new private
+bootstrap endpoint. [Implementation status and activation gates](auction-implementation-progress.md).
+
+Auction routes now share a local nested `AuctionShell` with one decorative background
+and shell. Internal `AuctionLink` navigation preserves the document; prefetch is
+disabled to avoid speculative catalog work. Inventory display URLs are parsed by
+`core/domain/auction-inventory-query.ts`; holdings/selections remain private. Profile
+appearance is a bounded canonical-printing account preference, independent of game
+holdings. Public profile reads resolve its artwork only for opted-in showcases, using
+the existing catalog metadata query. No account data enters the public catalog cache.
 
 `/api/history` and `/api/history/batch` read exact shared price-history snapshots and never fetch upstream data or write metrics on a visitor request. Migration 0021 adds the current and previous snapshot's ID/JSON to `market_metrics`; the existing atomic metrics upsert writes rounded metrics and the normalized points that produced them together. Daily passes use combined durable observations; background TCGplayer refreshes derive from that same combined series after persisting their delta, rather than replacing it with the upstream-only window. Singles match the exact printing/Near Mint, and Sealed uses Sealed/Unopened; another printing is never substituted. Catalog feeds, catalog API rows, detail payloads and metrics movers carry the version their figures describe. Lazy charts request that version, with the cache URL and browser history key including it. Loading charts cannot change leaderboard metrics, filtering or order. One prior content version survives a refresh; a version older than that, an unversioned legacy metric block, or an unavailable snapshot shows no chart rather than conflicting points. Bundled feeds without snapshot metrics remain unavailable. Import rows derive their displayed movement and chart from one fetched snapshot; saved buylist prices remain explicitly capture-time values. `core/clients/tcgplayer-history.ts` is now background-only; `core/domain/history-metrics.ts` supplies both row calculations and chart cutoff changes. This revision is live in both environments since 2026-10-14: migration 0021 and guarded stored-observation bootstrap populated 19,044 staging and 19,085 production printing/condition series, including alternate printings. Full-database audits found zero metric/version mismatches; live browser checks confirmed row/chart parity and stable hover order. Staging remains cron-less; production's ordinary ingestion maintains subsequent versions.
 

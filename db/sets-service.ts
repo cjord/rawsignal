@@ -10,6 +10,7 @@ import { readGameSetProducts } from "./catalog-repository.ts";
 import { loadSetEvData } from "./metrics-service.ts";
 import { readSetRarityStats } from "./rarity-stats.ts";
 import { publishedIngestion, type D1DatabaseLike } from "./repository.ts";
+import {createPublicPayloadCache,timedPayload,type PayloadTimings} from './public-payload-cache.ts';
 
 // The sets directory (sets view 2026-08-29): one row per game+set with the counts,
 // momentum, release date, and signal presence the browse tiles render. Every key and
@@ -18,7 +19,11 @@ import { publishedIngestion, type D1DatabaseLike } from "./repository.ts";
 const metricsJoin = "join market_metrics mm on mm.product_id=p.product_id and (mm.variant=p.printing or p.kind='sealed')";
 const gameSetKey = (game: string, set: string) => `${game}|${set}`;
 
-export async function loadSetsDirectory(db: D1DatabaseLike | undefined): Promise<SetsDirectoryPayload | null> {
+const cachedDirectory=createPublicPayloadCache<SetsDirectoryPayload|null>();
+export async function loadSetsDirectory(db:D1DatabaseLike|undefined,options:{timings?:PayloadTimings}={}):Promise<SetsDirectoryPayload|null>{
+ return db?timedPayload(options.timings,'total',()=>cachedDirectory(db,'directory-v1',()=>timedPayload(options.timings,'directory',()=>buildSetsDirectory(db)))):null;
+}
+async function buildSetsDirectory(db:D1DatabaseLike):Promise<SetsDirectoryPayload|null>{
   if (!db) return null;
   const published = await publishedIngestion(db).catch(() => null);
   if (!published) return null;

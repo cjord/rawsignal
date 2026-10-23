@@ -1,4 +1,5 @@
 "use client";
+import {getSavedItem,setSavedItem,ACCOUNT_STORAGE_EVENT_URL} from '../account/storage';
 import { useSyncExternalStore } from "react";
 
 // Scalper mode is a device preference shared by every page (the ⚙ toggle), stored
@@ -9,9 +10,10 @@ const KEY = "raw-signal-scalper-mode";
 const listeners = new Set<() => void>();
 const toggleListeners = new Set<(next: ScalperMode) => void>();
 let hydrated = false, storageBound = false, mode: ScalperMode = "regular";
+let viewOnly=false;
 
 function readStored(): ScalperMode {
-  try { return localStorage.getItem(KEY) === "scalper" ? "scalper" : "regular"; } catch { return "regular"; }
+  try { return getSavedItem(KEY) === "scalper" ? "scalper" : "regular"; } catch { return "regular"; }
 }
 function snapshot() {
   if (!hydrated && typeof window !== "undefined") { mode = readStored(); hydrated = true; }
@@ -26,6 +28,9 @@ function subscribe(listener: () => void) {
     // same way a local toggle would, so state and URL never disagree.
     window.addEventListener("storage", (event) => {
       if (event.key !== KEY) return;
+      // Account hydration is not a user toggle: keep explicit shared-link mode and
+      // never clear filters/scenario inputs merely because sign-in finished.
+      if(event.url===ACCOUNT_STORAGE_EVENT_URL){if(!viewOnly)applyScalperMode(readStored());return}
       const next: ScalperMode = event.newValue === "scalper" ? "scalper" : "regular";
       const changed = snapshot() !== next;
       applyScalperMode(next);
@@ -42,8 +47,8 @@ export function storedScalperMode(): ScalperMode { return readStored(); }
 // View-only apply (URL restores, hydration, cross-tab sync): updates every subscriber
 // without adopting the value as the device preference and without firing toggle
 // listeners — a shared scalping link shows the mode, it doesn't set or reset anything.
-export function applyScalperMode(next: ScalperMode) {
-  mode = next; hydrated = true;
+export function applyScalperMode(next: ScalperMode,override=false) {
+  mode = next; hydrated = true;viewOnly=override;
   for (const listener of listeners) listener();
 }
 
@@ -58,7 +63,7 @@ export function onScalperToggle(listener: (next: ScalperMode) => void) {
 export function setScalperMode(next: ScalperMode) {
   const changed = snapshot() !== next;
   applyScalperMode(next);
-  try { localStorage.setItem(KEY, next); } catch { /* Storage unavailable; applies for this visit only. */ }
+  try { setSavedItem(KEY, next); } catch { /* Storage unavailable; applies for this visit only. */ }
   if (changed) for (const listener of toggleListeners) listener(next);
 }
 

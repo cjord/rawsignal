@@ -1,4 +1,5 @@
 "use client";
+import {getSavedItem,setSavedItem} from '../account/storage';
 import type { CollectrImportPayload } from "../api/collectr/route";
 
 // The last Collectr import lives on the device (device-preference rule): navigating
@@ -15,7 +16,7 @@ export type StoredCollectrImport = {
 
 export function readStoredImport(): StoredCollectrImport | null {
   try {
-    const parsed = JSON.parse(localStorage.getItem(KEY) ?? "null") as StoredCollectrImport | null;
+    const parsed = JSON.parse(getSavedItem(KEY) ?? "null") as StoredCollectrImport | null;
     return parsed && parsed.version === VERSION && parsed.payload?.cards ? parsed : null;
   } catch { return null; }
 }
@@ -26,7 +27,7 @@ export function storeImport(payload: CollectrImportPayload): StoredCollectrImpor
     ? previous.payload.cards.map(card => card.productId)
     : null;
   const stored: StoredCollectrImport = { version: VERSION, payload, previousIds };
-  try { localStorage.setItem(KEY, JSON.stringify(stored)); } catch { /* Oversized collection or private mode: the page still works for this visit. */ }
+  try { setSavedItem(KEY, JSON.stringify(stored)); } catch { /* Oversized collection or private mode: the page still works for this visit. */ }
   return stored;
 }
 

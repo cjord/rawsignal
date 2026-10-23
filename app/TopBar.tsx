@@ -5,18 +5,25 @@ import {StrictnessControl} from "./SignalControls";
 import {setHoverPreviews,useHoverPreviews} from "./state/hover-previews";
 import {setScalperMode,useScalperMode} from "./state/scalper-mode";
 import type {SignalStrictness} from "../core/domain/types";
+import AccountControl from './account/AccountControl';
+import {useAccount} from './account/AccountProvider';
+import {setSavedItem} from './account/storage';
+import NotificationSettings from './notifications/NotificationSettings';
 
 const marketLinks=[
  {key:"cards",label:"Cards",href:"/",icon:"◫"},
  {key:"sets",label:"Sets",href:"/sets",icon:"▦"},
  {key:"metrics",label:"Metrics",href:"/metrics",icon:"∿"},
  {key:"games",label:"Games",href:"/games",icon:"◇"},
+ {key:"collections",label:"Collections",href:"/collections",icon:"▧"},
  {key:"buylist",label:"Buy List",href:"/buylist",icon:"≡"},
  {key:"import",label:"Import",href:"/import",icon:"⇪"},
 ] as const;
 export type TopBarActive=(typeof marketLinks)[number]["key"]|null;
 
 export default function TopBar({active=null,actions,strictness,onStrictness,settingsExtra,className=""}:{active?:TopBarActive;actions?:ReactNode;strictness:SignalStrictness;onStrictness:(value:SignalStrictness)=>void;settingsExtra?:ReactNode;className?:string}){
+ const account=useAccount();
+ const visibleLinks=marketLinks.filter(item=>item.key!=='collections'||account.features?.collections);
  const [theme,setTheme]=useState<"dark"|"light">("dark");
  const [fontSize,setFontSize]=useState<"default"|"large">("default");
  const [settingsOpen,setSettingsOpen]=useState(false),settingsRef=useRef<HTMLDivElement>(null);
@@ -26,25 +33,31 @@ export default function TopBar({active=null,actions,strictness,onStrictness,sett
  useEffect(()=>{
   setTheme(document.documentElement.dataset.theme==="light"?"light":"dark");
   setFontSize(document.documentElement.dataset.fontSize==="large"?"large":"default");
- },[]);
+ },[account.user?.id,account.loading]);
  useEffect(()=>{
   if(!settingsOpen)return;
   const close=(event:PointerEvent)=>{if(!settingsRef.current?.contains(event.target as Node))setSettingsOpen(false)};
   window.addEventListener("pointerdown",close);
   return()=>window.removeEventListener("pointerdown",close);
  },[settingsOpen]);
- const toggleTheme=()=>setTheme(current=>{const next=current==="dark"?"light":"dark";document.documentElement.dataset.theme=next;try{localStorage.setItem("raw-signal-theme",next)}catch{/* Storage unavailable; applies for this visit only. */}return next});
- const changeFontSize=(next:"default"|"large")=>{setFontSize(next);document.documentElement.dataset.fontSize=next;try{localStorage.setItem("raw-signal-font-size",next)}catch{/* Storage unavailable; applies for this visit only. */}};
+ const toggleTheme=()=>setTheme(current=>{const next=current==="dark"?"light":"dark";document.documentElement.dataset.theme=next;try{setSavedItem("raw-signal-theme",next)}catch{/* Storage unavailable; applies for this visit only. */}return next});
+ const changeFontSize=(next:"default"|"large")=>{setFontSize(next);document.documentElement.dataset.fontSize=next;try{setSavedItem("raw-signal-font-size",next)}catch{/* Storage unavailable; applies for this visit only. */}};
  const scalper=useScalperMode();
  const changeScalper=setScalperMode;
  return <><nav className={`topbar ${className}`.trim()}>
   <a className="brand" href="/"><span>R</span> Raw Signal</a>
   <div className="toplinks">
-   {marketLinks.map(item=><a key={item.key} href={item.href} className={active===item.key?"active":""} aria-current={active===item.key?"page":undefined}>{item.label}</a>)}
+   {visibleLinks.map(item=><a key={item.key} href={item.href} className={active===item.key?"active":""} aria-current={active===item.key?"page":undefined}>{item.label}</a>)}
    {actions}
+   <AccountControl/>
    <div className="display-settings" ref={settingsRef}>
-    <button type="button" className="settings-toggle" onClick={()=>setSettingsOpen(value=>!value)} aria-label="Display settings" aria-expanded={settingsOpen} aria-haspopup="menu"><span aria-hidden="true">⚙</span></button>
+    <button type="button" disabled={account.loading||!!account.error} className="settings-toggle" onClick={()=>setSettingsOpen(value=>!value)} aria-label="Display settings" aria-expanded={settingsOpen} aria-haspopup="menu"><span aria-hidden="true">⚙</span></button>
     {settingsOpen&&<div className="settings-menu" role="menu" aria-label="Display settings">
+     {account.enabled&&<a className="account-settings-link" href="/account" role="menuitem">Profile &amp; Account</a>}
+     {account.user?.role==='admin'&&<a className="account-settings-link" href="/admin" role="menuitem">Administration</a>}
+     <span>Appearance</span>
+     <button type="button" className="game-control settings-theme" onClick={toggleTheme} aria-label={`Switch to ${theme==="dark"?"light":"dark"} mode`}><span aria-hidden="true">{theme==="dark"?"☀":"☾"}</span> {theme==="dark"?"Light Mode":"Dark Mode"}</button>
+     <NotificationSettings/>
      <span>Font size</span>
      <div className="font-size-options" role="group" aria-label="Font size">
       <button type="button" className={fontSize==="default"?"active":""} aria-pressed={fontSize==="default"} onClick={()=>changeFontSize("default")}><b>Aa</b><small>Default</small></button>
@@ -67,12 +80,11 @@ export default function TopBar({active=null,actions,strictness,onStrictness,sett
      {settingsExtra}
     </div>}
    </div>
-   <button type="button" className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme==="dark"?"light":"dark"} mode`}><span aria-hidden="true">{theme==="dark"?"☀":"☾"}</span><b>{theme==="dark"?"Light":"Dark"}</b></button>
   </div>
  </nav>
  {/* Phones hide the topbar links (space); destinations move to a bottom tab bar — the
      thumb-first pattern for a handful of top-level pages. Hidden above 560px. */}
  <nav className="tabbar" aria-label="Primary">
-  {marketLinks.map(item=><a key={item.key} href={item.href} className={active===item.key?"active":""} aria-current={active===item.key?"page":undefined}><span aria-hidden="true">{item.icon}</span><b>{item.label}</b></a>)}
+  {visibleLinks.map(item=><a key={item.key} href={item.href} aria-label={item.label} className={active===item.key?"active":""} aria-current={active===item.key?"page":undefined}><span aria-hidden="true">{item.icon}</span><b>{item.key==='collections'?'Holdings':item.label}</b></a>)}
  </nav></>;
 }

@@ -41,8 +41,26 @@ Defined in `app/styles/tokens.css` (dimensions/motion/stacking) and `app/globals
   nearest token, and only extend the ramp deliberately.
 - Font files are self-hosted (`public/fonts/` + `app/styles/fonts.css`), never loaded via
   `next/font` — the vinext loader bakes absolute local cache paths into production builds.
+- Sans fonts use optional delivery: promptly available/cached Geist remains the
+  preferred face, but a late download does not replace already visible fallback
+  text during the visit. Weight-specific local regular/bold fallbacks keep labels
+  readable without hiding content. Mono retains swap with a matched fixed-width
+  fallback. This prioritizes stable controls/headings over a guaranteed first-visit
+  web-font replacement; no artwork/font readiness gate is added.
 
 ## Component anatomy
+
+Account Collections reuses the market product identity, sortable headers, pagination,
+view/filter controls, native dialog and metric anatomy. The Holdings Ledger defaults
+to a compact thumbnail table; its card grid contains artwork without cropping. Private
+holdings and account gates reserve in-page loading space independently of image loads.
+Card Show sticker prices use the existing purple accent and do not replace market
+values. Overview/mover tones use the shared blue/up/down palette in both themes.
+Expanded dated lots span a separate row below the compact holding. Quantity-weighted
+market totals have a quieter per-item value. A warning-token coverage panel links to
+missing-data filters; it never changes the overview's collection scope. Successful
+saves/reloads use existing site notifications and reserve reload progress space,
+while critical errors persist near the workflow. CSV actions reuse ordinary controls.
 
 Auction Guide follows the existing Games shell and section tiles: token-based
 surfaces/borders, responsive two-column roster/investigation cards (one column on
@@ -181,9 +199,9 @@ table on phones. Emoji grids have accessible per-round labels. No new color syst
 Auction investigation offers show icon, name, plain-language description and price,
 without Count / Locate / Value headings or disclosure tags. Round findings retain
 their blue public/purple private treatment. Statistics use shared tile typography,
-a softly purple-tinted outer section and four-column desktop/two-column mobile
-metric tiles: blue counts, purple rates/buyouts, green gains, red losses, amber
-spending and neutral zero amounts. Colors derive from theme tokens.
+plain site-native outer/metric surfaces and four-column desktop/two-column mobile
+metric tiles. Ordinary counts, rates and spending remain neutral; financial gains
+are green and losses red. Colors derive from theme tokens.
 The normal auction lobby reuses the faded, noninteractive drifting catalog-art
 background, with a new random decorative selection per visit (never hidden lot
 contents). Both lobby and entry motion stop under reduced motion. Normal entry
@@ -191,6 +209,74 @@ lasts seven seconds, giving two extra seconds to review the locked table; Skip
 Intro remains available and no fee/timer starts during preparation.
 Daily Challenge reuses the auction arena and entry briefing; only its separate
 bankroll/progress header and lobby rules differ. No new decorative art is needed.
+The **Daily Challenge Entry Tile** sits inside Your Next Collection, below the
+Bilgewater/Piltover entry tiles, using the existing neutral control surface. It
+opens challenge rules without starting an attempt. The redundant Normal Auctions /
+Daily Challenge text-link row below the Auction Hub is removed; Play remains the
+main Hub destination and the daily page retains its return link.
+
+Auction lobby/profile decorative artwork is transparent until decoded, then fades
+in without moving content; reduced motion removes that transition. Account guest
+notices wait for a confirmed guest session, avoiding signed-in layout flashes.
+Public account showcases and the community leaderboard reuse the Games shell,
+statistics tiles, artwork/inspection and responsive data tables. Public visibility
+and leaderboard participation are separate, clearly labeled opt-in controls.
+
+All auction routes share the same noninteractive three-lane catalog-art background,
+including gameplay, guide, showcases and public profiles. Decoration is independent
+of hidden lots and fades after decode. Game link-buttons and native buttons center
+their contents consistently; primary blue and sharing purple are muted token fills.
+The **Backdrop Loop Track** keeps fixed logical artwork assignments and shares
+decoded thumbnail/original fallback state across repeated copies. A failed source
+changes only its own slots, never shifts healthy cards. Background decoding is
+bounded and independent of foreground data; resizing preserves the directed pixel
+offset modulo the new repeat width. Reduced motion still stops the lanes.
+Showcase loading reserves a coordinated statistics/gallery area and does not wait
+for artwork. Sharing & Visibility stays expanded below the owner showcase gallery;
+the separate profile-preview visibility disclosure may still collapse.
+Own-showcase placeholders include disabled Edit/Share controls matching final
+buttons. Auction statistics provenance belongs in its definitions tooltip, not a
+paragraph that appears only for an empty save. Inventory filters use theme-token
+fields, visible focus and responsive columns; 24-printing pagination bounds the
+expanded list. Selection and filtered-extra sales require clear scope and confirmation;
+entire-inventory sales remain a separate, clearly labeled visible section. Loading price notices
+reserve space instead of collapsing as prices arrive.
+Auction pagination uses left Previous / centered page status / right Next controls.
+The Auction Wallet Summary makes normal-game spendable cash the headline in a
+subtle green panel, with total after-fee net worth and neutral sellable-inventory /
+showcase-value sections below. Total Net Worth is the combined after-fee
+figure; card quantities sit inline beside inventory/showcase amounts. One wallet
+tooltip consolidates gross values and fee/protection definitions, without repeated
+taglines or sum descriptions. Missing prices show N/A plus a compact known subtotal,
+not zero. Its loading shell reserves the same value/control slots. Auction Hub
+links own navigation; duplicate wallet links and standalone Refresh Market are
+removed, while market failure/retry controls remain. Reset Cash & Inventory has a
+theme-aware red border/fill and retains explicit confirmation and blue keyboard
+focus. Guide uses the same inactive/active fill as the other Hub controls.
+Community uses a centered market-style sliding selector and a direct hub link,
+with Refresh aligned top-right inside each directory tile. Account actions reserve
+one fixed-size neutral slot until the real session resolves, never a guessed login.
+Ephemeral site notices stack bottom-right without changing layout, with dismiss
+controls and configurable/pauseable duration. Important save errors remain inline.
+
+**Site-Native Auction Accents:** preserve the green Wallet and blue Your Next
+Collection outer backgrounds. The smaller wallet/statistics tiles use the site's
+plain surfaces/lines/text, with blue interaction states, red/green financial
+outcomes and red destructive controls. Do not introduce a separate graphite
+palette or flatten rarity cues. See `auction-backdrop-stable-slots.md`.
+
+**Daily Challenge Entry:** use the shared navy/gold/violet five-lot artwork with a
+purple border on the lobby link and start button. Daily briefing facts use plain
+surfaces, with expiry/exit warnings visible. Inventory Overview metrics use plain
+surfaces, blue values and green cash; Rarity Quick Sales text follows card rarity
+colors. Sharing & Visibility uses one neutral surface without a nested purple
+fill. See `auction-daily-entry-design.md` for the artwork brief and review.
+
+**Market Snapshot Footer:** Inventory, My Showcase, Leaderboard and Public
+Showcases place the shared Market Snapshot status below their content, matching
+the Auction House landing page. Community responses carry public source-date
+metadata without downloading card feeds; unavailable dates stay unavailable.
+Frozen shared snapshots retain their own snapshot date rather than a live-market footer.
 
 - Dark is the default (`data-theme="dark"` pre-hydration via the head script); both themes
   ship complete token sets. Any new color must be specified for both or derived via

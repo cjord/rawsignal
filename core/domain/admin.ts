@@ -1,0 +1,12 @@
+export const ADMIN_ACTIONS=['admin.overview.read','admin.audit.read','admin.data.read','admin.accounts.read','admin.quality.read','admin.jobs.read','admin.access.denied','recovery.key.access','admin.community.read','admin.community.hide','admin.community.restore'] as const;
+export type AdminAction=typeof ADMIN_ACTIONS[number];
+export type AuditEvent={id:string;occurredAt:string;actorId:string;actorRole:'admin'|'member';action:AdminAction;targetType:string;targetId:string|null;outcome:'allowed'|'denied';requestId:string;reasonCode:string};
+export const AUDIT_RETENTION_DAYS=90;
+export type AdminOverview={identityScope?:string;environment:string;recoveryEnabled:boolean;auditEnabled:boolean;accounts:number;activeSessions:number;documents:number;documentBytes:number;emailAttemptsToday:number;emailDailyLimit:number;asOf:string};
+export type AdminRun={source:string;runId:string|null;status:string|null;startedAt:string|null;completedAt:string|null;sourceUpdatedAt:string|null;recordsWritten:number|null};
+export type AdminDataHealth={runs:AdminRun[];heatmaps:{game:string;sourceDate:string;computedAt:string;algorithmVersion:number}[];asOf:string;automaticIngestion:boolean};
+export const SUPPORT_PURPOSES=['sync-support','account-access','user-request'] as const;
+export type SupportPurpose=typeof SUPPORT_PURPOSES[number];
+export type AdminAccountHealth={account:{id:string;createdAt:string;emailVerified:boolean}|null;providers:{provider:string;linkedAt:string}[];activeSessions:number;documents:{key:string;revision:number;bytes:number;updatedAt:string}[];sync:{date:string;key:string;outcome:string;count:number;updatedAt:string}[];asOf:string};
+export type AdminQuality={runId:string|null;expectedRows:number|null;groups:{kind:string;game:string;total:number;missingPrice:number;missingArtwork:number;missingHistory:number}[];sets:{game:string;set:string;total:number;priced:number;history:number}[];candidates:{game:string;name:string;set:string;printing:string;count:number}[];asOf:string};
+export type AdminJobs={runs:(AdminRun&{rejected:number;hasError:boolean})[];budgets:{name:string;used:number|null;limit:number|null;date:string;description:string}[];migrations:{name:string;applied:boolean|null}[];asOf:string};

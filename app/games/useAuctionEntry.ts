@@ -9,16 +9,23 @@ import {auctionNpcRoster} from '../../core/domain/auction-npcs';
 
 export const AUCTION_INTRO_MS=7000;
 export type AuctionEntry={seed:number;kind:AuctionKind;rivals?:string[]};
-export function useAuctionEntry(catalog:AuctionCard[],transact:(update:(save:AuctionSave)=>AuctionSave)=>AuctionSave|null,unlock:()=>void){
- const [entry,setEntry]=useState<AuctionEntry|null>(null),[imageError,setImageError]=useState('');
+export function useAuctionEntry(catalog:AuctionCard[],transact:(update:(save:AuctionSave)=>AuctionSave)=>AuctionSave|null,unlock:()=>void,checkMarket?:()=>Promise<AuctionCard[]|null>){
+ const [entry,setEntry]=useState<AuctionEntry|null>(null),[imageError,setImageError]=useState(''),[checking,setChecking]=useState(false),checkingRef=useRef(false),mounted=useRef(true);
  const loader=useRef(createPriceGameImageLoader()),pending=useRef<AbortController|null>(null),finishIntro=useRef<(()=>void)|null>(null);
  const cancel=()=>{pending.current?.abort();pending.current=null;finishIntro.current?.();finishIntro.current=null;setEntry(null)};
- useEffect(()=>()=>{pending.current?.abort();pending.current=null;finishIntro.current?.();finishIntro.current=null},[]);
+ useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;pending.current?.abort();pending.current=null;finishIntro.current?.();finishIntro.current=null}},[]);
  const enter=async(kind:AuctionKind)=>{
-  if(pending.current)return;
+  if(pending.current||checkingRef.current)return;
+  unlock();let poolCatalog=catalog;
+  const existing=transact(current=>current);if(!existing||existing.auction)return;
+  if(checkMarket&&!existing.drafts?.[kind]){
+   checkingRef.current=true;setChecking(true);
+   try{const latest=await checkMarket();if(!mounted.current)return;if(!latest){setImageError('No valid market prices are available yet. Retry the price check.');return}poolCatalog=latest}catch{if(mounted.current)setImageError('Market prices could not be checked. Please retry.');return}finally{checkingRef.current=false;if(mounted.current)setChecking(false)}
+  }
+  if(!mounted.current)return;
   const saved=transact(current=>{
    if(current.auction||current.drafts?.[kind])return current;
-   const seed=crypto.getRandomValues(new Uint32Array(1))[0],pool=catalog.filter(card=>/^https?:\/\//.test(card.image)).map(card=>({...card}));
+   const seed=crypto.getRandomValues(new Uint32Array(1))[0],pool=poolCatalog.filter(card=>/^https?:\/\//.test(card.image)).map(card=>({...card}));
    if(pool.length<6)return current;
    return {...current,drafts:{...current.drafts,[kind]:{seed,kind,pool,marketPrior:auctionMarketPrior(pool,seed,kind),rivals:auctionNpcRoster(seed).map(profile=>profile.name)}}};
   });
@@ -39,7 +46,7 @@ export function useAuctionEntry(catalog:AuctionCard[],transact:(update:(save:Auc
    const [lot]=await Promise.all([prepare(),intro]);
    if(controller.signal.aborted)return;
    if(lot.length)transact(current=>current.drafts?.[kind]?.seed===seed?beginAuction(current,catalog,Date.now(),current.drafts[kind]!.lot??lot,seed,kind):current);
-   else setImageError('Auctions are temporarily unavailable. Your balance has not changed. Refresh the market to check availability.');
+   else setImageError('Auctions are temporarily unavailable. Your balance has not changed. Please retry entering the auction.');
   }catch{
    if(!controller.signal.aborted)setImageError('Auction preparation could not finish. Your balance has not changed. Please retry.');
   }finally{
@@ -47,5 +54,5 @@ export function useAuctionEntry(catalog:AuctionCard[],transact:(update:(save:Auc
    if(pending.current===controller){pending.current=null;finishIntro.current=null;setEntry(null)}
   }
  };
- return {entry,imageError,enter,cancel,skip:()=>finishIntro.current?.()};
+ return {entry,checking,imageError,enter,cancel,skip:()=>finishIntro.current?.()};
 }

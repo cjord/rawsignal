@@ -29,6 +29,9 @@ test("self-hosts Geist fonts with site-relative URLs", async () => {
   assert.doesNotMatch(fonts, /url\([A-Za-z]:\//);
   assert.match(fonts, /--font-sans:'Geist','Geist Fallback'/);
   assert.match(fonts, /--font-mono:'Geist Mono','Geist Mono Fallback'/);
+  const sans=fonts.slice(0,fonts.indexOf("font-family: 'Geist Mono';"));
+  assert.equal((sans.match(/font-display: optional/g)??[]).length,5);
+  for(const range of ['100 499','500 699','700 900'])assert.ok(sans.includes(`font-weight: ${range};`));
 });
 
 test("centralizes shared dimensions, motion, focus, and stacking tokens", async () => {
