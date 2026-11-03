@@ -1,7 +1,8 @@
 # Articles — implementation and release notes
 
-October 27, 2026. Implemented locally on `codex/article-editor`; not deployed,
-migrated remotely, enabled, or populated with a published article.
+Initial implementation: October 27, 2026, on `codex/article-editor`.
+Enabled on staging November 2 after backup, migration and verification; production
+unchanged and no actual article published. [Staging release and remaining acceptance](articles-staging-release-2026-11-02.md).
 
 ## Available features
 

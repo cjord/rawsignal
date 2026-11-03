@@ -2,10 +2,11 @@
 
 Agreed 2026-10-21: separate Pokémon and Riftbound weekly recaps; data-led, readable
 analysis with a clearly labeled editorial outlook; weekly drafts on Monday and a
-monthly recap on the first. The editor, library and reader are now implemented locally;
-see [implementation and release notes](articles-implementation.md). No scheduler,
-remote migration, activation or publication has occurred. Initial local drafts live in
-`docs/article-drafts/`; they are not automatically imported into the app.
+monthly recap on the first. The editor, library and reader are enabled on staging as
+of November 2; see [implementation and release notes](articles-implementation.md).
+The staging migration is applied; production rollout, scheduled drafting and actual
+article publication remain inactive. Initial local drafts live in `docs/article-drafts/`;
+they are not automatically imported into the app.
 
 ## Confirmed first-article decisions — October 27, 2026
 
