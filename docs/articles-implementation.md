@@ -25,6 +25,13 @@ migrated remotely, enabled, or populated with a published article.
   publication also has a confirmation. Changing text clears the review acknowledgment.
   Return for Changes, Archive and Unpublish are available.
 
+Editorial/admin links use ordinary document navigation, matching the existing site
+navigation and crossing the server-enforced admin boundary on each visit. Live staging
+acceptance found framework client links staying on the source page while direct URLs
+worked. The document-link fix also preserves the editor's native unsaved-change warning.
+A source contract and browser queue-control navigation check cover this boundary;
+isolated footer link shims are not evidence that the framework router works in deployment.
+
 ## Data and safety boundaries
 
 Migration `0029_articles.sql` adds environment-local `articles`, immutable
@@ -67,6 +74,8 @@ times, unknown product identities, and incomplete structured forecasts. Limits:
 
 Named products use explicit `/cards/[id]` or `/sealed/[id]?market=...` links. The
 catalog picker displays set, number and printing; it never fuzzy-links champion names.
+Its explicit all-rarities search does not inherit the market board's chase-only defaults;
+Epics, ordinary cards and Signatures remain searchable alongside Overnumbered cards.
 The current implementation uses each exact catalog product's primary printing and
 English Near Mint / sealed Unopened history. It does not support choosing a different
 condition or alternate variant of the same product ID in the editor.

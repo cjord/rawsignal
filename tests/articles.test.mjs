@@ -17,6 +17,14 @@ function fixture(){
 const draft=()=>({...emptyArticleDraft(),title:'Radiance outlook',slug:'radiance-outlook',summary:'A concise release outlook.',markdown:'## Outlook\n\nThe release premium should narrow as supply arrives. Our estimates are dated and depend on continued availability.',observedAt:now,targetDate:'2026-11-22',sources:['https://www.tcgplayer.com/'],evidenceNotes:'PRIVATE RESEARCH'});
 const request=(path,body,from=origin)=>new Request(origin+path,{method:body?'POST':'GET',headers:{Origin:from,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
 const admin={id:'private-editor-id',email:'editor@example.test',emailVerified:true};
+test('editorial navigation uses document requests across the server-protected admin boundary',()=>{
+ // vinext client links failed live acceptance despite direct routes working. The footer's
+ // isolated-test link shim must not hide a regression in these auth-boundary controls.
+ for(const path of ['../app/articles/ArticleShell.tsx','../app/admin/articles/ArticlesAdmin.tsx']){
+  const source=readFileSync(new URL(path,import.meta.url),'utf8');
+  assert.doesNotMatch(source,/from ['"]next\/link['"]/);assert.match(source,/<a[^>]+href="\/admin\/articles/);
+ }
+});
 async function publish(db,article,note=''){
  article=await transitionArticle(db,admin.id,article.id,article.revision,'submit','',false,now);
  article=await transitionArticle(db,admin.id,article.id,article.revision,'approve','',true,now);
