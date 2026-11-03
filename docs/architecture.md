@@ -14,6 +14,16 @@ The migration direction documented in [ADR 001](adr/001-hosting-and-database.md)
 
 ## Application layers
 
+### Articles and editorial review
+
+The default-off Articles feature uses pure contracts/Markdown inspection in
+`core/domain/articles.ts`, revisioned environment-local storage in `db/articles.ts`
+(migration 0029), and `worker/article-routes.ts` behind the existing admin boundary.
+Public reader/library pages load through the existing server data boundary; previews
+reuse stored exact-printing history. Drafts and published pointers are separate, writes
+and audit events are atomic, and public responses initially bypass caches for immediate
+withdrawal. No scheduled producer is active. [Implementation and release contract](articles-implementation.md).
+
 ### Optional accounts
 
 Real-world account Collections uses a separate, on-demand private document/actions

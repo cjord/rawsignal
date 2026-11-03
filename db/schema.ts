@@ -1,5 +1,9 @@
 import { sql } from "drizzle-orm";
-import { check, index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { check, foreignKey, index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+
+export const articles=sqliteTable('articles',{id:text('id').primaryKey(),slug:text('slug').notNull().unique(),headRevision:integer('head_revision').notNull(),state:text('state',{enum:['draft','needs-review','approved','published','rejected','archived']}).notNull(),publishedRevision:integer('published_revision'),firstPublishedAt:text('first_published_at'),publishedAt:text('published_at'),createdAt:text('created_at').notNull(),updatedAt:text('updated_at').notNull(),lastOperationId:text('last_operation_id').notNull()});
+export const articleRevisions=sqliteTable('article_revisions',{articleId:text('article_id').notNull().references(()=>articles.id),revision:integer('revision').notNull(),contentJson:text('content_json').notNull(),referencesJson:text('references_json').notNull(),authorId:text('author_id').notNull(),createdAt:text('created_at').notNull()},table=>[primaryKey({columns:[table.articleId,table.revision]})]);
+export const articleReleases=sqliteTable('article_releases',{articleId:text('article_id').notNull().references(()=>articles.id),revision:integer('revision').notNull(),publishedAt:text('published_at').notNull(),note:text('note').notNull()},table=>[primaryKey({columns:[table.articleId,table.revision]}),foreignKey({columns:[table.articleId,table.revision],foreignColumns:[articleRevisions.articleId,articleRevisions.revision]})]);
 
 export const dailyAuctionManifests=sqliteTable('daily_auction_manifests',{
  challengeDate:text('challenge_date').primaryKey(),

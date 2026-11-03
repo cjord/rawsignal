@@ -1,4 +1,5 @@
 import {env} from "cloudflare:workers";
+import {cache} from 'react';
 import {createD1CatalogRepository} from "../../db/catalog-repository";
 import {readEarlyValue} from "../../db/early-value";
 import {publishedIngestion,type D1DatabaseLike} from "../../db/repository";
@@ -6,6 +7,9 @@ import type {CatalogDetail,CatalogKind,PullRateConfig} from "../../core/domain/t
 import {createFeedCatalogRepository} from "./feed-catalog-repository";
 import {parsePullRateConfig,parseSealedProducts} from "../../core/domain/contracts";
 import {createMemoryCatalogRepository,type CatalogRepository} from "../../core/catalog-repository";
+import {listArticles,readPublicArticle,readArticleProducts} from '../../db/articles';
+import type {PublicArticle,ArticleProduct} from '../../core/domain/articles';
+import {articleListOptions} from '../../core/domain/articles';
 
 type FetchLike=(input:RequestInfo|URL,init?:RequestInit)=>Promise<Response>;
 
@@ -13,6 +17,23 @@ type FetchLike=(input:RequestInfo|URL,init?:RequestInit)=>Promise<Response>;
 // set response headers, so the detail page surfaces this Server-Timing-formatted string as a
 // data attribute; keyed by the returned detail object to stay race-free across requests.
 const detailTimings=new WeakMap<CatalogDetail,string>();
+
+// Public article reads share this existing server data boundary. No account/session data
+// is part of a reader payload; publication is checked on every request, including revisions.
+export async function loadArticleLibrary(query:URLSearchParams){
+ try{if((env as {ARTICLES_ENABLED?:string}).ARTICLES_ENABLED!=='true')return {data:null,error:'Articles are not available yet.'};
+  const data=await listArticles(env.DB as unknown as D1DatabaseLike,articleListOptions(query));return {data,error:''};
+ }catch{return {data:null,error:'Articles are temporarily unavailable. Please retry.'}}
+}
+export const loadArticleReader=cache(async (slug:string,revision?:number):Promise<{article:PublicArticle|null;products:ArticleProduct[];error:string}>=>{
+ try{
+  if((env as {ARTICLES_ENABLED?:string}).ARTICLES_ENABLED!=='true')return {article:null,products:[],error:''};
+  const db=env.DB as unknown as D1DatabaseLike,article=await readPublicArticle(db,slug,revision);
+  if(!article)return {article:null,products:[],error:''};
+  let products:ArticleProduct[]=[];try{products=await readArticleProducts(db,article.references)}catch{/* Text and canonical links remain usable without live chart data. */}
+  return {article,products,error:''};
+ }catch{return {article:null,products:[],error:'The article is temporarily unavailable. Please retry.'}}
+});
 export const detailServerTiming=(detail:CatalogDetail|null)=>detail?detailTimings.get(detail)??null:null;
 const recordTiming=(detail:CatalogDetail|null,source:string,repositoryMs:number,detailMs:number,cold:boolean)=>{if(detail)detailTimings.set(detail,`repo;dur=${Math.round(repositoryMs)}${cold?";desc=cold":""}, detail;dur=${Math.round(detailMs)}, source;desc=${source}`)};
 

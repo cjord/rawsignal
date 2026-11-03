@@ -16,6 +16,9 @@ html[data-font-size="large"] {
   --text-md: .8125rem;   /* 13px — controls, table text */
   --text-base: .875rem;  /* 14px — body, row titles */
   --text-lg: .9375rem;   /* 15px — emphasized values */
+  --text-reading: 1rem; /* Long-form article prose */
+  --text-section: 1.4rem; /* Long-form section headings */
+  --text-title: 2rem; /* Long-form article title */
   --control-height: 56px;
   --control-radius: 12px;
   --panel-radius: 12px;

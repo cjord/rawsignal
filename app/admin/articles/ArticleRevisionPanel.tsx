@@ -1,0 +1,9 @@
+"use client";
+import {useState} from 'react';
+import {articleRevisionChanges,type ArticleRecord,type ArticleDraft} from '../../../core/domain/articles';
+import type {RevisionPage} from './useArticleEditor';
+import {ArticlePreview} from '../../articles/ArticleReader';
+export default function ArticleRevisionPanel({draft,history,compare,onPage}:{draft:ArticleDraft;history:RevisionPage;compare:(revision:number)=>Promise<ArticleRecord|null>;onPage:(before?:number)=>Promise<void>}){
+ const [old,setOld]=useState<ArticleRecord|null>(null);
+ return <details className="article-revision-panel"><summary>Previous revisions &amp; comparison</summary><p className="games-note">Loading a revision for comparison does not replace your current draft.</p><div className="article-editor-actions">{history.rows.map(r=><button className="game-control" type="button" key={r.revision} onClick={()=>void compare(r.revision).then(setOld)}>Revision {r.revision} · {r.createdAt.slice(0,10)}</button>)}</div><div className="article-pagination"><button type="button" onClick={()=>void onPage()}>Latest revisions</button>{history.nextBefore&&<button type="button" onClick={()=>void onPage(history.nextBefore!)}>Older revisions →</button>}</div>{old&&<><h3>Revision {old.revision} — read-only</h3><details><summary>Compare saved text with your current draft</summary>{JSON.stringify(old.draft)===JSON.stringify(draft)?<p>No differences.</p>:<>{articleRevisionChanges(old.draft,draft).map(change=><section key={change.field}><h4>{change.field}</h4><div className="article-diff-removed"><strong>Previously saved</strong><pre>{change.before||'(empty)'}</pre></div><div className="article-diff-added"><strong>Current draft</strong><pre>{change.after||'(empty)'}</pre></div></section>)}</>}</details><ArticlePreview article={{...old.draft,references:old.references}}/></>}</details>;
+}

@@ -17,11 +17,12 @@ import "./sets.css";
 import "./collectr.css";
 import "./collections.css";
 import "./games.css";
+import "./articles.css";
 import {EBAY_EPN_CAMPAIGN_ID,EBAY_SMART_LINKS_SRC} from "../core/domain/marketplace-links";
 export const metadata: Metadata={title:"Raw Signal — TCG Market Rankings",description:"Daily Pokémon, Riftbound, and One Piece singles and sealed-product price intelligence built from TCGCSV market data."};
 // Keep the retained Node/Sites render path usable without Cloudflare's runtime module.
-async function accountFeatureEnabled(){try{const {env}=await import('cloudflare:workers');const flags=env as {AUTH_ENABLED?:string;AUTH_COLLECTIONS_ENABLED?:string};return {accountsEnabled:flags.AUTH_ENABLED==='true',collectionsEnabled:flags.AUTH_COLLECTIONS_ENABLED==='true'}}catch{return {accountsEnabled:false,collectionsEnabled:false}}}
-export default async function RootLayout({children}:Readonly<{children:React.ReactNode}>){const {accountsEnabled,collectionsEnabled}=await accountFeatureEnabled();return <html lang="en" data-theme="dark" data-font-size="default" suppressHydrationWarning><head>
+async function accountFeatureEnabled(){try{const {env}=await import('cloudflare:workers');const flags=env as {AUTH_ENABLED?:string;AUTH_COLLECTIONS_ENABLED?:string;ARTICLES_ENABLED?:string};return {accountsEnabled:flags.AUTH_ENABLED==='true',collectionsEnabled:flags.AUTH_COLLECTIONS_ENABLED==='true',articlesEnabled:flags.ARTICLES_ENABLED==='true'}}catch{return {accountsEnabled:false,collectionsEnabled:false,articlesEnabled:false}}}
+export default async function RootLayout({children}:Readonly<{children:React.ReactNode}>){const {accountsEnabled,collectionsEnabled,articlesEnabled}=await accountFeatureEnabled();return <html lang="en" data-articles-enabled={articlesEnabled?'true':'false'} data-theme="dark" data-font-size="default" suppressHydrationWarning><head>
 {/* Discover only the two primary Latin faces before CSS parsing; other subsets stay demand-loaded. */}
 <link rel="preload" href="/fonts/geist-98bbbccb.woff2" as="font" type="font/woff2" crossOrigin="anonymous"/>
 <link rel="preload" href="/fonts/geist-mono-013b2f2f.woff2" as="font" type="font/woff2" crossOrigin="anonymous"/>

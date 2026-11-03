@@ -14,6 +14,7 @@ import {isAdminPage,handleAdminPage} from './admin-pages.ts';
 import {auctionCommunityPath,handleAuctionCommunity} from './auction-community.ts';
 import {handleAuctionCatalog} from './auction-catalog.ts';
 import {auctionCatalogCacheEnabled} from '../core/domain/auction-catalog-snapshot.ts';
+import {articleApiPath,handlePublicArticles,handleArticleSitemap} from './article-routes.ts';
 
 interface Env {
   ASSETS: Fetcher;
@@ -51,6 +52,13 @@ interface ExecutionContext {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    if(articleApiPath(url.pathname))return handlePublicArticles(request,env as AccountEnv);
+    if(url.pathname==='/articles/sitemap.xml')return handleArticleSitemap(env as AccountEnv);
+    if(url.pathname==='/articles'||url.pathname.startsWith('/articles/')){
+      const response=await handler.fetch(request,env,ctx),headers=new Headers(response.headers);
+      headers.set('Cache-Control','no-store');if(url.searchParams.has('revision'))headers.set('X-Robots-Tag','noindex,follow');
+      return new Response(response.body,{status:response.status,headers});
+    }
     if(url.pathname==='/api/auction/catalog'){
       if(!auctionCatalogCacheEnabled(env))return handleAuctionCatalog(request,env as unknown as Parameters<typeof handleAuctionCatalog>[1]);
       return withEdgeCache(request,ctx,()=>handleAuctionCatalog(request,env as unknown as Parameters<typeof handleAuctionCatalog>[1]));

@@ -16,6 +16,7 @@ const marketLinks=[
  {key:"metrics",label:"Metrics",href:"/metrics",icon:"∿"},
  {key:"games",label:"Games",href:"/games",icon:"◇"},
  {key:"collections",label:"Collections",href:"/collections",icon:"▧"},
+ {key:"articles",label:"Articles",href:"/articles",icon:"▤"},
  {key:"buylist",label:"Buy List",href:"/buylist",icon:"≡"},
  {key:"import",label:"Import",href:"/import",icon:"⇪"},
 ] as const;
@@ -24,9 +25,18 @@ export type TopBarActive=(typeof marketLinks)[number]["key"]|null;
 export default function TopBar({active=null,actions,strictness,onStrictness,settingsExtra,className=""}:{active?:TopBarActive;actions?:ReactNode;strictness:SignalStrictness;onStrictness:(value:SignalStrictness)=>void;settingsExtra?:ReactNode;className?:string}){
  const account=useAccount();
  const visibleLinks=marketLinks.filter(item=>item.key!=='collections'||account.features?.collections);
+ const mobileLinks=visibleLinks.filter(item=>!['articles','buylist','import'].includes(item.key));
+ const moreLinks=visibleLinks.filter(item=>['articles','buylist','import'].includes(item.key));
  const [theme,setTheme]=useState<"dark"|"light">("dark");
  const [fontSize,setFontSize]=useState<"default"|"large">("default");
  const [settingsOpen,setSettingsOpen]=useState(false),settingsRef=useRef<HTMLDivElement>(null);
+ const moreRef=useRef<HTMLDetailsElement>(null);
+ useEffect(()=>{
+  const outside=(event:PointerEvent)=>{if(moreRef.current?.open&&!moreRef.current.contains(event.target as Node))moreRef.current.open=false};
+  const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'&&moreRef.current?.open){moreRef.current.open=false;moreRef.current.querySelector('summary')?.focus()}};
+  window.addEventListener('pointerdown',outside);window.addEventListener('keydown',escape);
+  return()=>{window.removeEventListener('pointerdown',outside);window.removeEventListener('keydown',escape)};
+ },[]);
  // Scalper mode lives in the settings menu on every page (user rule 2026-08-28) and in
  // the shared device store (decision D13): toggling here updates every mounted surface.
  const hoverPreviews=useHoverPreviews();
@@ -47,7 +57,7 @@ export default function TopBar({active=null,actions,strictness,onStrictness,sett
  return <><nav className={`topbar ${className}`.trim()}>
   <a className="brand" href="/"><span>R</span> Raw Signal</a>
   <div className="toplinks">
-   {visibleLinks.map(item=><a key={item.key} href={item.href} className={active===item.key?"active":""} aria-current={active===item.key?"page":undefined}>{item.label}</a>)}
+   {visibleLinks.map(item=><a key={item.key} href={item.href} className={`${active===item.key?"active":""} ${item.key==='articles'?'articles-nav-link':''}`.trim()} aria-current={active===item.key?"page":undefined}>{item.label}</a>)}
    {actions}
    <AccountControl/>
    <div className="display-settings" ref={settingsRef}>
@@ -85,6 +95,7 @@ export default function TopBar({active=null,actions,strictness,onStrictness,sett
  {/* Phones hide the topbar links (space); destinations move to a bottom tab bar — the
      thumb-first pattern for a handful of top-level pages. Hidden above 560px. */}
  <nav className="tabbar" aria-label="Primary">
-  {visibleLinks.map(item=><a key={item.key} href={item.href} aria-label={item.label} className={active===item.key?"active":""} aria-current={active===item.key?"page":undefined}><span aria-hidden="true">{item.icon}</span><b>{item.key==='collections'?'Holdings':item.label}</b></a>)}
+  {mobileLinks.map(item=><a key={item.key} href={item.href} aria-label={item.label} className={`${active===item.key?"active":""} ${item.key==='articles'?'articles-nav-link':''}`.trim()} aria-current={active===item.key?"page":undefined}><span aria-hidden="true">{item.icon}</span><b>{item.key==='collections'?'Holdings':item.label}</b></a>)}
+  <details ref={moreRef} className={`tabbar-more${moreLinks.some(item=>item.key===active)?' active':''}`}><summary><span aria-hidden="true">•••</span><b>More</b></summary><div className="tabbar-more-panel">{moreLinks.map(item=><a key={item.key} href={item.href} className={item.key==='articles'?'articles-nav-link':undefined} aria-current={active===item.key?'page':undefined}>{item.label}</a>)}</div></details>
  </nav></>;
 }

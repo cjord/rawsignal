@@ -9,6 +9,7 @@ import {SUPPORT_PURPOSES,type AdminAction} from '../core/domain/admin.ts';
 import {boundedJson} from './bounded-json.ts';
 import {handleCommunityModeration} from './community-moderation.ts';
 import {identityDatabase,sharedIdentity} from './account-identity.ts';
+import {handleAdminArticles} from './article-routes.ts';
 type AdminUser={id:string;email:string;emailVerified:boolean};
 export async function handleAdminManagement(request:Request,env:AccountEnv,user:AdminUser,sessionCreatedAt?:Date|string){
  const db=env.DB as D1DatabaseLike,role=accountRole(user,env),requestId=crypto.randomUUID();
@@ -18,6 +19,7 @@ export async function handleAdminManagement(request:Request,env:AccountEnv,user:
  }
  if(env.AUTH_AUDIT_ENABLED!=='true')return json({error:'Management auditing is not enabled. Apply the pending migration before activation.'},503);
  const url=new URL(request.url),tab=url.pathname.split('/').at(-1);
+ if(url.pathname==='/api/account/admin/articles'||url.pathname.startsWith('/api/account/admin/articles/'))return handleAdminArticles(request,env,user.id);
  if(tab==='accounts')return accountLookup(request,env,user.id,requestId);
  if(tab==='community')return handleCommunityModeration(request,env,user.id,requestId,sessionCreatedAt);
  if(request.method!=='GET')return json({error:'These management tools are read-only'},405);

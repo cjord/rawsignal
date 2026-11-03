@@ -39,6 +39,8 @@ Defined in `app/styles/tokens.css` (dimensions/motion/stacking) and `app/globals
   ~10.5px floor at Default) with two root-driven steps: `html{font-size:100%}` and
   `html[data-font-size="large"]{font-size:108%}`. Never add a raw px font-size — pick the
   nearest token, and only extend the ramp deliberately.
+- Articles extend that ramp with `--text-reading` (1rem), `--text-section` (1.4rem)
+  and `--text-title` (2rem) for sustained reading; dashboard density is unchanged.
 - Font files are self-hosted (`public/fonts/` + `app/styles/fonts.css`), never loaded via
   `next/font` — the vinext loader bakes absolute local cache paths into production builds.
 - Sans fonts use optional delivery: promptly available/cached Geist remains the
