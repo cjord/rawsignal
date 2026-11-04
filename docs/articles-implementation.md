@@ -4,6 +4,10 @@ Initial implementation: October 27, 2026, on `codex/article-editor`.
 Enabled on staging November 2 after backup, migration and verification; production
 unchanged and no actual article published. [Staging release and remaining acceptance](articles-staging-release-2026-11-02.md).
 
+November 4: Double-Bracket Product Links deployed to staging, and the current Radiance
+and Delta Reign drafts imported/saved/submitted to Needs Review. Neither is published;
+production is unchanged. [Release and live queue acceptance](articles-staging-release-2026-11-04.md).
+
 ## Available features
 
 - **Article Library** `/articles`: game/category filters, title/set search, bounded
