@@ -3,7 +3,8 @@ import test from 'node:test';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync,readdirSync} from 'node:fs';
 import {emptyArticleDraft,parseArticleDraft,inspectArticleMarkdown,articleHref,articleLinkProduct,articleReviewProblems,articleRevisionChanges} from '../core/domain/articles.ts';
-import {saveArticleDraft,transitionArticle,readPublicArticle,listArticles,articleRevisions,readArticleProducts} from '../db/articles.ts';
+import {articleProductMarkup,matchArticleProduct} from '../core/domain/article-product-links.ts';
+import {saveArticleDraft,transitionArticle,readPublicArticle,listArticles,articleRevisions,readArticleProducts,resolveArticleProducts} from '../db/articles.ts';
 import {handlePublicArticles,handleArticleSitemap} from '../worker/article-routes.ts';
 import {handleAdminManagement} from '../worker/admin-routes.ts';
 import {prepareDeploymentConfig} from '../scripts/cloudflare/prepare-deployment.mjs';
@@ -38,6 +39,44 @@ test('article links preserve exact printings and reject unsafe markup without ex
  assert.equal(inspected.products.length,3);
  for(const text of ['<script>alert(1)</script>','[bad](javascript:alert)','![remote](https://evil.test/tracker.png)'])assert.ok(inspectArticleMarkdown(text).problems.length);
  assert.ok(inspectArticleMarkdown(Array.from({length:41},(_,i)=>`[card](/cards/${i+1})`).join(' ')).problems.length);
+});
+
+test('double brackets support names, exact identities and tables without interpreting code or nested links',()=>{
+ const inspected=inspectArticleMarkdown('## [[Ezreal]]\n\n[[Ezreal]] and [[Signature::single:1]].\n\n|Product|\n|---|\n|[[Radiance Box::sealed:3]]|\n\n`[[Not a card]]`\n\n```text\n[[Not a card either]]\n```\n\n\\[[Escaped]]');
+ assert.deepEqual(inspected.names,['Ezreal']);assert.deepEqual(inspected.products,[{kind:'single',productId:1},{kind:'sealed',productId:3}]);assert.deepEqual(inspected.problems,[]);
+ for(const markdown of ['[[Missing end','[[Bad::single:0]]','[[Bad::javascript:alert(1)]]','[outer [[Card]]](https://example.test/)'])assert.ok(inspectArticleMarkdown(markdown).problems.length,markdown);
+ assert.ok(inspectArticleMarkdown(Array.from({length:41},(_,i)=>`[[Card ${i}]]`).join(' ')).problems.length);
+ assert.equal(articleProductMarkup({kind:'sealed',productId:3,name:'Radiance Box'}),'[[Radiance Box::sealed:3]]');
+ const ref={kind:'single',productId:1,name:'Ezreal'};
+ assert.equal(matchArticleProduct({valid:true,text:'ezreal',target:null},[ref]),ref);
+ assert.equal(matchArticleProduct({valid:true,text:'Ezreal',target:null},[ref,{...ref,productId:2}]),undefined);
+ assert.ok(articleReviewProblems({...draft(),markdown:draft().markdown+' [[Ambiguous]]'},[]).some(p=>p.includes('no unique product match')));
+ assert.ok(articleReviewProblems({...draft(),markdown:draft().markdown+' [Card](/cards/1)'},[ref]).some(p=>p.includes('double brackets')));
+});
+
+test('bracket resolution rejects ambiguous names, freezes saved identities and never guesses from a partial name',async()=>{
+ const f=fixture();try{
+  f.sqlite.exec(`INSERT INTO ingestion_runs(id,source,status,started_at,completed_at,records_written) VALUES('test','tcgcsv','succeeded','${now}','${now}',5)`);
+  const insert=(id,kind,name)=>f.sqlite.prepare("INSERT INTO catalog_products(product_id,kind,game,name,set_name,printing,source_updated_at,ingestion_run_id) VALUES(?,?,'riftbound',?,'Radiance','Foil',?,'test')").run(id,kind,name,now);
+  insert(1,'single','Ezreal');insert(2,'sealed','Radiance Box');insert(3,'single','Ambiguous');insert(4,'single','Ambiguous');
+  const products=await resolveArticleProducts(f.db,[],['ezreal','Radiance Box','Ambiguous','Ezr',"' OR 1=1 --"]);
+  assert.deepEqual(products.map(p=>p.productId).sort(),[1,2]);
+  const article=await saveArticleDraft(f.db,admin.id,{revision:0,draft:{...draft(),markdown:draft().markdown+' [[Ezreal]] [[Radiance Box]]'}},now);
+  assert.equal(article.references.length,2);
+  insert(5,'single','Ezreal'); // Newly added printing must not retarget the saved revision.
+  f.sqlite.prepare("UPDATE catalog_products SET name='Renamed Ezreal' WHERE product_id=1").run();
+  await publish(f.db,article);const published=await readPublicArticle(f.db,article.draft.slug);
+  assert.equal(published.references.find(p=>p.productId===1).name,'Ezreal');
+  const next=await saveArticleDraft(f.db,admin.id,{id:article.id,revision:1,draft:{...article.draft,title:'A revision'}},now);
+  assert.equal(next.references.find(p=>p.name==='Ezreal').productId,1);
+  const unresolved=await saveArticleDraft(f.db,admin.id,{revision:0,draft:{...draft(),slug:'unresolved',markdown:draft().markdown+' [[Ambiguous]]'}},now);
+  await assert.rejects(()=>transitionArticle(f.db,admin.id,unresolved.id,1,'submit','',false,now),/no unique product match/);
+  const exact=await saveArticleDraft(f.db,admin.id,{revision:0,draft:{...draft(),slug:'exact',markdown:draft().markdown+' [[Ambiguous::single:3]]'}},now);
+  await publish(f.db,exact);assert.equal((await readPublicArticle(f.db,'exact')).references[0].productId,3);
+  const response=await handlePublicArticles(request('/api/articles/products?name=Radiance%20Box&name=Ambiguous'),f.env);
+  assert.equal(response.status,200);assert.deepEqual((await response.json()).products.map(p=>p.productId),[2]);
+  for(const query of ['name=',`name=${'x'.repeat(301)}`,Array.from({length:41},()=>`name=Ezreal`).join('&')])assert.equal((await handlePublicArticles(request('/api/articles/products?'+query),f.env)).status,400);
+ }finally{f.sqlite.close()}
 });
 test('draft parsing strips unknown private properties and review requires evidence and dated forecasts',()=>{
  const value=parseArticleDraft({...draft(),internalToken:'secret',sources:['https://example.test/',''],forecasts:[{productKey:'single:1',low:5,high:10,basis:'delivered',confidence:'low',rationale:'Supply',invalidation:'New shortage',secret:'not public'}]});

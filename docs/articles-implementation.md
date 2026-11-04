@@ -73,8 +73,16 @@ times, unknown product identities, and incomplete structured forecasts. Limits:
 
 ## Article Card Links and Article Card Previews
 
-Named products use explicit `/cards/[id]` or `/sealed/[id]?market=...` links. The
-catalog picker displays set, number and printing; it never fuzzy-links champion names.
+November 4 addition: **Double-Bracket Product Links**
+are the required authoring format for cards and sealed products. Write
+`[[Exact product name]]` for a unique catalog name. The catalog picker inserts
+`[[Display name::single:123]]` or `[[Display name::sealed:456]]` to pin an exact
+product when names overlap. Readers see only the display name, linked to
+`/cards/[id]` or `/sealed/[id]?market=...`, with the shared artwork/details/history preview.
+Use brackets in body text, headings, lists and tables. Code examples and escaped
+brackets remain literal. Sources still use ordinary HTTPS Markdown links.
+
+The catalog picker displays set, number and printing; it never fuzzy-links champion names.
 Its explicit all-rarities search does not inherit the market board's chase-only defaults;
 Epics, ordinary cards and Signatures remain searchable alongside Overnumbered cards.
 The current implementation uses each exact catalog product's primary printing and
@@ -93,6 +101,32 @@ The preview says Current Market History and names its snapshot date. It never up
 an article's historical quotes, observation timestamp or editorial forecasts. The editor
 cannot infer every unlinked card name in natural-language prose: confirming that all
 specific card mentions have the correct links remains part of human review.
+
+Name-only matches must be unique across the catalog; ambiguity/missing names are
+marked in the preview and block submit, approval and publication. Use the picker
+to resolve them. The editor debounces and cancels lookup requests; a failed lookup
+keeps the draft text and never substitutes a different product. Saving records the
+resolved identity in the existing immutable reference snapshot. Review/public readers
+use that snapshot, and later saves reuse its name bindings, so a new same-name
+printing or catalog rename cannot silently redirect the saved reference. Current
+market values/history are still read separately by ID, with unavailable fallbacks.
+No database migration, new dependency or upstream marketplace reads are needed.
+
+Existing published Markdown product links continue to render. Newly submitted or
+republished revisions must use double brackets; the review checks flag conventional
+internal product links for replacement. Earlier published revisions remain unchanged.
+
+November 4 validation: `npm run check` passed the production build, 706 unit tests
+(one existing skip), lint (zero errors; 21 existing complexity warnings), TypeScript,
+and all 177 Chromium journeys. The seven article journeys cover typed brackets,
+exact single/sealed insertion, artwork/details, lazy shared histories, keyboard/touch,
+ambiguity and lookup failures, preserved conflicted drafts and publication controls.
+They also caught/fixed a preview resizing overlap that blocked clicking the source
+link: positioning now observes panel resizing and constrains height to the available
+side of its anchor. Desktop/mobile and light/dark screenshots were reviewed.
+The local placeholder D1's existing detail-schema warnings exercised fallback paths,
+as in the previous release gate; this is not live staging/production acceptance.
+No database, account, remote article content or environment activation changed.
 
 ## Activation and rollback
 

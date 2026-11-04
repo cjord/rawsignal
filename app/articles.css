@@ -12,3 +12,4 @@
 .article-card-preview{margin:0;color:var(--text);}
 
 html[data-articles-enabled=false] .articles-nav-link{display:none}
+.article-unresolved-reference{color:var(--tone-down);text-decoration:underline dotted;text-underline-offset:3px}

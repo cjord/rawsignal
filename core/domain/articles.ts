@@ -1,5 +1,6 @@
-import {marked,type Token} from 'marked';
+import {Marked,type Token} from 'marked';
 import type {RowMetrics} from './types.ts';
+import {articleProductExtension,articleNameKey,isArticleProductToken} from './article-product-links.ts';
 
 export const ARTICLE_STATES=['draft','needs-review','approved','published','rejected','archived'] as const;
 export type ArticleState=typeof ARTICLE_STATES[number];
@@ -33,19 +34,36 @@ export function articleLinkProduct(href:string):Pick<ArticleReference,'kind'|'pr
  const match=safe.match(/^\/(cards|sealed)\/(\d+)(?:[?#]|$)/);if(!match)return null;
  const productId=Number(match[2]);return Number.isSafeInteger(productId)&&productId>0&&productId<1e9?{kind:match[1]==='cards'?'single':'sealed',productId}:null;
 }
-export function articleTokens(markdown:string):Token[]{return marked.lexer(markdown.slice(0,60000),{gfm:true})}
+const articleMarkdown=new Marked({gfm:true,extensions:[articleProductExtension]});
+export function articleTokens(markdown:string):Token[]{return articleMarkdown.lexer(markdown.slice(0,60000))}
 export function inspectArticleMarkdown(markdown:string){
- const products=new Map<string,Pick<ArticleReference,'kind'|'productId'>>(),problems=new Set<string>();let count=0;
- const walk=(tokens:Token[],depth=0)=>{if(depth>24){problems.add('Markdown nesting is too deep.');return}
+ const products=new Map<string,Pick<ArticleReference,'kind'|'productId'>>(),names=new Map<string,string>(),problems=new Set<string>();let count=0;
+ const walk=(tokens:Token[],depth=0,inLink=false)=>{if(depth>24){problems.add('Markdown nesting is too deep.');return}
   for(const token of tokens){if(++count>12000){problems.add('Article formatting is too complex.');return}
+   if(isArticleProductToken(token)){
+    if(!token.valid)problems.add('Invalid product brackets. Use [[Product name]] or choose an exact product from the catalog picker.');
+    else if(inLink)problems.add('Product brackets cannot be nested inside another link.');
+    else if(token.target)products.set(articleProductKey(token.target),token.target);else names.set(articleNameKey(token.text),token.text);
+   }
+   if(token.type==='text'&&token.text.includes('[['))problems.add('Unclosed or invalid product brackets. Use [[Product name]].');
    if(token.type==='html'||token.type==='image')problems.add('Raw HTML and external embedded images are not supported. Use product references.');
-   if(token.type==='link'){if(!articleHref(token.href))problems.add('An article link is invalid or unsafe.');const p=articleLinkProduct(token.href);if(p)products.set(articleProductKey(p),p)}
-   if('tokens' in token&&Array.isArray(token.tokens))walk(token.tokens,depth+1);
+   if(token.type==='link'){if(!articleHref(token.href))problems.add('An article link is invalid or unsafe.');const p=articleLinkProduct(token.href);if(p){products.set(articleProductKey(p),p);problems.add('Use double brackets for card and sealed product links. Insert the exact product with the catalog picker.')}}
+   if('tokens' in token&&Array.isArray(token.tokens))walk(token.tokens,depth+1,inLink||token.type==='link');
    if(token.type==='list')for(const item of token.items)walk(item.tokens,depth+1);
    if(token.type==='table')for(const cell of [...token.header,...token.rows.flat()])walk(cell.tokens,depth+1);
   }
- };walk(articleTokens(markdown));if(products.size>40)problems.add('An article can reference at most 40 distinct products.');
- return {products:[...products.values()],problems:[...problems]};
+ };walk(articleTokens(markdown));if(products.size+names.size>40)problems.add('An article can reference at most 40 distinct products.');
+ return {products:[...products.values()],names:[...names.values()],problems:[...problems]};
+}
+// Reuse saved identities for name-only links; a later catalog addition must not
+// redirect an existing article to a different printing with the same name.
+export function articleLookupTargets(inspected:ReturnType<typeof inspectArticleMarkdown>,saved:ArticleReference[]=[]){
+ const targets=new Map(inspected.products.map(p=>[articleProductKey(p),p])),names:string[]=[];
+ for(const name of inspected.names){
+  const matches=saved.filter(p=>articleNameKey(p.name)===articleNameKey(name));
+  if(matches.length===1)targets.set(articleProductKey(matches[0]),matches[0]);else names.push(name);
+ }
+ return {products:[...targets.values()],names};
 }
 const boundedText=(v:unknown,max:number)=>typeof v==='string'&&v.length<=max&&![...v].some(c=>{const n=c.charCodeAt(0);return n<32&&![9,10,13].includes(n)||n===127});
 const dateOnly=(v:string)=>/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;
@@ -76,6 +94,7 @@ export function articleReviewProblems(draft:ArticleDraft,references:ArticleRefer
  if(draft.targetDate&&(!dateOnly(draft.targetDate)||draft.targetDate<draft.observedAt.slice(0,10)))problems.push('The forecast target must be a valid date on or after the observation date.');
  if(draft.category==='release-outlook'&&!draft.targetDate)problems.push('A release outlook needs a forecast target date.');
  const keys=new Set(references.map(articleProductKey));for(const product of inspected.products)if(!keys.has(articleProductKey(product)))problems.push(`Resolve product ${articleProductKey(product)} in the catalog.`);
+ for(const name of inspected.names)if(references.filter(p=>articleNameKey(p.name)===articleNameKey(name)).length!==1)problems.push(`Resolve [[${name}]]: no unique product match. Choose the exact card or sealed product from the catalog picker.`);
  for(const f of draft.forecasts)if(!keys.has(f.productKey)||!f.rationale.trim()||!f.invalidation.trim()||!draft.targetDate)problems.push('Each forecast needs a linked product, target date, rationale and invalidation condition.');
  return [...new Set(problems)];
 }

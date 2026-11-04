@@ -1,16 +1,25 @@
 "use client";
 import {useMemo,type ReactNode} from 'react';
 import type {MarkedToken,Token,Tokens} from 'marked';
-import {articleHref,articleLinkProduct,articleProductKey,articleTokens,type ArticleProduct} from '../../core/domain/articles';
+import {articleHref,articleLinkProduct,articleProductHref,articleProductKey,articleTokens,type ArticleProduct,type ArticleReference} from '../../core/domain/articles';
+import {isArticleProductToken,matchArticleProduct,type ArticleProductToken} from '../../core/domain/article-product-links';
 import {usePriceHistoryBatch} from '../data/usePriceHistoryBatch';
 import ArticleCardLink from './ArticleCardLink';
 
 const readable=(s:string)=>s.replace(/&(amp|lt|gt|quot|#39);/g,(_,entity:string)=>({'amp':'&','lt':'<','gt':'>','quot':'"','#39':"'"}[entity]??''));
-export default function ArticleBody({markdown,products=[]}:{markdown:string;products?:ArticleProduct[]}){
+export default function ArticleBody({markdown,products=[],references=products}:{markdown:string;products?:ArticleProduct[];references?:ArticleReference[]}){
  const tokens=useMemo(()=>articleTokens(markdown),[markdown]),{history,ensure}=usePriceHistoryBatch();
  const index=useMemo(()=>new Map(products.map(p=>[articleProductKey(p),p])),[products]);
- const render=(list:Token[],depth=0):ReactNode=>depth>24?null:list.map((generic,i)=>{
-  const token=generic as MarkedToken,key=`${depth}:${i}`,nested='tokens'in token&&token.tokens?render(token.tokens,depth+1):null;
+ const renderProduct=(token:ArticleProductToken,key:string,inLink:boolean)=>{
+  if(inLink)return <span key={key}>{token.text}</span>;
+  const ref=matchArticleProduct(token,references);
+  return ref?<ArticleCardLink key={key} href={articleProductHref(ref)} product={index.get(articleProductKey(ref))??{...ref,marketPrice:null,midPrice:null}} histories={history} ensure={ensure}>{token.text}</ArticleCardLink>:<span key={key} className="article-unresolved-reference" title="Choose the exact product in the article editor">{token.raw}</span>;
+ };
+ const children=(token:MarkedToken,depth:number,inLink:boolean)=>'tokens'in token&&token.tokens?render(token.tokens,depth+1,inLink||token.type==='link'):null;
+ const render=(list:Token[],depth=0,inLink=false):ReactNode=>depth>24?null:list.map((generic,i)=>{
+  const key=`${depth}:${i}`;
+  if(isArticleProductToken(generic))return renderProduct(generic,key,inLink);
+  const token=generic as MarkedToken,nested=children(token,depth,inLink);
   switch(token.type){
    case 'space':case 'def':return null;
    case 'heading':{const Tag=`h${Math.max(2,Math.min(6,token.depth))}` as 'h2';return <Tag key={key}>{nested}</Tag>}

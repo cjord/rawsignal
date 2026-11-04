@@ -110,6 +110,15 @@ squeezing an eighth destination into the tab bar.
 
 ### Exact product references
 
+- Confirmed November 4: **Double-Bracket Product Links** are the authoring format
+  for every specific card/sealed mention in new articles: `[[Exact product name]]`.
+  A unique exact catalog name resolves automatically; ambiguous names require the
+  picker, which inserts `[[Display name::single:123]]` or
+  `[[Display name::sealed:456]]`. Both render as ordinary names with artwork,
+  details/history on hover/focus/touch and the canonical individual-product link.
+  Do not guess a printing from a partial champion name. Unresolved links block review
+  and publication; existing published revisions retain their original content/links.
+  Scheduled or manually generated drafts must use this same bracket format.
 - Every specific card-name mention in prose, headings, captions and tables is an
   internal link to `/cards/[productId]`; sealed product references use
   `/sealed/[productId]?market=riftbound` (or the correct market). External TCGplayer,
@@ -121,8 +130,9 @@ squeezing an eighth destination into the tab bar.
   label; retain a small identity snapshot so old articles remain intelligible.
   Selecting the printing is mandatory when a shared name has multiple treatments.
 - Recognize validated internal product links when importing existing Markdown and
-  render them through the same reference component. Do not build a second system
-  for imported drafts. Do not auto-link ambiguous plain champion names by fuzzy
+  render them through the same reference component, while requiring replacement
+  with bracket links before a new publication/republication. Do not build a second
+  system for imported drafts. Do not auto-link ambiguous plain champion names by fuzzy
   matching: Ezreal180, Ezreal180* and Spiritforged Ezreal248 are different products.
   Flag unresolved references for the reviewer; insert links explicitly and check
   unlinked named-card mentions before publication. Never silently substitute a card.

@@ -1,6 +1,6 @@
 import type {AccountEnv} from './account-auth.ts';
 import type {D1DatabaseLike} from '../db/repository.ts';
-import {ArticleError,articleRevisions,listArticles,readAdminArticle,readPublicArticle,readArticleProducts,saveArticleDraft,transitionArticle} from '../db/articles.ts';
+import {ArticleError,articleRevisions,listArticles,readAdminArticle,readPublicArticle,resolveArticleProducts,saveArticleDraft,transitionArticle} from '../db/articles.ts';
 import {articleListOptions,parseArticleDraft,type ArticleAction,type ArticleReference} from '../core/domain/articles.ts';
 import {accountJson} from './account-http.ts';
 import {boundedJson} from './bounded-json.ts';
@@ -26,9 +26,9 @@ export async function handlePublicArticles(request:Request,env:AccountEnv){
   const url=new URL(request.url),slug=url.pathname.slice('/api/articles'.length).replace(/^\//,'');
   if(!slug)return publicJson(await listArticles(db,articleListOptions(url.searchParams)));
   if(slug==='products'){
-   const values=(url.searchParams.get('ids')??'').split(',').filter(Boolean);if(values.length>40||values.some(v=>! /^(single|sealed):[1-9]\d{0,8}$/.test(v)))return publicJson({error:'Invalid product references.'},400);
+   const values=(url.searchParams.get('ids')??'').split(',').filter(Boolean),names=url.searchParams.getAll('name');if(values.length+names.length>40||values.some(v=>! /^(single|sealed):[1-9]\d{0,8}$/.test(v))||names.some(n=>!n.trim()||n.length>300||[...n].some(c=>c.charCodeAt(0)<32||c.charCodeAt(0)===127))||names.join('').length>6000)return publicJson({error:'Invalid product references.'},400);
    const targets=values.map(v=>{const [kind,id]=v.split(':');return {kind:kind as ArticleReference['kind'],productId:Number(id)}});
-   return publicJson({products:await readArticleProducts(db,targets)});
+   return publicJson({products:await resolveArticleProducts(db,targets,names)});
   }
   if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)||slug.length>100)return publicJson({error:'Not found'},404);
   const revision=url.searchParams.has('revision')?Number(url.searchParams.get('revision')):undefined;
