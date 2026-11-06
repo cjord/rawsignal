@@ -37,12 +37,32 @@ test('editor resolves typed brackets, flags ambiguity, and keeps reference failu
  await page.route('**/api/articles/products?**',route=>{
   const url=new URL(route.request().url());requests.push(url);
   if(unavailable)return route.fulfill({status:503,json:{error:'Unavailable'}});
-  return route.fulfill({json:{products:url.searchParams.getAll('name').includes('Neeko')?[{kind:'single',productId:123,name:'Neeko',set:'Radiance',game:'riftbound',number:'167',printing:'Foil',image:null,marketPrice:7,midPrice:null}]:[]}});
+  return route.fulfill({json:{products:url.searchParams.getAll('name').includes('Neeko')?[{kind:'single',productId:123,name:'Neeko',set:'Radiance',game:'riftbound',number:'167',printing:'Foil',image:null,marketPrice:7,midPrice:null,aliases:['Neeko']}]:[]}});
  });
  await fixture(page,true);const input=page.getByLabel('Article text (Markdown)'),preview=page.getByRole('region',{name:'Article preview'});
  await input.fill('[[Neeko]]');await expect(preview.getByRole('link',{name:'Neeko',exact:true})).toHaveAttribute('href','/cards/123');expect(requests[0].searchParams.getAll('name')).toEqual(['Neeko']);
  await input.fill('[[Ambiguous champion]]');await expect(preview.locator('.article-unresolved-reference')).toContainText('[[Ambiguous champion]]');await page.getByText(/Pre-publication checks/).click();await expect(page.getByText(/Resolve \[\[Ambiguous champion\]\]/)).toBeVisible();
  unavailable=true;await input.fill('[[New card]]');await expect(page.getByRole('alert')).toContainText('Product lookup is unavailable');await expect(input).toHaveValue('[[New card]]');await expect(preview.getByRole('link')).toHaveCount(0);
+});
+
+test('collector-number brackets preview and open different Ahri printings without changing article prices',async({page})=>{
+ const requests:URL[]=[];await page.route('**/api/history?**',route=>{requests.push(new URL(route.request().url()));return route.fulfill({json:{points:[],coverage:'none'}})});
+ await fixture(page);const regular=page.getByRole('link',{name:'ahri, inquisitive',exact:true}),special=page.getByRole('link',{name:'ahri, inquisitive SP3',exact:true});
+ await expect(regular).toHaveAttribute('href','/cards/652901');await expect(special).toHaveAttribute('href','/cards/705996');expect(requests).toHaveLength(0);
+ await regular.hover();await expect(page.getByRole('dialog')).toContainText('Origins · 119/298');await expect(page.getByRole('img',{name:'Ahri, Inquisitive',exact:true})).toBeVisible();
+ await special.hover();await expect(page.getByRole('dialog')).toHaveCount(1);await expect(page.getByRole('dialog')).toContainText('Vendetta · SP3/006');await expect.poll(()=>requests.length).toBe(2);expect(requests[1].searchParams.get('productId')).toBe('705996');await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page.getByText('$470',{exact:true})).toBeVisible();
+ await page.route('**/cards/705996',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><h1>Ahri Vendetta Special</h1>'}));await special.click();await expect(page).toHaveURL(/\/cards\/705996$/);await expect(page.getByRole('heading',{name:'Ahri Vendetta Special'})).toBeVisible();
+});
+
+test('product lookup Retry recovers from malformed and failed responses without editing or losing shorthand',async({page})=>{
+ let mode='malformed',reads=0;const query='ahri, inquisitive SP3';
+ await page.route('**/api/articles/products?**',route=>{
+  reads++;if(mode==='malformed')return route.fulfill({json:{products:{unexpected:true}}});if(mode==='unavailable')return route.fulfill({status:503,json:{error:'Unavailable'}});
+  return route.fulfill({json:{products:[{kind:'single',productId:705996,name:'Ahri, Inquisitive',set:'Vendetta',game:'riftbound',number:'SP3/006',printing:'Foil',image:null,marketPrice:20,midPrice:null,aliases:[query]}]}});
+ });
+ await fixture(page,true);const input=page.getByLabel('Article text (Markdown)');await input.fill(`[[${query}]]`);await expect(page.getByRole('alert')).toContainText('Product lookup is unavailable');await expect(input).toHaveValue(`[[${query}]]`);
+ mode='unavailable';await page.getByRole('button',{name:'Retry product links'}).click();await expect.poll(()=>reads).toBe(2);await expect(page.getByRole('alert')).toContainText('Your draft is preserved');
+ mode='good';await page.getByRole('button',{name:'Retry product links'}).click();await expect(page.getByRole('region',{name:'Article preview'}).getByRole('link',{name:query,exact:true})).toHaveAttribute('href','/cards/705996');await expect(page.getByRole('alert')).toHaveCount(0);await expect(input).toHaveValue(`[[${query}]]`);expect(reads).toBe(3);
 });
 test('editor saves manually, preserves a conflicted buffer and explicitly reviews each publication step',async({page},info)=>{
  let saved:ArticleRecord|null=null,conflict=false;const actions:string[]=[];
@@ -84,5 +104,5 @@ test('editor product search includes every rarity and inserts exact single and s
  });
  await fixture(page,true);await page.getByLabel('Name',{exact:true}).fill('Neeko');expect(requests).toHaveLength(0);await page.getByRole('button',{name:'Search catalog'}).click();await expect(page.getByRole('button',{name:'Insert',exact:true})).toBeVisible();
  expect(requests[0].searchParams.get('rarity')).toBe('all');expect(requests[0].searchParams.get('perPage')).toBe('20');await page.getByRole('button',{name:'Insert',exact:true}).click();await expect(page.getByLabel('Article text (Markdown)')).toHaveValue('[[Neeko, Blending In::single:123]]');
- await page.getByRole('combobox',{name:'Product',exact:true}).selectOption('sealed');await page.getByLabel('Name',{exact:true}).fill('Radiance');await page.getByRole('button',{name:'Search catalog'}).click();await expect(page.getByText('Radiance Booster Box',{exact:true})).toBeVisible();expect(requests[1].searchParams.has('rarity')).toBe(false);await page.getByRole('button',{name:'Insert',exact:true}).click();await expect(page.getByLabel('Article text (Markdown)')).toHaveValue(/\[\[Radiance Booster Box::sealed:456\]\]/);
+ await page.getByRole('combobox',{name:'Product',exact:true}).selectOption('sealed');await expect(page.getByRole('button',{name:'Insert',exact:true})).toHaveCount(0);expect(requests).toHaveLength(1);await page.getByLabel('Name',{exact:true}).fill('Radiance');await page.getByRole('button',{name:'Search catalog'}).click();await expect(page.getByText('Radiance Booster Box',{exact:true})).toBeVisible();expect(requests[1].searchParams.has('rarity')).toBe(false);await page.getByRole('button',{name:'Insert',exact:true}).click();await expect(page.getByLabel('Article text (Markdown)')).toHaveValue(/\[\[Radiance Booster Box::sealed:456\]\]/);
 });

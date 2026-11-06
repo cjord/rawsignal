@@ -1,5 +1,6 @@
 import type {D1DatabaseLike} from './repository.ts';
-import {articleNextState,articleProductKey,articleReviewProblems,articleLookupTargets,inspectArticleMarkdown,publicArticleDraft,type ArticleAction,type ArticleDraft,type ArticleProduct,type ArticleRecord,type ArticleReference,type ArticleRelease,type ArticleState,type ArticleSummary,type PublicArticle} from '../core/domain/articles.ts';
+import {articleNextState,articleProductKey,articleReviewProblems,articleLookupTargets,articleReferenceSnapshots,inspectArticleMarkdown,publicArticleDraft,type ArticleAction,type ArticleDraft,type ArticleProduct,type ArticleRecord,type ArticleReference,type ArticleRelease,type ArticleState,type ArticleSummary,type PublicArticle} from '../core/domain/articles.ts';
+import {articleNameKey,articleProductQuery,articleProductSearchNames,resolveArticleProductName,type ArticleNamedProduct} from '../core/domain/article-product-links.ts';
 import {readyCatalogRun} from './readiness.ts';
 
 type Stored={id:string;slug:string;head_revision:number;state:ArticleState;published_revision:number|null;published_at:string|null;first_published_at:string|null;created_at:string;updated_at:string;content_json:string;references_json:string};
@@ -36,19 +37,31 @@ export async function readArticleProducts(db:D1DatabaseLike,targets:Pick<Article
  const dollars=(v:number|null)=>v==null?null:v/100,keys=new Set(targets.map(articleProductKey));
  return (rows.results??[]).filter(r=>keys.has(articleProductKey(r))).map(r=>({kind:r.kind,productId:r.productId,name:r.name,set:r.setName,game:r.game,number:r.number??'',printing:r.printing??'Sealed',image:r.image,marketPrice:dollars(r.market),midPrice:dollars(r.mid),metrics:{snapshotId:r.snapshotId??undefined,asOfDate:r.asOfDate??undefined,change7:dollars(r.change7),change30:dollars(r.change30),low30:dollars(r.low30),high30:dollars(r.high30),regime:r.regime}}));
 }
-export async function resolveArticleProducts(db:D1DatabaseLike,targets:Pick<ArticleReference,'kind'|'productId'>[],names:string[]=[]){
+async function articleNameCandidates(db:D1DatabaseLike,names:string[]){
+ const wanted=names.flatMap(query=>articleProductSearchNames(query).map(name=>({lookupName:articleNameKey(query),name,pattern:name.replace(/[\\%_]/g,'\\$&')+' (%)',set:articleProductQuery(query)?.set??''})));
+ if(!wanted.length)return {groups:new Map<string,ArticleNamedProduct[]>(),overflow:new Set<string>()};
+ const rows=await db.prepare(`WITH candidates AS (
+  SELECT DISTINCT json_extract(w.value,'$.lookupName') AS lookupName,p.product_id AS productId,p.kind,p.name,p.set_name AS setName,p.card_number AS number
+  FROM json_each(?) w JOIN catalog_products p ON p.name=(json_extract(w.value,'$.name')) COLLATE NOCASE OR p.name LIKE (json_extract(w.value,'$.pattern')) ESCAPE '\\'
+  WHERE json_extract(w.value,'$.set')='' OR p.set_name=json_extract(w.value,'$.set') COLLATE NOCASE
+ ), matches AS (
+  SELECT *,COUNT(*) OVER (PARTITION BY lookupName) AS total,ROW_NUMBER() OVER (PARTITION BY lookupName ORDER BY productId) AS position FROM candidates
+ ) SELECT * FROM matches WHERE position<=25`).bind(JSON.stringify(wanted)).all<{lookupName:string;productId:number;kind:'single'|'sealed';name:string;setName:string;number:string|null;total:number}>();
+ const groups=new Map<string,ArticleNamedProduct[]>(),overflow=new Set<string>();
+ for(const row of rows.results??[]){if(row.total>25)overflow.add(row.lookupName);const entries=groups.get(row.lookupName)??[];entries.push({...row,set:row.setName,number:row.number??''});groups.set(row.lookupName,entries)}
+ return {groups,overflow};
+}
+export async function resolveArticleProducts(db:D1DatabaseLike,targets:Pick<ArticleReference,'kind'|'productId'|'aliases'>[],names:string[]=[]){
  if(targets.length+names.length>40)throw new ArticleError('At most 40 product references are supported.',400);
- if(names.length>0){
-  // Exact names only. Window counts reject ambiguity without returning every match
-  // or performing one query per name. Values are bound, never interpolated SQL.
-  const rows=await db.prepare(`WITH matches AS (
-   SELECT p.product_id AS productId,p.kind,COUNT(*) OVER (PARTITION BY w.value) AS total,
-    ROW_NUMBER() OVER (PARTITION BY w.value ORDER BY p.product_id) AS position
-   FROM json_each(?) w JOIN catalog_products p ON p.name=w.value COLLATE NOCASE
-  ) SELECT productId,kind FROM matches WHERE total=1 AND position=1`).bind(JSON.stringify(names)).all<Pick<ArticleReference,'kind'|'productId'>>();
-  targets=[...targets,...(rows.results??[])];
+ const aliases=new Map(targets.map(p=>[articleProductKey(p),p.aliases??[]]));
+ const {groups,overflow}=await articleNameCandidates(db,names);
+ for(const name of names){
+  const query=articleNameKey(name);if(overflow.has(query))continue;
+  const product=resolveArticleProductName(name,groups.get(query)??[]);if(!product)continue;
+  targets=[...targets,product];const key=articleProductKey(product);aliases.set(key,[...new Set([...(aliases.get(key)??[]),name])]);
  }
- return readArticleProducts(db,[...new Map(targets.map(p=>[articleProductKey(p),p])).values()]);
+ const products=await readArticleProducts(db,[...new Map(targets.map(p=>[articleProductKey(p),p])).values()]);
+ return products.map(p=>({...p,aliases:aliases.get(articleProductKey(p))??[]}));
 }
 function auditMutation(db:D1DatabaseLike,id:string,op:string,actor:string,action:string,revision:number,now:string){
  return db.prepare("INSERT INTO admin_audit_events(id,occurred_at,actor_id,actor_role,action,target_type,target_id,outcome,request_id,reason_code,event_bucket) SELECT ?,?,?,'admin',?,'article',id,'allowed',?,?,? FROM articles WHERE id=? AND last_operation_id=?").bind(op,now,actor,`admin.article.${action}`,op,`revision:${revision}`,op,id,op);
@@ -64,8 +77,8 @@ export async function saveArticleDraft(db:D1DatabaseLike,actor:string,input:{id?
  if(old&&old.revision!==input.revision)throw new ArticleError('A newer revision exists. Your text has not been overwritten.');
  if(!old&&input.revision!==0)throw new ArticleError('Invalid initial revision.',400);
  if(old?.publishedAt&&old.draft.slug!==input.draft.slug)throw new ArticleError('The URL is fixed after first publication.');
- const inspected=inspectArticleMarkdown(input.draft.markdown),lookup=articleLookupTargets(inspected,old?.references);
- const products=await resolveArticleProducts(db,lookup.products,lookup.names),references=products.map(({kind,productId,name,set,game,number,printing,image})=>({kind,productId,name:old?.references.find(r=>articleProductKey(r)===`${kind}:${productId}`)?.name??name,set,game,number,printing,image}));
+ const inspected=inspectArticleMarkdown(input.draft.markdown),lookup=articleLookupTargets(inspected,old?.references,old?.draft.markdown);
+ const products=await resolveArticleProducts(db,lookup.products,lookup.names),references=articleReferenceSnapshots(products,old?.references??[],inspected.names);
  const id=old?.id??crypto.randomUUID(),revision=(old?.revision??0)+1,operation=crypto.randomUUID(),slug=input.draft.slug||`draft-${id}`;
  const head=old?db.prepare("UPDATE articles SET slug=?,head_revision=?,state='draft',updated_at=?,last_operation_id=? WHERE id=? AND head_revision=?").bind(slug,revision,now,operation,id,input.revision):db.prepare("INSERT INTO articles(id,slug,head_revision,state,created_at,updated_at,last_operation_id) VALUES(?,?,?,'draft',?,?,?)").bind(id,slug,revision,now,now,operation);
  await db.batch([head,db.prepare('INSERT INTO article_revisions(article_id,revision,content_json,references_json,author_id,created_at) SELECT id,?,?,?,?,? FROM articles WHERE id=? AND last_operation_id=?').bind(revision,JSON.stringify(input.draft),JSON.stringify(references),actor,now,id,operation),auditMutation(db,id,operation,actor,'save',revision,now)]);

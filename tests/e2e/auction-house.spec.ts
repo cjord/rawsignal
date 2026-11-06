@@ -298,19 +298,17 @@ test('new rivals have original portraits, distinct visible strategies and resuma
  await page.reload();for(const npc of profiles)await expect(page.locator('.auction-npcs')).toContainText(npc.name);
 });
 
-test('investigation icons use target rarity or general clue tier colors and offers have heading space',async({page},testInfo)=>{
+for(const width of [1440,390])for(const theme of ['dark','light'])test(`investigation icons use rarity colors and heading space at ${width}px in ${theme} mode`,async({page},testInfo)=>{
  await fixtures(page);await page.route('**/data/*.json',route=>route.fulfill({contentType:'application/json',body:JSON.stringify(rows)}));await page.goto('/games/riftbound-auction');await startAuction(page);await expect(page.getByLabel('Bid (virtual USD)')).toBeVisible();
  const targets:Record<string,string>={'rare-mark8':'rare','epic-mark5':'epic','alt-mark3':'epic','common-count':'common','uncommon-count':'uncommon',common3:'common',uncommon3:'uncommon',rare2:'rare','rare-mark2':'rare','rare-identity2':'rare',rares:'rare',epic2:'epic','epic-mark2':'epic','epic-identity2':'epic',alt1:'epic','alt-mark1':'epic',chase1:'premium','chase-mark1':'premium','chase-identity1':'premium'};
  Object.assign(targets,{'rare-mark12':'rare','epic-mark8':'epic','alt-mark5':'epic','rare-identity8':'rare','epic-identity5':'epic',rare12:'rare',epic6:'epic',alt4:'epic','chase-mark-v2':'premium','chase-identity-v2':'premium','chase-scan-v2':'premium','rares-v2':'rare'});
  const tierTones={basic:'common',targeted:'rare',strong:'epic',premium:'premium'},tokens={common:'--gray',uncommon:'--tone-up',rare:'--blue',epic:'--purple',premium:'--tone-favorite'};
  const options=INVESTIGATIONS.filter(option=>!RETIRED_INVESTIGATION_IDS.includes(option.id));
- for(const width of [1440,390])for(const theme of ['dark','light']){
   await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
   for(let offset=0;offset<options.length;offset+=3){const batch=options.slice(offset,offset+3);await page.evaluate(({key,offers})=>{const state=JSON.parse(localStorage.getItem(key)!);state.auction.offers=offers;state.revision++;const raw=JSON.stringify(state);localStorage.setItem(key,raw);dispatchEvent(new StorageEvent('storage',{key,newValue:raw}))},{key,offers:batch});
    for(const option of batch){const tone=targets[option.id]??tierTones[option.tier],icon=page.locator(`.auction-offers [data-investigation="${option.id}"] .auction-clue-icon`);await expect(icon).toHaveAttribute('data-tone',tone);const expected=await icon.evaluate((element,token)=>{const probe=document.createElement('span');probe.style.color=`var(${token})`;element.append(probe);const color=getComputedStyle(probe).color;probe.remove();return color},tokens[tone as keyof typeof tokens]);await expect(icon).toHaveCSS('color',expected);await expect(icon).toHaveAttribute('aria-hidden','true')}
   }
   const space=await page.locator('.auction-investigate').evaluate(element=>element.querySelector('.auction-offers')!.getBoundingClientRect().top-element.querySelector('h2')!.getBoundingClientRect().bottom);expect(space).toBeGreaterThanOrEqual(24);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.locator('.auction-investigate').screenshot({path:testInfo.outputPath(`clue-colors-${width}-${theme}.png`)});
- }
 });
 
 test('rarity-only investigations keep identities and prices hidden and the paid entry text has no separate background',async({page},testInfo)=>{

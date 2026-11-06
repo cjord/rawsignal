@@ -1,12 +1,12 @@
 import {Marked,type Token} from 'marked';
 import type {RowMetrics} from './types.ts';
-import {articleProductExtension,articleNameKey,isArticleProductToken} from './article-product-links.ts';
+import {articleProductExtension,articleNameKey,isArticleProductToken,matchArticleProduct} from './article-product-links.ts';
 
 export const ARTICLE_STATES=['draft','needs-review','approved','published','rejected','archived'] as const;
 export type ArticleState=typeof ARTICLE_STATES[number];
 export const ARTICLE_CATEGORIES=['release-outlook','weekly-recap','monthly-review','analysis'] as const;
-export type ArticleProduct={kind:'single'|'sealed';productId:number;name:string;set:string;game:string;number:string;printing:string;image:string|null;marketPrice:number|null;midPrice:number|null;metrics?:RowMetrics};
-export type ArticleReference=Pick<ArticleProduct,'kind'|'productId'|'name'|'set'|'game'|'number'|'printing'|'image'>;
+export type ArticleProduct={kind:'single'|'sealed';productId:number;name:string;set:string;game:string;number:string;printing:string;image:string|null;marketPrice:number|null;midPrice:number|null;metrics?:RowMetrics;aliases?:string[]};
+export type ArticleReference=Pick<ArticleProduct,'kind'|'productId'|'name'|'set'|'game'|'number'|'printing'|'image'|'aliases'>;
 export type ArticleForecast={productKey:string;low:number;high:number;basis:'delivered'|'item'|'market';confidence:'low'|'medium';rationale:string;invalidation:string};
 export type ArticleDraft={title:string;slug:string;summary:string;game:'riftbound'|'pokemon'|'mixed';setName:string;category:typeof ARTICLE_CATEGORIES[number];byline:string;markdown:string;observedAt:string;targetDate:string;aiAssisted:boolean;disclosure:string;sources:string[];evidenceNotes:string;forecasts:ArticleForecast[]};
 export type ArticleRecord={id:string;revision:number;state:ArticleState;publishedRevision:number|null;publishedAt:string|null;createdAt:string;updatedAt:string;draft:ArticleDraft;references:ArticleReference[]};
@@ -57,13 +57,24 @@ export function inspectArticleMarkdown(markdown:string){
 }
 // Reuse saved identities for name-only links; a later catalog addition must not
 // redirect an existing article to a different printing with the same name.
-export function articleLookupTargets(inspected:ReturnType<typeof inspectArticleMarkdown>,saved:ArticleReference[]=[]){
- const targets=new Map(inspected.products.map(p=>[articleProductKey(p),p])),names:string[]=[];
+export function articleLookupTargets(inspected:ReturnType<typeof inspectArticleMarkdown>,saved:ArticleReference[]=[],savedMarkdown=''){
+ const targets=new Map<string,Pick<ArticleReference,'kind'|'productId'|'aliases'>>(inspected.products.map(p=>[articleProductKey(p),p])),names:string[]=[];
+ const previousNames=new Set(inspectArticleMarkdown(savedMarkdown).names.map(articleNameKey));
  for(const name of inspected.names){
-  const matches=saved.filter(p=>articleNameKey(p.name)===articleNameKey(name));
-  if(matches.length===1)targets.set(articleProductKey(matches[0]),matches[0]);else names.push(name);
+  const eligible=saved.filter(p=>p.aliases!==undefined||previousNames.has(articleNameKey(name)));
+  const match=matchArticleProduct({type:'articleProduct',raw:'',text:name,target:null,valid:true},eligible);
+  if(match){const key=articleProductKey(match),aliases=[...new Set([...(targets.get(key)?.aliases??[]),name])];targets.set(key,{...match,aliases})}else names.push(name);
  }
  return {products:[...targets.values()],names};
+}
+export function articleReferenceSnapshots(products:ArticleProduct[],saved:ArticleReference[],names:string[],pinned:Pick<ArticleReference,'kind'|'productId'|'aliases'>[]=[]):ArticleReference[]{
+ return products.map(p=>{
+  const previous=saved.find(r=>articleProductKey(r)===articleProductKey(p));
+  const bound=[...(p.aliases??[]),...(pinned.find(r=>articleProductKey(r)===articleProductKey(p))?.aliases??[])].map(articleNameKey);
+  const aliases=names.filter(name=>bound.includes(articleNameKey(name)));
+  const {kind,productId,name,set,game,number,printing,image}=previous??p;
+  return {kind,productId,name,set,game,number,printing,image,aliases};
+ });
 }
 const boundedText=(v:unknown,max:number)=>typeof v==='string'&&v.length<=max&&![...v].some(c=>{const n=c.charCodeAt(0);return n<32&&![9,10,13].includes(n)||n===127});
 const dateOnly=(v:string)=>/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;
@@ -94,7 +105,7 @@ export function articleReviewProblems(draft:ArticleDraft,references:ArticleRefer
  if(draft.targetDate&&(!dateOnly(draft.targetDate)||draft.targetDate<draft.observedAt.slice(0,10)))problems.push('The forecast target must be a valid date on or after the observation date.');
  if(draft.category==='release-outlook'&&!draft.targetDate)problems.push('A release outlook needs a forecast target date.');
  const keys=new Set(references.map(articleProductKey));for(const product of inspected.products)if(!keys.has(articleProductKey(product)))problems.push(`Resolve product ${articleProductKey(product)} in the catalog.`);
- for(const name of inspected.names)if(references.filter(p=>articleNameKey(p.name)===articleNameKey(name)).length!==1)problems.push(`Resolve [[${name}]]: no unique product match. Choose the exact card or sealed product from the catalog picker.`);
+ for(const name of inspected.names)if(!matchArticleProduct({type:'articleProduct',raw:'',text:name,target:null,valid:true},references))problems.push(`Resolve [[${name}]]: no unique product match. Add a collector number or @ Set name, or choose the exact product from the catalog picker.`);
  for(const f of draft.forecasts)if(!keys.has(f.productKey)||!f.rationale.trim()||!f.invalidation.trim()||!draft.targetDate)problems.push('Each forecast needs a linked product, target date, rationale and invalidation condition.');
  return [...new Set(problems)];
 }

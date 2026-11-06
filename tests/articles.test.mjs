@@ -3,7 +3,7 @@ import test from 'node:test';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync,readdirSync} from 'node:fs';
 import {emptyArticleDraft,parseArticleDraft,inspectArticleMarkdown,articleHref,articleLinkProduct,articleReviewProblems,articleRevisionChanges} from '../core/domain/articles.ts';
-import {articleProductMarkup,matchArticleProduct} from '../core/domain/article-product-links.ts';
+import {articleProductMarkup,matchArticleProduct,resolveArticleProductName} from '../core/domain/article-product-links.ts';
 import {saveArticleDraft,transitionArticle,readPublicArticle,listArticles,articleRevisions,readArticleProducts,resolveArticleProducts} from '../db/articles.ts';
 import {handlePublicArticles,handleArticleSitemap} from '../worker/article-routes.ts';
 import {handleAdminManagement} from '../worker/admin-routes.ts';
@@ -18,6 +18,11 @@ function fixture(){
 const draft=()=>({...emptyArticleDraft(),title:'Radiance outlook',slug:'radiance-outlook',summary:'A concise release outlook.',markdown:'## Outlook\n\nThe release premium should narrow as supply arrives. Our estimates are dated and depend on continued availability.',observedAt:now,targetDate:'2026-11-22',sources:['https://www.tcgplayer.com/'],evidenceNotes:'PRIVATE RESEARCH'});
 const request=(path,body,from=origin)=>new Request(origin+path,{method:body?'POST':'GET',headers:{Origin:from,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
 const admin={id:'private-editor-id',email:'editor@example.test',emailVerified:true};
+function ahriCatalog(f){
+ f.sqlite.exec(`INSERT INTO ingestion_runs(id,source,status,started_at,completed_at,records_written) VALUES('ahri','tcgcsv','succeeded','${now}','${now}',7)`);
+ const rows=[[1,'Ahri, Inquisitive','Origins','119/298'],[2,'Ahri, Inquisitive','Vendetta','SP3/006'],[3,'Ahri, Inquisitive (Alternate Art)','Origins','119a/298'],[4,'Ahri, Inquisitive (Overnumbered)','Spiritforged','227/221'],[5,'Ahri, Inquisitive (Signature)','Spiritforged','227*/221'],[6,'Ahri, Inquisitive','Radiance','SP30/100']];
+ for(const [id,name,set,number]of rows)f.sqlite.prepare("INSERT INTO catalog_products(product_id,kind,game,name,set_name,card_number,printing,source_updated_at,ingestion_run_id) VALUES(?,'single','riftbound',?,?,?,'Foil',?,'ahri')").run(id,name,set,number,now);
+}
 test('editorial navigation uses document requests across the server-protected admin boundary',()=>{
  // vinext client links failed live acceptance despite direct routes working. The footer's
  // isolated-test link shim must not hide a regression in these auth-boundary controls.
@@ -76,6 +81,59 @@ test('bracket resolution rejects ambiguous names, freezes saved identities and n
   const response=await handlePublicArticles(request('/api/articles/products?name=Radiance%20Box&name=Ambiguous'),f.env);
   assert.equal(response.status,200);assert.deepEqual((await response.json()).products.map(p=>p.productId),[2]);
   for(const query of ['name=',`name=${'x'.repeat(301)}`,Array.from({length:41},()=>`name=Ezreal`).join('&')])assert.equal((await handlePublicArticles(request('/api/articles/products?'+query),f.env)).status,400);
+ }finally{f.sqlite.close()}
+});
+
+test('collector numbers and sets select the exact Ahri printing while bare names use only a unique regular printing',async()=>{
+ const f=fixture();try{
+  ahriCatalog(f);
+  const expected=[['ahri, inquisitive',1],['ahri, inquisitive sp3',2],['Ahri, Inquisitive SP03/006',2],['Ahri, Inquisitive SP30',6],['Ahri, Inquisitive @ Vendetta',2],['Ahri, Inquisitive 119a',3],['Ahri, Inquisitive 227',4],['Ahri, Inquisitive 227*',5],['Ahri, Inquisitive SP3 @ Vendetta',2],['Ahri, Inquisitive (Alternate Art)',3]];
+  expected.push(['Ahri, Inquisitive (Signature) 227*',5],['Ahri, Inquisitive (Alternate Art) 119a',3]);
+  for(const [name,id]of expected){const products=await resolveArticleProducts(f.db,[],[name]);assert.equal(products.length,1,name);assert.equal(products[0].productId,id,name);assert.deepEqual(products[0].aliases,[name]);assert.equal(matchArticleProduct({valid:true,text:name,target:null},products).productId,id)}
+  for(const name of ['Ahri','Ahri, Inquisitive SP3 @ Origins','Ahri, Inquisitive SP300','Ahri, Inquisitive 227/298','Ahri, Inquisitive @ Missing set','Ahri, Inquisitive @@ Vendetta'])assert.equal((await resolveArticleProducts(f.db,[],[name])).length,0,name);
+  const all=await readArticleProducts(f.db,[1,2,3,4,5,6].map(productId=>({kind:'single',productId})));
+  assert.equal(resolveArticleProductName('  AHRI,   INQUISITIVE  SP3  ',all).productId,2);
+  const result=await handlePublicArticles(request('/api/articles/products?name=ahri%2C%20inquisitive%20SP3'),f.env);assert.equal(result.status,200);assert.equal((await result.json()).products[0].productId,2);
+ }finally{f.sqlite.close()}
+});
+
+test('saved shorthand bindings survive mixed references and catalog renames without capturing newly typed names',async()=>{
+ const f=fixture();try{
+  ahriCatalog(f);const exact=await saveArticleDraft(f.db,admin.id,{revision:0,draft:{...draft(),markdown:draft().markdown+' [[Special::single:2]]'}},now);
+  const withBare=await saveArticleDraft(f.db,admin.id,{id:exact.id,revision:1,draft:{...exact.draft,markdown:exact.draft.markdown+' [[ahri, inquisitive]] [[ahri, inquisitive SP3]]'}},now);
+  assert.deepEqual(withBare.references.find(p=>p.productId===1).aliases,['ahri, inquisitive']);assert.deepEqual(withBare.references.find(p=>p.productId===2).aliases,['ahri, inquisitive SP3']);
+  // An additional ordinary printing makes a fresh bare lookup ambiguous.
+  f.sqlite.prepare("INSERT INTO catalog_products(product_id,kind,game,name,set_name,card_number,printing,source_updated_at,ingestion_run_id) VALUES(7,'single','riftbound','Ahri, Inquisitive','Reprint','119/298','Foil',?,'ahri')").run(now);
+  assert.equal((await resolveArticleProducts(f.db,[],['Ahri, Inquisitive'])).length,0);
+  const revised=await saveArticleDraft(f.db,admin.id,{id:exact.id,revision:2,draft:{...withBare.draft,markdown:withBare.draft.markdown+' [[Other regular::single:7]]'}},now);
+  assert.equal(matchArticleProduct({valid:true,text:'ahri, inquisitive',target:null},revised.references).productId,1);
+  f.sqlite.prepare("UPDATE catalog_products SET name='Renamed card',set_name='Renamed set',card_number='999' WHERE product_id=2").run();
+  const renamed=await saveArticleDraft(f.db,admin.id,{id:exact.id,revision:3,draft:{...revised.draft,title:'Preserved printing'}},now),special=renamed.references.find(p=>p.productId===2);
+  assert.equal(special.name,'Ahri, Inquisitive');assert.equal(special.set,'Vendetta');assert.equal(special.number,'SP3/006');
+  await publish(f.db,renamed);assert.equal(matchArticleProduct({valid:true,text:'ahri, inquisitive SP3',target:null},(await readPublicArticle(f.db,renamed.draft.slug)).references).productId,2);
+ }finally{f.sqlite.close()}
+});
+
+test('legacy name snapshots acquire bindings on save and sealed set qualifiers remain exact',async()=>{
+ const f=fixture();try{
+  ahriCatalog(f);let article=await saveArticleDraft(f.db,admin.id,{revision:0,draft:{...draft(),markdown:draft().markdown+' [[Ahri, Inquisitive]]'}},now);
+  const legacy=article.references.map(p=>{const copy={...p};delete copy.aliases;return copy});f.sqlite.prepare('UPDATE article_revisions SET references_json=? WHERE article_id=?').run(JSON.stringify(legacy),article.id);
+  article=await saveArticleDraft(f.db,admin.id,{id:article.id,revision:1,draft:article.draft},now);assert.deepEqual(article.references[0].aliases,['Ahri, Inquisitive']);
+  for(const [id,set]of [[8,'Radiance'],[9,'Origins']])f.sqlite.prepare("INSERT INTO catalog_products(product_id,kind,game,name,set_name,source_updated_at,ingestion_run_id) VALUES(?,'sealed','riftbound','Booster Box',?,?,'ahri')").run(id,set,now);
+  assert.equal((await resolveArticleProducts(f.db,[],['Booster Box'])).length,0);
+  assert.equal((await resolveArticleProducts(f.db,[],['Booster Box @ Radiance']))[0].productId,8);
+  f.sqlite.prepare("INSERT INTO catalog_products(product_id,kind,game,name,set_name,source_updated_at,ingestion_run_id) VALUES(10,'sealed','riftbound','Model 123','Radiance',?,'ahri')").run(now);
+  assert.equal((await resolveArticleProducts(f.db,[],['Model 123']))[0].productId,10);
+ }finally{f.sqlite.close()}
+});
+
+test('bounded candidate searches never select from a truncated or wildcard-expanded name pool',async()=>{
+ const f=fixture();try{
+  ahriCatalog(f);
+  for(let i=10;i<36;i++)f.sqlite.prepare("INSERT INTO catalog_products(product_id,kind,game,name,set_name,card_number,printing,source_updated_at,ingestion_run_id) VALUES(?,'single','riftbound','Crowded',?,?,'Foil',?,'ahri')").run(i,`Set ${i}`,String(i),now);
+  for(const query of ['Crowded','Crowded 10','Ahri%','Ahri_'])assert.equal((await resolveArticleProducts(f.db,[],[query])).length,0,query);
+  assert.equal((await resolveArticleProducts(f.db,[],['Crowded 10 @ Set 10']))[0].productId,10);
+  assert.equal((await resolveArticleProducts(f.db,[{kind:'single',productId:10}]))[0].productId,10);
  }finally{f.sqlite.close()}
 });
 test('draft parsing strips unknown private properties and review requires evidence and dated forecasts',()=>{

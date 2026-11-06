@@ -106,13 +106,21 @@ an article's historical quotes, observation timestamp or editorial forecasts. Th
 cannot infer every unlinked card name in natural-language prose: confirming that all
 specific card mentions have the correct links remains part of human review.
 
-Name-only matches must be unique across the catalog; ambiguity/missing names are
+November 6 adds **Article Printing Selectors**: `[[Ahri, Inquisitive SP3]]`, full
+collector numbers such as `SP3/006`, and set qualifiers such as
+`[[Ahri, Inquisitive @ Vendetta]]`. Bare duplicated names may choose only a unique
+regular numeric printing; otherwise qualification is required. See the
+[matching rules, fixes and remaining editorial gaps](articles-printing-selectors.md).
+
+Qualified matches must identify one printing; ambiguity/missing names are
 marked in the preview and block submit, approval and publication. Use the picker
 to resolve them. The editor debounces and cancels lookup requests; a failed lookup
 keeps the draft text and never substitutes a different product. Saving records the
 resolved identity in the existing immutable reference snapshot. Review/public readers
 use that snapshot, and later saves reuse its name bindings, so a new same-name
-printing or catalog rename cannot silently redirect the saved reference. Current
+printing or catalog rename cannot silently redirect the saved reference. Shorthand
+bindings are retained in the existing JSON reference snapshot and are limited to
+the names used in that revision. Existing snapshots remain readable. Current
 market values/history are still read separately by ID, with unavailable fallbacks.
 No database migration, new dependency or upstream marketplace reads are needed.
 

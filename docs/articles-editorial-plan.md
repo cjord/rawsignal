@@ -119,6 +119,12 @@ squeezing an eighth destination into the tab bar.
   Do not guess a printing from a partial champion name. Unresolved links block review
   and publication; existing published revisions retain their original content/links.
   Scheduled or manually generated drafts must use this same bracket format.
+- November 6: **Article Printing Selectors** accept a collector number suffix
+  (`[[Ahri, Inquisitive SP3]]`) or an exact set (`[[Ahri, Inquisitive @ Vendetta]]`),
+  including both together. `SP3` is the collector number, not the set name. Bare
+  duplicated names may use a unique regular printing; any remaining ambiguity
+  requires qualification/the picker. Saved shorthand bindings must remain pinned
+  when other printings appear or catalog labels change.
 - Every specific card-name mention in prose, headings, captions and tables is an
   internal link to `/cards/[productId]`; sealed product references use
   `/sealed/[productId]?market=riftbound` (or the correct market). External TCGplayer,
