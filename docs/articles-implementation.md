@@ -8,6 +8,9 @@ November 4: Double-Bracket Product Links deployed to staging, and the current Ra
 and Delta Reign drafts imported/saved/submitted to Needs Review. Neither is published;
 production is unchanged. [Release and live queue acceptance](articles-staging-release-2026-11-04.md).
 
+November 6: Article Printing Selectors and editor/preview fixes deployed to staging;
+the existing queue is unchanged. [Release verification](articles-staging-release-2026-11-06.md).
+
 ## Available features
 
 - **Article Library** `/articles`: game/category filters, title/set search, bounded
