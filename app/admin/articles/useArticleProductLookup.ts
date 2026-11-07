@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useMemo,useState} from 'react';
-import {articleLookupTargets,articleProductKey,articleReferenceSnapshots,inspectArticleMarkdown,type ArticleProduct,type ArticleReference} from '../../../core/domain/articles';
+import {articleProductKey,articleReferenceSnapshots,inspectArticleMarkdown,type ArticleProduct,type ArticleReference} from '../../../core/domain/articles';
+import {articleBoundLookup,type ArticleBinding} from '../../../core/domain/article-authoring';
 import {requestJson} from '../../data/request-json';
 
 function lookupProducts(value:unknown):ArticleProduct[]{
@@ -9,9 +10,9 @@ function lookupProducts(value:unknown):ArticleProduct[]{
  return products;
 }
 const validAliases=(value:unknown)=>value===undefined||Array.isArray(value)&&value.length<=40&&value.every(a=>typeof a==='string'&&a.length<=300);
-export default function useArticleProductLookup(markdown:string,saved:ArticleReference[]=[],savedMarkdown=''){
+export default function useArticleProductLookup(markdown:string,saved:ArticleReference[]=[],savedMarkdown='',bindings:ArticleBinding[]=[]){
  const inspected=useMemo(()=>inspectArticleMarkdown(markdown),[markdown]);
- const lookup=articleLookupTargets(inspected,saved,savedMarkdown),params=new URLSearchParams();
+ const lookup=articleBoundLookup(inspected,saved,savedMarkdown,bindings),params=new URLSearchParams();
  if(lookup.products.length)params.set('ids',lookup.products.map(articleProductKey).join(','));
  for(const name of lookup.names)params.append('name',name);
  const key=params.toString(),tooMany=lookup.products.length+lookup.names.length>40;

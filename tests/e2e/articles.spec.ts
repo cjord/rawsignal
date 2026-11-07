@@ -4,12 +4,12 @@ import {resolve} from 'node:path';
 import {emptyArticleDraft,type ArticleRecord} from '../../core/domain/articles';
 let script:string;
 test.beforeAll(async()=>{const bundle=await rolldown({input:'tests/helpers/articles-browser.tsx',resolve:{alias:{'next/link':resolve('tests/helpers/account-link.tsx')}},platform:'browser',transform:{jsx:'react-jsx',define:{'process.env.NODE_ENV':JSON.stringify('production')}}});script=(await bundle.generate({format:'iife'})).output.find(row=>row.type==='chunk')!.code;await bundle.close()});
-async function fixture(page:Page,editor=false,queue=false){
+async function fixture(page:Page,editor=false,queue=false,long=false){
  await page.route('**/article-card-art.svg',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="100" height="140"><rect width="100" height="140" fill="#2672ef"/></svg>'}));
  await page.goto('/games');const styles=await page.evaluate(()=>Array.from(document.styleSheets).map(sheet=>Array.from(sheet.cssRules).map(rule=>rule.cssText).join('\n')).join('\n'));
  await page.route('**/articles-fixture**',route=>route.fulfill({contentType:'text/html',body:`<html data-theme="dark" data-articles-enabled="true"><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>${styles}</style></head><body><div id="fixture"></div></body></html>`}));
  await page.route('**/api/account/session',route=>route.fulfill({json:{enabled:true,features:{audit:true},providers:{google:true,discord:true,email:true},user:{id:'editor',name:'Editor',email:'editor@example.test',emailVerified:true,role:'admin'},documents:[]}}));
- await page.goto(`/articles-fixture${queue?'?queue=1':editor?'?editor=1':''}`);await page.addScriptTag({content:script});
+ await page.goto(`/articles-fixture${queue?'?queue=1':editor?'?editor=1':long?'?long=1':''}`);await page.addScriptTag({content:script});
 }
 test('article references load current charts on demand, share lookup state, preserve dated quotes and dismiss with Escape',async({page},info)=>{
  let reads=0;await page.route('**/api/history?**',async route=>{reads++;await route.fulfill({json:{snapshotId:'test:2026-10-27',points:[],coverage:'none',change7:null,change30:null,change90:null,low30:null,high30:null,historyLow:null,historyHigh:null}})});
@@ -69,13 +69,15 @@ test('editor saves manually, preserves a conflicted buffer and explicitly review
  await page.route('**/api/account/admin/articles**',async route=>{
   if(route.request().method()==='GET')return route.fulfill({json:{article:saved,history:{rows:saved?[{revision:saved.revision,createdAt:saved.createdAt}]:[],nextBefore:null}}});
   const body=route.request().postDataJSON();if(conflict)return route.fulfill({status:409,json:{error:'A newer revision exists. Your text has not been overwritten.'}});
-  if(body.action){actions.push(body.action);saved={...saved!,state:body.action==='submit'?'needs-review':body.action==='approve'?'approved':'published',publishedRevision:body.action==='publish'?saved!.revision:null}}else saved={id:'article-test',revision:(saved?.revision??0)+1,state:'draft',publishedRevision:null,publishedAt:null,createdAt:'2026-10-27T12:00:00Z',updatedAt:'2026-10-27T12:00:00Z',references:[],draft:{...emptyArticleDraft(),...body.draft}};
+  if(body.action){actions.push(body.action);saved={...saved!,state:body.action==='submit'?'needs-review':body.action==='approve'?'approved':'published',publishedRevision:body.action==='publish'?saved!.revision:null,publishedAt:body.action==='publish'?'2026-10-27T13:00:00Z':null}}else saved={id:'article-test',revision:(saved?.revision??0)+1,state:'draft',publishedRevision:null,publishedAt:null,createdAt:'2026-10-27T12:00:00Z',updatedAt:'2026-10-27T12:00:00Z',references:[],draft:{...emptyArticleDraft(),...body.draft}};
   await route.fulfill({json:{article:saved}});
  });
- await fixture(page,true);await expect(page.getByLabel('Public byline')).toHaveValue('Raw Signal Editorial');await page.getByLabel('Title',{exact:true}).fill('Radiance release outlook');await page.getByRole('button',{name:'Use title for URL'}).click();await page.getByLabel('Short summary').fill('A dated release outlook.');await page.getByLabel('Observation time').fill('2026-10-26T12:00');await page.getByLabel('Article text (Markdown)').fill('The release premium should narrow as supply arrives. Estimates depend on availability and demand.');
+ await fixture(page,true);await expect(page.getByLabel('Public byline')).toHaveValue('Raw Signal Editorial');await page.getByLabel('Title',{exact:true}).fill('Radiance release outlook');await page.getByRole('button',{name:'Use title for URL'}).click();await page.getByLabel('Short summary').fill('A dated release outlook.');await page.getByLabel('Observation date',{exact:true}).fill('2026-10-26');await page.getByLabel('Article text (Markdown)').fill('The release premium should narrow as supply arrives. Estimates depend on availability and demand.');
  await page.getByText('Sources, disclosure & forecast records',{exact:true}).click();await page.getByLabel('Source links').fill('https://example.test/\nhttps://www.tcgplayer.com/');await page.getByRole('button',{name:'Save draft',exact:true}).click();await expect(page.getByRole('status')).toContainText('Saved revision 1');expect(saved!.draft.sources).toHaveLength(2);
- await page.getByRole('button',{name:'Submit for review'}).click();await expect(page.getByRole('button',{name:'Approve reviewed revision'})).toBeDisabled();await page.getByRole('checkbox',{name:/I reviewed/}).check();await page.getByRole('button',{name:'Approve reviewed revision'}).click();await expect(page.getByRole('button',{name:'Publish article'})).toBeDisabled();await page.getByRole('checkbox',{name:/I reviewed/}).check();page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'Publish article'}).click();await expect.poll(()=>actions.join(',')).toBe('submit,approve,publish');
  conflict=true;await page.getByLabel('Title',{exact:true}).fill('Keep my unsaved title');await page.getByRole('button',{name:'Save draft',exact:true}).click();await expect(page.getByRole('alert')).toContainText('newer revision');await expect(page.getByLabel('Title',{exact:true})).toHaveValue('Keep my unsaved title');
+ conflict=false;await page.getByRole('button',{name:'Save draft',exact:true}).click();await expect(page.getByRole('status')).toContainText('Saved revision 2');
+ await page.getByRole('button',{name:'Submit for review'}).click();await expect(page.getByRole('button',{name:'Approve reviewed revision'})).toBeDisabled();await page.getByRole('checkbox',{name:/I reviewed/}).check();await page.getByRole('button',{name:'Approve reviewed revision'}).click();await expect(page.getByRole('button',{name:'Publish article'})).toBeDisabled();await page.getByRole('checkbox',{name:/I reviewed/}).check();page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'Publish article'}).click();await expect.poll(()=>actions.join(',')).toBe('submit,approve,publish');
+ await expect(page.getByLabel('Title',{exact:true})).toBeDisabled();await expect(page.getByRole('button',{name:'Save draft',exact:true})).toBeDisabled();await expect(page.getByRole('link',{name:'Write a follow-up'})).toHaveAttribute('href','/admin/articles/new?from=article-test');
  for(const width of [1440,390])for(const theme of ['dark','light']){await page.setViewportSize({width,height:1000});await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath(`editor-${width}-${theme}.png`),fullPage:true,animations:'disabled'});}
 });
 test('touch readers can inspect then open the exact card, and preview preferences suppress history requests',async({browser})=>{
@@ -105,4 +107,40 @@ test('editor product search includes every rarity and inserts exact single and s
  await fixture(page,true);await page.getByLabel('Name',{exact:true}).fill('Neeko');expect(requests).toHaveLength(0);await page.getByRole('button',{name:'Search catalog'}).click();await expect(page.getByRole('button',{name:'Insert',exact:true})).toBeVisible();
  expect(requests[0].searchParams.get('rarity')).toBe('all');expect(requests[0].searchParams.get('perPage')).toBe('20');await page.getByRole('button',{name:'Insert',exact:true}).click();await expect(page.getByLabel('Article text (Markdown)')).toHaveValue('[[Neeko, Blending In::single:123]]');
  await page.getByRole('combobox',{name:'Product',exact:true}).selectOption('sealed');await expect(page.getByRole('button',{name:'Insert',exact:true})).toHaveCount(0);expect(requests).toHaveLength(1);await page.getByLabel('Name',{exact:true}).fill('Radiance');await page.getByRole('button',{name:'Search catalog'}).click();await expect(page.getByText('Radiance Booster Box',{exact:true})).toBeVisible();expect(requests[1].searchParams.has('rarity')).toBe(false);await page.getByRole('button',{name:'Insert',exact:true}).click();await expect(page.getByLabel('Article text (Markdown)')).toHaveValue(/\[\[Radiance Booster Box::sealed:456\]\]/);
+});
+
+test('editor section jumps open evidence and checks, switch mobile preview and preserve keyboard focus',async({page})=>{
+ await fixture(page,true);await page.setViewportSize({width:390,height:844});
+ const navigation=page.getByRole('navigation',{name:'Editor sections'});
+ await navigation.getByRole('link',{name:'Evidence & forecasts',exact:true}).click();await expect(page.getByLabel('Source links')).toBeVisible();await expect(page.getByRole('region',{name:'Evidence and forecasts'})).toBeFocused();
+ await navigation.getByRole('link',{name:'Checks',exact:true}).click();await expect(page.getByText('Add at least one source.',{exact:true})).toBeVisible();
+ await navigation.getByRole('link',{name:'Preview',exact:true}).click();await expect(page.getByRole('region',{name:'Article preview'})).toBeVisible();await expect(page.getByRole('button',{name:'Preview',exact:true})).toHaveAttribute('aria-pressed','true');
+ await navigation.getByRole('link',{name:'Article text',exact:true}).click();await expect(page.getByLabel('Article text (Markdown)')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+test('near-limit article keeps all forty forecasts and table previews share the prose history request',async({page})=>{
+ let reads=0;await page.route('**/api/history?**',route=>{reads++;return route.fulfill({json:{points:[],coverage:'none'}})});
+ await fixture(page,false,false,true);const table=page.getByRole('region',{name:'Price outlook table'});await expect(table.locator('tbody tr')).toHaveCount(40);await expect(table).toContainText('Forecast 40 stays visible');expect(reads).toBe(0);
+ await page.getByRole('link',{name:'Ezreal Signature',exact:true}).first().hover();await expect.poll(()=>reads).toBe(1);await page.keyboard.press('Escape');
+ await table.getByRole('link',{name:'Ezreal, Dashing',exact:true}).first().focus();await expect(page.getByRole('dialog')).toBeVisible();expect(reads).toBe(1);await page.keyboard.press('Escape');
+ const nav=page.getByRole('navigation',{name:'In this article'});const repeat=nav.getByRole('link',{name:'Repeated heading',exact:true});await expect(repeat).toHaveCount(2);expect(await repeat.nth(0).getAttribute('href')).not.toBe(await repeat.nth(1).getAttribute('href'));
+ await nav.getByRole('link',{name:'Price outlook',exact:true}).click();await expect(page.getByRole('heading',{name:'Price outlook',exact:true})).toBeFocused();
+ await page.setViewportSize({width:390,height:844});await nav.getByRole('link',{name:'Sources',exact:true}).click();await expect(page.getByRole('heading',{name:'Sources',exact:true})).toBeFocused();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+test('portable backup restores a printing binding, retains text on invalid import and posts only verified identities',async({page})=>{
+ let posted:Record<string,unknown>|null=null;
+ await page.route('**/api/articles/products?**',route=>route.fulfill({json:{products:[{kind:'single',productId:705996,name:'Ahri, Inquisitive',set:'Vendetta',game:'riftbound',number:'SP3/006',printing:'Foil',image:null,marketPrice:20,midPrice:null}]}}));
+ await page.route('**/api/account/admin/articles**',route=>{
+  if(route.request().method()==='GET')return route.fulfill({json:{history:{rows:[],nextBefore:null}}});
+  posted=route.request().postDataJSON();return route.fulfill({json:{article:{id:'restored',revision:1,state:'draft',publishedRevision:null,publishedAt:null,createdAt:'2026-10-27T12:00:00Z',updatedAt:'2026-10-27T12:00:00Z',draft:posted!.draft,references:[]}}});
+ });
+ await fixture(page,true);const input=page.getByLabel('Import Markdown or a draft backup'),draft={...emptyArticleDraft(),title:'Printing backup',slug:'printing-backup',observedAt:'2026-10-27',markdown:'[[ahri, inquisitive SP3]]'},bindings=[{kind:'single',productId:705996,aliases:['ahri, inquisitive SP3']}];
+ await page.getByLabel('Evidence date precision').selectOption('time');
+ await input.setInputFiles({name:'backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({format:'raw-signal-article',version:1,draft,bindings}))});
+ await expect(page.getByRole('region',{name:'Article preview'}).getByRole('link',{name:'ahri, inquisitive SP3',exact:true})).toHaveAttribute('href','/cards/705996');
+ await expect(page.getByLabel('Observation date',{exact:true})).toHaveValue('2026-10-27');
+ const download=page.waitForEvent('download');await page.getByRole('button',{name:'Download draft backup'}).click();const result=await download;const stream=await result.createReadStream();const chunks:Buffer[]=[];for await(const chunk of stream!)chunks.push(chunk);expect(JSON.parse(Buffer.concat(chunks).toString()).bindings).toEqual(bindings);
+ page.once('dialog',dialog=>dialog.accept());await input.setInputFiles({name:'bad.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({format:'raw-signal-article',version:99,draft}))});await expect(page.getByRole('alert')).toContainText('Unsupported');await expect(page.getByLabel('Article text (Markdown)')).toHaveValue('[[ahri, inquisitive SP3]]');
+ await page.getByRole('button',{name:'Save draft',exact:true}).click();await expect.poll(()=>posted?.bindings).toEqual(bindings);
 });

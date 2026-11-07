@@ -78,30 +78,39 @@ export function articleReferenceSnapshots(products:ArticleProduct[],saved:Articl
 }
 const boundedText=(v:unknown,max:number)=>typeof v==='string'&&v.length<=max&&![...v].some(c=>{const n=c.charCodeAt(0);return n<32&&![9,10,13].includes(n)||n===127});
 const dateOnly=(v:string)=>/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;
-const observationTime=(v:string)=>/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(v)&&dateOnly(v.slice(0,10))&&Number.isFinite(Date.parse(v));
-function validForecast(value:unknown){
+export const articleObservationValid=(v:string)=>dateOnly(v)||/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,3})?Z$/.test(v)&&dateOnly(v.slice(0,10))&&Number.isFinite(Date.parse(v));
+export function articleObservationLabel(value:string){
+ if(!articleObservationValid(value))return value||'Not set';
+ const date=new Date(value),day=new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'}).format(date);
+ return value.length===10?day:`${day} · ${value.slice(11,16)} UTC`;
+}
+function validForecast(value:unknown,buffer=false){
  if(!value||typeof value!=='object')return false;
  const f=value as ArticleForecast;
- return /^(single|sealed):[1-9]\d{0,8}$/.test(f.productKey)&&[f.low,f.high].every(n=>Number.isFinite(n)&&n>=0&&n<=1e8)&&f.low<=f.high&&['delivered','item','market'].includes(f.basis)&&['low','medium'].includes(f.confidence)&&boundedText(f.rationale,1000)&&boundedText(f.invalidation,1000);
+ return (/^(single|sealed):[1-9]\d{0,8}$/.test(f.productKey)||buffer&&f.productKey==='')&&[f.low,f.high].every(n=>Number.isFinite(n)&&n>=0&&n<=1e8)&&(buffer||f.low<=f.high)&&['delivered','item','market'].includes(f.basis)&&['low','medium'].includes(f.confidence)&&boundedText(f.rationale,1000)&&boundedText(f.invalidation,1000);
 }
-export function parseArticleDraft(value:unknown):ArticleDraft{
+function validSources(sources:unknown,buffer:boolean):sources is string[]{
+ return Array.isArray(sources)&&sources.length<=30&&sources.every(s=>boundedText(s,2048)&&(buffer||!s.trim()||!!articleHref(s.trim())&&s.trim().startsWith('https://')));
+}
+export function parseArticleDraft(value:unknown,{buffer=false}:{buffer?:boolean}={}):ArticleDraft{
  if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('Invalid article draft.');
  const d=value as ArticleDraft,limits={title:180,slug:100,summary:500,setName:100,byline:80,markdown:60000,observedAt:30,targetDate:10,disclosure:1000,evidenceNotes:16000};
  for(const [key,max]of Object.entries(limits))if(!boundedText(d[key as keyof typeof limits],max))throw new Error(`Invalid ${key}.`);
  if(!['riftbound','pokemon','mixed'].includes(d.game)||!ARTICLE_CATEGORIES.includes(d.category)||typeof d.aiAssisted!=='boolean')throw new Error('Invalid article classification.');
- if(d.slug&&!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(d.slug))throw new Error('Use a lowercase slug with letters, numbers and hyphens.');
- if(d.slug==='products')throw new Error('That URL is reserved for product lookups. Choose another slug.');
- if(!Array.isArray(d.sources)||d.sources.length>30||d.sources.some(s=>typeof s!=='string'||s.trim()&&(!articleHref(s.trim())||!s.trim().startsWith('https://'))))throw new Error('Sources must be up to 30 HTTPS links.');
+ if(!buffer&&d.slug&&!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(d.slug))throw new Error('Use a lowercase slug with letters, numbers and hyphens.');
+ if(!buffer&&d.slug==='products')throw new Error('That URL is reserved for product lookups. Choose another slug.');
+ if(!validSources(d.sources,buffer))throw new Error('Sources must be up to 30 HTTPS links.');
  if(!Array.isArray(d.forecasts)||d.forecasts.length>40)throw new Error('Too many forecasts.');
- if(!d.forecasts.every(validForecast))throw new Error('Invalid forecast.');
+ if(!d.forecasts.every(f=>validForecast(f,buffer)))throw new Error('Invalid forecast.');
  const fields=Object.fromEntries([...Object.keys(limits),'game','category','aiAssisted'].map(k=>[k,d[k as keyof ArticleDraft]]));
  return {...fields,sources:d.sources.map(s=>s.trim()).filter(Boolean),forecasts:d.forecasts.map(({productKey,low,high,basis,confidence,rationale,invalidation})=>({productKey,low,high,basis,confidence,rationale,invalidation}))} as ArticleDraft;
 }
 export function articleReviewProblems(draft:ArticleDraft,references:ArticleReference[],now=Date.now()):string[]{
  const inspected=inspectArticleMarkdown(draft.markdown),problems=[...inspected.problems];
+ try{parseArticleDraft(draft)}catch(cause){problems.push((cause as Error).message)}
  if(!draft.title.trim()||!draft.slug||!draft.summary.trim()||!draft.byline.trim()||draft.markdown.trim().length<80)problems.push('Title, slug, summary, byline and article text are required.');
  if(!draft.sources.length)problems.push('Add at least one source.');
- if(!observationTime(draft.observedAt)||Date.parse(draft.observedAt)>now+60000)problems.push('Set a valid UTC observation date and time, not in the future.');
+ if(!articleObservationValid(draft.observedAt)||Date.parse(draft.observedAt)>now+60000)problems.push('Set a valid observation date (or exact UTC time), not in the future.');
  if(draft.targetDate&&(!dateOnly(draft.targetDate)||draft.targetDate<draft.observedAt.slice(0,10)))problems.push('The forecast target must be a valid date on or after the observation date.');
  if(draft.category==='release-outlook'&&!draft.targetDate)problems.push('A release outlook needs a forecast target date.');
  const keys=new Set(references.map(articleProductKey));for(const product of inspected.products)if(!keys.has(articleProductKey(product)))problems.push(`Resolve product ${articleProductKey(product)} in the catalog.`);

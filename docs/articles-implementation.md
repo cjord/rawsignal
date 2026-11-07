@@ -57,11 +57,15 @@ replays publication. Use Load Latest Saved Revision to reconcile an ambiguous re
 download a backup first if keeping the unsaved buffer matters. Drafts are not silently
 stored in a guest browser or synchronized as game progress.
 
-After first publication the slug is fixed. A substantive correction requires a new
-saved/reviewed revision and a public correction note. Earlier published releases remain
-readable through `?revision=N`; unpublished drafts do not. Unpublishing or archiving
-revokes access to every public revision. Public payloads allowlist content and exclude
-research notes, account IDs and internal queue state.
+After first publication all article content is permanently read-only, including the
+slug, sources, dates and forecasts. New evidence or corrections belong in a **new article**.
+Write a Follow-up starts a separate unsaved draft linked to the earlier article; it
+does not copy stale prices, forecasts, observation dates or private research notes.
+Unpublish and Archive still revoke public visibility, without unlocking content.
+Legacy earlier releases remain readable through `?revision=N` while their article
+is public; unpublished drafts do not. Public payloads allowlist content and exclude
+research notes, account IDs and internal queue state. The save and publication SQL
+guards enforce the freeze even if publication races an in-flight save.
 
 All article HTML and APIs initially use **no-store**, deliberately favoring immediate
 withdrawal and simple correctness over a new content-cache invalidation system. The
@@ -127,8 +131,7 @@ the names used in that revision. Existing snapshots remain readable. Current
 market values/history are still read separately by ID, with unavailable fallbacks.
 No database migration, new dependency or upstream marketplace reads are needed.
 
-Existing published Markdown product links continue to render. Newly submitted or
-republished revisions must use double brackets; the review checks flag conventional
+Existing published Markdown product links continue to render. New drafts submitted for review must use double brackets; the review checks flag conventional
 internal product links for replacement. Earlier published revisions remain unchanged.
 
 November 4 validation: `npm run check` passed the production build, 706 unit tests
@@ -189,3 +192,10 @@ October 27 final gate: `npm run check` passed the production build, 703 unit tes
 TypeScript checking, and all 173 Chromium journeys. The article checks include the
 light/dark publication-history regression. `git diff --check` passed. No push,
 deployment, remote migration, feature activation or real article publication occurred.
+
+## Editor reliability and navigation
+
+See [Published Article Freeze and editor improvements](articles-editor-reliability.md)
+for the current publication policy, portable backup format, evidence-date precision,
+forecast-table boundary and reader/editor section navigation. These changes require
+no database migration and do not rewrite the existing queued articles.

@@ -1,7 +1,8 @@
 import type {D1DatabaseLike} from './repository.ts';
-import {articleNextState,articleProductKey,articleReviewProblems,articleLookupTargets,articleReferenceSnapshots,inspectArticleMarkdown,publicArticleDraft,type ArticleAction,type ArticleDraft,type ArticleProduct,type ArticleRecord,type ArticleReference,type ArticleRelease,type ArticleState,type ArticleSummary,type PublicArticle} from '../core/domain/articles.ts';
+import {articleNextState,articleProductKey,articleReviewProblems,articleReferenceSnapshots,inspectArticleMarkdown,publicArticleDraft,type ArticleAction,type ArticleDraft,type ArticleProduct,type ArticleRecord,type ArticleReference,type ArticleRelease,type ArticleState,type ArticleSummary,type PublicArticle} from '../core/domain/articles.ts';
 import {articleNameKey,articleProductQuery,articleProductSearchNames,resolveArticleProductName,type ArticleNamedProduct} from '../core/domain/article-product-links.ts';
 import {readyCatalogRun} from './readiness.ts';
+import {articleBoundLookup,type ArticleBinding} from '../core/domain/article-authoring.ts';
 
 type Stored={id:string;slug:string;head_revision:number;state:ArticleState;published_revision:number|null;published_at:string|null;first_published_at:string|null;created_at:string;updated_at:string;content_json:string;references_json:string};
 export class ArticleError extends Error{status:number;constructor(message:string,status=409){super(message);this.status=status}}
@@ -71,22 +72,25 @@ async function checkMutation(db:D1DatabaseLike,id:string,operation:string){
  if(result?.operation!==operation)throw new ArticleError('The article changed. Your text is preserved; load the latest revision before continuing.');
  return (await readAdminArticle(db,id))!;
 }
-export async function saveArticleDraft(db:D1DatabaseLike,actor:string,input:{id?:string;revision:number;draft:ArticleDraft},now=new Date().toISOString()){
+export async function saveArticleDraft(db:D1DatabaseLike,actor:string,input:{id?:string;revision:number;draft:ArticleDraft;bindings?:ArticleBinding[]},now=new Date().toISOString()){
  const old=input.id?await readAdminArticle(db,input.id):null;
  if(input.id&&!old)throw new ArticleError('Article not found.',404);
  if(old&&old.revision!==input.revision)throw new ArticleError('A newer revision exists. Your text has not been overwritten.');
  if(!old&&input.revision!==0)throw new ArticleError('Invalid initial revision.',400);
- if(old?.publishedAt&&old.draft.slug!==input.draft.slug)throw new ArticleError('The URL is fixed after first publication.');
- const inspected=inspectArticleMarkdown(input.draft.markdown),lookup=articleLookupTargets(inspected,old?.references,old?.draft.markdown);
- const products=await resolveArticleProducts(db,lookup.products,lookup.names),references=articleReferenceSnapshots(products,old?.references??[],inspected.names);
+ if(old?.publishedAt)throw new ArticleError('Published articles are read-only. Write a new article for follow-up coverage.');
+ const inspected=inspectArticleMarkdown(input.draft.markdown),lookup=articleBoundLookup(inspected,old?.references,old?.draft.markdown,input.bindings);
+ const products=await resolveArticleProducts(db,lookup.products,lookup.names);
+ if(input.bindings?.some(b=>!products.some(p=>articleProductKey(p)===articleProductKey(b))))throw new ArticleError('A restored product is unavailable. Resolve its exact printing before saving.',400);
+ const references=articleReferenceSnapshots(products,old?.references??[],inspected.names,lookup.products);
  const id=old?.id??crypto.randomUUID(),revision=(old?.revision??0)+1,operation=crypto.randomUUID(),slug=input.draft.slug||`draft-${id}`;
- const head=old?db.prepare("UPDATE articles SET slug=?,head_revision=?,state='draft',updated_at=?,last_operation_id=? WHERE id=? AND head_revision=?").bind(slug,revision,now,operation,id,input.revision):db.prepare("INSERT INTO articles(id,slug,head_revision,state,created_at,updated_at,last_operation_id) VALUES(?,?,?,'draft',?,?,?)").bind(id,slug,revision,now,now,operation);
+ const head=old?db.prepare("UPDATE articles SET slug=?,head_revision=?,state='draft',updated_at=?,last_operation_id=? WHERE id=? AND head_revision=? AND first_published_at IS NULL").bind(slug,revision,now,operation,id,input.revision):db.prepare("INSERT INTO articles(id,slug,head_revision,state,created_at,updated_at,last_operation_id) VALUES(?,?,?,'draft',?,?,?)").bind(id,slug,revision,now,now,operation);
  await db.batch([head,db.prepare('INSERT INTO article_revisions(article_id,revision,content_json,references_json,author_id,created_at) SELECT id,?,?,?,?,? FROM articles WHERE id=? AND last_operation_id=?').bind(revision,JSON.stringify(input.draft),JSON.stringify(references),actor,now,id,operation),auditMutation(db,id,operation,actor,'save',revision,now)]);
  return checkMutation(db,id,operation);
 }
 export async function transitionArticle(db:D1DatabaseLike,actor:string,id:string,revision:number,action:ArticleAction,note:string,reviewed:boolean,now=new Date().toISOString()){
  const old=await readAdminArticle(db,id);if(!old)throw new ArticleError('Article not found.',404);
  if(old.revision!==revision)throw new ArticleError('A newer revision exists. Review it before taking this action.');
+ if(old.publishedAt&&!['unpublish','archive'].includes(action))throw new ArticleError('Published articles are read-only. Write a new article for follow-up coverage.');
  let state:ArticleState;try{state=articleNextState(old.state,action)}catch{throw new ArticleError('This action is not available for the current revision.')}
 
  if(['approve','publish'].includes(action)&&!reviewed)throw new ArticleError('Confirm review of this exact saved revision.',400);
@@ -94,10 +98,9 @@ export async function transitionArticle(db:D1DatabaseLike,actor:string,id:string
   const current=await readArticleProducts(db,old.references),available=new Set(current.map(articleProductKey));
   const problems=articleReviewProblems(old.draft,old.references.filter(r=>available.has(articleProductKey(r))),Date.parse(now));if(problems.length)throw new ArticleError(problems.join(' '),400);
  }
- if(action==='publish'&&old.publishedAt&&!note.trim())throw new ArticleError('Describe the correction for readers.',400);
  if(action==='unpublish'&&!old.publishedRevision)throw new ArticleError('The article is already unpublished.');
  const operation=crypto.randomUUID(),publish=action==='publish',remove=['unpublish','archive'].includes(action);
- const update=db.prepare(`UPDATE articles SET state=?,published_revision=${publish?'head_revision':remove?'NULL':'published_revision'},published_at=${publish?'?':'published_at'},first_published_at=${publish?'COALESCE(first_published_at,?)':'first_published_at'},updated_at=?,last_operation_id=? WHERE id=? AND head_revision=? AND state=? AND COALESCE(published_revision,0)=?`).bind(state,...(publish?[now,now]:[]),now,operation,id,revision,old.state,old.publishedRevision??0);
+ const update=db.prepare(`UPDATE articles SET state=?,published_revision=${publish?'head_revision':remove?'NULL':'published_revision'},published_at=${publish?'?':'published_at'},first_published_at=${publish?'COALESCE(first_published_at,?)':'first_published_at'},updated_at=?,last_operation_id=? WHERE id=? AND head_revision=? AND state=? AND COALESCE(published_revision,0)=?${remove?'':' AND first_published_at IS NULL'}`).bind(state,...(publish?[now,now]:[]),now,operation,id,revision,old.state,old.publishedRevision??0);
  const statements=[update];
  if(publish)statements.push(db.prepare('INSERT INTO article_releases(article_id,revision,published_at,note) SELECT id,head_revision,?,? FROM articles WHERE id=? AND last_operation_id=? ON CONFLICT(article_id,revision) DO NOTHING').bind(now,note,id,operation));
  statements.push(auditMutation(db,id,operation,actor,action,revision,now));await db.batch(statements);return checkMutation(db,id,operation);

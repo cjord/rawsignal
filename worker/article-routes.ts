@@ -5,6 +5,7 @@ import {articleListOptions,parseArticleDraft,type ArticleAction,type ArticleRefe
 import {accountJson} from './account-http.ts';
 import {boundedJson} from './bounded-json.ts';
 import {communityLimit} from './community-limits.ts';
+import {parseArticleBindings} from '../core/domain/article-authoring.ts';
 
 const publicJson=(value:unknown,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 export const articleApiPath=(path:string)=>path==='/api/articles'||path.startsWith('/api/articles/');
@@ -53,7 +54,7 @@ export async function handleAdminArticles(request:Request,env:AccountEnv,actor:s
    return accountJson({article:await transitionArticle(db,actor,id,body.revision,body.action as ArticleAction,body.note,body.reviewed===true)});
   }
   let draft;try{draft=parseArticleDraft(body.draft)}catch(cause){throw new ArticleError(cause instanceof Error?cause.message:'Invalid article.',400)}
-  return accountJson({article:await saveArticleDraft(db,actor,{id,revision:body.revision,draft})});
+  return accountJson({article:await saveArticleDraft(db,actor,{id,revision:body.revision,draft,bindings:parseArticleBindings(body.bindings,draft.markdown)})});
  }catch(cause){
   if(cause instanceof ArticleError)return accountJson({error:cause.message},cause.status);
   if(cause instanceof RangeError)return accountJson({error:cause.message},400);

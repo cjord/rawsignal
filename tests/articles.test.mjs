@@ -2,12 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync,readdirSync} from 'node:fs';
-import {emptyArticleDraft,parseArticleDraft,inspectArticleMarkdown,articleHref,articleLinkProduct,articleReviewProblems,articleRevisionChanges} from '../core/domain/articles.ts';
+import {emptyArticleDraft,parseArticleDraft,inspectArticleMarkdown,articleHref,articleLinkProduct,articleReviewProblems,articleRevisionChanges,articleObservationLabel,articleTokens} from '../core/domain/articles.ts';
 import {articleProductMarkup,matchArticleProduct,resolveArticleProductName} from '../core/domain/article-product-links.ts';
 import {saveArticleDraft,transitionArticle,readPublicArticle,listArticles,articleRevisions,readArticleProducts,resolveArticleProducts} from '../db/articles.ts';
 import {handlePublicArticles,handleArticleSitemap} from '../worker/article-routes.ts';
 import {handleAdminManagement} from '../worker/admin-routes.ts';
 import {prepareDeploymentConfig} from '../scripts/cloudflare/prepare-deployment.mjs';
+import {articleDraftBackup,restoreArticleBackup,articleFollowUpDraft} from '../core/domain/article-authoring.ts';
+import {articleOutline} from '../core/domain/article-outline.ts';
 const origin='https://staging.example',now='2026-10-27T12:00:00Z';
 function fixture(){
  const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');
@@ -70,10 +72,10 @@ test('bracket resolution rejects ambiguous names, freezes saved identities and n
   assert.equal(article.references.length,2);
   insert(5,'single','Ezreal'); // Newly added printing must not retarget the saved revision.
   f.sqlite.prepare("UPDATE catalog_products SET name='Renamed Ezreal' WHERE product_id=1").run();
-  await publish(f.db,article);const published=await readPublicArticle(f.db,article.draft.slug);
-  assert.equal(published.references.find(p=>p.productId===1).name,'Ezreal');
   const next=await saveArticleDraft(f.db,admin.id,{id:article.id,revision:1,draft:{...article.draft,title:'A revision'}},now);
   assert.equal(next.references.find(p=>p.name==='Ezreal').productId,1);
+  await publish(f.db,next);const published=await readPublicArticle(f.db,article.draft.slug);
+  assert.equal(published.references.find(p=>p.productId===1).name,'Ezreal');
   const unresolved=await saveArticleDraft(f.db,admin.id,{revision:0,draft:{...draft(),slug:'unresolved',markdown:draft().markdown+' [[Ambiguous]]'}},now);
   await assert.rejects(()=>transitionArticle(f.db,admin.id,unresolved.id,1,'submit','',false,now),/no unique product match/);
   const exact=await saveArticleDraft(f.db,admin.id,{revision:0,draft:{...draft(),slug:'exact',markdown:draft().markdown+' [[Ambiguous::single:3]]'}},now);
@@ -154,32 +156,53 @@ test('Articles deployment activation is explicit and requires account auditing',
  assert.throws(()=>prepareDeploymentConfig({}, {...options,articles:true}),/require accounts/);
  assert.equal(prepareDeploymentConfig({}, {...options,articles:true,accounts:true,accountTools:true,authBaseUrl:origin}).vars.ARTICLES_ENABLED,'true');
 });
-test('published pointers isolate draft edits, preserve earlier releases and remove all public versions when unpublished',async()=>{
+test('first publication freezes content permanently, permits withdrawal and keeps follow-ups separate',async()=>{
  const f=fixture();try{
   let article=await saveArticleDraft(f.db,admin.id,{revision:0,draft:draft()},now);
   assert.equal(await readPublicArticle(f.db,'radiance-outlook'),null);assert.equal((await listArticles(f.db)).total,0);
   await assert.rejects(()=>transitionArticle(f.db,admin.id,article.id,1,'publish','',true,now),/not available/);
-  article=await publish(f.db,article);assert.equal(article.publishedRevision,1);
+  article=await transitionArticle(f.db,admin.id,article.id,1,'submit','',false,now);
+  await assert.rejects(()=>transitionArticle(f.db,admin.id,article.id,1,'approve','',false,now),/Confirm review/);
+  article=await transitionArticle(f.db,admin.id,article.id,1,'approve','',true,now);
+  article=await transitionArticle(f.db,admin.id,article.id,1,'publish','',true,now);
   assert.match(await(await handleArticleSitemap(f.env)).text(),/radiance-outlook/);
-  let pub=await readPublicArticle(f.db,'radiance-outlook');assert.equal(pub.revision,1);assert.ok(!JSON.stringify(pub).includes('PRIVATE'));assert.ok(!JSON.stringify(pub).includes(admin.id));
-  article=await saveArticleDraft(f.db,admin.id,{id:article.id,revision:1,draft:{...draft(),title:'Updated outlook'}},now);
-  assert.equal((await readPublicArticle(f.db,'radiance-outlook')).title,'Radiance outlook');assert.equal(await readPublicArticle(f.db,'radiance-outlook',2),null);
-  await assert.rejects(()=>saveArticleDraft(f.db,admin.id,{id:article.id,revision:1,draft:draft()},now),/newer revision/);
-  article=await transitionArticle(f.db,admin.id,article.id,2,'submit','',false,now);
-  await assert.rejects(()=>transitionArticle(f.db,admin.id,article.id,2,'approve','',false,now),/Confirm review/);
-  article=await transitionArticle(f.db,admin.id,article.id,2,'approve','',true,now);
-  await assert.rejects(()=>transitionArticle(f.db,admin.id,article.id,2,'publish','',true,now),/Describe the correction/);
-  article=await transitionArticle(f.db,admin.id,article.id,2,'publish','Updated supply evidence.',true,now);
-  assert.equal((await readPublicArticle(f.db,'radiance-outlook')).title,'Updated outlook');assert.equal((await readPublicArticle(f.db,'radiance-outlook',1)).title,'Radiance outlook');
-  assert.equal((await readPublicArticle(f.db,'radiance-outlook')).releases.length,2);
-  await assert.rejects(()=>saveArticleDraft(f.db,admin.id,{id:article.id,revision:2,draft:{...draft(),slug:'new-url'}},now),/URL is fixed/);
-  await transitionArticle(f.db,admin.id,article.id,2,'unpublish','',false,now);
+  const pub=await readPublicArticle(f.db,'radiance-outlook');assert.equal(pub.revision,1);assert.ok(!JSON.stringify(pub).includes('PRIVATE'));assert.ok(!JSON.stringify(pub).includes(admin.id));
+  await assert.rejects(()=>saveArticleDraft(f.db,admin.id,{id:article.id,revision:1,draft:{...draft(),title:'Updated outlook'}},now),/read-only/);
+  const follow=articleFollowUpDraft(article.draft);assert.equal(follow.slug,'');assert.equal(follow.observedAt,'');assert.equal(follow.targetDate,'');assert.equal(follow.evidenceNotes,'');assert.deepEqual(follow.forecasts,[]);assert.ok(follow.markdown.includes('/articles/radiance-outlook'));
+  await saveArticleDraft(f.db,admin.id,{revision:0,draft:{...follow,slug:'radiance-follow-up'}},now);
+  assert.equal((await readPublicArticle(f.db,'radiance-outlook')).title,'Radiance outlook');
+  await transitionArticle(f.db,admin.id,article.id,1,'unpublish','Withdraw for factual review.',false,now);
   assert.equal(await readPublicArticle(f.db,'radiance-outlook'),null);assert.equal(await readPublicArticle(f.db,'radiance-outlook',1),null);
   assert.doesNotMatch(await(await handleArticleSitemap(f.env)).text(),/radiance-outlook/);
-  assert.equal((await articleRevisions(f.db,article.id)).rows.length,2);
-  assert.ok(f.sqlite.prepare("SELECT COUNT(*) AS n FROM admin_audit_events WHERE action LIKE 'admin.article.%'").get().n>=9);
+  for(const action of ['submit','approve','publish','reject'])await assert.rejects(()=>transitionArticle(f.db,admin.id,article.id,1,action,'',true,now),/read-only/);
+  await assert.rejects(()=>saveArticleDraft(f.db,admin.id,{id:article.id,revision:1,draft:draft()},now),/read-only/);
+  await transitionArticle(f.db,admin.id,article.id,1,'archive','',false,now);
+  assert.equal((await articleRevisions(f.db,article.id)).rows.length,1);
  }finally{f.sqlite.close()}
 });
+
+test('publication racing an in-flight save cannot create an editable head or extra revision',async()=>{
+ const f=fixture();try{
+  const original=await saveArticleDraft(f.db,admin.id,{revision:0,draft:draft()},now);
+  const racing={...f.db,async batch(statements){await publish(f.db,original);return f.db.batch(statements)}};
+  await assert.rejects(()=>saveArticleDraft(racing,admin.id,{id:original.id,revision:1,draft:{...draft(),title:'Must not replace publication'}},now),/article changed/);
+  assert.equal((await readPublicArticle(f.db,'radiance-outlook')).title,'Radiance outlook');assert.equal((await articleRevisions(f.db,original.id)).rows.length,1);
+  assert.equal(f.sqlite.prepare("SELECT COUNT(*) n FROM admin_audit_events WHERE action='admin.article.save'").get().n,1);
+ }finally{f.sqlite.close()}
+});
+
+test('previously released legacy revisions remain readable until the article is withdrawn',async()=>{
+ const f=fixture();try{
+  let article=await saveArticleDraft(f.db,admin.id,{revision:0,draft:draft()},now);
+  article=await saveArticleDraft(f.db,admin.id,{id:article.id,revision:1,draft:{...draft(),title:'Final reviewed outlook'}},now);
+  await publish(f.db,article);
+  // A legacy earlier release is retained, not rewritten by the new policy.
+  f.sqlite.prepare('INSERT INTO article_releases(article_id,revision,published_at,note) VALUES(?,1,?,?)').run(article.id,now,'Earlier legacy release');
+  assert.equal((await readPublicArticle(f.db,'radiance-outlook',1)).title,'Radiance outlook');assert.equal((await readPublicArticle(f.db,'radiance-outlook')).releases.length,2);
+  await transitionArticle(f.db,admin.id,article.id,2,'unpublish','',false,now);assert.equal(await readPublicArticle(f.db,'radiance-outlook',1),null);
+ }finally{f.sqlite.close()}
+});
+
 test('an audit write failure rolls back the draft and revision atomically',async()=>{
  const f=fixture();try{
   const article=await saveArticleDraft(f.db,admin.id,{revision:0,draft:draft()},now);
@@ -224,4 +247,34 @@ test('article APIs enforce admin roles, verified email, origin, feature gates an
   const publicData=JSON.stringify(await response.json());assert.ok(!publicData.includes('evidenceNotes'));assert.ok(!publicData.includes(admin.id));
   assert.equal((await handlePublicArticles(request('/api/articles',{evil:true}),f.env)).status,405);
  }finally{f.sqlite.close()}
+});
+
+test('portable backups retain explicit name bindings through catalog ambiguity without trusting client prices',async()=>{
+ const f=fixture();try{
+  ahriCatalog(f);const article=await saveArticleDraft(f.db,admin.id,{revision:0,draft:{...draft(),markdown:draft().markdown+' [[Ahri, Inquisitive]]'}},now);
+  const backup=articleDraftBackup(article.draft,article.references,1);assert.equal(backup.version,1);assert.deepEqual(backup.bindings,[{kind:'single',productId:1,aliases:['Ahri, Inquisitive']}]);
+  f.sqlite.prepare("INSERT INTO catalog_products(product_id,kind,game,name,set_name,card_number,printing,source_updated_at,ingestion_run_id) VALUES(7,'single','riftbound','Ahri, Inquisitive','Reprint','119/298','Foil',?,'ahri')").run(now);
+  const restored=restoreArticleBackup(JSON.parse(JSON.stringify({...backup,internalToken:'ignored'})));
+  const copy=await saveArticleDraft(f.db,admin.id,{revision:0,draft:{...restored.draft,slug:'restored'},bindings:restored.bindings},now);
+  assert.equal(copy.references[0].productId,1);assert.equal(copy.references[0].marketPrice,undefined);assert.equal(copy.references[0].name,'Ahri, Inquisitive');assert.deepEqual(copy.references[0].aliases,['Ahri, Inquisitive']);
+  const legacy=restoreArticleBackup({draft:draft(),revision:1});assert.equal(legacy.legacy,true);assert.deepEqual(legacy.bindings,[]);
+  assert.throws(()=>restoreArticleBackup({...backup,version:2}),/Unsupported/);
+  assert.throws(()=>restoreArticleBackup({...backup,bindings:[...backup.bindings,...backup.bindings]}),/Conflicting/);
+  const response=await handleAdminManagement(request('/api/account/admin/articles',{revision:0,draft:{...restored.draft,slug:'missing-printing'},bindings:[{kind:'single',productId:999,aliases:['Ahri, Inquisitive']}]}),f.env,admin);
+  assert.equal(response.status,400);assert.match((await response.json()).error,/unavailable/);assert.equal(f.sqlite.prepare("SELECT COUNT(*) n FROM articles WHERE slug='missing-printing'").get().n,0);
+ }finally{f.sqlite.close()}
+});
+
+test('observation dates preserve real precision and outlines give duplicate headings distinct anchors',()=>{
+ assert.equal(articleObservationLabel('2026-10-27'),'Oct 27, 2026');assert.equal(articleObservationLabel('2026-10-27T05:53:00Z'),'Oct 27, 2026 · 05:53 UTC');
+ assert.deepEqual(articleReviewProblems({...draft(),observedAt:'2026-10-27'},[],Date.parse(now)),[]);
+ for(const date of ['2026-02-30','2026-10-27T24:00:00Z','2026-10-27T12:60:00Z','2027-01-01'])assert.ok(articleReviewProblems({...draft(),observedAt:date},[],Date.parse(now)).length,date);
+ const tokens=articleTokens('## **Singles** [[Ahri::single:1]]\n\n## Singles\n\n## Singles\n\n> ### Sealed &amp; outlook');
+ const outline=[...articleOutline(tokens,'article-1').values()];assert.deepEqual(outline.map(h=>h.label),['Singles Ahri','Singles','Singles','Sealed & outlook']);assert.equal(new Set(outline.map(h=>h.id)).size,4);
+});
+
+test('unfinished backups preserve invalid publication fields but cannot bypass strict save validation',()=>{
+ const unfinished={...draft(),slug:'Not Ready Yet',sources:['link not checked'],forecasts:[{productKey:'',low:12,high:5,basis:'delivered',confidence:'low',rationale:'',invalidation:''}]};
+ const restored=restoreArticleBackup(articleDraftBackup(unfinished,[]));assert.equal(restored.draft.slug,'Not Ready Yet');assert.deepEqual(restored.draft.forecasts,unfinished.forecasts);assert.deepEqual(restored.draft.sources,unfinished.sources);
+ assert.throws(()=>parseArticleDraft(restored.draft),/lowercase slug/);assert.ok(articleReviewProblems(restored.draft,[]).some(p=>p.includes('lowercase slug')));
 });

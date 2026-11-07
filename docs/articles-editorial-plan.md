@@ -97,14 +97,14 @@ squeezing an eighth destination into the tab bar.
   replay a publication after an ambiguous response; reconcile publication state first.
 - Reuse origin/CSRF checks and bounded request validation for private writes. Sanitize
   Markdown and URLs, disallow executable MDX/raw scripts and unreviewed external embeds.
-  Audit create, submit, approve, publish, correction and unpublish actions with actor,
+  Audit create, submit, approve, publish and unpublish actions with actor,
   article and revision identifiers. Audit logs must not duplicate entire drafts or
   expose source credentials/private account data.
 - Keep draft previews private, no-store/noindex and out of public APIs, sitemap and
   feeds. Public cache keys depend on the published revision; publishing/unpublishing
   invalidates the public article and library entry without rebuilding the website.
-  Substantive published corrections require another reviewed revision and visible
-  correction history; keep previously published forecast records available.
+  Published articles are frozen. Corrections and new evidence require a separately
+  reviewed new article linked to the original; keep published forecast records intact.
 
 ## Article Card Links and Article Card Previews
 
@@ -176,7 +176,7 @@ squeezing an eighth destination into the tab bar.
   asking-price history or proof that the article's forecast was accurate.
 - The article's quoted prices, source dates and forecasts are immutable editorial
   evidence. Today's chart never replaces its October27 quote, updates a prediction
-  silently or changes a historical forecast score. A later article revision is explicit.
+  silently or changes a historical forecast score. Later analysis belongs in a new article.
 
 ### Acceptance evidence before release
 
@@ -229,7 +229,7 @@ Do not infer pull rates; cite publisher figures/curated evidence with their scop
 3. Submit a draft plus evidence manifest and unresolved-check list to Editorial Queue.
 4. Human admin reviews, edits and previews the exact revision. No automatic publishing.
 5. An explicit Publish action records reviewed revision, reviewer and publication date.
-   Later substantive edits require review again; retain previous published revisions.
+   Published content is immutable; later coverage is a new reviewed article.
 6. Follow-up articles compare the original forecast to observed results without
    rewriting the old estimate or concealing misses.
 
