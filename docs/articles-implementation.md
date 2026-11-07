@@ -11,6 +11,11 @@ production is unchanged. [Release and live queue acceptance](articles-staging-re
 November 6: Article Printing Selectors and editor/preview fixes deployed to staging;
 the existing queue is unchanged. [Release verification](articles-staging-release-2026-11-06.md).
 
+November 7: Published Article Freeze, portable backups, evidence-date precision,
+forecast tables and section navigation deployed to staging. The real queue remains
+unchanged; live admin publication acceptance is still pending because the browser
+connection could not initialize. [Release verification](articles-staging-release-2026-11-07.md).
+
 ## Available features
 
 - **Article Library** `/articles`: game/category filters, title/set search, bounded
