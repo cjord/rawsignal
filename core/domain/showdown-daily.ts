@@ -3,8 +3,10 @@ import {dailyGameSeed,utcGameDate,validGameDate} from './daily-game.ts';
 import {drawPriceRound,priceGamePool,priceGameWinner,type PriceGameCard,type PriceGameDifficulty,type PriceGameHistory} from './price-game.ts';
 
 export const DAILY_SHOWDOWN_ROUNDS=10;
-export type DailyShowdownManifest={version:1;date:string;source:string;normal:PriceGameCard[][];hard:PriceGameCard[][]};
+export type DailyShowdownManifestBase={date:string;source:string;normal:PriceGameCard[][];hard:PriceGameCard[][]};
+export type DailyShowdownManifest=DailyShowdownManifestBase&{version:1};
 export type DailyShowdownRun={picks:number[];cursor:number};
+export type DailyShowdownProgress={revision:number;manifest:DailyShowdownManifestBase;normal:DailyShowdownRun;hard:DailyShowdownRun};
 export type DailyShowdownSave={version:1;revision:number;manifest:DailyShowdownManifest;normal:DailyShowdownRun;hard:DailyShowdownRun};
 export const SHOWDOWN_DAILY_KEY='raw-signal-showdown-daily-v1';
 export function dailyShowdownPool(catalog:AuctionCard[]):PriceGameCard[]{
@@ -35,22 +37,22 @@ export function validDailyShowdownManifest(value:unknown):value is DailyShowdown
 }
 const emptyRun=():DailyShowdownRun=>({picks:[],cursor:0});
 export const initialDailyShowdown=(manifest:DailyShowdownManifest):DailyShowdownSave=>({version:1,revision:0,manifest,normal:emptyRun(),hard:emptyRun()});
-function validRun(run:DailyShowdownRun,mode:PriceGameDifficulty){return !!run&&Array.isArray(run.picks)&&run.picks.length<=10&&run.picks.every(pick=>Number.isInteger(pick)&&pick>=0&&pick<(mode==='hard'?3:2))&&Number.isInteger(run.cursor)&&run.cursor>=0&&run.cursor<=9&&(run.picks.length===run.cursor||run.picks.length===run.cursor+1)}
+export function validDailyShowdownRun(run:DailyShowdownRun,mode:PriceGameDifficulty){return !!run&&Array.isArray(run.picks)&&run.picks.length<=10&&run.picks.every(pick=>Number.isInteger(pick)&&pick>=0&&pick<(mode==='hard'?3:2))&&Number.isInteger(run.cursor)&&run.cursor>=0&&run.cursor<=9&&(run.picks.length===run.cursor||run.picks.length===run.cursor+1)}
 export function parseDailyShowdown(raw:string):DailyShowdownSave{
  if(raw.length>100000)throw new Error('Saved challenge too large');
  const save=JSON.parse(raw) as DailyShowdownSave;
- if(save?.version!==1||!Number.isSafeInteger(save.revision)||save.revision<0||!validDailyShowdownManifest(save.manifest)||!validRun(save.normal,'normal')||!validRun(save.hard,'hard'))throw new Error('Invalid saved challenge');
+ if(save?.version!==1||!Number.isSafeInteger(save.revision)||save.revision<0||!validDailyShowdownManifest(save.manifest)||!validDailyShowdownRun(save.normal,'normal')||!validDailyShowdownRun(save.hard,'hard'))throw new Error('Invalid saved challenge');
  return save;
 }
-export function answerDailyShowdown(save:DailyShowdownSave,mode:PriceGameDifficulty,pick:number,now:number):DailyShowdownSave{
+export function answerDailyShowdown<T extends DailyShowdownProgress>(save:T,mode:PriceGameDifficulty,pick:number,now:number):T{
  const run=save[mode];if(save.manifest.date!==utcGameDate(now)||run.picks.length!==run.cursor||!Number.isInteger(pick)||pick<0||pick>=(mode==='hard'?3:2))return save;
  return {...save,revision:save.revision+1,[mode]:{...run,picks:[...run.picks,pick]}};
 }
-export function advanceDailyShowdown(save:DailyShowdownSave,mode:PriceGameDifficulty,now:number):DailyShowdownSave{
+export function advanceDailyShowdown<T extends DailyShowdownProgress>(save:T,mode:PriceGameDifficulty,now:number):T{
  const run=save[mode];if(save.manifest.date!==utcGameDate(now)||run.picks.length!==run.cursor+1||run.cursor>=9)return save;
  return {...save,revision:save.revision+1,[mode]:{...run,cursor:run.cursor+1}};
 }
-export function dailyShowdownHistory(manifest:DailyShowdownManifest,mode:PriceGameDifficulty,picks:number[]):PriceGameHistory[]{
+export function dailyShowdownHistory(manifest:DailyShowdownManifestBase,mode:PriceGameDifficulty,picks:number[]):PriceGameHistory[]{
  return picks.map((pick,index)=>{const cards=manifest[mode][index],winner=priceGameWinner(cards)!.productId,selected=cards[pick].productId;return {roundNumber:index+1,cards,selected,winner,correct:selected===winner}});
 }
 export function showdownScore(history:PriceGameHistory[]){let streak=0,best=0;for(const row of history){streak=row.correct?streak+1:0;best=Math.max(best,streak)}return {correct:history.filter(row=>row.correct).length,streak,best}}

@@ -16,7 +16,7 @@ export default function PriceShowdownHistory({history,daily=false}:{history:Pric
       const selected=card.productId===entry.selected;
       return <div key={card.productId} className={`price-game-history-card${selected?entry.correct?" is-correct":" is-wrong":""}`} aria-label={selected?`${card.name}, your pick, ${entry.correct?"correct":"wrong"}`:card.name}>
        <img src={card.image} alt="" loading="lazy" decoding="async"/>
-       <div className="price-game-history-copy"><b>{card.name}</b><strong>{usd(card.marketPrice)}</strong></div>
+       <div className="price-game-history-copy"><b>{card.name}</b>{card.game==='pokemon'&&<small>{card.set} · {card.printing}</small>}<strong>{usd(card.marketPrice)}</strong></div>
       </div>;
      })}
     </div>

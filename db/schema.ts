@@ -1,6 +1,10 @@
 import { sql } from "drizzle-orm";
 import { check, foreignKey, index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
+export const sharedGameManifests=sqliteTable('shared_game_manifests',{
+ market:text('market',{enum:['pokemon','riftbound']}).notNull(),challengeKind:text('challenge_kind',{enum:['showdown','auction']}).notNull(),challengeDate:text('challenge_date').notNull(),manifestJson:text('manifest_json').notNull(),createdAt:text('created_at').notNull(),
+},table=>[primaryKey({columns:[table.market,table.challengeKind,table.challengeDate]})]);
+
 export const gameCatalogStock=sqliteTable('game_catalog_stock',{
  productId:integer('product_id').primaryKey(),game:text('game',{enum:['pokemon','riftbound']}).notNull(),section:text('section').notNull(),name:text('name').notNull(),setName:text('set_name').notNull(),releaseYear:integer('release_year'),rarity:text('rarity').notNull(),cardNumber:text('card_number').notNull(),printing:text('printing').notNull(),imageUrl:text('image_url').notNull(),sourceUrl:text('source_url').notNull(),marketCents:integer('market_cents').notNull(),observedAt:text('observed_at').notNull(),ingestionRunId:text('ingestion_run_id').notNull(),
 });

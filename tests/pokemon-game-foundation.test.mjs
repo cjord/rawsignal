@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {readFileSync,readdirSync} from 'node:fs';
-import {DatabaseSync} from 'node:sqlite';
+import {gameTestDb as fixture} from './helpers/game-db.mjs';
 import {validAccountValue} from '../core/domain/account-data.ts';
 import {initialPriceGame,priceGameReducer} from '../core/domain/price-game.ts';
 import {GAME_PROFILES,parseGameMarket} from '../core/domain/game-profile.ts';
@@ -14,17 +13,13 @@ import {normalizePokemonGameStock,persistGameStock} from '../db/game-catalog-sto
 import {runLiveDailyIngestionBatch} from '../db/live-ingestion.ts';
 import {readPracticeGameCatalog} from '../db/practice-game-catalog.ts';
 import {handlePracticeGameCatalog} from '../app/api/game-catalog-service.ts';
+import {startIngestion,upsertCard} from '../db/repository.ts';
 import {parseGameScopeMetadata} from '../core/domain/game-scope-metadata.ts';
 const card=(productId,patch={})=>({game:'pokemon',section:'illustration-rares',productId,name:'Card '+productId,set:'SV01: Scarlet & Violet',year:2023,rarity:'Illustration Rare',number:productId+'/100',printing:'Holofoil',image:'https://tcgplayer-cdn.tcgplayer.com/product/'+productId+'_in_1000x1000.jpg',url:'',marketPrice:productId,lowPrice:null,midPrice:null,highPrice:null,priceChange:null,...patch});
 const scope=(patch={})=>({market:'pokemon',eras:[],sets:[],...patch});
 const group={groupId:1,name:'SV01: Scarlet & Violet',publishedOn:'2023-03-31T00:00:00Z'};
 const product=(id,rarity)=>({productId:id,name:'Card '+id,imageUrl:'https://tcgplayer-cdn.tcgplayer.com/product/'+id+'_200w.jpg',url:'https://www.tcgplayer.com/product/'+id,extendedData:[{name:'Number',value:id+'/100'},{name:'Rarity',value:rarity}]});
 const price=(id,value,printing='Holofoil')=>({productId:id,marketPrice:value,subTypeName:printing});
-function fixture(){
- const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');for(const name of readdirSync('drizzle').filter(n=>/^\d{4}.*\.sql$/.test(n)).sort())sqlite.exec(readFileSync('drizzle/'+name,'utf8'));
- const db={prepare(sql){let args=[];return {bind(...values){args=values;return this},async first(){return sqlite.prepare(sql).get(...args)??null},async all(){return {results:sqlite.prepare(sql).all(...args)}},async run(){return this.execute()},execute(){return sqlite.prepare(sql).run(...args)}}},async batch(statements){sqlite.exec('BEGIN');try{const result=statements.map(s=>s.execute());sqlite.exec('COMMIT');return result}catch(error){sqlite.exec('ROLLBACK');throw error}}};
- return {sqlite,db};
-}
 const now=new Date('2026-11-09T12:00:00Z');
 function dependencies(){let calls=0;return {get calls(){return calls},client:{async groups(category){return category===3?[group]:[]},async products(){calls++;return [product(1,'Illustration Rare'),product(2,'Common'),product(3,'Uncommon'),product(4,'Rare'),product(5,'Holo Rare')]},async prices(){calls++;return [price(1,12),price(2,.1,'Normal'),price(2,.25,'Reverse Holofoil'),price(3,.2,'Normal'),price(4,.3,'Normal'),price(5,1,'Holofoil')]}},async fetchMsrp(){return new Map()},async loadBundledSealed(){return []}}}
 async function ingest(f,includeGameStock=false){const deps=dependencies();let result;for(let i=0;i<30;i++){result=await runLiveDailyIngestionBatch(f.db,deps,{sourceUpdatedAt:now.toISOString(),now,batchSize:2,minimumRecords:1,includeGameStock});if(result.done)return {result,deps}}throw new Error('Fixture did not finish')}
@@ -89,6 +84,16 @@ test('an interrupted ingestion cannot switch admission policy or expose pending 
   const result=await runLiveDailyIngestionBatch(f.db,deps,options);assert.equal(result.done,false);
   await assert.rejects(()=>runLiveDailyIngestionBatch(f.db,deps,{...options,includeGameStock:false}),/cannot change/);await assert.rejects(()=>readPracticeGameCatalog(f.db,'pokemon',{includeGameStock:true}),/unavailable/i);
   await ingest(f,true);assert.equal((await readPracticeGameCatalog(f.db,'pokemon',{includeGameStock:true})).bulkReady,true);
+ }finally{f.sqlite.close()}
+});
+
+test('unpublished extra rows do not hide a complete published pool, but overwritten published rows fail closed',async()=>{
+ const f=fixture();try{
+  await ingest(f,true);await startIngestion(f.db,'pending-next','test',now.toISOString());
+  await upsertCard(f.db,card(999),now.toISOString(),'pending-next');await persistGameStock(f.db,{...card(998),gameCatalogOnly:true},now.toISOString(),'pending-next');
+  const published=await readPracticeGameCatalog(f.db,'pokemon',{includeGameStock:true});assert.deepEqual(published.cards.map(c=>c.productId),[1,2,3,4,5]);
+  await persistGameStock(f.db,{...card(2),gameCatalogOnly:true},now.toISOString(),'pending-next');await assert.rejects(()=>readPracticeGameCatalog(f.db,'pokemon',{includeGameStock:true}),/unavailable/);
+  await upsertCard(f.db,card(1),now.toISOString(),'pending-next');await assert.rejects(()=>readPracticeGameCatalog(f.db,'pokemon'),/unavailable/i);
  }finally{f.sqlite.close()}
 });
 

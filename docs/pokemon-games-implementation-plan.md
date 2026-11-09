@@ -7,6 +7,11 @@ auctions remain later batches. See [the implementation report](pokemon-games-fou
 for evidence and activation boundaries. GitHub Issues remains authoritative for
 task status; this document records design and decisions.
 
+The [November 9 games review](pokemon-games-review-2026-11-09.md) records the
+practice staging release, daily implementation, reader correction, simulation
+findings and artwork choices. It does not activate bulk ingestion or release
+Pokémon auctions.
+
 ## Agreed direction
 
 - **Pokémon Price Showdown** uses the current price-comparison game: choose the
@@ -303,6 +308,12 @@ Historical reads never regenerate from current prices. Verify selected artwork w
 bounded/deduplicated checks; measure cold initialization CPU/fetch budgets for the
 larger pool. If necessary, checkpoint preparation and publish only when complete.
 Do not add a staging cron or an always-running producer just to make daily challenges.
+
+Pokémon daily Showdown requires at least 60 eligible cards in its assigned theme
+and chooses 50 distinct cards across both modes. Normal and Hard therefore do not
+spoil each other's exact prices. Artwork replacements stay within that scope;
+failure leaves the attempt unstarted. Existing Riftbound archives and selection
+rules are unchanged.
 
 ### Pokémon Save and Community Namespaces
 

@@ -183,9 +183,17 @@ test('round findings pair purple private tiles before public tiles with safe hov
  expect(requests).toBe(11);await page.reload();await expect(page.locator('.auction-private-finding')).toHaveCount(2);
 });
 
-test('compact round review ranks each bidder and centers status with next-round action above the table',async({page},testInfo)=>{
+async function prepareDeckReview(page:Page){
  await fixtures(page);await page.clock.pauseAt(new Date('2026-10-14T12:00:05Z'));await page.route('**/data/*.json',route=>route.fulfill({contentType:'application/json',body:JSON.stringify(rows)}));await page.goto('/games/riftbound-auction');await startAuction(page);await expect(page.getByLabel('Bid (virtual USD)')).toBeVisible();
  const force=async(bids:number[])=>page.evaluate(({key,bids})=>{const state=JSON.parse(localStorage.getItem(key)!);state.auction.lotTheme='deck-builder';state.auction.npcs=state.auction.npcs.map((npc:object,index:number)=>({...npc,bid:bids[index],locked:true}));state.revision++;const raw=JSON.stringify(state);localStorage.setItem(key,raw);dispatchEvent(new StorageEvent('storage',{key,newValue:raw}))},{key,bids});
+ return force;
+}
+async function submitDeckReview(page:Page,force:(bids:number[])=>Promise<void>,bids:number[],amount:string){
+ await force(bids);await page.getByLabel('Bid (virtual USD)').fill(amount);await page.getByRole('button',{name:'Lock Bid',exact:true}).click();await page.clock.runFor(500);
+}
+
+test('compact round review ranks each bidder and centers status with next-round action above the table',async({page},testInfo)=>{
+ const force=await prepareDeckReview(page);
  await force([200,150,100]);await expect(page.locator('.auction-collection-heading h2')).toContainText("Deck Builder's Collection");await expect(page.locator('.auction-lot-theme')).toHaveCount(0);await page.getByRole('button',{name:'Collection theme',exact:true}).click();await expect(page.getByRole('tooltip')).toContainText('Not a verified competitive deck');await page.keyboard.press('Escape');
  await page.getByLabel('Bid (virtual USD)').fill('1.50');await page.getByRole('button',{name:'Lock Bid',exact:true}).click();await page.clock.runFor(500);
  await page.locator('.auction-round-review-heading').getByRole('button',{name:'Round review rules'}).click();await expect(page.getByRole('tooltip')).toContainText('seeded priority');await page.keyboard.press('Escape');
@@ -193,12 +201,21 @@ test('compact round review ranks each bidder and centers status with next-round 
   await expect(page.getByRole('heading',{name:'Round Bids',exact:true})).toBeVisible();
   const state=await saved(page);for(let column=0;column<round;column++)for(const [index,bid] of rankAuctionBids(state.auction.bidHistory[column],state.auction.seed).entries()){const row=page.locator('.auction-history-table tbody tr').filter({has:page.locator('th',{hasText:bid.name})});await expect(row.locator('button').nth(column)).toContainText(auctionPlacementLabel(index+1));await expect(row.locator('button').nth(column)).toHaveAttribute('aria-label',new RegExp(`${auctionPlacementLabel(index+1)} place`))}
   await expect(page.locator('.auction-results .auction-placement')).toHaveCount(round*4);
-  for(const width of [1440,390,320])for(const theme of ['dark','light']){
-   await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);const placement=await page.locator('.auction-round-review-heading').evaluate(element=>{const row=element.getBoundingClientRect(),status=element.querySelector('.auction-no-buyout')!.getBoundingClientRect(),next=element.querySelector('.auction-next-round')!.getBoundingClientRect();return {center:Math.abs(row.x+row.width/2-status.x-status.width/2),right:Math.abs(row.right-next.right),sameLine:next.top<status.bottom&&next.bottom>status.top}});expect(placement.center).toBeLessThan(1);expect(placement.right).toBeLessThan(1);expect(placement.sameLine).toBe(true);const cells=await page.locator('.auction-history-cell').evaluateAll(elements=>elements.map(element=>element.getBoundingClientRect().height));expect(cells.every(height=>height>=44&&height<=80)).toBe(true);expect((await page.locator('.auction-bid-history').boundingBox())!.width).toBeGreaterThan(width-140);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);if(round===2)await page.locator('.auction-results').screenshot({path:testInfo.outputPath(`compact-round-review-${width}-${theme}.png`),animations:'disabled'});
-  }
   await page.getByRole('button',{name:'Next Auction Round',exact:true}).click();if(round===1){await force([250,230,200]);await page.getByLabel('Bid (virtual USD)').fill('2.40');await page.getByRole('button',{name:'Lock Bid',exact:true}).click();await page.clock.runFor(500)}
  }
  await force([100,50,1]);await page.getByLabel('Bid (virtual USD)').fill('10');await page.getByRole('button',{name:'Lock Bid',exact:true}).click();await page.clock.runFor(500);await page.clock.runFor(1800);await finishReveal(page);await expect(page.locator('.auction-collection-heading h2')).toContainText("Deck Builder's Collection Revealed");expect(await page.getByRole('heading',{name:'Bid History',exact:true}).evaluate(element=>parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(22);await page.locator('.auction-results').screenshot({path:testInfo.outputPath('compact-settled-history.png'),animations:'disabled'});
+});
+
+for(const round of [1,2])test(`compact round review layout stays usable across widths and themes in round ${round}`,async({page},testInfo)=>{
+ const force=await prepareDeckReview(page);await submitDeckReview(page,force,[200,150,100],'1.50');
+ if(round===2){await page.getByRole('button',{name:'Next Auction Round',exact:true}).click();await submitDeckReview(page,force,[250,230,200],'2.40')}
+  for(const width of [1440,390,320])for(const theme of ['dark','light']){
+   await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);const placement=await page.locator('.auction-round-review-heading').evaluate(element=>{const row=element.getBoundingClientRect(),status=element.querySelector('.auction-no-buyout')!.getBoundingClientRect(),next=element.querySelector('.auction-next-round')!.getBoundingClientRect();return {center:Math.abs(row.x+row.width/2-status.x-status.width/2),right:Math.abs(row.right-next.right),sameLine:next.top<status.bottom&&next.bottom>status.top}});expect(placement.center).toBeLessThan(1);expect(placement.right).toBeLessThan(1);expect(placement.sameLine).toBe(true);const cells=await page.locator('.auction-history-cell').evaluateAll(elements=>elements.map(element=>element.getBoundingClientRect().height));expect(cells.every(height=>height>=44&&height<=80)).toBe(true);expect((await page.locator('.auction-bid-history').boundingBox())!.width).toBeGreaterThan(width-140);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);if(round===2)await page.locator('.auction-results').screenshot({path:testInfo.outputPath(`compact-round-review-${width}-${theme}.png`),animations:'disabled'});
+  }
+});
+
+test('settled bid history retains its responsive side-by-side and stacked layouts',async({page},testInfo)=>{
+ const force=await prepareDeckReview(page);await submitDeckReview(page,force,[200,150,100],'1.50');await page.getByRole('button',{name:'Next Auction Round',exact:true}).click();await submitDeckReview(page,force,[250,230,200],'2.40');await page.getByRole('button',{name:'Next Auction Round',exact:true}).click();await submitDeckReview(page,force,[100,50,1],'10');await page.clock.runFor(1800);await finishReveal(page);
  for(const width of [1920,1440,390])for(const theme of ['dark','light']){
   await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
   const summary=(await page.locator('.auction-settlement-summary').boundingBox())!,history=(await page.locator('.auction-settlement-layout>.auction-bid-history').boundingBox())!;
@@ -362,9 +379,9 @@ test('paid entry charges $50 once after artwork checks, offers larger collection
 test('rarity inventory sales confirm precise proceeds and lobby facts and timing tooltip work across themes',async({page},testInfo)=>{
  await fixtures(page);let requests=0;await page.route('**/data/*.json',route=>{requests++;return route.fulfill({contentType:'application/json',body:JSON.stringify(rows)})});
  await page.addInitScript(({key})=>localStorage.setItem(key,JSON.stringify({version:1,revision:0,sequence:0,auction:null,wallet:{cash:250000,feeBps:1000,inventory:[{productId:970000,printing:'Normal',quantity:3},{productId:970012,printing:'Normal',quantity:2},{productId:999,printing:'Normal',quantity:1}]}})),{key});
- await page.goto('/games/riftbound-auction');await expect(page.getByRole('button',{name:'Enter Bilgewater Auction House'})).toBeEnabled();
+ await page.goto('/games/riftbound-auction');const entry=page.getByRole('button',{name:'Enter Bilgewater Auction House'});await entry.click({trial:true});await expect(entry).toBeEnabled();
  await expect(page.getByRole('button',{name:'Enter Bilgewater Auction House',exact:true})).toBeVisible();await page.getByRole('button',{name:'Auction timing and preparation'}).click();await expect(page.getByRole('tooltip')).toContainText('Background tabs and reloads do not pause');await page.keyboard.press('Escape');
- await page.getByRole('navigation',{name:'Auction Hub',exact:true}).getByRole('link',{name:'Inventory',exact:true}).click();await expect(page.getByRole('button',{name:'Sell Commons',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Sell Rares',exact:true})).toBeVisible();
+ await page.getByRole('navigation',{name:'Auction Hub',exact:true}).getByRole('link',{name:'Inventory',exact:true}).click();await page.waitForURL('**/games/riftbound-auction/inventory');await expect(page.getByRole('button',{name:'Sell Commons',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Sell Rares',exact:true})).toBeVisible();
  await expect(page.getByRole('button',{name:'Sell Uncommons',exact:true})).toBeDisabled();await expect(page.getByRole('button',{name:'Sell All',exact:true})).toBeEnabled();
  for(const width of [1440,390])for(const theme of ['dark','light']){await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:testInfo.outputPath(`auction-lobby-sales-${width}-${theme}.png`),fullPage:true,animations:'disabled'})}
  await page.getByRole('button',{name:'Sell Commons',exact:true}).click();await expect(page.getByRole('dialog',{name:'Sell Commons?'})).toContainText('$2.70');await page.getByRole('button',{name:'Close',exact:true}).click();expect((await saved(page)).wallet.inventory).toHaveLength(3);

@@ -53,8 +53,8 @@ test('Cards header has no false server market and its count/date slots stay fixe
 for(const signedIn of [false,true])test(`static Games tiles and account slot remain mounted through ${signedIn?'member':'guest'} bootstrap`,async({page})=>{
  const {release}=await fixture(page,'?fixtureView=games',signedIn);
  const control=page.getByRole('button',{name:'Checking account',exact:true});await expect(control).toBeDisabled();await expect(control).toHaveText('');
- const before=await control.boundingBox();await expect(page.locator('.game-tile')).toHaveCount(5);
- await expect(page.locator('a.game-tile[href="/games/pokemon-price"]')).toContainText('Pokémon Price Showdown');
+ const before=await control.boundingBox();await expect(page.locator('.game-tile')).toHaveCount(6);
+ await expect(page.locator('a.game-tile[href="/games/pokemon-price"]')).toContainText('Pokémon Price Showdown');await expect(page.locator('a.game-tile[href="/games/pokemon-price/daily"]')).toContainText('Pokémon Daily Price Showdown');
  await page.evaluate(()=>Object.assign(window,{initialGameTile:document.querySelector('.game-tile'),initialGameArt:document.querySelector('.game-tile-art')}));
  await expect(page.locator('.account-guest-warning')).toHaveCount(0);release();
  const ready=page.getByRole('button',{name:signedIn?'Log Out':'Log In',exact:true});await expect(ready).toBeEnabled();expect(await ready.boundingBox()).toEqual(before);
