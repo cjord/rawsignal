@@ -157,11 +157,42 @@ The existing auction review test combined bidding, ranking and eighteen
 width/theme layout combinations in one thirty-second case. Those checks now run
 as four focused scenarios, retaining the end-to-end bid-to-settlement journey,
 all layout assertions and the existing per-test timeout. The focused four-case
-run passed. A complete release gate and live staging verification are still
-required before claiming the follow-up release is ready.
+run passed, followed by the complete release gate and live staging verification.
 
 The inventory-sale journey also waits for entry actionability and the Inventory
 route before checking its sale controls. Its cold-start failures stopped at
 different loading stages; the explicit readiness waits passed in isolation while
 retaining sale assertions and the thirty-second case limit. The four-round
 settlement journey passed unchanged on its isolated rerun.
+
+## Verified staging release
+
+- Application source: `8381de1`, pushed to `codex/pokemon-games`.
+- Staging version: `1a2a1057`. Production was not deployed or changed.
+- `npm run check` passed: production build, 731 passing unit tests, one existing
+  skip, lint, typecheck and all 198 Chromium browser checks. No retries were used
+  in the final browser run. Existing lint warnings remain; no new warnings were
+  introduced. Earlier permission and browser-startup failures were investigated
+  rather than suppressed.
+- Desktop/mobile, dark/light screenshots were reviewed. Live staging was also
+  opened in an isolated Chromium session with real images: Normal displayed two
+  cards and Hard three, with set/printing labels, hidden prices and no browser
+  errors. No answers or account changes were submitted. This is browser
+  automation, not physical-device acceptance.
+- The live catalog reports `database`, 187 sets and bulk support disabled. The
+  selected Aquapolis response contained 184 cards and passed scope/hash checks.
+  First-observed metadata response: 603 ms, repeat: 47 ms; selected pool: 155 ms,
+  repeat: 63 ms. These are HTTP observations, not controlled cold-load benchmarks
+  or full-page rendering measurements.
+- Today's daily archive has 10 Normal and 10 Hard rounds, with 50 distinct cards
+  across the two modes. Its WotC (1999–2003) theme and frozen lineup were identical
+  on the archived-date read. First preparation took 1,518 ms; archive read 92 ms.
+- Migrations `0030` and `0031` were applied after deployment and verified in D1,
+  following a private local staging backup. Existing identity/database bindings,
+  flags, rate limits and the zero-cron staging policy were preserved. Legacy
+  auction and article routes responded normally; unauthenticated admin access
+  remained blocked.
+- The bulk producer, Pokémon auctions, new rival portraits and the API-generated
+  cover choices remain unfinished. No image choice was published, and the
+  requested API key was still absent at handoff. User article drafts and unrelated
+  TODO edits were preserved outside these commits.
