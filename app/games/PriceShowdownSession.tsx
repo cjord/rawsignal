@@ -6,55 +6,55 @@ import PriceShowdownHistory from "./PriceShowdownHistory";
 import PriceShowdownSkeleton from "./PriceShowdownSkeleton";
 import {preparePriceRound,type PriceGameImageLoader} from "../data/price-game-images";
 import {isTcgplayerPlaceholder} from "../../core/domain/image-availability";
-import {initialPriceGame,priceGameReducer,priceGameWinner,type PriceGameCard,type PriceGameDifficulty} from "../../core/domain/price-game";
-import {usePracticeSave,readPracticeSave} from './usePracticeSave';
+import {initialPriceGame,priceGameReducer,priceGameWinner,type PriceGameCard,type PriceGameDifficulty,type PriceRoundRules} from "../../core/domain/price-game";
+import {usePracticeSave,readPracticeSave,RIFTBOUND_PRACTICE,type PracticeContext} from './usePracticeSave';
 import {useAccount} from '../account/AccountProvider';
 
 const usd=(value:number)=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(value);
 
-function Choice({card,locked,ready,revealed,winner,selected,onChoose,onReady,onFailed,buttonRef}:{card:PriceGameCard;locked:boolean;ready:boolean;revealed:boolean;winner:boolean;selected:boolean;onChoose:(keyboard:boolean)=>void;onReady:()=>void;onFailed:()=>void;buttonRef?:(element:HTMLButtonElement|null)=>void}){
- const [artRef,tilt]=useArtTilt();
- return <button ref={buttonRef} type="button" className={`price-game-choice${revealed&&winner?" is-correct":""}${revealed&&selected&&!winner?" is-wrong":""}`} aria-disabled={locked} onClick={event=>{if(!locked)onChoose(event.detail===0)}} aria-label={revealed?`${card.name}, ${usd(card.marketPrice)}${winner?", highest price":""}`:`Choose ${card.name}`}>
-  <b className="price-game-name">{card.name}</b><div className="price-game-art" ref={artRef} {...tilt}><span className={`price-game-image${ready?"":" is-loading"}`}>{!ready&&<span className="detail-skeleton price-game-image-skeleton" aria-hidden="true"/>}<img src={card.image} alt="" decoding="async" loading="eager" onError={onFailed} onLoad={event=>{if(isTcgplayerPlaceholder(event.currentTarget))onFailed();else onReady()}}/></span></div>
+function Choice({card,locked,ready,revealed,winner,selected,onChoose,onReady,onFailed,buttonRef,showPrinting=false}:{card:PriceGameCard;locked:boolean;ready:boolean;revealed:boolean;winner:boolean;selected:boolean;onChoose:(keyboard:boolean)=>void;onReady:()=>void;onFailed:()=>void;buttonRef?:(element:HTMLButtonElement|null)=>void;showPrinting?:boolean}){
+ const [artRef,tilt]=useArtTilt(),identity=showPrinting?`${card.name} · ${card.set} · ${card.printing}`:card.name;
+ return <button ref={buttonRef} type="button" className={`price-game-choice${revealed&&winner?" is-correct":""}${revealed&&selected&&!winner?" is-wrong":""}`} aria-disabled={locked} onClick={event=>{if(!locked)onChoose(event.detail===0)}} aria-label={revealed?`${identity}, ${usd(card.marketPrice)}${winner?", highest price":""}`:`Choose ${identity}`}>
+  <b className="price-game-name">{card.name}</b>{showPrinting&&<small className="price-game-printing">{card.set} · {card.printing}</small>}<div className="price-game-art" ref={artRef} {...tilt}><span className={`price-game-image${ready?"":" is-loading"}`}>{!ready&&<span className="detail-skeleton price-game-image-skeleton" aria-hidden="true"/>}<img src={card.image} alt="" decoding="async" loading="eager" onError={onFailed} onLoad={event=>{if(isTcgplayerPlaceholder(event.currentTarget))onFailed();else onReady()}}/></span></div>
   <span className="price-game-reveal">{revealed&&<><strong>{usd(card.marketPrice)}</strong><small>{winner?"Highest price":selected?"Your pick":"Market price"}</small></>}</span>
  </button>;
 }
 
-export function RoundChoices({round,difficulty,selected,preparing,onChoose,onFailed,firstButton}:{round:PriceGameCard[];difficulty:PriceGameDifficulty;selected:number|null;preparing:boolean;onChoose:(card:PriceGameCard,keyboard:boolean)=>void;onFailed:(image:string)=>void;firstButton:React.RefObject<HTMLButtonElement|null>}){
+export function RoundChoices({round,difficulty,selected,preparing,onChoose,onFailed,firstButton,showPrinting=false}:{round:PriceGameCard[];difficulty:PriceGameDifficulty;selected:number|null;preparing:boolean;onChoose:(card:PriceGameCard,keyboard:boolean)=>void;onFailed:(image:string)=>void;firstButton:React.RefObject<HTMLButtonElement|null>;showPrinting?:boolean}){
  const [ready,setReady]=useState<number[]>([]);
  const allReady=round.every(card=>ready.includes(card.productId)),winner=priceGameWinner(round),revealed=selected!=null;
  return <div className={`price-game-round mode-${difficulty}`} aria-busy={preparing||!allReady}>
   {!allReady&&<span className="sr-only" role="status">Loading card artwork…</span>}
-  {round.map((card,index)=><Choice key={card.productId} card={card} ready={ready.includes(card.productId)} locked={revealed||preparing||!allReady} revealed={revealed} winner={card.productId===winner?.productId} selected={card.productId===selected} buttonRef={index===0?element=>{firstButton.current=element}:undefined} onChoose={keyboard=>onChoose(card,keyboard)} onReady={()=>setReady(previous=>previous.includes(card.productId)?previous:[...previous,card.productId])} onFailed={()=>{setReady(previous=>previous.filter(id=>id!==card.productId));onFailed(card.image)}}/>)}
+  {round.map((card,index)=><Choice showPrinting={showPrinting} key={card.productId} card={card} ready={ready.includes(card.productId)} locked={revealed||preparing||!allReady} revealed={revealed} winner={card.productId===winner?.productId} selected={card.productId===selected} buttonRef={index===0?element=>{firstButton.current=element}:undefined} onChoose={keyboard=>onChoose(card,keyboard)} onReady={()=>setReady(previous=>previous.includes(card.productId)?previous:[...previous,card.productId])} onFailed={()=>{setReady(previous=>previous.filter(id=>id!==card.productId));onFailed(card.image)}}/>)}
  </div>;
 }
 
-export default function GameSession({pool,difficulty,images,auto}:{pool:PriceGameCard[];difficulty:PriceGameDifficulty;images:PriceGameImageLoader;auto:boolean}){
+export default function GameSession({pool,difficulty,images,auto,context=RIFTBOUND_PRACTICE,rules,showPrinting=false,focusOnStart=false}:{pool:PriceGameCard[];difficulty:PriceGameDifficulty;images:PriceGameImageLoader;auto:boolean;context?:PracticeContext;rules?:PriceRoundRules;showPrinting?:boolean;focusOnStart?:boolean}){
  const {user}=useAccount();
- const [state,dispatch]=useReducer(priceGameReducer,undefined,()=>user?readPracticeSave(difficulty)??initialPriceGame([]):initialPriceGame([]));
- usePracticeSave(state,difficulty,true);
+ const [state,dispatch]=useReducer(priceGameReducer,undefined,()=>user?readPracticeSave(difficulty,context)??initialPriceGame([]):initialPriceGame([]));
+ usePracticeSave(state,difficulty,true,context);
  const [preparing,setPreparing]=useState(()=>!state.round.length),[error,setError]=useState(false);
- const firstButton=useRef<HTMLButtonElement|null>(null),restoreFocus=useRef(false),request=useRef<AbortController|null>(null);
+ const firstButton=useRef<HTMLButtonElement|null>(null),restoreFocus=useRef(focusOnStart),request=useRef<AbortController|null>(null);
  const winner=priceGameWinner(state.round),revealed=state.selected!=null,correct=state.selected===winner?.productId;
  useEffect(()=>{
   if(state.round.length)return;
   const controller=new AbortController();request.current=controller;
-  preparePriceRound(pool,difficulty,[],images,controller.signal).then(round=>{
+  preparePriceRound(pool,difficulty,[],images,controller.signal,Math.random,rules).then(round=>{
    if(controller.signal.aborted)return;
    dispatch({type:"replace",round});setError(!round.length);setPreparing(false);
   }).catch(()=>{if(!controller.signal.aborted){setError(true);setPreparing(false)}});
   return()=>{request.current?.abort()};
- },[pool,difficulty,images,state.round.length]);
+ },[pool,difficulty,images,state.round.length,rules]);
  const advance=useCallback(async()=>{
   request.current?.abort();const controller=new AbortController();request.current=controller;
   setPreparing(true);setError(false);
   try{
-   const round=await preparePriceRound(pool,difficulty,state.round.map(card=>card.productId),images,controller.signal);
+   const round=await preparePriceRound(pool,difficulty,state.round.map(card=>card.productId),images,controller.signal,Math.random,rules);
    if(controller.signal.aborted)return;
    if(round.length)dispatch({type:revealed?"next":"replace",round});else setError(true);
   }catch{if(!controller.signal.aborted)setError(true)}
   finally{if(!controller.signal.aborted)setPreparing(false)}
- },[pool,difficulty,images,state.round,revealed]);
+ },[pool,difficulty,images,state.round,revealed,rules]);
  useEffect(()=>{
   if(!revealed||!auto||preparing||error)return;
   let timer:number|undefined;
@@ -62,7 +62,7 @@ export default function GameSession({pool,difficulty,images,auto}:{pool:PriceGam
   schedule();document.addEventListener("visibilitychange",schedule);
   return()=>{window.clearTimeout(timer);document.removeEventListener("visibilitychange",schedule)};
  },[revealed,auto,preparing,error,advance]);
- useEffect(()=>{if(restoreFocus.current){firstButton.current?.focus({preventScroll:true});restoreFocus.current=false}},[state.roundNumber]);
+ useEffect(()=>{if(restoreFocus.current&&!preparing&&firstButton.current){firstButton.current.focus({preventScroll:true});restoreFocus.current=false}},[state.roundNumber,preparing]);
  return <section aria-label="Price comparison game">
   <div className="price-game-toolbar"><dl className="price-game-score">
    <div className="detail-metric price-game-stat stat-correct"><dt><span aria-hidden="true">✓</span>Total correct</dt><dd>{state.correct}</dd></div>
@@ -72,7 +72,7 @@ export default function GameSession({pool,difficulty,images,auto}:{pool:PriceGam
   <p className="price-game-result" role="status" aria-live="polite" aria-atomic="true">{revealed?`${correct?"Correct!":"Not quite."} ${winner?.name} has the highest price at ${usd(winner!.marketPrice)}.`:preparing?"Preparing card artwork…":""}</p>
   {error&&<p className="games-note" role="alert">Not enough cards with working artwork are available for this round. <button type="button" className="game-control" onClick={()=>void advance()}>Try another round</button></p>}
   {preparing&&!error&&<PriceShowdownSkeleton difficulty={difficulty}/>}
-  {!preparing&&state.round.length>0&&<RoundChoices key={`${state.roundNumber}:${state.round.map(card=>card.productId).join(",")}`} round={state.round} difficulty={difficulty} selected={state.selected} preparing={preparing} firstButton={firstButton} onChoose={(card,keyboard)=>{restoreFocus.current=keyboard;dispatch({type:"answer",productId:card.productId})}} onFailed={image=>{images.exclude(image);void advance()}}/>}
+  {!preparing&&state.round.length>0&&<RoundChoices showPrinting={showPrinting} key={`${state.roundNumber}:${state.round.map(card=>card.productId).join(",")}`} round={state.round} difficulty={difficulty} selected={state.selected} preparing={preparing} firstButton={firstButton} onChoose={(card,keyboard)=>{restoreFocus.current=keyboard;dispatch({type:"answer",productId:card.productId})}} onFailed={image=>{images.exclude(image);void advance()}}/>}
   <div className="price-game-next"><button type="button" className="game-control" disabled={!revealed||preparing} onClick={()=>{restoreFocus.current=true;void advance()}}>{preparing&&revealed?"Preparing next round…":"Next round →"}</button><span className="games-note">{state.attempts} answered · {state.attempts?Math.round(state.correct/state.attempts*100):0}% correct</span></div>
   <PriceShowdownHistory history={state.history}/>
  </section>;

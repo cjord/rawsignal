@@ -8,6 +8,7 @@ import { persistRecord } from "./daily-ingestion.ts";
 import { writeSetRarityStats } from "./rarity-stats.ts";
 import { clampBatchSize, markIngestionFailed, parseStatsJson, resumeCheckpoint } from "./ingestion-batch.ts";
 import { checkpointIngestion, completeIngestion, failIngestion, startIngestion, type D1DatabaseLike } from "./repository.ts";
+import {normalizePokemonGameStock,gameStockSession} from './game-catalog-stock.ts';
 
 export type TcgcsvGroup = { groupId: number; name: string; publishedOn: string };
 export type TcgcsvClient = {
@@ -32,7 +33,7 @@ type WorkEntry =
   | { type: "tcgcsv-sealed"; categoryId: number; game: "onepiece" | "pokemon"; group: TcgcsvGroup }
   | { type: "bundled"; market: "riftbound" | "onepiece" }
   | { type: "supplemental-singles" };
-type LiveStats = { recordsWritten?: number; duplicateDecisions?: number; rejected?: Record<string, number> };
+type LiveStats = { recordsWritten?: number; duplicateDecisions?: number; rejected?: Record<string, number>;gameStockEnabled?:boolean;gameStockProcessed?:number };
 
 const categories = [{ id: 3, game: "pokemon" as const }, { id: 89, game: "riftbound" as const }];
 // Japanese Pokémon (TCGCSV category 85, audit Phase E): only the promo groups for now —
@@ -86,13 +87,14 @@ async function buildWorkList(client: TcgcsvClient, now: Date): Promise<WorkEntry
 }
 
 type EntryLoad = { records: (Card | SealedProduct)[]; rarityStats: GroupRarityStat[] };
+const gameStockRecords=(entry:{game:string;group:TcgcsvGroup},enabled:boolean,products:SinglesSourceProduct[],prices:SinglesPriceRow[])=>enabled&&entry.game==='pokemon'?normalizePokemonGameStock(entry.group,products,prices).sort((a,b)=>a.productId-b.productId):[];
 
-async function loadEntryRecords(entry: WorkEntry, deps: LiveSyncDeps, msrp: () => Promise<Map<number, unknown>>, curatedRiftbound: () => Promise<Map<number, SealedProduct>>, rejected: Record<string, number>): Promise<EntryLoad> {
+async function loadEntryRecords(entry: WorkEntry, deps: LiveSyncDeps, msrp: () => Promise<Map<number, unknown>>, curatedRiftbound: () => Promise<Map<number, SealedProduct>>, rejected: Record<string, number>,includeGameStock=false): Promise<EntryLoad> {
   if (entry.type === "supplemental-singles") return { records: [...supplementalSingles], rarityStats: [] };
-  return loadSourceEntryRecords(entry,deps,msrp,curatedRiftbound,rejected);
+  return loadSourceEntryRecords(entry,deps,msrp,curatedRiftbound,rejected,includeGameStock);
 }
 
-async function loadSourceEntryRecords(entry: Exclude<WorkEntry,{type:"supplemental-singles"}>, deps: LiveSyncDeps, msrp: () => Promise<Map<number, unknown>>, curatedRiftbound: () => Promise<Map<number, SealedProduct>>, rejected: Record<string, number>): Promise<EntryLoad> {
+async function loadSourceEntryRecords(entry: Exclude<WorkEntry,{type:"supplemental-singles"}>, deps: LiveSyncDeps, msrp: () => Promise<Map<number, unknown>>, curatedRiftbound: () => Promise<Map<number, SealedProduct>>, rejected: Record<string, number>,includeGameStock:boolean): Promise<EntryLoad> {
   if (entry.type === "bundled") return { records: await deps.loadBundledSealed(entry.market), rarityStats: [] };
   const [products, prices] = await Promise.all([deps.client.products(entry.categoryId, entry.group.groupId), deps.client.prices(entry.categoryId, entry.group.groupId)]);
   // Per-tier aggregate over EVERY card in a singles group (todo J2): the bulk tiers the
@@ -146,6 +148,7 @@ async function loadSourceEntryRecords(entry: Exclude<WorkEntry,{type:"supplement
     sealed.push(normalizedSealed);
   }
   records.push(...sealed.sort((a, b) => a.productId - b.productId));
+  records.push(...gameStockRecords(entry,includeGameStock,products as SinglesSourceProduct[],prices as SinglesPriceRow[]));
   return { records, rarityStats };
 }
 
@@ -165,7 +168,7 @@ async function existingRunRows(db: D1DatabaseLike, runId: string, ids: number[])
   return rows;
 }
 
-export async function runLiveDailyIngestionBatch(db: D1DatabaseLike, deps: LiveSyncDeps, options: { sourceUpdatedAt: string; batchSize?: number; groupFetchCap?: number; minimumRecords?: number; now?: Date }) {
+export async function runLiveDailyIngestionBatch(db: D1DatabaseLike, deps: LiveSyncDeps, options: { sourceUpdatedAt: string; batchSize?: number; groupFetchCap?: number; minimumRecords?: number; now?: Date;includeGameStock?:boolean }) {
   const budgetTotal = clampBatchSize(options.batchSize, 80, 100);
   // Not clampBatchSize: the cap is a loop bound, and the historical clamp never floored.
   const groupFetchCap = Math.max(1, Math.min(20, options.groupFetchCap ?? 12));
@@ -176,9 +179,10 @@ export async function runLiveDailyIngestionBatch(db: D1DatabaseLike, deps: LiveS
   const resumed = resume.resumed;
   let { group: groupIndex, offset: recordOffset } = parseCursor(resume.cursor);
   const prior = parseStatsJson<LiveStats>(resume.statsJson);
+  const gameStock=gameStockSession(db,{enabled:options.includeGameStock===true,resumed,previous:prior,observedAt,runId});
   let recordsWritten = prior.recordsWritten ?? 0, duplicateDecisions = prior.duplicateDecisions ?? 0;
   const rejected: Record<string, number> = { ...(prior.rejected ?? {}) };
-  if (!resumed) await startIngestion(db, runId, "tcgcsv-live", observedAt, { sourceUpdatedAt: options.sourceUpdatedAt, stats: { rejected: {} } });
+  if (!resumed) await startIngestion(db, runId, "tcgcsv-live", observedAt, { sourceUpdatedAt: options.sourceUpdatedAt, stats: { rejected: {},...gameStock.progress() } });
   let msrpPromise: Promise<Map<number, unknown>> | null = null;
   const msrp = () => msrpPromise ??= deps.fetchMsrp();
   let curatedRiftboundPromise: Promise<Map<number, SealedProduct>> | null = null;
@@ -191,12 +195,13 @@ export async function runLiveDailyIngestionBatch(db: D1DatabaseLike, deps: LiveS
       const sealedOnly = entry.type === "tcgcsv-sealed";
       if (sealedOnly ? sealedGroupFetches >= SEALED_GROUP_FETCH_CAP : groupFetches >= groupFetchCap) break;
       if (sealedOnly) sealedGroupFetches++; else groupFetches++;
-      const { records, rarityStats } = await loadEntryRecords(entry, deps, msrp, curatedRiftbound, rejected);
+      const { records, rarityStats } = await loadEntryRecords(entry, deps, msrp, curatedRiftbound, rejected,gameStock.enabled);
       // The tier aggregate lands once per group per run, with the group's first slice.
       if (recordOffset === 0 && rarityStats.length && entry.type === "tcgcsv") await writeSetRarityStats(db, entry.game, entry.group.name, rarityStats, observedAt, runId);
       const slice = records.slice(recordOffset, recordOffset + remaining);
       const existing = slice.length ? await existingRunRows(db, runId, slice.map(record => record.productId)) : new Map<number, { kind: string; marketCents: number | null }>();
       for (const record of slice) {
+        if(await gameStock.persist(record))continue;
         const current = existing.get(record.productId);
         const isCard = "printing" in record;
         if (current) {
@@ -212,7 +217,7 @@ export async function runLiveDailyIngestionBatch(db: D1DatabaseLike, deps: LiveS
       remaining -= slice.length;
     }
     const done = groupIndex >= workList.length;
-    const stats = { totalEntries: workList.length, recordsWritten, duplicateDecisions, rejected };
+    const stats = { totalEntries: workList.length, recordsWritten, duplicateDecisions, rejected,...gameStock.progress() };
     if (done) {
       // The truncation guard judges the day by what the database holds for this run, not by
       // the checkpointed counter (R4, 2026-09-05): overlapping ticks clobbered that counter to
@@ -226,7 +231,7 @@ export async function runLiveDailyIngestionBatch(db: D1DatabaseLike, deps: LiveS
         throw new Error(`Live snapshot below minimum records: ${stamped} < ${minimumRecords}`);
       }
       await checkpointIngestion(db, runId, "live-daily-progress", workList.length, recordsWritten, `${groupIndex}:${recordOffset}`, stats);
-      await completeIngestion(db, runId, "daily-market", new Date().toISOString(), workList.length, stamped, Object.values(rejected).reduce((sum, count) => sum + count, 0), duplicateDecisions, { ...stats, stamped });
+      await completeIngestion(db, runId, "daily-market", new Date().toISOString(), workList.length, stamped, Object.values(rejected).reduce((sum, count) => sum + count, 0), duplicateDecisions, { ...stats, stamped,...await gameStock.completion() });
       return { runId, cursor: `${groupIndex}:${recordOffset}`, entries: workList.length, entryIndex: groupIndex, done, processed, recordsWritten: stamped, duplicateDecisions };
     }
     await checkpointIngestion(db, runId, "live-daily-progress", workList.length, recordsWritten, `${groupIndex}:${recordOffset}`, stats);

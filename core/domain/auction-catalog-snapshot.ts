@@ -1,4 +1,6 @@
 import type {Card} from './types.ts';
+import {catalogDigest as auctionCatalogDigest} from './catalog-digest.ts';
+export {catalogDigest as auctionCatalogDigest} from './catalog-digest.ts';
 
 export const AUCTION_CATALOG_SCHEMA=1;
 export const AUCTION_CATALOG_LIMIT=6000;
@@ -20,10 +22,6 @@ export function parseAuctionCatalogSnapshot(value:unknown):AuctionCatalogSnapsho
  const manifest=parseAuctionCatalogManifest(value),rows=(value as Record<string,unknown>).rows;
  if(!Array.isArray(rows)||rows.length!==manifest.count||!rows.every(validRow)||new Set(rows.map(row=>`${row[0]}:${row[1]}`)).size!==rows.length)throw new Error('Invalid auction catalog rows');
  return {...manifest,rows:rows.map(row=>[...row])};
-}
-export async function auctionCatalogDigest(value:unknown){
- const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(value)));
- return [...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
 }
 export async function createAuctionCatalogSnapshot(cards:Card[],source:AuctionCatalogManifest['source'],asOf:string|null,publishedAt:string|null):Promise<AuctionCatalogSnapshot>{
  const ordered=cards.filter(card=>card.game==='riftbound').sort((a,b)=>a.productId-b.productId||a.printing.localeCompare(b.printing));

@@ -1,5 +1,5 @@
 import {isTcgplayerPlaceholder} from "../../core/domain/image-availability.ts";
-import {drawPriceRound,type PriceGameCard,type PriceGameDifficulty} from "../../core/domain/price-game.ts";
+import {drawPriceRound,type PriceGameCard,type PriceGameDifficulty,type PriceRoundRules} from "../../core/domain/price-game.ts";
 
 export type PriceGameImageLoader={load:(src:string)=>Promise<boolean>;failed:(src:string)=>boolean;exclude:(src:string)=>void};
 
@@ -23,11 +23,11 @@ export function createPriceGameImageLoader(createImage:()=>HTMLImageElement=()=>
  return {load,failed:src=>failed.has(src),exclude};
 }
 
-export async function preparePriceRound(pool:PriceGameCard[],difficulty:PriceGameDifficulty,previous:number[],loader:PriceGameImageLoader,signal?:AbortSignal,random:()=>number=Math.random):Promise<PriceGameCard[]>{
+export async function preparePriceRound(pool:PriceGameCard[],difficulty:PriceGameDifficulty,previous:number[],loader:PriceGameImageLoader,signal?:AbortSignal,random:()=>number=Math.random,rules?:PriceRoundRules):Promise<PriceGameCard[]>{
  for(let attempt=0;attempt<8;attempt++){
   if(signal?.aborted)return [];
   const available=pool.filter(card=>!loader.failed(card.image));
-  const round=drawPriceRound(available,difficulty,previous,random);
+  const round=drawPriceRound(available,difficulty,previous,random,rules);
   if(!round.length)return [];
   const valid=await Promise.all(round.map(card=>loader.load(card.image)));
   if(signal?.aborted)return [];

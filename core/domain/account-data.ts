@@ -2,11 +2,13 @@ import {parseAuctionSave} from './auction-save.ts';
 import {parseDailyShowdown} from './showdown-daily.ts';
 import {validAuctionAppearance,AUCTION_APPEARANCE_KEY} from './auction-appearance.ts';
 import {COLLECTIONS_KEY,parseCollections} from './owned-collections.ts';
+import {parseGameScope,gameScopeIncludes} from './game-scope.ts';
 
 // Explicit user-owned domains only. Never synchronize navigation URLs, credentials,
 // cached market feeds, or developer flags. Real collections stay separate from game money.
 export const ACCOUNT_KEYS=[
  'raw-signal-auction-house-v1','raw-signal-showdown-daily-v1','raw-signal-showdown-practice-v1',
+ 'raw-signal-pokemon-showdown-practice-v1',
  'raw-signal-favorites','raw-signal-buylist','raw-signal-set-favorites','raw-signal-collectr-import',
  'raw-signal-theme','raw-signal-font-size','raw-signal-scalper-mode','raw-signal-hover-previews',
  'raw-signal-strictness','raw-signal-auction-sound','raw-signal-auction-auto-advance','raw-signal-buylist-size',
@@ -38,12 +40,19 @@ export function validAccountValue(key:AccountKey,value:unknown):value is string{
   if(key==='raw-signal-auction-house-v1'){parseAuctionSave(value);return true}
   if(key==='raw-signal-showdown-daily-v1'){parseDailyShowdown(value);return true}
   const parsed:unknown=JSON.parse(value);
+  if(key==='raw-signal-pokemon-showdown-practice-v1')return validPokemonPracticeSave(parsed);
   if(key==='raw-signal-set-favorites')return list(parsed)&&(parsed as unknown[]).every(item=>typeof item==='string'&&item.length<=300);
   if(key==='raw-signal-favorites')return list(parsed)&&(parsed as unknown[]).every(item=>object(item)&&Number.isSafeInteger(item.productId)&&typeof item.key==='string'&&['single','sealed'].includes(String(item.kind)));
   if(key==='raw-signal-buylist')return object(parsed)&&Object.keys(parsed).length<=10000&&Object.values(parsed).every(row=>object(row)&&typeof row.acquired==='boolean'&&(row.paid===null||typeof row.paid==='number'&&Number.isFinite(row.paid)));
   if(key==='raw-signal-collectr-import')return object(parsed)&&parsed.version===1&&object(parsed.payload)&&object(parsed.payload.profile)&&list(parsed.payload.cards);
   return validPracticeSave(parsed);
  }catch{return false}
+}
+function validPokemonPracticeSave(value:unknown){
+ if(!validPracticeSave(value)||!object(value)||value.market!=='pokemon')return false;
+ const scope=parseGameScope(value.scope);if(scope.market!=='pokemon')return false;
+ const state=value.state as {round:Record<string,unknown>[];history:{cards:Record<string,unknown>[]}[]};
+ return [...state.round,...state.history.flatMap(row=>row.cards)].every(card=>card.game==='pokemon'&&typeof card.set==='string'&&typeof card.number==='string'&&Number.isInteger(card.year)&&gameScopeIncludes({game:'pokemon',set:card.set,year:Number(card.year)},scope));
 }
 function validPracticeSave(value:unknown){
  if(!object(value)||value.v!==1||!['normal','hard'].includes(String(value.difficulty))||!object(value.state))return false;

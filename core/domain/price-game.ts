@@ -1,6 +1,6 @@
 import type {Card, SinglesGame} from "./types.ts";
 
-export type PriceGameCard = Pick<Card,"productId"|"name"|"image"|"printing"|"section"|"rarity"> & {marketPrice:number};
+export type PriceGameCard = Pick<Card,"productId"|"name"|"image"|"printing"|"section"|"rarity"> & Partial<Pick<Card,'set'|'number'|'game'|'year'>> & {marketPrice:number};
 export type PriceGameDifficulty = "normal" | "hard";
 export const priceInCents = (price:number) => Math.round((price+Number.EPSILON)*100);
 
@@ -35,11 +35,13 @@ function shuffled<T>(items:readonly T[],random:()=>number):T[]{
  return shuffled;
 }
 const compatible=(card:PriceGameCard,other:PriceGameCard)=>other.productId!==card.productId&&other.name.toLowerCase()!==card.name.toLowerCase()&&other.image!==card.image&&priceInCents(other.marketPrice)!==priceInCents(card.marketPrice);
-function findRound(pool:PriceGameCard[],count:number,previous:number[],random:()=>number,mixed=false):PriceGameCard[]{
+export type PriceRoundRules={rarity:(card:PriceGameCard)=>string;adjacency:readonly (readonly [string,string])[]};
+const defaultRules:PriceRoundRules={rarity:priceGameRarity,adjacency:PRICE_RARITY_ORDER.slice(0,-1).map((tier,index)=>[tier,PRICE_RARITY_ORDER[index+1]])};
+function findRound(pool:PriceGameCard[],count:number,previous:number[],random:()=>number,mixed=false,rarity=priceGameRarity):PriceGameCard[]{
  if(new Set(pool.map(card=>priceInCents(card.marketPrice))).size<count)return [];
  const cards=shuffled(pool,random),ordered=[...cards.filter(card=>!previous.includes(card.productId)),...cards.filter(card=>previous.includes(card.productId))];
  function search(picked:PriceGameCard[],start:number):PriceGameCard[]|null{
-  if(picked.length===count)return !mixed||new Set(picked.map(priceGameRarity)).size>1?picked:null;
+  if(picked.length===count)return !mixed||new Set(picked.map(rarity)).size>1?picked:null;
   for(let index=start;index<ordered.length;index++){
    const card=ordered[index];if(!picked.every(other=>compatible(card,other)))continue;
    const result=search([...picked,card],index+1);if(result)return result;
@@ -48,21 +50,21 @@ function findRound(pool:PriceGameCard[],count:number,previous:number[],random:()
  }
  return search([],0)??[];
 }
-function nearbyRarityPools(groups:Map<string,PriceGameCard[]>):PriceGameCard[][]{
+function nearbyRarityPools(groups:Map<string,PriceGameCard[]>,rules:PriceRoundRules):PriceGameCard[][]{
  const pairs:PriceGameCard[][]=[];
- for(let index=0;index<PRICE_RARITY_ORDER.length-1;index++){
-  const left=groups.get(PRICE_RARITY_ORDER[index]),right=groups.get(PRICE_RARITY_ORDER[index+1]);
+ for(const [first,second] of rules.adjacency){
+  const left=groups.get(first),right=groups.get(second);
   if(left&&right)pairs.push([...left,...right]);
  }
  return pairs;
 }
-export function drawPriceRound(pool:PriceGameCard[],difficulty:PriceGameDifficulty,previous:number[]=[],random:()=>number=Math.random):PriceGameCard[]{
+export function drawPriceRound(pool:PriceGameCard[],difficulty:PriceGameDifficulty,previous:number[]=[],random:()=>number=Math.random,rules:PriceRoundRules=defaultRules):PriceGameCard[]{
  const count=difficulty==="hard"?3:2,style=priceRoundStyle(random());
  const groups=new Map<string,PriceGameCard[]>();
- for(const card of pool){const key=priceGameRarity(card);groups.set(key,[...(groups.get(key)??[]),card])}
- const preferred=style==="same"?[...groups.entries()].filter(([key])=>key!=="unclassified").map(([,cards])=>cards):style==="similar"?nearbyRarityPools(groups):[];
+ for(const card of pool){const key=rules.rarity(card),group=groups.get(key);if(group)group.push(card);else groups.set(key,[card])}
+ const preferred=style==="same"?[...groups.entries()].filter(([key])=>key!=="unclassified").map(([,cards])=>cards):style==="similar"?nearbyRarityPools(groups,rules):[];
  for(const group of shuffled(preferred,random)){
-  const round=findRound(group,count,previous,random,style==="similar");if(round.length)return round;
+  const round=findRound(group,count,previous,random,style==="similar",rules.rarity);if(round.length)return round;
  }
  return findRound(pool,count,previous,random);
 }

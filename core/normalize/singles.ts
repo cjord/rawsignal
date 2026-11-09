@@ -2,6 +2,7 @@ import type { Card } from "../domain/types.ts";
 import type { SealedSourceGroup } from "../sealed-product-utils.ts";
 import { ebayCardLanguage } from "../domain/marketplace-links.ts";
 import { withRiftboundRegularArtwork } from "../domain/riftbound-artwork.ts";
+import {pokemonBulkSection} from '../domain/pokemon-game-rarity.ts';
 
 // Pure normalization of one TCGCSV group walk into typed Card records (converted from
 // scripts/normalize/singles.mjs — decision D2; the sync scripts and the Worker share
@@ -34,6 +35,11 @@ function pokemonSection(rarity: string, year: number): [string, string] | null {
   if (/^(Secret Rare|Hyper Rare|Rainbow Rare|Mega Hyper Rare|Black White Rare)$/i.test(rarity)) return ["secret-hyper-rares", "Secret & Hyper Rares"];
   if (/^(Shiny Holo Rare|Shiny Rare|Shiny Ultra Rare|Radiant Rare|Amazing Rare|Prism Rare)$/i.test(rarity)) return ["shiny-radiant-rares", "Shiny & Radiant Rares"];
   return year <= 2010 ? ["vintage", "Vintage"] : null;
+}
+function singlesSection(game:string,rarity:string,year:number,name:string,fixed:[string,string]|null,bulk:boolean){
+ if(fixed)return fixed;
+ if(game==='riftbound')return riftboundSection(name,rarity);
+ return pokemonSection(rarity,year)??(bulk?pokemonBulkSection(rarity):null);
 }
 
 export function riftboundSection(productName: string, rarity: string): [string, string] | null {
@@ -88,13 +94,15 @@ function missingPricePrinting(product: SinglesSourceProduct, prices: SinglesPric
   return metal ? "Unknown" : "Normal";
 }
 
-export function normalizeSinglesGroup({ game, group, products, prices, previous = new Map(), fixedSection = null }: {
+export function normalizeSinglesGroup({ game, group, products, prices, previous = new Map(), fixedSection = null, includePokemonBulk = false }: {
   game: "pokemon" | "riftbound";
   group: SealedSourceGroup & { name: string; publishedOn: string };
   products: SinglesSourceProduct[];
   prices: SinglesPriceRow[];
   previous?: Map<string, number>;
   fixedSection?: [string, string] | null;
+  // Explicit admission only. Existing board ingestion/feed jobs retain their coverage.
+  includePokemonBulk?: boolean;
 }): { cards: Card[]; rejected: Record<string, number>; labels: Map<string, string> } {
   const cards: Card[] = [], rejected: Record<string, number> = {}, labels = new Map<string, string>(), priceById = preferredPrices(prices);
   const reject = (reason: string) => rejected[reason] = (rejected[reason] ?? 0) + 1;
@@ -108,7 +116,7 @@ export function normalizeSinglesGroup({ game, group, products, prices, previous 
     const keepUnpriced = game === "riftbound";
     if (!price && !keepUnpriced) { reject("missing-market-price"); continue; }
     if (!rarity || !number) { reject("missing-card-metadata"); continue; }
-    const selected = fixedSection ?? (game === "pokemon" ? pokemonSection(rarity, year) : riftboundSection(product.name, rarity));
+    const selected = singlesSection(game,rarity,year,product.name,fixedSection,includePokemonBulk);
     if (!selected) { reject("unsupported-rarity"); continue; }
     const [section, label] = selected, prior = previous.get(`${game}:${product.productId}`);
     labels.set(section, label);
