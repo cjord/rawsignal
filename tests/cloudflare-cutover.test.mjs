@@ -7,6 +7,15 @@ import {decideScheduledAction} from "../worker/scheduled-decision.ts";
 const base={name:"raw-signal",main:"index.js",d1_databases:[{binding:"DB",database_name:"local",database_id:"00000000-0000-4000-8000-000000000000"}],assets:{directory:"../client"},triggers:{crons:["0 5 * * *"]}};
 const databaseId="123e4567-e89b-42d3-a456-426614174000";
 
+test('Pokémon bulk readers and producers require independent explicit staging admission',()=>{
+ const options={environment:'staging',databaseId,databaseName:'raw-signal-staging',workerName:'raw-signal-staging'};
+ const inherited={...base,vars:{POKEMON_GAME_CATALOG_ENABLED:'true',POKEMON_GAME_STOCK_INGESTION_ENABLED:'true'}};
+ const off=prepareDeploymentConfig(inherited,options);assert.equal(off.vars.POKEMON_GAME_CATALOG_ENABLED,undefined);assert.equal(off.vars.POKEMON_GAME_STOCK_INGESTION_ENABLED,undefined);
+ const writer=prepareDeploymentConfig(base,{...options,pokemonGameStock:true});assert.equal(writer.vars.POKEMON_GAME_STOCK_INGESTION_ENABLED,'true');assert.equal(writer.vars.POKEMON_GAME_CATALOG_ENABLED,undefined);assert.deepEqual(writer.triggers,{crons:[]});
+ const reader=prepareDeploymentConfig(base,{...options,pokemonGameCatalog:true});assert.equal(reader.vars.POKEMON_GAME_CATALOG_ENABLED,'true');assert.equal(reader.vars.POKEMON_GAME_STOCK_INGESTION_ENABLED,undefined);
+ for(const enabled of [{pokemonGameStock:true},{pokemonGameCatalog:true}])assert.throws(()=>prepareDeploymentConfig(base,{...options,...enabled,environment:'production',route:'cards.example.com'}),/staging-only/);
+});
+
 test('real collections require accounts and must be explicitly enabled for each deployment',()=>{
  const options={environment:'staging',databaseId,databaseName:'raw-signal-staging',workerName:'raw-signal-staging'};
  assert.equal(prepareDeploymentConfig({...base,vars:{AUTH_COLLECTIONS_ENABLED:'true'}},options).vars.AUTH_COLLECTIONS_ENABLED,'false');

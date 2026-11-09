@@ -2,8 +2,8 @@
 
 Planning date: November 7, 2026 (America/New_York). Implementation began November 9
 on `codex/pokemon-games`, after the article branch was integrated into main. The
-first batch covers catalog foundations and Showdown practice; daily challenges and
-auctions remain later batches. See [the implementation report](pokemon-games-foundations-2026-11-09.md)
+first batches cover catalog foundations and Showdown practice/daily challenges,
+now released on staging; auctions remain later work. See [the implementation report](pokemon-games-foundations-2026-11-09.md)
 for evidence and activation boundaries. GitHub Issues remains authoritative for
 task status; this document records design and decisions.
 
@@ -11,6 +11,10 @@ The [November 9 games review](pokemon-games-review-2026-11-09.md) records the
 practice staging release, daily implementation, reader correction, simulation
 findings and artwork choices. It does not activate bulk ingestion or release
 Pokémon auctions.
+
+The [bulk admission and artwork follow-up](pokemon-bulk-and-artwork-2026-11-09.md)
+records the selected blue covers, separate default-off producer/reader controls,
+four-set read-only impact audit and the required staging activation gate.
 
 ## Agreed direction
 

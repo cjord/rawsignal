@@ -5,7 +5,7 @@ import {pathToFileURL} from "node:url";
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const clone=value=>structuredClone(value);
 
-export function prepareDeploymentConfig(base,{environment,databaseId,databaseName,workerName,route,cron,accounts=false,authBaseUrl,accountTools=false,accountCommunity=false,auctionCatalogCache=false,communityLimits,communityReadNamespace,accountWriteNamespace,communityModeration,sharedIdentity,identityDatabaseId,collections,articles}){
+export function prepareDeploymentConfig(base,{environment,databaseId,databaseName,workerName,route,cron,accounts=false,authBaseUrl,accountTools=false,accountCommunity=false,auctionCatalogCache=false,communityLimits,communityReadNamespace,accountWriteNamespace,communityModeration,sharedIdentity,identityDatabaseId,collections,articles,pokemonGameStock,pokemonGameCatalog}){
  if(environment!=="staging"&&environment!=="production")throw new Error("Environment must be staging or production");
  if(!uuid.test(databaseId??""))throw new Error("A valid Cloudflare D1 database UUID is required");
  if(!databaseName?.trim()||!workerName?.trim())throw new Error("Database and Worker names are required");
@@ -22,6 +22,7 @@ export function prepareDeploymentConfig(base,{environment,databaseId,databaseNam
  config.version_metadata={binding:"CF_VERSION_METADATA"};
  config.vars={...(config.vars??{}),ENVIRONMENT:environment};
  configureAuctionCatalog(config,environment,auctionCatalogCache);
+ configurePokemonGames(config,environment,pokemonGameStock,pokemonGameCatalog);
  configureAccounts(config,{accounts,authBaseUrl,accountTools,accountCommunity});
  configureIdentity(config,{accounts,sharedIdentity,identityDatabaseId,databaseId});
  configureCollections(config,accounts,collections);
@@ -62,6 +63,15 @@ function configureIdentity(config,{accounts,sharedIdentity,identityDatabaseId,da
 function configureAuctionCatalog(config,environment,enabled){
  if(enabled&&environment!=='staging')throw new Error('Auction catalog cache is staging-only during rollout');
  config.vars.AUCTION_CATALOG_CACHE_ENABLED=enabled?'true':'false';
+}
+function configurePokemonGames(config,environment,stock,catalog){
+ // Staging impact review comes before production admission. Never inherit these
+ // options from a previous build or couple reader activation to a producer run.
+ delete config.vars.POKEMON_GAME_STOCK_INGESTION_ENABLED;
+ delete config.vars.POKEMON_GAME_CATALOG_ENABLED;
+ if((stock||catalog)&&environment!=='staging')throw new Error('Pokémon bulk admission is staging-only during impact review');
+ if(stock)config.vars.POKEMON_GAME_STOCK_INGESTION_ENABLED='true';
+ if(catalog)config.vars.POKEMON_GAME_CATALOG_ENABLED='true';
 }
 function configureCommunityProtection(config,{accounts,accountTools,accountCommunity,communityLimits,communityReadNamespace,accountWriteNamespace,communityModeration}){
  config.vars.AUTH_COMMUNITY_LIMITS_ENABLED='false';config.vars.AUTH_COMMUNITY_MODERATION_ENABLED='false';
@@ -111,6 +121,7 @@ async function main(){
   communityLimits:option('community-limits')==='true',communityReadNamespace:option('community-read-namespace'),accountWriteNamespace:option('account-write-namespace'),communityModeration:option('community-moderation')==='true',
   sharedIdentity:option('shared-identity')==='true',identityDatabaseId:option('identity-database-id')??process.env.RAW_SIGNAL_IDENTITY_D1_DATABASE_ID,
   collections:option('collections')==='true',articles:option('articles')==='true',
+  pokemonGameStock:option('pokemon-game-stock')==='true',pokemonGameCatalog:option('pokemon-game-catalog')==='true',
  });
  await fs.mkdir(path.dirname(outPath),{recursive:true});await fs.writeFile(outPath,`${JSON.stringify(config,null,2)}\n`);
  console.log(outPath);

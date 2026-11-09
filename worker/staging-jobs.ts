@@ -45,6 +45,7 @@ export type StagingJobEnv = {
   DB: D1DatabaseLike;
   ENVIRONMENT?: string;
   STAGING_JOB_TOKEN?: string;
+  POKEMON_GAME_STOCK_INGESTION_ENABLED?: string;
   POKEMONPRICETRACKER_API_KEY?: string;
   ALPHAVANTAGE_API_KEY?: string;
   // eBay Browse keyset (secrets) and the EPN campaign id (a public identifier, todo O1).
@@ -128,7 +129,9 @@ export function historyTargets(snapshot: DailyCatalogSnapshot): HistoryBackfillT
 // One implementation per job body. The ops adapter and the cron tick share these and
 // differ only in authentication, scheduling decisions, batch sizes, and reporting.
 export function runLiveJob(env: StagingJobEnv, request: Request, batchSize: number, sourceUpdatedAt: string) {
-  return runLiveDailyIngestionBatch(env.DB, liveSyncDeps(request, env.ASSETS), { sourceUpdatedAt, batchSize });
+  const includeGameStock=env.POKEMON_GAME_STOCK_INGESTION_ENABLED==='true';
+  if(includeGameStock&&env.ENVIRONMENT!=='staging')throw new Error('Pokémon game stock admission is staging-only during impact review');
+  return runLiveDailyIngestionBatch(env.DB, liveSyncDeps(request, env.ASSETS), { sourceUpdatedAt, batchSize,includeGameStock });
 }
 
 export async function runDetailsJob(env: StagingJobEnv, request: Request, batchSize: number, sourceUpdatedAt: string) {
