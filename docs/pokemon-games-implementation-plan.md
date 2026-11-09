@@ -16,6 +16,11 @@ The [bulk admission and artwork follow-up](pokemon-bulk-and-artwork-2026-11-09.m
 records the selected blue covers, separate default-off producer/reader controls,
 four-set read-only impact audit and the required staging activation gate.
 
+The [staging bulk admission report](pokemon-bulk-admission-2026-11-09.md)
+records the subsequently authorized backup, full-catalog parity and live reader
+acceptance: 27,411 eligible game cards, with the producer disabled afterward.
+Production and Pokémon Auction House remain outside that activation.
+
 ## Agreed direction
 
 - **Pokémon Price Showdown** uses the current price-comparison game: choose the

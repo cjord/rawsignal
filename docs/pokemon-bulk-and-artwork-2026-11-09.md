@@ -144,3 +144,11 @@ The next external operation is the staging-only, backed-up bulk admission/parity
 run described above. It requires separate authorization because the shared source
 walk also refreshes staging market prices. The prepared controls and sample audit
 do not themselves authorize or imply that activation.
+
+## Subsequent authorized admission
+
+The user subsequently approved the backed-up staging test. Its complete parity,
+resource measurements and reader activation are recorded in the
+[staging bulk admission report](pokemon-bulk-admission-2026-11-09.md). The historical
+default-off release above remains accurate for `b0b92b28`; the later staging
+release `5a0e4526` enables the verified reader and disables the producer.
