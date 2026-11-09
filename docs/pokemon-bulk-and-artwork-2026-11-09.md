@@ -125,3 +125,22 @@ Riftbound game journeys passed. The read-only source audit was rerun successfull
 after ensuring it imports only the shared pure normalization layer; its focused
 lint check was also clean. Unrelated TODO edits, image and article drafts remain
 outside this change.
+
+## Staging release
+
+Application source `15af730` was pushed to `codex/pokemon-games` and deployed to
+staging as `b0b92b28`. Production was unchanged. No migration, remote admission,
+ingestion, new cron or account mutation was performed in this batch.
+
+Live checks confirmed both WebP assets' types/sizes, the database-backed catalog,
+unchanged daily archive, preserved bindings and zero staging crons. Both bulk
+switches remain off. Isolated Chromium verified that practice and daily tiles
+resolve the same self-hosted cover, with zero page errors; desktop dark/mobile
+light screenshots were captured. A verification assertion initially expected the
+lazy image URL in server HTML; it was corrected to inspect the resolved browser
+element. No application workaround or weakened image assertion was needed.
+
+The next external operation is the staging-only, backed-up bulk admission/parity
+run described above. It requires separate authorization because the shared source
+walk also refreshes staging market prices. The prepared controls and sample audit
+do not themselves authorize or imply that activation.
