@@ -40,7 +40,7 @@ test('profile username updates are owner-scoped, origin-checked and reject contr
 test('public username is explicit, live profile names follow it and publishing without one fails closed',async()=>{
  const f=fixture();try{
   f.sqlite.prepare('UPDATE auth_user SET public_username=NULL WHERE id=?').run('owner-a');
-  assert.equal((await handleOwnAuctionProfile(req('/api/account/auction-profile',settings),f.env,'owner-a')).status,409);
+  assert.equal((await handleOwnAuctionProfile(req('/api/account/auction-profile',{owner:'owner-a',...settings}),f.env,'owner-a')).status,409);
   assert.equal((await ownAuctionProfile(f.db,'owner-a')).displayName,'');
   f.sqlite.prepare('UPDATE auth_user SET public_username=? WHERE id=?').run('Chosen Name','owner-a');
   const profile=await writePublicAuctionSettings(f.db,'owner-a',settings);
@@ -118,12 +118,13 @@ test('community pagination is deterministic and never includes private or zero-g
 });
 test('public APIs are no-store, visibility changes revoke future reads and settings reject foreign origins and fields',async()=>{
  const f=fixture();try{
-  assert.equal((await handleOwnAuctionProfile(req('/api/account/auction-profile',settings,'PUT','https://evil.test'),f.env,'owner-a')).status,403);
-  for(const body of [{...settings,userId:'owner-b'},{...settings,displayName:'x\n'},{...settings,displayName:''}])assert.equal((await handleOwnAuctionProfile(req('/api/account/auction-profile',body),f.env,'owner-a')).status,400);
-  const response=await handleOwnAuctionProfile(req('/api/account/auction-profile',settings),f.env,'owner-a'),profile=await response.json();assert.equal(response.status,200);assert.equal((await ownAuctionProfile(f.db,'owner-b')).id,null);
+  assert.equal((await handleOwnAuctionProfile(req('/api/account/auction-profile',{owner:'owner-a',...settings},'PUT','https://evil.test'),f.env,'owner-a')).status,403);
+  for(const body of [settings,{owner:'owner-b',...settings}])assert.equal((await handleOwnAuctionProfile(req('/api/account/auction-profile',body),f.env,'owner-a')).status,401);
+  for(const body of [{...settings,userId:'owner-b'},{...settings,displayName:'x\n'},{...settings,displayName:''}])assert.equal((await handleOwnAuctionProfile(req('/api/account/auction-profile',{owner:'owner-a',...body}),f.env,'owner-a')).status,400);
+  const response=await handleOwnAuctionProfile(req('/api/account/auction-profile',{owner:'owner-a',...settings}),f.env,'owner-a'),profile=await response.json();assert.equal(response.status,200);assert.equal((await ownAuctionProfile(f.db,'owner-b')).id,null);
   const url='/api/games/auction-community/'+profile.id,publicResponse=await handleAuctionCommunity(req(url),f.env);assert.equal(publicResponse.status,200);assert.equal(publicResponse.headers.get('cache-control'),'private, no-store');
   assert.equal((await handleAuctionCommunity(req(url),{...f.env,AUTH_COMMUNITY_ENABLED:'false'})).status,503);
-  await handleOwnAuctionProfile(req('/api/account/auction-profile',{...settings,showcasePublic:false}),f.env,'owner-a');assert.equal((await handleAuctionCommunity(req(url),f.env)).status,404);
+  await handleOwnAuctionProfile(req('/api/account/auction-profile',{owner:'owner-a',...settings,showcasePublic:false}),f.env,'owner-a');assert.equal((await handleAuctionCommunity(req(url),f.env)).status,404);
  }finally{f.sqlite.close()}
 });
 test('support lookup needs admin, exact ID and purpose; audit stores target/reason but no private payload',async()=>{

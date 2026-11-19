@@ -8,7 +8,7 @@ import {handleRecoveryKey} from './recovery-routes.ts';
 import {accountJson as json,privateAccountHeaders as privateHeaders} from './account-http.ts';
 import {boundedJson} from './bounded-json.ts';
 import {recordSyncHealth} from '../db/admin-health.ts';
-import {handleOwnAuctionProfile} from './auction-community.ts';
+import {handleOwnAuctionProfile,pokemonCommunityEnabled} from './auction-community.ts';
 import {accountUsername,handleAccountProfile} from './account-profile.ts';
 import {handleAccountExport} from './account-export.ts';
 import {communityLimit} from './community-limits.ts';
@@ -18,7 +18,7 @@ import {identityDatabase,identityRealm,identitySessionAllowed,prepareIdentityOwn
 
 export function privateAccountPath(path:string){return path==='/api/auth'||path.startsWith('/api/auth/')||path==='/api/account'||path.startsWith('/api/account/');}
 async function sessionResponse(env:AccountEnv,user:{id:string;name:string;email:string;emailVerified:boolean}|null){
- return json({enabled:true,features:{recovery:env.AUTH_RECOVERY_ENABLED==='true',audit:env.AUTH_AUDIT_ENABLED==='true',community:env.AUTH_COMMUNITY_ENABLED==='true',...(collectionsEnabled(env)?{collections:true}:{}),...(sharedIdentity(env)?{sharedIdentity:true,identityReadOnly:stagingIdentityReadOnly(env)}:{})},providers:accountProviders(env),user:user?{...user,publicUsername:env.AUTH_COMMUNITY_ENABLED==='true'?await accountUsername(env.DB as D1DatabaseLike,user.id):null,role:accountRole(user,env)}:null,documents:user?await accountDocuments(env.DB as D1DatabaseLike,user.id,false):[]});
+ return json({enabled:true,features:{recovery:env.AUTH_RECOVERY_ENABLED==='true',audit:env.AUTH_AUDIT_ENABLED==='true',community:env.AUTH_COMMUNITY_ENABLED==='true',...(pokemonCommunityEnabled(env)?{pokemonCommunity:true}:{}),...(collectionsEnabled(env)?{collections:true}:{}),...(sharedIdentity(env)?{sharedIdentity:true,identityReadOnly:stagingIdentityReadOnly(env)}:{})},providers:accountProviders(env),user:user?{...user,publicUsername:env.AUTH_COMMUNITY_ENABLED==='true'?await accountUsername(env.DB as D1DatabaseLike,user.id):null,role:accountRole(user,env)}:null,documents:user?await accountDocuments(env.DB as D1DatabaseLike,user.id,false):[]});
 }
 async function saveDocument(request:Request,db:D1DatabaseLike,userId:string,origin:string,audit:boolean){
  if(request.headers.get('Origin')!==origin)return json({error:'Invalid origin'},403);
@@ -75,10 +75,11 @@ async function limitedSave(request:Request,env:AccountEnv,userId:string){
 type AccountSession=NonNullable<Awaited<ReturnType<ReturnType<typeof createAccountAuth>['api']['getSession']>>>;
 async function authenticatedRoute(request:Request,env:AccountEnv,auth:ReturnType<typeof createAccountAuth>,session:AccountSession,path:string){
  if(path==='/api/account/collections')return handleCollections(request,env,session.user.id);
- if(path==='/api/account/export')return await handleAccountExport(request,env.DB as D1DatabaseLike,session.user,env.AUTH_COMMUNITY_ENABLED==='true');
+ if(path==='/api/account/export')return await handleAccountExport(request,env.DB as D1DatabaseLike,session.user,env.AUTH_COMMUNITY_ENABLED==='true',pokemonCommunityEnabled(env));
  if(path==='/api/account/profile')return await handleAccountProfile(request,env,session.user.id);
  if(path==='/api/account/admin'&&request.method==='GET')return accountRole(session.user,env)==='admin'?json({role:'admin'}):json({error:'Administrator access required'},403);
  if(path.startsWith('/api/account/admin/'))return await handleAdminManagement(request,env,session.user,session.session.createdAt);
+ if(path==='/api/account/pokemon-auction-profile')return await handleOwnAuctionProfile(request,env,session.user.id,'pokemon');
  if(path==='/api/account/auction-profile')return await handleOwnAuctionProfile(request,env,session.user.id);
  if(path==='/api/account/recovery-key')return await handleRecoveryKey(request,env,session.user);
  if(path==='/api/account/devices')return await handleDevices(request,env,auth,session);

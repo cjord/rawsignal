@@ -2,6 +2,7 @@ import {test,expect,type Page} from '@playwright/test';
 import {pokemonAuctionDailyFixture} from '../helpers/pokemon-auction-daily-fixture';
 import {initialAuctionSave} from '../../core/domain/auction-types';
 import {auctionRunShare,gameSharePath} from '../../core/domain/game-sharing';
+import {expectAuctionMarketFooter} from '../helpers/auction-market-footer';
 const key='raw-signal-pokemon-auction-v1',riftKey='raw-signal-auction-house-v1';
 const saved=(page:Page)=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)!),key);
 async function setup(page:Page){
@@ -19,7 +20,7 @@ test('Pokémon five-auction daily resumes, auto-sells, rewards once and shares f
  await expect(page.locator('.auction-daily-facts')).toContainText('3 Pewter + 2 Celadon');await page.emulateMedia({reducedMotion:'reduce'});
  for(let index=0;index<5;index++){
   await page.getByRole('button',{name:`Enter Auction ${index+1} · ${index<3?'Free':'$50'}`,exact:true}).click();await page.getByRole('button',{name:'Skip Intro',exact:true}).click();await expect(page.getByLabel('Bid (virtual USD)',{exact:true})).toBeVisible();
-  expect((await saved(page)).daily.save.auction.lot).toEqual(manifest.auctions[index].lot);
+  expect((await saved(page)).daily.save.auction.lot).toEqual(manifest.auctions[index].lot);if(index===0)await expectAuctionMarketFooter(page,'.auction-arena');await expect(page.getByText(`Pokémon · ${manifest.auctions[index].category==='legacy'?'Legacy':'Modern'} Auctions`,{exact:true})).toBeVisible();
   await page.evaluate(key=>{const state=JSON.parse(localStorage.getItem(key)!);state.daily.save.auction.npcs=state.daily.save.auction.npcs.map((npc:object)=>({...npc,bid:100,locked:true}));state.revision++;const raw=JSON.stringify(state);localStorage.setItem(key,raw);dispatchEvent(new StorageEvent('storage',{key,newValue:raw}))},key);
   await page.getByLabel('Bid (virtual USD)',{exact:true}).fill('10');await page.getByRole('button',{name:'Lock Bid',exact:true}).click();await page.clock.runFor(3500);await expect(page.getByRole('heading',{name:'Auction Settled',exact:true})).toBeVisible();
   const finish=page.getByRole('button',{name:index===4?'Complete Challenge':'Continue Daily Challenge',exact:true});await expect(finish).toBeEnabled();expect((await saved(page)).daily.save.wallet.inventory).toEqual([]);await finish.click();
@@ -28,7 +29,7 @@ test('Pokémon five-auction daily resumes, auto-sells, rewards once and shares f
  const completed=await saved(page);expect(completed.daily.status).toBe('completed');expect(completed.wallet.cash).toBe(250000+completed.daily.reward);expect(completed.daily.reward).toBeGreaterThan(25000);expect(completed.wallet.inventory).toEqual([]);expect(completed.statistics).toBeUndefined();expect(catalogReads).toHaveLength(0);
  await page.reload();await expect(page.getByText('Challenge Complete',{exact:false})).toBeVisible();expect((await saved(page)).wallet.cash).toBe(completed.wallet.cash);await page.goto(gameSharePath(auctionRunShare(manifest,completed.daily.receipts)));
  await expect(page.getByRole('heading',{name:'Pokémon Daily Auction Results · 2026-11-19',exact:true})).toBeVisible();await expect(page.locator('.game-result-table tbody tr')).toHaveCount(5);await expect(page.locator('button.game-result-card')).toHaveCount(5);await page.locator('button.game-result-card').first().click();await expect(page.getByRole('dialog')).toBeVisible();await page.getByRole('button',{name:'Close',exact:true}).click();expect(await saved(page)).toEqual(completed);expect(await page.evaluate(key=>localStorage.getItem(key),riftKey)).toBe(rift);
- for(const width of [1440,390])for(const theme of ['dark','light']){await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath(`pokemon-daily-results-${width}-${theme}.png`),fullPage:true,animations:'disabled'})}
+ for(const width of [1440,390])for(const theme of ['dark','light']){await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);if(width===390){const table=page.getByRole('region',{name:'Daily auction breakdown; scroll to view all columns',exact:true});await table.focus();await expect(table).toBeFocused();const before=await table.evaluate(node=>node.scrollLeft);await page.keyboard.press('ArrowRight');await page.clock.runFor(400);await expect.poll(()=>table.evaluate(node=>node.scrollLeft)).toBeGreaterThan(before)}await page.screenshot({path:info.outputPath(`pokemon-daily-results-${width}-${theme}.png`),fullPage:true,animations:'disabled'})}
 });
 
 test('Pokémon daily unavailable and wrong-market snapshots consume no attempt; expired runs award nothing',async({page})=>{

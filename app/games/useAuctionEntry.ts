@@ -12,7 +12,7 @@ import {pokemonAuctionCategory} from '../../core/domain/pokemon-auction-houses';
 import {cachedGamePracticePool} from '../data/game-practice-catalog';
 
 export const AUCTION_INTRO_MS=7000;
-export type AuctionEntry={seed:number;kind:AuctionKind;rivals?:string[]};
+export type AuctionEntry={seed:number;kind:AuctionKind;rivals?:string[];category?:AuctionSave['category']};
 export function useAuctionEntry(catalog:AuctionCard[],transact:(update:(save:AuctionSave)=>AuctionSave)=>AuctionSave|null,unlock:()=>void,checkMarket?:()=>Promise<AuctionCard[]|null>){
  const game=useAuctionGame(),snapshot=useAuctionPool();
  const [entry,setEntry]=useState<AuctionEntry|null>(null),[imageError,setImageError]=useState(''),[checking,setChecking]=useState(false),checkingRef=useRef(false),mounted=useRef(true);
@@ -39,7 +39,7 @@ export function useAuctionEntry(catalog:AuctionCard[],transact:(update:(save:Auc
   });
   const draft=saved?.drafts?.[kind];if(!draft||saved?.auction)return;
   unlock();const controller=new AbortController();pending.current=controller;
-  const seed=draft.seed;setEntry({seed,kind,rivals:draft.rivals});setImageError('');
+  const seed=draft.seed;setEntry({seed,kind,rivals:draft.rivals,category:draft.category});setImageError('');
   const intro=new Promise<void>(resolve=>{finishIntro.current=resolve});
   const duration=window.matchMedia('(prefers-reduced-motion: reduce)').matches?400:AUCTION_INTRO_MS;
   const completeIntro=finishIntro.current!;

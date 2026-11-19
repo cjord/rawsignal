@@ -1,11 +1,15 @@
 import type {AuctionCard,AuctionStatistics} from './auction-types.ts';
 import type {AuctionCatalogManifest} from './auction-catalog-snapshot.ts';
-export type PublicAuctionSettings={id:string|null;displayName:string;showcasePublic:boolean;leaderboardPublic:boolean;updatedAt:string|null;moderationHidden?:boolean};
+import {GAME_PROFILES,type GameMarket} from './game-profile.ts';
+export type PublicAuctionSettings={market?:'pokemon';id:string|null;displayName:string;showcasePublic:boolean;leaderboardPublic:boolean;updatedAt:string|null;moderationHidden?:boolean};
 export type AuctionCommunityRow={id:string;displayName:string;showcasePublic:boolean;profit:number;settled:number;won:number;updatedAt:string;showcaseValue?:number|null;knownValue?:number;cardCount?:number;unpriced?:number};
-export type AuctionCommunityPage={rows:AuctionCommunityRow[];nextCursor:string|null;offset:number;marketSnapshot?:Pick<AuctionCatalogManifest,'source'|'asOf'>|null};
-export type PublicAuctionProfile={id:string;displayName:string;showcasePublic:boolean;stats:AuctionStatistics;cards:(Omit<AuctionCard,'cents'>&{cents:number|null})[];backdrop?:{image:string;rarity:string;section:string}[];updatedAt:string;priceSource:string|null};
+export type AuctionCommunityPage={market?:'pokemon';rows:AuctionCommunityRow[];nextCursor:string|null;offset:number;marketSnapshot?:Pick<AuctionCatalogManifest,'source'|'asOf'>|null};
+export type PublicAuctionProfile={market?:'pokemon';id:string;displayName:string;showcasePublic:boolean;stats:AuctionStatistics;cards:(Omit<AuctionCard,'cents'>&{cents:number|null})[];backdrop?:{image:string;rarity:string;section:string}[];updatedAt:string;priceSource:string|null};
 export const publicProfileId=(value:string)=>/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(value);
-export const publicProfilePath=(id:string)=>`/games/riftbound-auction/players/${id}`;
+export const publicProfilePath=(id:string,market:GameMarket='riftbound')=>`${GAME_PROFILES[market].auctionPath}/players/${id}`;
+export const auctionCommunityApi=(market:GameMarket)=>market==='pokemon'?'/api/games/pokemon/auction-community':'/api/games/auction-community';
+export const ownAuctionProfileApi=(market:GameMarket)=>market==='pokemon'?'/api/account/pokemon-auction-profile':'/api/account/auction-profile';
+export function communityMarketMatches(value:unknown,market:GameMarket){return !!value&&typeof value==='object'&&!Array.isArray(value)&&((value as {market?:unknown}).market??'riftbound')===market;}
 export type AuctionVisibility=Pick<PublicAuctionSettings,'showcasePublic'|'leaderboardPublic'>;
 export function communityQuery(params:URLSearchParams){
  const keys=[...params.keys()];

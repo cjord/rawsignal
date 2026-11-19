@@ -5,7 +5,7 @@ import {pathToFileURL} from "node:url";
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const clone=value=>structuredClone(value);
 
-export function prepareDeploymentConfig(base,{environment,databaseId,databaseName,workerName,route,cron,accounts=false,authBaseUrl,accountTools=false,accountCommunity=false,auctionCatalogCache=false,communityLimits,communityReadNamespace,accountWriteNamespace,communityModeration,sharedIdentity,identityDatabaseId,collections,articles,pokemonGameStock,pokemonGameCatalog}){
+export function prepareDeploymentConfig(base,{environment,databaseId,databaseName,workerName,route,cron,accounts=false,authBaseUrl,accountTools=false,accountCommunity=false,auctionCatalogCache=false,communityLimits,communityReadNamespace,accountWriteNamespace,communityModeration,sharedIdentity,identityDatabaseId,collections,articles,pokemonGameStock,pokemonGameCatalog,pokemonAuctionCommunity}){
  if(environment!=="staging"&&environment!=="production")throw new Error("Environment must be staging or production");
  if(!uuid.test(databaseId??""))throw new Error("A valid Cloudflare D1 database UUID is required");
  if(!databaseName?.trim()||!workerName?.trim())throw new Error("Database and Worker names are required");
@@ -28,6 +28,7 @@ export function prepareDeploymentConfig(base,{environment,databaseId,databaseNam
  configureCollections(config,accounts,collections);
  configureArticles(config,accounts,accountTools,articles);
  configureCommunityProtection(config,{accounts,accountTools,accountCommunity,communityLimits,communityReadNamespace,accountWriteNamespace,communityModeration});
+ configurePokemonCommunity(config,{environment,accounts,accountTools,accountCommunity,communityModeration,pokemonGameCatalog,pokemonAuctionCommunity});
  if(environment==="production")config.vars.EBAY_DELETION_ENDPOINT_URL=`https://${route.trim()}/api/ebay/account-deletion`;
  else delete config.vars.EBAY_DELETION_ENDPOINT_URL;
  // A schedule exists only when explicitly requested (--cron / env) — never inherited from
@@ -42,6 +43,12 @@ export function prepareDeploymentConfig(base,{environment,databaseId,databaseNam
  config.services=[{binding:"COLLECTR_FETCH",service:"raw-signal-collectr"}];
  if(environment==="production")config.routes=[{pattern:route.trim(),custom_domain:true}];else delete config.routes;
  return config;
+}
+function configurePokemonCommunity(config,{environment,accounts,accountTools,accountCommunity,communityModeration,pokemonGameCatalog,pokemonAuctionCommunity}){
+ delete config.vars.POKEMON_AUCTION_COMMUNITY_ENABLED;
+ if(!pokemonAuctionCommunity)return;
+ if(environment!=='staging'||!accounts||!accountTools||!accountCommunity||!communityModeration||!pokemonGameCatalog)throw new Error('Pokemon community requires staging, accounts, auditing, moderation and the admitted game catalog');
+ config.vars.POKEMON_AUCTION_COMMUNITY_ENABLED='true';
 }
 function configureArticles(config,accounts,tools,enabled){
  if(enabled&&(!accounts||!tools))throw new Error('Articles require accounts and account auditing');
@@ -121,7 +128,7 @@ async function main(){
   communityLimits:option('community-limits')==='true',communityReadNamespace:option('community-read-namespace'),accountWriteNamespace:option('account-write-namespace'),communityModeration:option('community-moderation')==='true',
   sharedIdentity:option('shared-identity')==='true',identityDatabaseId:option('identity-database-id')??process.env.RAW_SIGNAL_IDENTITY_D1_DATABASE_ID,
   collections:option('collections')==='true',articles:option('articles')==='true',
-  pokemonGameStock:option('pokemon-game-stock')==='true',pokemonGameCatalog:option('pokemon-game-catalog')==='true',
+  pokemonGameStock:option('pokemon-game-stock')==='true',pokemonGameCatalog:option('pokemon-game-catalog')==='true',pokemonAuctionCommunity:option('pokemon-auction-community')==='true',
  });
  await fs.mkdir(path.dirname(outPath),{recursive:true});await fs.writeFile(outPath,`${JSON.stringify(config,null,2)}\n`);
  console.log(outPath);

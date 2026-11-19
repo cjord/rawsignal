@@ -260,3 +260,95 @@ The correction passed the complete release gate: 748 unit passes / one existing
 skip, build, lint with no new warnings, typecheck and all 206 Chromium checks
 without retries (17.0-minute browser run). Live verification follows its staging
 deployment; the earlier 503 is not recorded as a completed daily acceptance.
+
+The correction (`efed85f`) was pushed and deployed to staging as `d86304a2`.
+Live isolated guest acceptance completed all five auctions with real prices,
+real artwork and natural NPC bids, using accelerated timers. Reload/resume and
+the frozen shared-results page passed; no browser errors or practice-catalog
+downloads occurred. Initial lineup preparation took 8.386 seconds in this one
+run, not a controlled performance benchmark. Existing snapshots are read without
+rechecking artwork. Desktop-dark bidding and mobile-light results were inspected.
+
+Post-live fingerprints verified exactly one expected new Pokémon auction archive
+for November 19. Every older daily archive, market publication/count, account-save
+aggregate, existing binding, production deployment and staging's zero schedules
+remained unchanged. No account was signed in or modified by live acceptance.
+
+## Stage 4 — independent community presentation and recovery
+
+The shared directory, profile, visibility and moderation implementations now take
+an explicit game boundary. Riftbound retains its routes, IDs, unmarked response
+format and save projection. Pokémon adds its own paths, response market marker,
+market-pinned cursors, account visibility choices and score projection. Public
+showcases rank by gross current showcase value; leaderboards rank by normal-game
+net auction profit. Daily results are excluded. Both remain browser-reported and
+unverified. Nothing opts an account into public viewing automatically.
+
+New Pokémon public values resolve canonical exact printings from the published
+market catalog plus admitted game-only stock. Bulk requires the same completed
+run and stock-completeness marker. Missing or wrong-printing prices stay null,
+and incomplete showcase valuations sort last. Only selected showcase/decorative
+cards and allowed statistics are returned—never wallet, inventory, email or the
+underlying private document. Public identity deletion hides orphaned mirrors.
+
+Visibility forms reset across owner/game changes. Visibility writes in both games
+must name the account that reviewed the form. Older open Riftbound tabs must
+refresh before saving visibility. An account switch during a
+cloud-save flush therefore cannot publish choices to the new signed-in account.
+Admin moderation selects a game, retains fresh-session/origin/rate/revision checks,
+and commits its action and market-specific audit target atomically. Exports add
+separate Pokémon visibility when enabled; account deletion cascades both new
+tables. Existing frozen snapshot links remain independent and cannot be revoked.
+
+An adjacent recovery correction restores a saved active Pokémon auction directly
+from its frozen lot, scope and category. Catalog requests cannot block a return
+to bidding or relabel Cinnabar as Celadon. Ownership/account checks still apply;
+this is catalog-failure recovery, not permission to bypass authentication while
+offline. Fresh pools and inventory sales retain their price-check boundaries.
+Daily and frozen-market notices reuse the established bottom snapshot component
+instead of inserting raw source timestamps above the arena.
+
+The entry briefing and active header identify the actual Modern/Legacy/Vintage
+category, so daily players can see the same era information that informs rivals'
+estimates. Mobile shared-results tables use a named keyboard-focusable scroll
+region; focused browser coverage verifies Arrow Right reaches off-screen columns.
+Its localized accessibility-lint exception follows the existing bid-history and
+article-table pattern. The first stage-4 gate caught that missing annotation;
+the control's semantics were retained and exercised rather than removed.
+
+### Additive staging migration and activation boundary
+
+`0032_pokemon_auction_community.sql` creates two initially empty Pokémon-only
+profile/moderation tables, indexes and three save-projection triggers limited to
+the Pokémon account key. It neither rebuilds nor imports existing profiles.
+Local migration tests prove separate projections, resets and deletion cascades.
+
+`POKEMON_AUCTION_COMMUNITY_ENABLED` defaults off and cannot be inherited from a
+build. Preparation requires staging, accounts, auditing, moderation, community
+and the admitted catalog reader. Release order: full gate and source push;
+deploy with the flag absent; approved private full staging backup; apply and
+inspect the additive migration; then activate the flag on the same validated
+source and check live public/guest boundaries. Production and identity bindings
+are outside this operation. No cron or ingestion producer is enabled.
+
+Rollback first disables the flag or restores the previous Worker while retaining
+new tables and any chosen visibility data. Restoring a full database backup is a
+separate recovery decision because it could overwrite newer account progress;
+it must not happen automatically. Remote backup, migration and activation remain
+pending until their concrete approval and verification are recorded.
+
+### Stage 4 validation
+
+The complete release gate passed: production build, 755 unit passes / one
+existing skip, typecheck, lint with no new warnings (21 existing warnings), and
+all 212 Chromium checks without retries (18.9 minutes). Coverage includes separate
+Pokémon visibility, exact-printing bulk prices, account-switch write denial,
+market-pinned pagination, moderation rollback, exports/deletion, and Modern and
+Vintage frozen-auction recovery during catalog failure. Desktop-dark and
+mobile-light community layouts were inspected. Thirteen unrelated user files
+remain byte-for-byte unchanged and are excluded from the release.
+
+Existing local detail-database schema/fallback and marketplace-link hydration
+warnings remain visible in the full browser log, as in the preceding release;
+they are not newly introduced Pokémon failures. These automated browser checks
+are not physical-device recovery testing or a controlled speed benchmark.

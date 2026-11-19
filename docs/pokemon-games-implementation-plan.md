@@ -5,8 +5,9 @@ on `codex/pokemon-games`, after the article branch was integrated into main. The
 first batches cover catalog foundations and Showdown practice/daily challenges,
 now released on staging. Normal Pokémon auctions were implemented in the
 [November 19 staged auction work](pokemon-auction-stages-2026-11-19.md), including
-the user-approved Modern / Legacy / Vintage split; daily auctions and community
-are the subsequent stages. See [the implementation report](pokemon-games-foundations-2026-11-09.md)
+the user-approved Modern / Legacy / Vintage split. Daily auctions and frozen
+results are also live on staging; community parity has a separate additive
+migration and activation gate recorded in that report. See [the foundations report](pokemon-games-foundations-2026-11-09.md)
 for evidence and activation boundaries. GitHub Issues remains authoritative for
 task status; this document records design and decisions.
 
@@ -22,7 +23,8 @@ four-set read-only impact audit and the required staging activation gate.
 The [staging bulk admission report](pokemon-bulk-admission-2026-11-09.md)
 records the subsequently authorized backup, full-catalog parity and live reader
 acceptance: 27,411 eligible game cards, with the producer disabled afterward.
-Production and Pokémon Auction House remain outside that activation.
+That report predates the November 19 playable auctions. Production bulk admission
+and game rollout remain separate from the staging releases.
 
 ## Agreed direction
 
@@ -64,7 +66,22 @@ Daily auction scope remains fixed in the shared five-auction manifest; personal
 filters apply to normal auctions. This preserves the already agreed same-lineup
 challenge contract. Pokémon game progress remains separate from Riftbound.
 
-## Findings from the current code and data
+## Confirmed November 19 auction categories
+
+| Category | Eligible eras | Houses and entry |
+|---|---|---|
+| Modern | Sword & Shield onward (SWSH, SV, ME) | Pewter free; Celadon $50 |
+| Legacy | Black & White through Sun & Moon (BW, XY, SM) | Pewter free; Celadon $50 |
+| Vintage | WotC through HGSS (WotC, EX, DP–HGSS) | Cinnabar $200 |
+
+Cinnabar unlocks permanently after known Pokémon net worth, including protected
+showcase cards and after the 10% selling fee, reaches $10,000. It uses smaller
+25–55-card collections weighted toward everyday vintage stock with occasional
+chases. All Pokémon houses share the Pokémon wallet; they never use Riftbound
+cash or holdings. The fixed daily lineup excludes Vintage and progresses through
+Modern, Modern, Legacy, Modern, Legacy (three free, then two $50 paid auctions).
+
+## Initial code and data findings (November 8)
 
 The pure sampler already accepts a game argument (`priceGamePool`), but its rarity
 adjacency order is Riftbound-specific. The page/data loader, practice save key and

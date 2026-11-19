@@ -37,7 +37,7 @@ function PokemonAuctionLoaded({session,save:loaded}:{session:Session;save:NonNul
   if(Object.keys(save.drafts??{}).length&&!window.confirm('Abandon this prepared auction and choose a new pool? No entry fee has been charged.'))return;
   if(session.transact(current=>({...current,drafts:{}})))setup.clear();
  };
- if(!setup.snapshot)return <PokemonAuctionSetup session={session} setup={setup}/>;
+ if(!setup.snapshot)return loaded.auction?<AuctionHouseSession session={session}/>:<PokemonAuctionSetup session={session} setup={setup}/>;
  const snapshot=setup.snapshot,category=pokemonAuctionCategory(snapshot.scope)??'modern';
  return <AuctionPoolContext.Provider value={snapshot}><AuctionHouseSession session={session} poolControls={<div className="auction-actions"><span>{POKEMON_AUCTION_CATEGORIES[category].label} · {snapshot.count.toLocaleString()} Eligible Cards</span><button type="button" className="game-control" onClick={changePool}>Change Card Pool</button></div>}/></AuctionPoolContext.Provider>;
 }
