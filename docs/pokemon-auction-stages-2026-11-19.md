@@ -352,3 +352,14 @@ Existing local detail-database schema/fallback and marketplace-link hydration
 warnings remain visible in the full browser log, as in the preceding release;
 they are not newly introduced Pokémon failures. These automated browser checks
 are not physical-device recovery testing or a controlled speed benchmark.
+
+Stage 4 application source `c60e74c` was pushed and deployed to staging as
+`8eaaf957`, with Pokémon community disabled. Live guest checks confirmed public
+Pokémon endpoints return the disabled response, private settings deny guests,
+and the session feature state agrees. A separate real-catalog guest auction
+then survived reload with catalog access blocked: identical lot, deadline and
+cash, zero catalog requests on return, and no browser errors. Existing archive
+hashes, account-save aggregates, bindings, production deployment and zero
+staging schedules were preserved. The additive database update and community
+activation await separate approval; no full backup or remote migration has
+been performed for this stage yet.
