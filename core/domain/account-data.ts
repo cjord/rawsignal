@@ -4,12 +4,14 @@ import {validAuctionAppearance,AUCTION_APPEARANCE_KEY} from './auction-appearanc
 import {COLLECTIONS_KEY,parseCollections} from './owned-collections.ts';
 import {parseGameScope,gameScopeIncludes} from './game-scope.ts';
 import {parsePokemonDaily} from './pokemon-showdown-daily.ts';
+import {POKEMON_AUCTION_STORAGE_KEY} from './pokemon-auction.ts';
 
 // Explicit user-owned domains only. Never synchronize navigation URLs, credentials,
 // cached market feeds, or developer flags. Real collections stay separate from game money.
 export const ACCOUNT_KEYS=[
  'raw-signal-auction-house-v1','raw-signal-showdown-daily-v1','raw-signal-showdown-practice-v1',
  'raw-signal-pokemon-showdown-practice-v1','raw-signal-pokemon-showdown-daily-v1',
+ POKEMON_AUCTION_STORAGE_KEY,
  'raw-signal-favorites','raw-signal-buylist','raw-signal-set-favorites','raw-signal-collectr-import',
  'raw-signal-theme','raw-signal-font-size','raw-signal-scalper-mode','raw-signal-hover-previews',
  'raw-signal-strictness','raw-signal-auction-sound','raw-signal-auction-auto-advance','raw-signal-buylist-size',
@@ -39,6 +41,7 @@ export function validAccountValue(key:AccountKey,value:unknown):value is string{
   if(key===AUCTION_APPEARANCE_KEY)return validAuctionAppearance(JSON.parse(value));
   if(key===COLLECTIONS_KEY){parseCollections(value);return true}
   if(key==='raw-signal-auction-house-v1'){parseAuctionSave(value);return true}
+  if(key===POKEMON_AUCTION_STORAGE_KEY){parseAuctionSave(value,'pokemon');return true}
   if(key==='raw-signal-showdown-daily-v1'){parseDailyShowdown(value);return true}
   if(key==='raw-signal-pokemon-showdown-daily-v1'){parsePokemonDaily(value);return true}
   const parsed:unknown=JSON.parse(value);

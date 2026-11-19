@@ -9,6 +9,7 @@ export type AuctionDrawBand=RarityBand|'metal'|'ultra-promo';
 // treatment takes precedence over price; ordinary promos are not price-restricted.
 export const AUCTION_PROMO_TARGETS={free:{metal:.0005,'ultra-promo':.0001},paid:{metal:.001,'ultra-promo':.0002}} as const;
 export function auctionDrawBand(card:AuctionCard):AuctionDrawBand{
+ if(card.market==='pokemon')return auctionRarityBand(card);
  if(card.section==='metal-promos'||/\((?:metal|best of)\)/i.test(card.name))return 'metal';
  // T1's bundle printings are labelled Showcase by the catalog, not Promo.
  // Every T1 printing shares this budget, including the less expensive ones.

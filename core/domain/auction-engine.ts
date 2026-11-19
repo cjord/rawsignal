@@ -15,6 +15,7 @@ import {recordAuctionStart,recordAuctionResult} from './auction-statistics.ts';
 import {auctionRoundBid} from './auction-display.ts';
 import {pendingInspectionResult,settlePendingFollowUp} from './auction-follow-up.ts';
 import {matureDelayedInformation} from './auction-delayed.ts';
+import {auctionCardsInScope,validAuctionIdentity} from './auction-market-identity.ts';
 
 // Only completed public bids may influence an estimate; current sealed bids are never inputs.
 export function npcBid(sample:number[],range:[number,number],priorBids:number[],personality:number,random:()=>number,feeBps=1000,confidence=1,participation=0,grossEstimate?:number,certainty=1,round=2):number{
@@ -59,8 +60,11 @@ export function beginAuction(save:AuctionSave,catalog:AuctionCard[],now:number,p
  const entryFee=kind==='paid'?AUCTION_PAID_ENTRY:0;
  if(save.auction||save.wallet.cash<entryFee)return save;
  const lot=(prepared??generateAuctionLot(catalog,seed,kind)).map(card=>({...card})),size=AUCTION_LOT_SIZES[kind];if(lot.length<size.min||lot.length>size.max)return save;
+ const draft=save.drafts?.[kind],market=save.market??'riftbound';
+ if(market==='pokemon'&&(!draft||!validAuctionIdentity(draft,market)||!auctionCardsInScope(lot,draft,market))||market==='riftbound'&&lot.some(card=>card.market==='pokemon'))return save;
  const auction:Auction={seed,kind,entryFee,stage:'round',round:1,deadline:0,lot,range:[lot.length,lot.length],known:[],priced:[],offers:[],clues:[],bought:false,spent:0,selected:null,npcs:[],bids:[],bidHistory:[],result:null,feeBps:1000};
  auction.lotTheme=auctionLotTheme(seed).id;
+ if(market==='pokemon')Object.assign(auction,{market,rulesVersion:1,scope:draft!.scope,catalogVersion:draft!.catalogVersion});
  if(save.drafts?.[kind]?.rivals)auction.rivals=[...save.drafts[kind]!.rivals!];
  auction.marketPrior=save.drafts?.[kind]?.marketPrior??auctionMarketPrior(catalog,seed,kind);
  const drafts={...save.drafts};delete drafts[kind];

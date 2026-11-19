@@ -9,6 +9,8 @@ import {rebalancedCost} from './auction-investigations-v2.ts';
 import {validAuctionStatistics} from './auction-statistics.ts';
 import {validAuctionReceipts} from './auction-daily-results.ts';
 import {followUpSlots} from './auction-investigations-v2.ts';
+import {validateAuctionMarket} from './auction-market-identity.ts';
+import type {GameMarket} from './game-profile.ts';
 
 export const AUCTION_STORAGE_KEY='raw-signal-auction-house-v1';
 const record=(value:unknown)=>value!==null&&typeof value==='object'&&!Array.isArray(value);
@@ -69,8 +71,8 @@ function validateProfile(save:AuctionSave){
  if(save.statistics!==undefined&&!validAuctionStatistics(save.statistics))throw new Error('Saved statistics are invalid.');
  if(!validProfile(save))throw new Error('Saved showcase is invalid.');
 }
-export function parseAuctionSave(raw:string|null):AuctionSave{
- if(raw===null)return initialAuctionSave();
+export function parseAuctionSave(raw:string|null,market:GameMarket='riftbound'):AuctionSave{
+ if(raw===null)return initialAuctionSave(market);
  if(raw.length>4e6)throw new Error('Saved game is too large. Reset to start again.');
  const value=JSON.parse(raw) as AuctionSave;
  if(!record(value)||value.version!==1||!integer(value.revision)||!integer(value.sequence)||!record(value.wallet)||!integer(value.wallet.cash)||!integer(value.wallet.feeBps,10000))throw new Error('Saved game is invalid. Reset to start again.');
@@ -78,6 +80,7 @@ export function parseAuctionSave(raw:string|null):AuctionSave{
  if(!Array.isArray(inventory)||inventory.length>10000||!inventory.every(row=>record(row)&&integer(row.productId)&&row.productId>0&&text(row.printing,80)&&integer(row.quantity,1000000)&&row.quantity>0))throw new Error('Saved inventory is invalid. Reset to start again.');
  if(value.auction!==null&&!validAuction(value.auction))throw new Error('Saved auction is invalid. Reset to start again.');
  validateProfile(value);
+ validateAuctionMarket(value,market);
  if(value.auction?.statisticsTracked&&!value.statistics)throw new Error('Missing auction statistics.');
  if(value.drafts!==undefined&&!validDrafts(value))throw new Error('Saved auction preparation is invalid.');
  if(value.daily!==undefined&&!validDailyProgress(value))throw new Error('Saved daily challenge is invalid.');
