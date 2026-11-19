@@ -238,3 +238,25 @@ typecheck and all 206 Chromium checks without retries (17.8 minutes for the brow
 suite). Existing local market-detail fixture warnings about an older metrics
 column also appear in the stage-2 baseline; they are not new game failures or a
 claim that the local database has been refreshed.
+
+### Live artwork correction
+
+The first stage-3 deployment (`697fcc97`, source `0c40b7b`) preserved protected
+data but failed live daily initialization with a retryable 503; no attempt or
+daily archive was consumed. Real bulk stock includes broken CDN artwork (one
+403 in a 12-image sample). Regenerating whole large lots repeatedly introduces
+new unchecked images and can exhaust the first-use check budget.
+
+The correction selects at most 200 seeded candidates per category, checks those
+400 candidates once, and builds all five collections from the healthy result.
+The shared manifest pins that verified pool. Missing category stock fails closed;
+it never broadens into Vintage or substitutes guessed prices. Historical archives
+remain immutable. Safe server diagnostics record only initialization phase and
+error type. Riftbound's original artwork preparation is retained unchanged.
+A 1,600-card regression fixture with 10% broken images must publish a valid lineup
+with exactly 400 checks and no repeated candidate requests.
+
+The correction passed the complete release gate: 748 unit passes / one existing
+skip, build, lint with no new warnings, typecheck and all 206 Chromium checks
+without retries (17.0-minute browser run). Live verification follows its staging
+deployment; the earlier 503 is not recorded as a completed daily acceptance.

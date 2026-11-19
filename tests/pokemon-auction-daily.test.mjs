@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {pokemonAuctionDailyCards as cards,pokemonAuctionDailyFixture as fixture} from './helpers/pokemon-auction-daily-fixture.ts';
-import {createPokemonDailyAuction,validPokemonDailyAuction} from '../core/domain/pokemon-auction-daily.ts';
+import {createPokemonDailyAuction,pokemonDailyAuctionCandidates,validPokemonDailyAuction} from '../core/domain/pokemon-auction-daily.ts';
 import {createGameCatalogSnapshot} from '../core/domain/game-catalog-snapshot.ts';
 import {initialAuctionSave} from '../core/domain/auction-types.ts';
 import {startDailyAuction,updateDailyAuction} from '../core/domain/auction-daily.ts';
@@ -14,7 +14,7 @@ import {loadPokemonDailyAuction} from '../db/pokemon-auction-daily.ts';
 import {gameTestDb} from './helpers/game-db.mjs';
 import {startIngestion,upsertCard,completeIngestion} from '../db/repository.ts';
 const date='2026-11-19',now=Date.parse(date+'T12:00:00Z');
-async function database(){const f=gameTestDb();await startIngestion(f.db,'daily-source','test',date,{sourceUpdatedAt:date});for(const card of cards)await upsertCard(f.db,card,date,'daily-source');await completeIngestion(f.db,'daily-source','daily-market',date,cards.length,cards.length);return f}
+async function database(rows=cards){const f=gameTestDb();await startIngestion(f.db,'daily-source','test',date,{sourceUpdatedAt:date});for(const card of rows)await upsertCard(f.db,card,date,'daily-source');await completeIngestion(f.db,'daily-source','daily-market',date,rows.length,rows.length);return f}
 
 test('Pokémon daily auction freezes deterministic category-scoped lots and a 3-free/2-paid progression without Vintage',async()=>{
  const value=await fixture();assert.equal(validPokemonDailyAuction(value),true);assert.deepEqual(await fixture(),value);
@@ -57,4 +57,12 @@ test('concurrent Pokémon auction initialization stores one immutable archive an
 test('Pokémon artwork replacement stays in each draft category; failures and midnight changes publish nothing',async()=>{
  const f=await database();try{const first=await fixture(),bad=first.auctions[0].lot[0].image;const value=await loadPokemonDailyAuction(f.db,{clock:()=>now,check:async image=>image!==bad});assert.equal(validPokemonDailyAuction(value),true);assert.ok(value.auctions.every(draft=>draft.lot.every(card=>card.image!==bad&&card.year===(draft.category==='modern'?2023:2014))));}finally{f.sqlite.close()}
  for(const midnight of [false,true]){const f=await database();try{let clock=now;await assert.rejects(()=>loadPokemonDailyAuction(f.db,{clock:()=>clock,check:async()=>{if(midnight){clock=now+86400000;return true}throw Error('temporary artwork outage')}}),midnight?/date changed/:/temporary/);assert.equal(f.sqlite.prepare('SELECT count(*) n FROM shared_game_manifests').get().n,0)}finally{f.sqlite.close()}}
+});
+
+test('large daily pools tolerate recurring broken artwork within one bounded category-specific validation pass',async()=>{
+ const rows=Array.from({length:1600},(_,i)=>({...cards[i%cards.length],productId:990000+i,image:`https://tcgplayer-cdn.tcgplayer.com/product/${990000+i}_in_1000x1000.jpg`}));
+ const candidates=pokemonDailyAuctionCandidates(rows,date);assert.equal(candidates.length,400);assert.deepEqual(pokemonDailyAuctionCandidates([...rows].reverse(),date),candidates);assert.equal(candidates.filter(c=>c.year===2023).length,200);
+ const f=await database(rows);try{const seen=new Set();const manifest=await loadPokemonDailyAuction(f.db,{clock:()=>now,check:async image=>{assert.ok(!seen.has(image),'Each candidate must be checked only once');seen.add(image);assert.ok(seen.size<=400,'No whole-lot retry expansion');return Number(image.match(/product\/(\d+)/)[1])%10!==0}});
+  assert.equal(validPokemonDailyAuction(manifest),true);assert.equal(seen.size,400);assert.ok(manifest.auctions.every(draft=>draft.lot.every(card=>card.productId%10!==0&&card.year===(draft.category==='modern'?2023:2014))));assert.equal(f.sqlite.prepare('SELECT count(*) n FROM shared_game_manifests').get().n,1);
+ }finally{f.sqlite.close()}
 });

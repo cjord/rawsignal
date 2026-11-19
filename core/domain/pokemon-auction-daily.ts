@@ -7,6 +7,21 @@ import {auctionNpcRoster} from './auction-npcs.ts';
 import {dailyGameSeed,validGameDate} from './daily-game.ts';
 import {validDailyManifest} from './auction-save.ts';
 import type {DailyAuctionManifest,AuctionCard} from './auction-types.ts';
+import {sampleIndices,holdingKey} from './auction-types.ts';
+import {gameCardEligible,gameScopeIncludes} from './game-scope.ts';
+import type {Card} from './types.ts';
+
+// At most 400 distinct candidate cards are checked once per new UTC lineup.
+// Retain a seeded spread of real stock; broken art never rerolls an entire lot.
+export function pokemonDailyAuctionCandidates(cards:Card[],date:string):Card[]{
+ if(!validGameDate(date))throw new Error('Invalid Pokémon daily auction date');
+ return (['modern','legacy'] as const).flatMap(category=>{
+  const scope={market:'pokemon' as const,eras:[...POKEMON_AUCTION_CATEGORIES[category].eras],sets:[]};
+  const ordered=cards.filter(card=>gameCardEligible(card,'pokemon')&&gameScopeIncludes(card,scope)).toSorted((a,b)=>holdingKey(a).localeCompare(holdingKey(b)));
+  if(ordered.length<25)throw new Error('Not enough cards for the daily category');
+  return sampleIndices(ordered.length,Math.min(200,ordered.length),dailyGameSeed(`pokemon-auction-art-v1-${category}`,date)).map(index=>ordered[index]);
+ });
+}
 
 export function validPokemonDailyAuction(value:unknown):value is DailyAuctionManifest{
  return validDailyManifest(value)&&value.version===2&&value.market==='pokemon';
