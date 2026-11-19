@@ -9,8 +9,9 @@ import {rebalancedCost} from './auction-investigations-v2.ts';
 import {validAuctionStatistics} from './auction-statistics.ts';
 import {validAuctionReceipts} from './auction-daily-results.ts';
 import {followUpSlots} from './auction-investigations-v2.ts';
-import {validateAuctionMarket} from './auction-market-identity.ts';
+import {validateAuctionMarket,validAuctionIdentity,auctionCardsInScope} from './auction-market-identity.ts';
 import type {GameMarket} from './game-profile.ts';
+import {validGameDate} from './daily-game.ts';
 
 export const AUCTION_STORAGE_KEY='raw-signal-auction-house-v1';
 const record=(value:unknown)=>value!==null&&typeof value==='object'&&!Array.isArray(value);
@@ -100,11 +101,22 @@ function validDraft(draft:unknown){
 function validRivals(value:unknown){return value===undefined||Array.isArray(value)&&value.length===3&&new Set(value).size===3&&value.every(name=>text(name,100))}
 export function validDailyManifest(value:unknown):value is DailyAuctionManifest{
  const row=value as DailyAuctionManifest;
- return record(row)&&row.version===1&&text(row.source)&&/^\d{4}-\d{2}-\d{2}$/.test(row.date)&&Array.isArray(row.auctions)&&row.auctions.length===5&&row.auctions.every((draft,index)=>validDraft(draft)&&draft.kind===(index<3?'free':'paid')&&Array.isArray(draft.lot)&&draft.lot.length>=(index<3?25:50)&&draft.lot.length<=(index<3?90:130)&&draft.marketPrior!==undefined);
+ if(!record(row)||!text(row.source)||!validGameDate(row.date)||!Array.isArray(row.auctions)||row.auctions.length!==5)return false;
+ const market=dailyManifestMarket(row);return !!market&&row.auctions.every((draft,index)=>validDailyDraft(draft,index,market));
+}
+function dailyManifestMarket(row:DailyAuctionManifest):GameMarket|null{
+ if(row.version===1&&row.market===undefined&&row.catalogVersion===undefined)return 'riftbound';
+ return row.version===2&&row.market==='pokemon'&&typeof row.catalogVersion==='string'&&/^[a-f0-9]{64}$/.test(row.catalogVersion)?'pokemon':null;
+}
+function validDailyDraft(draft:DailyAuctionManifest['auctions'][number],index:number,market:GameMarket){
+ if(!validDraft(draft)||draft.kind!==(index<3?'free':'paid')||!Array.isArray(draft.lot)||draft.lot.length<(index<3?25:50)||draft.lot.length>(index<3?90:130)||draft.marketPrior===undefined)return false;
+ if(!validAuctionIdentity(draft,market)||!auctionCardsInScope(draft.lot,draft,market))return false;
+ return market==='riftbound'||draft.pool===undefined&&['modern','legacy'].includes(draft.category??'')&&draft.rivals?.length===3&&draft.rivals.every(name=>AUCTION_NPCS.some(npc=>npc.name===name));
 }
 function validDailyProgress(save:AuctionSave){
  const daily=save.daily!;
  if(!record(daily))return false;
+ if((daily.manifest?.market??'riftbound')!==(save.market??'riftbound'))return false;
  if(daily.receipts!==undefined&&!validAuctionReceipts(daily.receipts))return false;
  if(!record(daily)||!validDailyManifest(daily.manifest)||daily.date!==daily.manifest.date||!integer(daily.index,5)||!integer(daily.reward)||!['playing','completed','failed'].includes(daily.status)||!record(daily.save)||daily.save.daily!==undefined)return false;
  if((daily.status==='completed')!==(daily.index===5)||daily.status!=='completed'&&daily.reward!==0)return false;

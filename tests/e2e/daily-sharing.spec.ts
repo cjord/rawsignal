@@ -15,7 +15,7 @@ async function setup(page:Page){
 const saved=(page:Page)=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)!),SHOWDOWN_DAILY_KEY);
 test('daily tiles lead to fixed ten-round modes, independent reloadable progress, emoji sharing and a non-mutating results page',async({page})=>{
  await setup(page);let calls=0;page.on('request',request=>{if(new URL(request.url()).pathname==='/api/showdown/daily')calls++});
- await page.goto('/games');await expect(page.getByRole('link',{name:/Daily Auction Challenge/})).toBeVisible();await page.locator('a.game-tile[href="/games/riftbound-price/daily"]').click();
+ await page.goto('/games');await expect(page.getByRole('link',{name:/Riftbound Daily Auction Challenge/})).toBeVisible();await page.locator('a.game-tile[href="/games/riftbound-price/daily"]').click();
  const choices=page.locator('.price-game-choice');await expect(choices).toHaveCount(2);await expect(choices.first()).toHaveAttribute('aria-disabled','false');await page.getByLabel('Auto Next Round (1s)',{exact:true}).uncheck();
  await page.getByRole('tab',{name:'Hard · 3 Cards',exact:true}).click();await expect(choices).toHaveCount(3);await expect(choices.first()).toHaveAttribute('aria-disabled','false');await choices.first().click();expect((await saved(page)).hard.picks).toHaveLength(1);
  await page.getByRole('tab',{name:'Normal · 2 Cards',exact:true}).click();await expect(choices).toHaveCount(2);expect((await saved(page)).normal.picks).toHaveLength(0);

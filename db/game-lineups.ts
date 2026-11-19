@@ -6,6 +6,8 @@ import {createDailyShowdownManifest,dailyShowdownPool} from '../core/domain/show
 import {dailyGameSeed} from '../core/domain/daily-game.ts';
 import {drawPriceRound} from '../core/domain/price-game.ts';
 import {failedGameArtwork,type GameArtworkCheck} from './game-artwork.ts';
+import type {DailyAuctionManifest} from '../core/domain/auction-types.ts';
+import {gameScopeIncludes} from '../core/domain/game-scope.ts';
 
 export async function verifiedDailyShowdown(catalog:AuctionCard[],date:string,source:string,check:GameArtworkCheck){
  const manifest=createDailyShowdownManifest(catalog,date,source),failed=new Set<string>();
@@ -26,16 +28,20 @@ export async function verifiedDailyShowdown(catalog:AuctionCard[],date:string,so
  }
  return manifest;
 }
-export async function verifiedDailyAuction(catalog:AuctionCard[],date:string,source:string,check:GameArtworkCheck){
- const manifest=createDailyAuctionManifest(catalog,date,source);let pool=catalog;
+export async function verifiedDailyAuction(catalog:AuctionCard[],date:string,source:string,check:GameArtworkCheck,prepared?:DailyAuctionManifest){
+ const manifest=prepared??createDailyAuctionManifest(catalog,date,source);let pool=catalog;
  const checked=new Map<string,Promise<boolean>>(),verify=(url:string)=>{if(!checked.has(url))checked.set(url,check(url));return checked.get(url)!};
  for(const draft of manifest.auctions){
   for(let attempt=0;attempt<50;attempt++){
    const bad=await failedGameArtwork(draft.lot,verify);if(!bad.size)break;
-   pool=pool.filter(card=>!bad.has(card.image));draft.lot=generateAuctionLot(pool,draft.seed,draft.kind);
+   pool=pool.filter(card=>!bad.has(card.image));draft.lot=generateAuctionLot(dailyDraftPool(pool,draft),draft.seed,draft.kind);
    if(draft.lot.length<AUCTION_LOT_SIZES[draft.kind].min||attempt===49)throw new Error('Not enough verified daily artwork');
   }
  }
- for(const draft of manifest.auctions)draft.marketPrior=auctionMarketPrior(pool,draft.seed,draft.kind);
+ for(const draft of manifest.auctions)draft.marketPrior=auctionMarketPrior(dailyDraftPool(pool,draft),draft.seed,draft.kind);
  return manifest;
+}
+function dailyDraftPool(catalog:AuctionCard[],draft:DailyAuctionManifest['auctions'][number]){
+ const scope=draft.scope;
+ return scope?catalog.filter(card=>gameScopeIncludes({game:card.market??'riftbound',set:card.set,year:card.year??0},scope)):catalog;
 }

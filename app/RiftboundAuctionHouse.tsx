@@ -28,6 +28,7 @@ import {useAccount} from './account/context';
 import AuctionMarketStatus from './games/AuctionMarketStatus';
 import AuctionLobbySkeleton from './games/AuctionLobbySkeleton';
 import {unlockPokemonVintage} from '../core/domain/pokemon-auction-wallet';
+import pokemonBackdrop from './data/pokemon-auction-backdrop.json';
 function useVintageUnlock(catalog:Parameters<typeof unlockPokemonVintage>[1],root:AuctionSave|null,transact:(update:(save:AuctionSave)=>AuctionSave)=>unknown,dailyMode:boolean){
  const game=useAuctionGame();
  useEffect(()=>{if(game.market==='pokemon'&&!dailyMode&&catalog.length)transact(current=>unlockPokemonVintage(current,catalog))},[game.market,dailyMode,catalog,transact,root?.revision]);
@@ -48,9 +49,18 @@ function NormalAuctionLobby({save,saveError,dailyMode,entry,available,...wallet}
 function AuctionDataNote({dailyMode}:{dailyMode:boolean}){
  return <p className="games-note">{dailyMode?'TCGCSV / TCGplayer Near Mint prices frozen in the shared UTC-day snapshot. Challenge wins auto-sell at those prices less a fixed 10% fee.':'TCGCSV / TCGplayer Near Mint market pricing. Auction contents/prices freeze on entry; owned inventory is repriced from the current loaded catalog. Price refreshes use existing cached feeds, not real-time sale quotes.'} Missing prices remain unavailable. Clearing browser storage removes progress. Casual single-player only; local saves and daily limits are not tamper-proof.</p>;
 }
+function AuctionMarketFeedback({frozenDaily,daily,...market}:{frozenDaily:boolean;daily:AuctionSave['daily']|null}&ComponentProps<typeof AuctionMarketStatus>){
+ if(!frozenDaily)return <AuctionMarketStatus {...market}/>;
+ return <p className="games-note" role="status">{daily?`Daily Market Snapshot · ${daily.manifest.source}`:'The shared daily market snapshot loads when you start your challenge.'}</p>;
+}
+function AuctionEntryStage({entry,catalog,frozenDaily,audio}:{entry:ReturnType<typeof useAuctionEntry>;catalog:Parameters<typeof AuctionEntryReveal>[0]['catalog'];frozenDaily:boolean;audio:ReturnType<typeof useAuctionSound>}){
+ return entry.entry?<AuctionEntryReveal key={entry.entry.seed} entry={entry.entry} catalog={catalog} cancel={entry.cancel} skip={entry.skip} cue={audio.cue} decoration={frozenDaily?pokemonBackdrop.cards:undefined}/>:null;
+}
+const marketAccess=(account:ReturnType<typeof useAccount>,frozenDaily:boolean)=>!frozenDaily&&!account.loading&&!account.error;
 export function AuctionHouseSession({dailyMode=false,catalogCache=false,session,poolControls}:{dailyMode?:boolean;catalogCache?:boolean;session:ReturnType<typeof useAuctionSave>;poolControls?:ReactNode}){
  const game=useAuctionGame(),account=useAccount();
- const {items,status,reload,error:catalogError,manifest,checking,checkLatest}=useAuctionCatalog(!account.loading&&!account.error,catalogCache);
+ const frozenDaily=dailyMode&&game.market==='pokemon';
+ const {items,status,reload,error:catalogError,manifest,checking,checkLatest}=useAuctionCatalog(marketAccess(account,frozenDaily),catalogCache);
  const catalog=useMemo(()=>auctionCatalog(items,game.market),[items,game.market]),{save:root,error,transact:saveRoot,reset}=session;
  const [now,setNow]=useState(()=>Date.now()),arena=useRef<HTMLDivElement>(null);
  const daily=root?.daily?.date===dailyAuctionDate(now)?root.daily:null;
@@ -74,9 +84,9 @@ export function AuctionHouseSession({dailyMode=false,catalogCache=false,session,
   {!auction&&poolControls}
   {dailyMode&&root&&<AuctionDaily root={root} now={now} transact={saveRoot} enter={entry.enter} preparing={Boolean(entry.entry)}/>}
   <NormalAuctionLobby save={save} saveError={error} dailyMode={dailyMode} entry={entry} available={available} catalog={catalog} reset={reset} loading={status==='loading'||status==='idle'}/>
-  <AuctionMarketStatus status={status} error={catalogError} manifest={manifest} reload={reload} checking={checking}/>
+  <AuctionMarketFeedback frozenDaily={frozenDaily} daily={daily} status={status} error={catalogError} manifest={manifest} reload={reload} checking={checking}/>
   {dailyMode&&entry.imageError&&<p role="alert">{entry.imageError}</p>}
-  {entry.entry&&<AuctionEntryReveal key={entry.entry.seed} entry={entry.entry} catalog={catalog} cancel={entry.cancel} skip={entry.skip} cue={audio.cue}/>}
+  <AuctionEntryStage entry={entry} catalog={catalog} frozenDaily={frozenDaily} audio={audio}/>
   {save?.auction&&<div ref={arena} className="auction-arena" onPointerDownCapture={audio.unlock} onKeyDownCapture={audio.unlock}><AuctionRoundHeader auction={save.auction} now={now}/>{celebrating?<AuctionWinner auction={save.auction}/>:<AuctionRound save={save} now={now} transact={transact} dailyMode={dailyMode} autoSeconds={auto.seconds} revealDone={reveal.done} visible={reveal.visible}/>} {!celebrating&&<AuctionCollection auction={save.auction} visible={reveal.visible} done={reveal.done} skip={reveal.skip} choose={slot=>transact(current=>selectFollowUp(current,slot,Date.now()))}/>} <AuctionBiddingHistory auction={save.auction}/></div>}
   <AuctionDataNote dailyMode={dailyMode}/>
  </GamesShell>;

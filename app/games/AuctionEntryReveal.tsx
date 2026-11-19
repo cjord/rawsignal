@@ -12,7 +12,7 @@ import AuctionBackdrop from './AuctionBackdrop';
 import type {AuctionSoundCue} from './auction-sound';
 import {auctionHouseName} from '../../core/domain/auction-houses';
 
-export default function AuctionEntryReveal({entry,catalog,cancel,skip,cue}:{entry:AuctionEntry;catalog:AuctionCard[];cancel:()=>void;skip:()=>void;cue:(cue:AuctionSoundCue)=>void}){
+export default function AuctionEntryReveal({entry,catalog,cancel,skip,cue,decoration}:{entry:AuctionEntry;catalog:AuctionCard[];cancel:()=>void;skip:()=>void;cue:(cue:AuctionSoundCue)=>void;decoration?:{image:string;rarity:string;section:string}[]}){
  const dialog=useRef<HTMLDialogElement>(null),[ticks,setElapsed]=useState(0);
  const reduced=typeof window!=='undefined'&&window.matchMedia('(prefers-reduced-motion: reduce)').matches,elapsed=reduced?AUCTION_INTRO_MS:ticks;
  const game=useAuctionGame(),pool=useAuctionPool(),theme=auctionLotTheme(entry.seed),rivals=auctionNpcRoster(entry.seed,entry.rivals),settled=elapsed>=1600;
@@ -24,7 +24,7 @@ export default function AuctionEntryReveal({entry,catalog,cancel,skip,cue}:{entr
  },[]);
  const visibleTheme=settled?theme:AUCTION_LOT_THEMES[Math.floor(elapsed/110)%AUCTION_LOT_THEMES.length];
  return <dialog ref={dialog} className="auction-entry-stage" aria-labelledby="auction-entry-title" onCancel={event=>{event.preventDefault();cancel()}}>
-  <AuctionBackdrop catalog={catalog} seed={entry.seed}/>
+  <AuctionBackdrop catalog={decoration??catalog} seed={entry.seed}/>
   <section className="auction-entry-briefing"><div className="auction-entry-top"><span className="games-eyebrow">{game.market==='pokemon'?pokemonHouse(entry.kind,pool?pokemonAuctionCategory(pool.scope)??undefined:undefined):auctionHouseName(entry.kind)} · Preparing Your Table</span><button className="game-control" type="button" onClick={cancel}>Cancel</button></div>
    <h2 id="auction-entry-title">Your Next Auction</h2><p className="auction-entry-status" role="status">Starting Auction… {elapsed>=AUCTION_INTRO_MS?'Checking card artwork…':elapsed>=3700?'Your table is ready. Take a look before bidding starts.':settled?'Meeting your rivals.':'Finding your collection.'}</p>
    <div className={`auction-entry-theme${settled?' is-locked':''}`}><small>Collection</small><strong data-collection-theme={visibleTheme.id} aria-hidden="true">{visibleTheme.collectionName}</strong><span className="sr-only" aria-live="polite">{settled?theme.collectionName:'Selecting collection type'}</span></div>

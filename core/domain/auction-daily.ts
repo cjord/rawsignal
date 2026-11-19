@@ -16,8 +16,8 @@ export function createDailyAuctionManifest(catalog:AuctionCard[],date:string,sou
  return {version:1,date,source,auctions};
 }
 export function startDailyAuction(root:AuctionSave,manifest:DailyAuctionManifest,now:number):AuctionSave{
- if(root.auction||manifest.date!==dailyAuctionDate(now)||root.daily?.date===manifest.date)return root;
- const save=initialAuctionSave(),first=manifest.auctions[0];
+ if(root.auction||manifest.date!==dailyAuctionDate(now)||root.daily?.date===manifest.date||(manifest.market??'riftbound')!==(root.market??'riftbound'))return root;
+ const save=initialAuctionSave(root.market??'riftbound'),first=manifest.auctions[0];
  save.drafts={[first.kind]:first};
  return {...root,daily:{date:manifest.date,manifest,index:0,save,status:'playing',reward:0,receipts:[]}};
 }

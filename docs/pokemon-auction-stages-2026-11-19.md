@@ -194,3 +194,47 @@ Stage 2 full gate passed: production build, 742 unit passes / one existing skip,
 lint (no new warnings), typecheck and all 203 Chromium checks without retries.
 The browser suite took 19.5 minutes on this run; that wall time is not a controlled
 page-load comparison. Live staging acceptance follows the committed release.
+
+Stage 2 was committed as `407716e`, pushed to `codex/pokemon-games` and deployed
+to staging as `f7a7fdbb`. A live isolated guest auction used real published prices
+and artwork through all four rounds and settled successfully. It made two
+catalog requests, zero legacy feed requests and no between-round price requests;
+no browser errors were observed. Desktop-dark bidding and mobile-light settlement
+were inspected. Production, existing daily archives, account-document aggregates,
+bindings and the zero-cron staging policy were unchanged.
+
+## Stage 3 — Pokémon daily auctions and frozen result sharing
+
+The daily snapshot uses Modern, Modern, Legacy, Modern, Legacy pools in that
+order, with three free Pewter entries followed by two $50 Celadon entries.
+Cinnabar/Vintage is excluded, so the daily challenge never depends on an account's
+normal-wallet unlock. The existing five-auction engine supplies the independent
+$2,500 bankroll, 10% automatic selling fee, expiry/failure rules and one-time 25%
+positive-profit reward. Normal inventory, showcase and statistics remain separate.
+
+A version-2 Pokémon manifest freezes the exact lots, source/category identities,
+priors and rival roster. The existing shared-manifest table stores one immutable
+row per market/challenge/date; no new migration is needed. Concurrent first
+visitors reuse initialization. Artwork failures replace stock within each draft's
+era scope; transient failures or a midnight crossing do not publish a new row.
+Historical reads never recreate a missing date or reprice an existing archive.
+
+The daily screen downloads its frozen lineup when Start is selected, without a
+full practice-catalog download. Decorative artwork is independent of the hidden
+lots. Pokémon result links pin the market and catalog identity; Riftbound v1 links
+retain their existing contract. Result-card inspection uses frozen art and prices,
+including bulk cards that deliberately have no public market-detail route.
+Sharing remains explicitly self-reported and does not store a new public profile.
+
+Domain coverage exercises deterministic scopes, concurrent archive initialization,
+artwork replacement, midnight/failure paths, account-save validation, all five
+settlements, automatic sales, exact fee/reward reconstruction, repeated completion,
+wrong-market rejection and normal-progress preservation. Browser coverage checks
+reload/resume, no catalog requests, frozen result inspection, market/version
+rejection, discoverability and desktop/mobile dark/light layouts. Release and live
+acceptance evidence follows the release gate. The complete stage-3 gate passed:
+production build, 747 unit passes / one existing skip, lint with no new warnings,
+typecheck and all 206 Chromium checks without retries (17.8 minutes for the browser
+suite). Existing local market-detail fixture warnings about an older metrics
+column also appear in the stage-2 baseline; they are not new game failures or a
+claim that the local database has been refreshed.
