@@ -3,7 +3,10 @@
 Planning date: November 7, 2026 (America/New_York). Implementation began November 9
 on `codex/pokemon-games`, after the article branch was integrated into main. The
 first batches cover catalog foundations and Showdown practice/daily challenges,
-now released on staging; auctions remain later work. See [the implementation report](pokemon-games-foundations-2026-11-09.md)
+now released on staging. Normal Pokémon auctions were implemented in the
+[November 19 staged auction work](pokemon-auction-stages-2026-11-19.md), including
+the user-approved Modern / Legacy / Vintage split; daily auctions and community
+are the subsequent stages. See [the implementation report](pokemon-games-foundations-2026-11-09.md)
 for evidence and activation boundaries. GitHub Issues remains authoritative for
 task status; this document records design and decisions.
 

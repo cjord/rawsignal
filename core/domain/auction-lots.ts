@@ -3,7 +3,8 @@ import {auctionCopyLimit} from './auction-copy-policy.ts';
 import {auctionDrawBand,auctionDrawWeights,chooseAuctionRarity,type AuctionDrawBand} from './auction-composition.ts';
 import {AUCTION_LOT_THEMES,auctionLotTheme,auctionThemeProfile,auctionThemeChoices,auctionThemeSet} from './auction-lot-themes.ts';
 import {AUCTION_LOT_SIZES,auctionThemeSize} from './auction-lot-size.ts';
-import {pokemonAuctionDrawWeights} from './pokemon-auction.ts';
+import {pokemonPoolWeights} from './pokemon-auction.ts';
+import {pokemonVintagePool,POKEMON_VINTAGE_SIZE} from './pokemon-auction-houses.ts';
 
 export {AUCTION_LOT_SIZES} from './auction-lot-size.ts';
 // Gameplay composition weights, NOT pack pull rates or an inferred real collection distribution.
@@ -12,10 +13,11 @@ export function auctionLotProfile(seed:number){const theme=auctionLotTheme(seed)
 export function generateAuctionLot(catalog:AuctionCard[],seed:number,kind:AuctionKind='free'):AuctionCard[]{
  const pool=[...new Map(catalog.filter(card=>card.image.trim()&&card.cents>0&&Number.isSafeInteger(card.cents)).map(card=>[holdingKey(card),card])).values()].sort((a,b)=>holdingKey(a).localeCompare(holdingKey(b)));
  if(pool.length<6)return [];
- const random=auctionRandom(seed),profile={...auctionThemeProfile(seed,kind),...auctionThemeSize(kind,auctionLotTheme(seed))},focus=auctionThemeSet(pool,seed),weights=pool[0]?.market==='pokemon'?pokemonAuctionDrawWeights(seed,kind):auctionDrawWeights(seed,kind);
+ const vintage=pokemonVintagePool(pool),size=vintage?POKEMON_VINTAGE_SIZE:auctionThemeSize(kind,auctionLotTheme(seed));
+ const random=auctionRandom(seed),profile={...auctionThemeProfile(seed,kind),...size},focus=auctionThemeSet(pool,seed),weights=pool[0]?.market==='pokemon'?pokemonPoolWeights(pool,seed,kind):auctionDrawWeights(seed,kind);
  const limits=new Map(pool.map(card=>[holdingKey(card),auctionCopyLimit(card,seed,profile.copyCap)])),cap=(card:AuctionCard)=>limits.get(holdingKey(card))!;
  const target=Math.min(profile.min+Math.floor(random()*(profile.max-profile.min+1)),pool.reduce((sum,card)=>sum+cap(card),0));
- if(target<AUCTION_LOT_SIZES[kind].min)return [];
+ if(target<(vintage?POKEMON_VINTAGE_SIZE.min:AUCTION_LOT_SIZES[kind].min))return [];
  const bands=Object.keys(weights) as AuctionDrawBand[];
  const stock=new Map(bands.map(band=>[band,pool.filter(card=>auctionDrawBand(card)===band)])),copies=new Map<string,number>(),lot:AuctionCard[]=[];
  for(let slot=0;slot<target;slot++){

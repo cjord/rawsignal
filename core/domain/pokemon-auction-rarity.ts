@@ -20,6 +20,7 @@ export const POKEMON_AUCTION_WEIGHTS:Record<AuctionKind,Record<PokemonAuctionBan
  free:{common:.24,uncommon:.23,rare:.22,epic:.12,alt:.10,over:.055,signature:.02,other:.015},
  paid:{common:.14,uncommon:.17,rare:.20,epic:.14,alt:.17,over:.10,signature:.055,other:.025},
 };
+export const POKEMON_VINTAGE_WEIGHTS:Record<PokemonAuctionBand,number>={common:.32,uncommon:.26,rare:.24,epic:.14,alt:.025,over:.01,signature:.003,other:.002};
 export function pokemonAuctionCopyChance(card:AuctionCard){
  return {common:.1,uncommon:.06,rare:.025,epic:.01,alt:.004,over:.001,signature:.00025,other:.002}[pokemonAuctionBand(card)];
 }

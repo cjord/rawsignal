@@ -8,7 +8,16 @@ export function auctionRevealQuote(auction:Auction,visible:number[]){
  const result=auction.result;
  return {value,fee:value-proceeds,net:proceeds-(result?.bid??0)-(result?.winner==='You'?result.playerExpenses+(auction.entryFee??0):0)};
 }
-export function auctionRarity(card:{rarity?:string;section?:string}|null|undefined){
+function pokemonRarityTone(card:{rarity?:string;section?:string}){
+  if(/special-illustration|secret-hyper/.test(card.section??''))return 'premium';
+  if(/illustration|shiny|gallery/.test(card.section??''))return 'epic';
+  if(/double|ultra/.test(card.section??''))return 'rare';
+  if(/promo/.test(card.section??''))return 'promo';
+  if(/holo/i.test(card.rarity??'')||card.rarity==='Rare')return 'rare';
+ return card.rarity?.toLowerCase()??'unknown';
+}
+export function auctionRarity(card:{rarity?:string;section?:string;market?:'pokemon';game?:string}|null|undefined){
+ if(card?.market==='pokemon'||card?.game==='pokemon')return pokemonRarityTone(card);
  if(/signature|over.?number/i.test(card?.section??''))return 'premium';
  if(/alt/i.test(card?.section??''))return 'epic';
  if(/promo/i.test(card?.section??'')||/^(promo|showcase)$/i.test(card?.rarity??''))return 'promo';

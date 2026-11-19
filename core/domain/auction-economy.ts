@@ -1,6 +1,7 @@
 import type {AuctionCard,RoundBid} from './auction-types.ts';
 
 export function auctionSaleRarity(card:AuctionCard){
+ if(card.market==='pokemon')return ({common:'Commons',uncommon:'Uncommons',rare:'Rares'} as Record<string,string>)[card.rarity.toLowerCase()]||card.rarity||'Other';
  if(/signature/i.test(card.section))return 'Signatures';
  if(/over.?number/i.test(card.section))return 'Over-Numbered';
  if(/alt/i.test(card.section))return 'Alt Arts';

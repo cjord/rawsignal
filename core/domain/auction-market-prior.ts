@@ -1,7 +1,7 @@
 import {auctionRarityBand} from './auction-copy-policy.ts';
 import {auctionDrawBand,auctionDrawWeights,type AuctionDrawBand} from './auction-composition.ts';
 import {holdingKey,type AuctionCard,type AuctionKind,type AuctionMarketPrior} from './auction-types.ts';
-import {pokemonAuctionDrawWeights} from './pokemon-auction.ts';
+import {pokemonPoolWeights} from './pokemon-auction.ts';
 
 export function auctionReferencePrice(prices:number[]){
  if(!prices.length)return 0;
@@ -13,7 +13,7 @@ export function auctionReferencePrice(prices:number[]){
 // draw sequence. Freeze this small public-catalog model once, before round one.
 export function auctionMarketPrior(catalog:AuctionCard[],seed:number,kind:AuctionKind):AuctionMarketPrior{
  const stock=[...new Map(catalog.filter(card=>card.image.trim()&&Number.isSafeInteger(card.cents)&&card.cents>0).map(card=>[holdingKey(card),card])).values()];
- const weights=stock[0]?.market==='pokemon'?pokemonAuctionDrawWeights(seed,kind):auctionDrawWeights(seed,kind),groups=new Map<AuctionDrawBand,AuctionCard[]>();
+ const weights=stock[0]?.market==='pokemon'?pokemonPoolWeights(stock,seed,kind):auctionDrawWeights(seed,kind),groups=new Map<AuctionDrawBand,AuctionCard[]>();
  for(const card of stock){const band=auctionDrawBand(card);groups.set(band,[...(groups.get(band)??[]),card]);}
  const total=[...groups.keys()].reduce((sum,band)=>sum+weights[band],0);
  // Collapse draw-only promo subgroups back to their real rarity cohorts, keeping

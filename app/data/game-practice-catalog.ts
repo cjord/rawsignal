@@ -4,6 +4,7 @@ import {verifyGameCatalogSnapshot,type GameCatalogSnapshot} from '../../core/dom
 import {parseGameScopeMetadata} from '../../core/domain/game-scope-metadata';
 import type {GameMarket} from '../../core/domain/game-profile';
 const pools=new Map<string,{at:number;snapshot:GameCatalogSnapshot}>();
+export const cachedGamePracticePool=(scope:GameScope)=>pools.get(gameScopeKey(scope))?.snapshot??null;
 async function read(path:string,signal:AbortSignal){
  const {response,data}=await requestJson(path,{signal,credentials:'omit',cache:'no-store'});
  if(!response.ok)throw new Error((data as {error?:string})?.error??'Game prices are unavailable. Retry the price check.');

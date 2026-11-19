@@ -6,9 +6,12 @@ import {AUCTION_PAID_ENTRY,type AuctionKind} from '../../core/domain/auction-typ
 import {AUCTION_LOT_SIZES} from '../../core/domain/auction-lots';
 import AuctionLink from './AuctionLink';
 import AuctionDailyArtwork from './AuctionDailyArtwork';
+import PokemonAuctionLobby from './PokemonAuctionLobby';
+import {useAuctionGame} from './AuctionGameContext';
 
-export default function AuctionLobby({available,preparing,imageError,enter,cash,feeBps,pending=false}:{available:boolean;preparing:boolean;imageError:string;enter:(kind:AuctionKind)=>Promise<void>;cash:number;feeBps:number;pending?:boolean}){
- const shell=useAuctionShell();
+export default function AuctionLobby({available,preparing,imageError,enter,cash,feeBps,pending=false,vintageUnlocked=false}:{available:boolean;preparing:boolean;imageError:string;enter:(kind:AuctionKind)=>Promise<void>;cash:number;feeBps:number;pending?:boolean;vintageUnlocked?:boolean}){
+ const shell=useAuctionShell(),game=useAuctionGame();
+ if(game.market==='pokemon')return <PokemonAuctionLobby available={available} preparing={preparing} imageError={imageError} enter={enter} cash={cash} vintageUnlocked={vintageUnlocked}/>;
  return <section className="detail-section auction-lobby"><h2>Your Next Collection {!pending&&<InfoHint label="Auction timing and preparation">Background tabs and reloads do not pause an active round. Review inventory or sell it before entering.</InfoHint>}</h2><p className="auction-lobby-intro">Bid on a themed collection against three rivals with different investigation strategies.</p><div className="auction-lobby-facts"><span>Up to 4 Rounds</span><span>1 Minute per Round</span><span>{feeBps/100}% Selling Fee</span><span>3 Rival Bidders</span></div>
   <div className="auction-entry-options">
    <button className="game-control auction-entry auction-entry-card" type="button" aria-label="Enter Bilgewater Auction House" disabled={!available||preparing} onClick={()=>void enter('free')}><img src="/images/games/auction-entry-free.webp" alt="" width="960" height="640" decoding="async"/><span><strong>Bilgewater Auction House - <em className="auction-entry-free">Free Entry</em></strong><small>{AUCTION_LOT_SIZES.free.min}–{AUCTION_LOT_SIZES.free.max} cards - Premium Cards</small></span></button>

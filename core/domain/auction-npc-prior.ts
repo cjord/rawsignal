@@ -4,11 +4,14 @@ import {CENSUS_SPECIAL_BANDS,investigationCensusBand} from './auction-investigat
 import {npcCategoryFacts} from './auction-npc-category-value.ts';
 import type {AuctionCard,AuctionMarketPrior,AuctionKind,Clue} from './auction-types.ts';
 
-export type NpcValuationKnowledge={count:number;observed:AuctionCard[];random:AuctionCard[];clues:Clue[];prior?:AuctionMarketPrior;round?:number;kind?:AuctionKind;markedBands?:string[]};
+export type NpcValuationKnowledge={count:number;observed:AuctionCard[];random:AuctionCard[];clues:Clue[];prior?:AuctionMarketPrior;round?:number;kind?:AuctionKind;markedBands?:string[];market?:'pokemon';category?:'modern'|'legacy'|'vintage'};
 type Knowledge=NpcValuationKnowledge;
 // Blend only the uncertain remainder, never discount an actually disclosed price.
 // Gameplay calibration, not bid targets/floors: strong evidence can exceed these.
 export const NPC_SPECULATION_WEIGHTS={free:[.14,.11,.085,.06],paid:[.20,.18,.15,.12]} as const;
+// Scope-level Pokémon expectations, not dollar floors or access to hidden lots.
+// Vintage already has strong category evidence and a higher-risk entry tier.
+export const POKEMON_NPC_SPECULATION={free:[.20,.18,.15,.12],paid:[.32,.29,.26,.22],vintage:[.16,.14,.12,.10]} as const;
 const labels:Record<string,string>={Common:'common',Uncommon:'uncommon',Rare:'rare',Epic:'epic','Alt Art':'alt',Overnumbered:'over',Signature:'signature',Other:'other','Chase / Special':'special'};
 const countBands=(band:string)=>band==='special'?CENSUS_SPECIAL_BANDS:[band];
 function disclosedCounts(clues:Clue[]){
@@ -51,7 +54,9 @@ export function applyNpcMarketPrior(knowledge:Knowledge,estimate:number,certaint
  // A small cheap sample does not prove that rare hits are absent. Evidence from
  // category counts progressively replaces this catalog prior; no actual lot total
  // or another bidder's private findings enters this calculation.
- const round=knowledge.round??1,weight=NPC_SPECULATION_WEIGHTS[knowledge.kind??'free'][round-1]*Math.max(0,1-knowledge.observed.length/Math.max(1,knowledge.count));
+ const round=knowledge.round??1,kind=knowledge.kind??'free';
+ const schedule=knowledge.market==='pokemon'?(knowledge.category==='vintage'?POKEMON_NPC_SPECULATION.vintage:POKEMON_NPC_SPECULATION[kind]):NPC_SPECULATION_WEIGHTS[kind];
+ const weight=schedule[round-1]*Math.max(0,1-knowledge.observed.length/Math.max(1,knowledge.count));
  const expected=expectation(knowledge),observed=knowledge.observed.reduce((sum,card)=>sum+card.cents,0);
  // Disclosed category counts are evidence, not the blind starting prior. They
  // remain useful in round four, as do individually marked hidden rarities.

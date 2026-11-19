@@ -6,10 +6,15 @@ import {prepareAuctionLot} from '../data/auction-images';
 import {createPriceGameImageLoader} from '../data/price-game-images';
 import {auctionMarketPrior} from '../../core/domain/auction-market-prior';
 import {auctionNpcRoster} from '../../core/domain/auction-npcs';
+import {useAuctionGame,useAuctionPool} from './AuctionGameContext';
+import {pokemonAuctionPreparationPool} from '../../core/domain/pokemon-auction';
+import {pokemonAuctionCategory} from '../../core/domain/pokemon-auction-houses';
+import {cachedGamePracticePool} from '../data/game-practice-catalog';
 
 export const AUCTION_INTRO_MS=7000;
 export type AuctionEntry={seed:number;kind:AuctionKind;rivals?:string[]};
 export function useAuctionEntry(catalog:AuctionCard[],transact:(update:(save:AuctionSave)=>AuctionSave)=>AuctionSave|null,unlock:()=>void,checkMarket?:()=>Promise<AuctionCard[]|null>){
+ const game=useAuctionGame(),snapshot=useAuctionPool();
  const [entry,setEntry]=useState<AuctionEntry|null>(null),[imageError,setImageError]=useState(''),[checking,setChecking]=useState(false),checkingRef=useRef(false),mounted=useRef(true);
  const loader=useRef(createPriceGameImageLoader()),pending=useRef<AbortController|null>(null),finishIntro=useRef<(()=>void)|null>(null);
  const cancel=()=>{pending.current?.abort();pending.current=null;finishIntro.current?.();finishIntro.current=null;setEntry(null)};
@@ -25,9 +30,12 @@ export function useAuctionEntry(catalog:AuctionCard[],transact:(update:(save:Auc
   if(!mounted.current)return;
   const saved=transact(current=>{
    if(current.auction||current.drafts?.[kind])return current;
-   const seed=crypto.getRandomValues(new Uint32Array(1))[0],pool=poolCatalog.filter(card=>/^https?:\/\//.test(card.image)).map(card=>({...card}));
+   const seed=crypto.getRandomValues(new Uint32Array(1))[0],eligible=poolCatalog.filter(card=>/^https?:\/\//.test(card.image)),pool=game.market==='pokemon'?pokemonAuctionPreparationPool(eligible,seed):eligible.map(card=>({...card}));
    if(pool.length<6)return current;
-   return {...current,drafts:{...current.drafts,[kind]:{seed,kind,pool,marketPrior:auctionMarketPrior(pool,seed,kind),rivals:auctionNpcRoster(seed).map(profile=>profile.name)}}};
+   const frozen=snapshot?(cachedGamePracticePool(snapshot.scope)??snapshot):null;
+   const identity=game.market==='pokemon'&&frozen?{market:'pokemon' as const,rulesVersion:1 as const,scope:frozen.scope,catalogVersion:frozen.version,category:pokemonAuctionCategory(frozen.scope)??undefined}:{};
+   if(game.market==='pokemon'&&!snapshot)return current;
+   return {...current,...identity,drafts:{...current.drafts,[kind]:{...identity,seed,kind,pool,marketPrior:auctionMarketPrior(pool,seed,kind),rivals:auctionNpcRoster(seed).map(profile=>profile.name)}}};
   });
   const draft=saved?.drafts?.[kind];if(!draft||saved?.auction)return;
   unlock();const controller=new AbortController();pending.current=controller;
@@ -40,7 +48,7 @@ export function useAuctionEntry(catalog:AuctionCard[],transact:(update:(save:Auc
    const prepare=async()=>{
     if(draft.lot)return draft.lot;
     const lot=await prepareAuctionLot(draft.pool??catalog,loader.current,seed,kind,controller.signal);
-    if(!controller.signal.aborted&&lot.length)transact(current=>current.drafts?.[kind]?.seed===seed?{...current,drafts:{...current.drafts,[kind]:{seed,kind,lot,marketPrior:draft.marketPrior,rivals:draft.rivals}}}:current);
+    if(!controller.signal.aborted&&lot.length)transact(current=>current.drafts?.[kind]?.seed===seed?{...current,drafts:{...current.drafts,[kind]:{...draft,pool:undefined,lot}}}:current);
     return lot;
    };
    const [lot]=await Promise.all([prepare(),intro]);

@@ -1,7 +1,10 @@
 import type {Card} from "./types.ts";
 import {feeFor,holdingKey,sampleIndices,type AuctionCard,type Holding} from "./auction-types.ts";
+import {pokemonAuctionCatalog} from './pokemon-auction.ts';
+import type {GameMarket} from './game-profile.ts';
 
-export function auctionCatalog(cards:Card[]):AuctionCard[]{
+export function auctionCatalog(cards:Card[],market:GameMarket='riftbound'):AuctionCard[]{
+ if(market==='pokemon')return pokemonAuctionCatalog(cards);
  return [...new Map(cards.filter(card=>card.game==="riftbound"&&card.marketPrice!=null&&Number.isFinite(card.marketPrice)&&card.marketPrice>0)
   .map(card=>[holdingKey(card),{productId:card.productId,printing:card.printing,name:card.name,image:card.image,set:card.set,rarity:card.rarity,section:card.section,cents:Math.round(card.marketPrice!*100)}])).values()].filter(card=>card.cents>0&&Number.isSafeInteger(card.cents));
 }

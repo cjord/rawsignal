@@ -1,10 +1,11 @@
 import {AUCTION_LOT_SIZES,generateAuctionLot} from '../../core/domain/auction-lots.ts';
 import type {AuctionCard,AuctionKind} from '../../core/domain/auction-types';
 import type {PriceGameImageLoader} from './price-game-images';
+import {pokemonVintagePool,POKEMON_VINTAGE_SIZE} from '../../core/domain/pokemon-auction-houses.ts';
 
 export async function prepareAuctionLot(catalog:AuctionCard[],loader:PriceGameImageLoader,seed:number,kind:AuctionKind='free',signal?:AbortSignal):Promise<AuctionCard[]>{
  let pool=catalog.filter(card=>card.image.trim()&&!loader.failed(card.image));
- const verified=new Set<string>(),minimum=AUCTION_LOT_SIZES[kind].min;
+ const verified=new Set<string>(),minimum=pokemonVintagePool(pool)?POKEMON_VINTAGE_SIZE.min:AUCTION_LOT_SIZES[kind].min;
  while(pool.length>=6&&!signal?.aborted){
   // Failed URLs leave the stock pool, not the seed: preserve the advertised theme.
   const lot=generateAuctionLot(pool,seed,kind);

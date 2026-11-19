@@ -1,12 +1,14 @@
 "use client";
 import {useEffect,useState} from 'react';
+import {useAuctionGame} from './AuctionGameContext';
 import {useAccount} from '../account/context';
 import AuctionLink from './AuctionLink';
 import {cloudStatus,flushCloud} from '../account/storage';
 import {publicProfilePath,type PublicAuctionSettings} from '../../core/domain/auction-community';
 export default function AuctionPublicSettings(){
- const account=useAccount(),[settings,setSettings]=useState<PublicAuctionSettings|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[copied,setCopied]=useState('');
- useEffect(()=>{if(!account.user||!account.features?.community)return;const controller=new AbortController();void fetch('/api/account/auction-profile',{cache:'no-store',signal:controller.signal}).then(async response=>{if(!response.ok)throw new Error('Public profile settings are unavailable.');setSettings(await response.json())}).catch(error=>{if(!controller.signal.aborted)setMessage(error.message)});return()=>controller.abort()},[account.user,account.features?.community]);
+ const game=useAuctionGame(),account=useAccount(),[settings,setSettings]=useState<PublicAuctionSettings|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[copied,setCopied]=useState('');
+ useEffect(()=>{if(game.market==='pokemon'||!account.user||!account.features?.community)return;const controller=new AbortController();void fetch('/api/account/auction-profile',{cache:'no-store',signal:controller.signal}).then(async response=>{if(!response.ok)throw new Error('Public profile settings are unavailable.');setSettings(await response.json())}).catch(error=>{if(!controller.signal.aborted)setMessage(error.message)});return()=>controller.abort()},[account.user,account.features?.community,game.market]);
+ if(game.market==='pokemon')return <p className="games-note">Your Pokémon showcase is private. Frozen links can be shared now; public account profiles and rankings follow in the community stage.</p>;
  if(account.loading||!account.enabled)return null;
  if(!account.user)return <section className="detail-section"><h2>Account Showcase</h2><p className="games-note"><a href="/account">Log In</a> to publish a live showcase or join the community leaderboard. Existing guest progress will not transfer.</p></section>;
  if(!account.features?.community)return <p className="games-note">Public account showcases are not enabled in this environment yet.</p>;

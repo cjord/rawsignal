@@ -39,7 +39,7 @@ export default function AuctionCollection({auction,visible,done,skip,choose}:{au
 function HiddenCard({auction,index,choose}:{auction:Auction;index:number;choose?:()=>void}){
  const card=auction.lot[index],marked=auction.rarityKnown?.includes(index);
  const label=choose?`Reveal marked card ${index+1}`:`Unrevealed card ${index+1}${marked?`, ${auctionRarityLabel(card)} rarity only`:''}${auction.topCardSlot===index?', top card':''}`;
- const content=<><span className="auction-back-art"><img src="/images/games/riftbound-card-back.webp" alt=""/><b aria-hidden="true">?</b></span>{marked&&<small className="auction-rarity-marker">{auction.topCardSlot===index?'Top Card · ':''}{auctionRarityLabel(card)} · Rarity Only</small>}</>;
+ const content=<><span className="auction-back-art"><img src={card.market==='pokemon'?'/images/games/pokemon-card-back-v1.webp':'/images/games/riftbound-card-back.webp'} alt=""/><b aria-hidden="true">?</b></span>{marked&&<small className="auction-rarity-marker">{auction.topCardSlot===index?'Top Card · ':''}{auctionRarityLabel(card)} · Rarity Only</small>}</>;
  const props={className:'auction-card is-hidden','data-rarity':marked?auctionRarity(card):undefined,'aria-label':label};
  return choose?<button {...props} data-follow-up type="button" onClick={choose}>{content}</button>:<div {...props}>{content}</div>;
 }

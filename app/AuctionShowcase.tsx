@@ -1,4 +1,6 @@
 "use client";
+
+import {useAuctionGame} from './games/AuctionGameContext';
 import {useEffect,useMemo,useState} from 'react';
 import AuctionHub from './games/AuctionHub';
 import AuctionLink from './games/AuctionLink';
@@ -24,25 +26,25 @@ import {useAccount} from './account/context';
 
 function ShowcasePending({error}:{error:string|null}){return error?<p role="alert">{error} Return to Auction House to review your saved game. Nothing has been overwritten.</p>:<AuctionProfileSkeleton controls/>;}
 function ShowcaseBody({shared,save,error,editing,status,catalog,cards,transact,toggle,share,inspect}:{shared:AuctionProfileShare|null|undefined;save:ReturnType<typeof useAuctionSave>['save'];error:string|null;editing:boolean;status:string;catalog:AuctionCard[];cards:Parameters<typeof AuctionShowcaseGallery>[0]['cards'];transact:ReturnType<typeof useAuctionSave>['transact'];toggle:()=>void;share:(snapshot:AuctionProfileShare)=>void;inspect:(card:AuctionCard)=>void}){
- const account=useAccount(),canEdit=!shared&&!save?.auction;
+ const game=useAuctionGame(),account=useAccount(),canEdit=!shared&&!save?.auction;
  return <>   {!shared&&save&&<AuctionShowcaseControls save={save} error={error} editing={editing} loaded={status==='success'&&(!account.user||Boolean(account.user.publicUsername))} toggle={toggle} share={()=>share({...auctionProfileSnapshot(save,catalog),...(account.user?{name:account.user.publicUsername??''}:{})})}/>}
    {!shared&&account.user&&!account.user.publicUsername&&<p className="games-note">Choose a <AuctionLink href="/account#account-name">public username in Profile</AuctionLink> before sharing.</p>}
-   <AuctionStatistics shared={Boolean(shared)} save={shared?{...initialAuctionSave(),statistics:shared.stats}:save!}/>
+   <AuctionStatistics shared={Boolean(shared)} save={shared?{...initialAuctionSave(game.market),statistics:shared.stats}:save!}/>
    {editing&&canEdit&&save?<>{!account.user&&<section className="detail-section"><label className="auction-profile-name">Snapshot Display Name (optional)<input maxLength={40} value={save.profileName??''} onChange={event=>{const name=event.target.value;transact(current=>({...current,profileName:name}))}}/></label><p className="games-note">Used in frozen snapshot links. Account showcase visibility and its public display name are controlled in Profile and visibility settings.</p></section>}<AuctionShowcaseEditor save={save} catalog={catalog} transact={transact}/></>:<AuctionShowcaseGallery cards={cards} shared={Boolean(shared)} inspect={inspect}/>}
    {!shared&&<section className="auction-sharing-settings" aria-label="Sharing & Visibility"><h2>Sharing &amp; Visibility</h2><AuctionPublicSettings/></section>}
 </>;
 }
 
 export default function AuctionShowcase({catalogCache=false}:{catalogCache?:boolean}){
- const account=useAccount(),appearance=useAuctionAppearance();
- const {items,status,reload,error:marketError,manifest,checking}=useAuctionCatalog(!account.loading&&!account.error,catalogCache),catalog=useMemo(()=>auctionCatalog(items),[items]);
+ const game=useAuctionGame(),account=useAccount(),appearance=useAuctionAppearance();
+ const {items,status,reload,error:marketError,manifest,checking}=useAuctionCatalog(!account.loading&&!account.error,catalogCache),catalog=useMemo(()=>auctionCatalog(items,game.market),[items,game.market]);
  const {save,error,transact}=useAuctionSave(),[shared,setShared]=useState<AuctionProfileShare|null|undefined>(undefined),[invalid,setInvalid]=useState(false),[editing,setEditing]=useState(false),[sharing,setSharing]=useState<AuctionProfileShare|null>(null),[inspect,setInspect]=useState<AuctionCard|null>(null);
- useEffect(()=>{const read=()=>{try{setShared(window.location.hash?decodeProfileSnapshot(window.location.hash.slice(1)):null);setInvalid(false)}catch{setInvalid(true);setShared(null)}};read();window.addEventListener('hashchange',read);return()=>window.removeEventListener('hashchange',read)},[]);
+ useEffect(()=>{const read=()=>{try{const decoded=window.location.hash?decodeProfileSnapshot(window.location.hash.slice(1)):null;if(decoded&&(decoded.market??'riftbound')!==game.market)throw new Error('Wrong showcase market');setShared(decoded);setInvalid(false)}catch{setInvalid(true);setShared(null)}};read();window.addEventListener('hashchange',read);return()=>window.removeEventListener('hashchange',read)},[game.market]);
  const snapshot=shared??(save?auctionProfileSnapshot(save,catalog):null),metadata=new Map(catalog.map(card=>[holdingKey(card),card]));
- const cards=snapshot?.cards.map(([productId,printing,name,set,rarity,section,cents])=>({productId,printing,name,set,rarity,section,cents,image:metadata.get(`${productId}:${printing}`)?.image??''}))??[];
- const backdrop=useMemo(()=>appearanceArtwork(appearance.appearance,items),[appearance.appearance,items]);
+ const cards=snapshot?.cards.map(([productId,printing,name,set,rarity,section,cents])=>({productId,printing,name,set,rarity,section,cents,...(game.market==='pokemon'?{market:'pokemon' as const}:{}),image:metadata.get(`${productId}:${printing}`)?.image??''}))??[];
+ const backdrop=useMemo(()=>appearanceArtwork(appearance.appearance,items,game.market),[appearance.appearance,items,game.market]);
  const ready=!account.loading&&shared!==undefined&&Boolean(snapshot)&&!invalid&&["success","empty","error"].includes(status);
- return <GamesShell auction><div className="auction-showcase-scene"><AuctionLink className="games-back" href="/games/riftbound-auction">← Auction House</AuctionLink><header className="games-heading"><span className="games-eyebrow">Riftbound Auction House</span><h1>{shared?.name?`${shared.name}’s Showcase`:'Auction Showcase'}</h1><p>{shared?`Shared snapshot · ${new Date(shared.at).toLocaleString()} · Self-reported virtual cards and statistics.`:'Your auction record and a hand-picked display of cards you own. Showcase cards stay protected from inventory sales.'}</p></header><AuctionHub/>
+ return <GamesShell auction><div className="auction-showcase-scene"><AuctionLink className="games-back" href="/games/riftbound-auction">← Auction House</AuctionLink><header className="games-heading"><span className="games-eyebrow">{game.label} Auction House</span><h1>{shared?.name?`${shared.name}’s Showcase`:'Auction Showcase'}</h1><p>{shared?`Shared snapshot · ${new Date(shared.at).toLocaleString()} · Self-reported virtual cards and statistics.`:'Your auction record and a hand-picked display of cards you own. Showcase cards stay protected from inventory sales.'}</p></header><AuctionHub/>
   {invalid?<p role="alert">This showcase link is invalid or too large. Your saved game has not been changed.</p>:!ready?<ShowcasePending error={error}/>:<>
    {!shared&&<AuctionBackdropOverride cards={backdrop}/>}
    <ShowcaseBody shared={shared} save={save} error={error} editing={editing} status={status} catalog={catalog} cards={cards} transact={transact} toggle={()=>setEditing(value=>!value)} share={setSharing} inspect={setInspect}/>

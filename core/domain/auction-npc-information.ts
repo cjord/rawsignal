@@ -47,6 +47,6 @@ export function npcRoundInformation(auction:Auction,index:number,_sample:number[
  const randomSlots=publicAuctionSlots(auction);
  const nextFindings=result?[...findings,{...result.clue,round:auction.round,reveals:auctionClueReveals(personal,result)}]:findings;
  const rarityKnown=result?.rarityKnown??personal.rarityKnown??[],markedBands=[...new Set([...rarityKnown,...identified])].filter(slot=>!slots.includes(slot)).map(slot=>investigationCensusBand(auction.lot[slot]));
- const value=npcKnowledgeValue({count:auction.lot.length,observed:slots.map(index=>auction.lot[index]),random:randomSlots.map(index=>auction.lot[index]),clues:valuationClues(nextFindings),prior:auction.marketPrior,round:auction.round,kind:auction.kind,markedBands});
+ const value=npcKnowledgeValue({count:auction.lot.length,observed:slots.map(index=>auction.lot[index]),random:randomSlots.map(index=>auction.lot[index]),clues:valuationClues(nextFindings),prior:auction.marketPrior,round:auction.round,kind:auction.kind,markedBands,...(auction.market==='pokemon'?{market:'pokemon' as const,category:auction.category}:{})});
  return {investigations,inspected,identified,rarityKnown,findings:nextFindings,prices:slots.map(index=>auction.lot[index].cents),...value};
 }

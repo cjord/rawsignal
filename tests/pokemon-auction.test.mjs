@@ -9,6 +9,9 @@ import {auctionRarityLabel} from '../core/domain/auction-copy-policy.ts';
 import {beginAuction,lockBid,tickAuction,nextAuctionRound,buyInformation} from '../core/domain/auction-engine.ts';
 import {parseAuctionSave} from '../core/domain/auction-save.ts';
 import {validAccountValue} from '../core/domain/account-data.ts';
+import {unlockPokemonVintage} from '../core/domain/pokemon-auction-wallet.ts';
+import {pokemonAuctionCategory} from '../core/domain/pokemon-auction-houses.ts';
+import {auctionProfileSnapshot,encodeProfileSnapshot,decodeProfileSnapshot,auctionProfilePath} from '../core/domain/auction-profile-share.ts';
 
 const rows=[['Common','pokemon-commons',.12],['Uncommon','pokemon-uncommons',.25],['Rare','pokemon-rares',.5],['Holo Rare','pokemon-holo-rares',1],['Ultra Rare','ultra-rares',8],['Illustration Rare','illustration-rares',20],['Special Illustration Rare','special-illustration-rares',120],['Promo','promos',12]];
 const cards=Array.from({length:160},(_,i)=>{const [rarity,section,marketPrice]=rows[i%8];return {game:'pokemon',productId:i+1,printing:'Holofoil',name:'Card '+i,set:'SV01: Scarlet & Violet',rarity,section,marketPrice,image:'https://images.example/'+i+'.jpg',number:''+i,year:2023}});
@@ -71,4 +74,31 @@ test('Pokémon investigation effects and public clues keep hidden information pr
   assert.doesNotThrow(()=>parseAuctionSave(JSON.stringify(next),'pokemon'));
  }
  assert.ok(save.auction.priced.length>=Math.ceil(save.auction.lot.length*.05)+1);
+});
+test('era categories are exclusive and vintage requires the earned milestone plus $200 cash',()=>{
+ assert.equal(pokemonAuctionCategory({market:'pokemon',eras:['wotc','ex','dp'],sets:[]}), 'vintage');
+ assert.equal(pokemonAuctionCategory({market:'pokemon',eras:['bw','xy','sm'],sets:[]}), 'legacy');
+ assert.equal(pokemonAuctionCategory({market:'pokemon',eras:['wotc','sv'],sets:[]}),null);
+ const vintage=catalog.map(card=>({...card,set:'Base Set',year:1999})),lot=generateAuctionLot(vintage,42,'paid');
+ assert.ok(lot.length>=25&&lot.length<=55);
+ let save={...initialAuctionSave('pokemon'),drafts:{paid:{seed:42,kind:'paid',market:'pokemon',rulesVersion:1,scope:{market:'pokemon',eras:['wotc'],sets:[]},catalogVersion:'a'.repeat(64),lot,marketPrior:auctionMarketPrior(vintage,42,'paid')}}};
+ assert.equal(beginAuction(save,vintage,1000,lot,42,'paid'),save);
+ save=unlockPokemonVintage({...save,wallet:{...save.wallet,cash:1000000}},vintage);
+ assert.equal(save.vintageUnlocked,true);
+ save={...save,wallet:{...save.wallet,cash:20000}};
+ const entered=beginAuction(save,vintage,1000,lot,42,'paid');assert.equal(entered.auction.entryFee,20000);assert.equal(entered.wallet.cash,0);
+ assert.doesNotThrow(()=>parseAuctionSave(JSON.stringify(entered),'pokemon'));
+ const insufficient={...save,wallet:{...save.wallet,cash:19999}};assert.equal(beginAuction(insufficient,vintage,1000,lot,42,'paid'),insufficient);
+});
+test('vintage unlock includes after-fee showcase value and cannot be earned from unpriced cards',()=>{
+ const save={...initialAuctionSave('pokemon'),wallet:{cash:250000,feeBps:1000,inventory:[]},showcase:[{productId:1,printing:'Holofoil',quantity:1}]};
+ assert.equal(unlockPokemonVintage(save,[]),save);
+ const unlocked=unlockPokemonVintage(save,[{...catalog[0],cents:900000}]);assert.equal(unlocked.vintageUnlocked,true);
+ assert.equal(unlockPokemonVintage(unlocked,[]),unlocked);
+});
+test('Pokémon frozen showcases carry a market/version and preserve legacy Riftbound links',()=>{
+ const snapshot=auctionProfileSnapshot(initialAuctionSave('pokemon'),catalog);
+ assert.equal(snapshot.v,2);assert.equal(snapshot.market,'pokemon');assert.deepEqual(decodeProfileSnapshot(encodeProfileSnapshot(snapshot)),snapshot);
+ assert.ok(auctionProfilePath(snapshot).startsWith('/games/pokemon-auction/showcase#'));
+ const legacy=auctionProfileSnapshot(initialAuctionSave(),[]);assert.equal(legacy.v,1);assert.equal(legacy.market,undefined);assert.ok(auctionProfilePath(legacy).startsWith('/games/riftbound-auction/showcase#'));
 });

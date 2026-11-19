@@ -64,7 +64,10 @@ function validAuction(value:unknown):value is Auction{
  if(!validRivals(auction.rivals))return false;
  return validAuctionEntry(auction)&&validRoundMetadata(auction)&&validSnapshot(auction)&&validNpcs(auction)&&validClues(auction)&&validPendingInspection(auction)&&validBids(auction.bids)&&Array.isArray(auction.bidHistory)&&auction.bidHistory.length<=4&&auction.bidHistory.every(validBids)&&validResult(auction);
 }
-function validAuctionEntry(auction:Auction){return auction.kind===undefined&&auction.entryFee===undefined||auction.kind==='free'&&auction.entryFee===0||auction.kind==='paid'&&auction.entryFee===5000}
+function validAuctionEntry(auction:Auction){
+ if(auction.market==='pokemon'&&auction.category==='vintage')return auction.kind==='paid'&&auction.entryFee===20000;
+ return auction.kind===undefined&&auction.entryFee===undefined||auction.kind==='free'&&auction.entryFee===0||auction.kind==='paid'&&auction.entryFee===5000;
+}
 function validPendingInspection(auction:Auction){return auction.pendingFollowUp===undefined||auction.pendingFollowUp===true&&auction.stage==='round'&&auction.bought&&auction.clues.some(clue=>clue.id==='follow-up-v4'&&clue.round===auction.round)&&followUpSlots(auction).length>0;}
 function validProfile(save:AuctionSave){return (save.showcase===undefined||validShowcase(save.showcase))&&(save.profileName===undefined||text(save.profileName,40));}
 function validateProfile(save:AuctionSave){
@@ -105,5 +108,5 @@ function validDailyProgress(save:AuctionSave){
  if(daily.receipts!==undefined&&!validAuctionReceipts(daily.receipts))return false;
  if(!record(daily)||!validDailyManifest(daily.manifest)||daily.date!==daily.manifest.date||!integer(daily.index,5)||!integer(daily.reward)||!['playing','completed','failed'].includes(daily.status)||!record(daily.save)||daily.save.daily!==undefined)return false;
  if((daily.status==='completed')!==(daily.index===5)||daily.status!=='completed'&&daily.reward!==0)return false;
- try{parseAuctionSave(JSON.stringify(daily.save));return true}catch{return false}
+ try{parseAuctionSave(JSON.stringify(daily.save),save.market??'riftbound');return true}catch{return false}
 }

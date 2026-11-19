@@ -1,6 +1,8 @@
 import type {Card} from './types.ts';
 import {holdingKey} from './auction-types.ts';
+import type {GameMarket} from './game-profile.ts';
 export const AUCTION_APPEARANCE_KEY='raw-signal-auction-appearance-v1';
+export const POKEMON_AUCTION_APPEARANCE_KEY='raw-signal-pokemon-auction-appearance-v1';
 export const AUCTION_BACKDROP_LIMIT=12;
 export type AuctionAppearance={version:1;cards:{productId:number;printing:string}[]};
 export const defaultAuctionAppearance=():AuctionAppearance=>({version:1,cards:[]});
@@ -14,7 +16,7 @@ export function parseAuctionAppearance(raw:string|null):AuctionAppearance{
  if(raw.length>6000)throw new Error('Saved profile appearance is too large.');
  const value:unknown=JSON.parse(raw);if(!validAuctionAppearance(value))throw new Error('Saved profile appearance is invalid.');return value;
 }
-export function appearanceArtwork(appearance:AuctionAppearance,catalog:Card[]){
- const metadata=new Map(catalog.filter(card=>card.game==='riftbound').map(card=>[holdingKey(card),card]));
+export function appearanceArtwork(appearance:AuctionAppearance,catalog:Card[],market:GameMarket='riftbound'){
+ const metadata=new Map(catalog.filter(card=>card.game===market).map(card=>[holdingKey(card),card]));
  return appearance.cards.flatMap(holding=>{const card=metadata.get(holdingKey(holding));return card&&/^https?:\/\//.test(card.image)?[{image:card.image,rarity:card.rarity,section:card.section}]:[]});
 }

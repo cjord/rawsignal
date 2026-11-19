@@ -1,5 +1,7 @@
 "use client";
-import {useCallback,useEffect,useMemo,useRef,useState,type ComponentProps} from 'react';
+
+import {useAuctionGame} from './games/AuctionGameContext';
+import {useCallback,useEffect,useMemo,useRef,useState,type ComponentProps,type ReactNode} from 'react';
 import {GamesShell} from './GamesView';
 import {useAuctionCatalog} from './data/useAuctionCatalog';
 import {useAuctionSave} from './games/useAuctionSave';
@@ -25,6 +27,11 @@ import {selectFollowUp} from '../core/domain/auction-follow-up';
 import {useAccount} from './account/context';
 import AuctionMarketStatus from './games/AuctionMarketStatus';
 import AuctionLobbySkeleton from './games/AuctionLobbySkeleton';
+import {unlockPokemonVintage} from '../core/domain/pokemon-auction-wallet';
+function useVintageUnlock(catalog:Parameters<typeof unlockPokemonVintage>[1],root:AuctionSave|null,transact:(update:(save:AuctionSave)=>AuctionSave)=>unknown,dailyMode:boolean){
+ const game=useAuctionGame();
+ useEffect(()=>{if(game.market==='pokemon'&&!dailyMode&&catalog.length)transact(current=>unlockPokemonVintage(current,catalog))},[game.market,dailyMode,catalog,transact,root?.revision]);
+}
 
 function AuctionSaveFeedback({save,error,reset}:{save:AuctionSave|null;error:string|null;reset:()=>void}){
  return <>{error&&<p className="auction-warning" role="alert">{error} {!save&&<button className="game-control" type="button" onClick={()=>{if(window.confirm('Reset this game to $2,500 cash and no inventory?'))reset()}}>Reset saved game</button>}</p>}{!save&&!error&&<p className="auction-loading-announcement" role="status">Loading saved game…</p>}</>;
@@ -36,15 +43,15 @@ function AuctionPageHeader({save,error,audio,auto,transact}:{save:AuctionSave|nu
 function NormalAuctionLobby({save,saveError,dailyMode,entry,available,...wallet}:{save:AuctionSave|null;saveError:string|null;dailyMode:boolean;entry:ReturnType<typeof useAuctionEntry>;available:boolean}&Omit<ComponentProps<typeof AuctionWallet>,'save'>){
  if(!save)return dailyMode||saveError?null:<AuctionLobbySkeleton/>;
  if(save.auction||dailyMode)return null;
- return <div className="auction-lobby-scene"><AuctionWallet save={save} {...wallet}/>{entry.checking&&<p role="status">Checking Latest Available Prices…</p>}<AuctionLobby available={available} preparing={Boolean(entry.entry)||entry.checking} imageError={entry.imageError} enter={entry.enter} cash={save.wallet.cash} feeBps={1000}/><AuctionStatistics save={save}/></div>;
+ return <div className="auction-lobby-scene"><AuctionWallet save={save} {...wallet}/>{entry.checking&&<p role="status">Checking Latest Available Prices…</p>}<AuctionLobby available={available} preparing={Boolean(entry.entry)||entry.checking} imageError={entry.imageError} enter={entry.enter} cash={save.wallet.cash} feeBps={1000} vintageUnlocked={save.vintageUnlocked}/><AuctionStatistics save={save}/></div>;
 }
 function AuctionDataNote({dailyMode}:{dailyMode:boolean}){
  return <p className="games-note">{dailyMode?'TCGCSV / TCGplayer Near Mint prices frozen in the shared UTC-day snapshot. Challenge wins auto-sell at those prices less a fixed 10% fee.':'TCGCSV / TCGplayer Near Mint market pricing. Auction contents/prices freeze on entry; owned inventory is repriced from the current loaded catalog. Price refreshes use existing cached feeds, not real-time sale quotes.'} Missing prices remain unavailable. Clearing browser storage removes progress. Casual single-player only; local saves and daily limits are not tamper-proof.</p>;
 }
-export default function RiftboundAuctionHouse({dailyMode=false,catalogCache=false}:{dailyMode?:boolean;catalogCache?:boolean}){
- const account=useAccount();
+export function AuctionHouseSession({dailyMode=false,catalogCache=false,session,poolControls}:{dailyMode?:boolean;catalogCache?:boolean;session:ReturnType<typeof useAuctionSave>;poolControls?:ReactNode}){
+ const game=useAuctionGame(),account=useAccount();
  const {items,status,reload,error:catalogError,manifest,checking,checkLatest}=useAuctionCatalog(!account.loading&&!account.error,catalogCache);
- const catalog=useMemo(()=>auctionCatalog(items),[items]),{save:root,error,transact:saveRoot,reset}=useAuctionSave();
+ const catalog=useMemo(()=>auctionCatalog(items,game.market),[items,game.market]),{save:root,error,transact:saveRoot,reset}=session;
  const [now,setNow]=useState(()=>Date.now()),arena=useRef<HTMLDivElement>(null);
  const daily=root?.daily?.date===dailyAuctionDate(now)?root.daily:null;
  const save=dailyMode?(daily?.status==='playing'?daily.save:null):root;
@@ -58,11 +65,13 @@ export default function RiftboundAuctionHouse({dailyMode=false,catalogCache=fals
  const reveal=useAuctionReveal(auction,!celebrating),audio=useAuctionSound(auction,now,reveal.visible.length);
  const auto=useAuctionAutoAdvance(auction,now,transact);
  const entry=useAuctionEntry(catalog,transact,audio.unlock,dailyMode?undefined:checkLatest);
+ useVintageUnlock(catalog,root,transact,dailyMode);
  useEffect(()=>{const tick=()=>{const time=Date.now();setNow(time);transact(current=>tickAuction(current,time))};const interval=window.setInterval(tick,250);window.addEventListener('visibilitychange',tick);return()=>{clearInterval(interval);window.removeEventListener('visibilitychange',tick)}},[transact]);
  useAuctionNavigation(arena,auction,celebrating);
  const ready=status==='success',available=ready&&!checking&&catalog.filter(card=>card.image.trim()).length>=6;
  return <GamesShell auction wide={Boolean(auction)}><a className="games-back" href="/games">← Games</a><AuctionPageHeader save={save} error={error} audio={audio} auto={auto} transact={transact}/>
   <AuctionSaveFeedback save={root} error={error} reset={reset}/>
+  {!auction&&poolControls}
   {dailyMode&&root&&<AuctionDaily root={root} now={now} transact={saveRoot} enter={entry.enter} preparing={Boolean(entry.entry)}/>}
   <NormalAuctionLobby save={save} saveError={error} dailyMode={dailyMode} entry={entry} available={available} catalog={catalog} reset={reset} loading={status==='loading'||status==='idle'}/>
   <AuctionMarketStatus status={status} error={catalogError} manifest={manifest} reload={reload} checking={checking}/>
@@ -72,3 +81,4 @@ export default function RiftboundAuctionHouse({dailyMode=false,catalogCache=fals
   <AuctionDataNote dailyMode={dailyMode}/>
  </GamesShell>;
 }
+export default function RiftboundAuctionHouse(props:{dailyMode?:boolean;catalogCache?:boolean}){const session=useAuctionSave();return <AuctionHouseSession {...props} session={session}/>}

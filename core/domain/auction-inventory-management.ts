@@ -10,7 +10,7 @@ export function managedInventory(save:AuctionSave,catalog:AuctionCard[],cards:Ca
  const metadata=new Map(cards.map(card=>[holdingKey(card),card]));
  const rows=inventoryQuote(save.wallet.inventory,catalog,1000).rows.map(row=>{
   const card=metadata.get(holdingKey(row.holding))??row.card;
-  return {...row,key:holdingKey(row.holding),name:card?.name??`Card ${row.holding.productId}`,image:card?.image??'',set:card?.set??'',rarity:card?auctionSaleRarity({...card,cents:row.card?.cents??0}):'Unknown',metadata:card};
+  return {...row,key:holdingKey(row.holding),name:card?.name??`Card ${row.holding.productId}`,image:card?.image??'',set:card?.set??'',rarity:card?auctionSaleRarity({...card,market:save.market,cents:row.card?.cents??0}):'Unknown',metadata:card};
  });
  const search=text(filters.search.trim()),matched=rows.filter(row=>(!search||text(`${row.name} ${row.set} ${row.holding.printing}`).includes(search))&&(!filters.rarity||row.rarity===filters.rarity)&&(!filters.set||row.set===filters.set)&&(filters.availability==='all'||(filters.availability==='priced')===(row.net!==null)));
  matched.sort((a,b)=>inventoryOrder(a,b,filters.sort));
@@ -22,12 +22,20 @@ function inventoryOrder(a:ManagedRow,b:ManagedRow,sort:InventoryFilters['sort'])
  if(sort==='name')return tie();
  if(sort==='quantity-desc')return b.holding.quantity-a.holding.quantity||tie();
  if(sort==='rarity-desc'){
-  const rank=(rarity:string)=>['Unknown','Other','Commons','Uncommons','Rares','Epics','Alt Arts','Showcase','Promo','Over-Numbered','Signatures'].indexOf(rarity);
-  return rank(b.rarity)-rank(a.rarity)||tie();
+  return inventoryRarityRank(b.rarity)-inventoryRarityRank(a.rarity)||tie();
  }
  if(a.net===null||b.net===null)return Number(a.net===null)-Number(b.net===null)||tie();
  if(sort==='unit-desc')return b.card!.cents-a.card!.cents||tie();
  return (sort==='value-asc'?a.net-b.net:b.net-a.net)||tie();
+}
+function inventoryRarityRank(rarity:string){
+ const legacy=['Unknown','Other','Commons','Uncommons','Rares','Epics','Alt Arts','Showcase','Promo','Over-Numbered','Signatures'].indexOf(rarity);
+ if(legacy>=0)return legacy;
+ if(/special illustration|secret|hyper|alternate/i.test(rarity))return 10;
+ if(/illustration|gallery|shiny|radiant/i.test(rarity))return 8;
+ if(/ultra|\b(?:ex|gx|vmax|vstar)\b/i.test(rarity))return 6;
+ if(/double|holo/i.test(rarity))return 5;
+ return 0;
 }
 export function inventorySalePlan(save:AuctionSave,catalog:AuctionCard[],keys:readonly string[],keep=0){
  if(!Number.isSafeInteger(keep)||keep<0)return {rows:[],copies:0,net:0};
