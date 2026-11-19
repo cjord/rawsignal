@@ -6,8 +6,10 @@ first batches cover catalog foundations and Showdown practice/daily challenges,
 now released on staging. Normal Pokémon auctions were implemented in the
 [November 19 staged auction work](pokemon-auction-stages-2026-11-19.md), including
 the user-approved Modern / Legacy / Vintage split. Daily auctions and frozen
-results are also live on staging; community parity has a separate additive
-migration and activation gate recorded in that report. See [the foundations report](pokemon-games-foundations-2026-11-09.md)
+results are also live on staging. Pokémon community is enabled on staging after
+the approved private backup, additive migration and live guest verification;
+the report records those boundaries and the remaining manual signed-in check.
+Production remains unchanged. See [the foundations report](pokemon-games-foundations-2026-11-09.md)
 for evidence and activation boundaries. GitHub Issues remains authoritative for
 task status; this document records design and decisions.
 

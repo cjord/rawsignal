@@ -334,8 +334,8 @@ are outside this operation. No cron or ingestion producer is enabled.
 Rollback first disables the flag or restores the previous Worker while retaining
 new tables and any chosen visibility data. Restoring a full database backup is a
 separate recovery decision because it could overwrite newer account progress;
-it must not happen automatically. Remote backup, migration and activation remain
-pending until their concrete approval and verification are recorded.
+it must not happen automatically. Remote backup, migration and activation were
+held for separate approval; their completion is recorded below.
 
 ### Stage 4 validation
 
@@ -360,6 +360,34 @@ and the session feature state agrees. A separate real-catalog guest auction
 then survived reload with catalog access blocked: identical lot, deadline and
 cash, zero catalog requests on return, and no browser errors. Existing archive
 hashes, account-save aggregates, bindings, production deployment and zero
-staging schedules were preserved. The additive database update and community
-activation await separate approval; no full backup or remote migration has
-been performed for this stage yet.
+staging schedules were preserved. At this checkpoint the additive database update
+and community activation were held pending separate approval.
+
+### Approved staging community activation
+
+The user approved the private backup, additive update and staging activation.
+A full 653,819,631-byte staging export was saved under the ignored local backups
+folder and verified by SHA-256 before migration. No backup, account contents,
+credentials or database identifiers are committed. Migration 0032 completed
+successfully; the ledger, both tables, both indexes, three scoped triggers and
+foreign-key checks were verified before activation.
+
+The same release application was activated on staging as `e9626361` (source
+`d1efa67`, which adds only evidence documentation after application `c60e74c`).
+The only additional environment setting enables Pokémon community. Existing
+bindings were preserved, the game-stock producer remains disabled and staging
+has zero schedules. No production or shared-identity writes were performed.
+
+Live guest checks passed for both directories, explicit Pokémon response markers,
+private/no-store responses, guest denial on owner settings, hidden unknown
+profiles, invalid-query rejection and session feature visibility. Both boards
+were initially empty: no automatic profile creation or public opt-in occurred.
+Existing Riftbound profile/moderation fingerprints, account-save aggregates,
+all daily archive hashes and production deployment were unchanged.
+
+Desktop-dark and mobile-light live layouts were inspected, with no page overflow,
+browser errors, full-catalog downloads or guest auction-save creation. Signed-in
+visibility writes, account switching and moderation were tested with isolated
+automated fixtures, not by changing a real administrator's public settings.
+A manual signed-in staging opt-in/moderation check remains useful before any
+production promotion; production activation is outside this release.
